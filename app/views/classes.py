@@ -3,8 +3,8 @@ from django.contrib import messages
 from django.urls import reverse
 
 from app.constants import *
-from app.models.classes import Class, AcademicClass, Stream, ClassStream
-from app.forms.classes import ClassForm, AcademicClassForm, StreamForm, ClassStreamForm
+from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream
+from app.forms.classes import ClassForm, AcademicClassForm, StreamForm, AcademicClassStreamForm
 import app.selectors.classes as class_selectors
 import app.selectors.school_settings as school_settings_selectors
 
@@ -95,7 +95,7 @@ def academic_class_details_view(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
     academic_class_streams = academic_class.class_streams.all()
     
-    class_stream_form = ClassStreamForm(initial={"academic_class": academic_class})
+    class_stream_form = AcademicClassStreamForm(initial={"academic_class": academic_class})
     
     
     context = {
@@ -107,7 +107,7 @@ def academic_class_details_view(request, id):
     return render(request, "classes/academic_class_details.html", context)
 
 def add_class_stream(request):
-    class_stream_form = ClassStreamForm(request.POST)
+    class_stream_form = AcademicClassStreamForm(request.POST)
     
     if class_stream_form.is_valid():
         class_stream_form.save()

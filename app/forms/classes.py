@@ -1,7 +1,7 @@
 from django.forms import ModelForm, HiddenInput
 from crispy_forms.helper import FormHelper
 
-from app.models.classes import Class, AcademicClass, Stream, ClassStream
+from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream
 
 class ClassForm(ModelForm):
     
@@ -21,10 +21,10 @@ class StreamForm(ModelForm):
         model = Stream
         fields = ("__all__")
 
-class ClassStreamForm(ModelForm):
+class AcademicClassStreamForm(ModelForm):
     
     class Meta:
-        model = ClassStream
+        model = AcademicClassStream
         fields = ("__all__")
 
     def __init__(self, *args, **kwargs):
