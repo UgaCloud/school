@@ -93,7 +93,9 @@ def delete_class_view(request, id):
 
 def academic_class_details_view(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
-    academic_class_streams = academic_class.class_streams.all()
+    academic_class_streams = class_selectors.get_academic_class_streams(academic_class)
+    
+    class_register = class_selectors.get_academic_class_register(academic_class)
     
     class_stream_form = AcademicClassStreamForm(initial={"academic_class": academic_class})
     
@@ -101,12 +103,14 @@ def academic_class_details_view(request, id):
     context = {
         "academic_class": academic_class,
         "class_streams": academic_class_streams,
-        "class_stream_form": class_stream_form
+        "class_stream_form": class_stream_form,
+        "class_register": class_register
     }
     
     return render(request, "classes/academic_class_details.html", context)
 
-def add_class_stream(request):
+def add_class_stream(request, id):
+    academic_class = AcademicClass.objects.get(pk=id)
     class_stream_form = AcademicClassStreamForm(request.POST)
     
     if class_stream_form.is_valid():
@@ -116,4 +120,4 @@ def add_class_stream(request):
     else:
         messages.error(request, FAILURE_MESSAGE)
         
-    return HttpResponseRedirect(reverse(academic_class_details_view, args=[1]))
+    return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))

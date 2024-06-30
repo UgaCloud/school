@@ -1,0 +1,131 @@
+{% extends "../base.html" %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}Subjects{% endblock page_title %}
+{% block content %}
+    <div class="clearfix"></div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="x_panel">
+            <div class="x_title">
+                <h2>Manage Subjects</h2>
+                <ul class="nav navbar-right panel_toolbox">
+                <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
+                </li>
+                </ul>
+                <div class="clearfix"></div>
+            </div>
+            <div class="x_content">
+
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".add-student-modal">
+                    <i class="fa fa-plus"></i>
+                    Add Subject
+                </button> 
+
+                <!-- start Student list -->
+                <table class="table table-striped projects">
+                <thead>
+                    <tr>
+                    <th style="width: 1%">#</th>
+                    <th>Subject Code</th>
+                    <th>Subject Name</th>
+                    <th>Credit Hours</th>
+                    <th>Section</th>
+                    <th>Type</th>
+                    <th >Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subject in subjects %}
+                    <tr>
+                        <td>{{forloop.counter}}</td>
+                        <td>{{subject.code}}</td>
+                        <td>
+                            
+                            {{subject.name}}
+                        </td>
+                        <td>
+                            {{subject.credit_hours}}
+                        </td>
+                        <td>
+                            {{subject.section}}
+                        </td>
+                        <td>
+                            {{subject.type}}
+                        </td>
+                        <td>
+                            <a href="" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit </a>
+                            <a href="{% url 'delete_subject_page' subject.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Are you sure you want to delete this Record?')">
+                                <i class="fa fa-trash-o"> </i> Delete 
+                            </a>
+                        </td>
+                    </tr>
+                    {%empty%}
+                        <div class="card">
+                            <div class="card-body">
+                                <h4><center>No Subjects Available</center></h4>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </tbody>
+                </table>
+                <!-- end class list -->
+                
+
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add student Modal -->
+    <div class="modal fade add-student-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+
+            <div class="modal-header">
+              <h4 class="modal-title" id="myModalLabel">Add Subject</h4>
+              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'add_subject_page' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{subject_form|crispy}}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+
+          </div>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Modal -->
+    <div class="modal fade bulk-upload-modal" tabindex="0" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-md">
+          <div class="modal-content">
+
+            <div class="modal-header">
+              <h4 class="modal-title" id="myModalLabel">Bulk Upload</h4>
+              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'bulk_student_registration' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{csv_form}}
+
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-danger" data-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+
+          </div>
+        </div>
+      </div>
+{% endblock content%}

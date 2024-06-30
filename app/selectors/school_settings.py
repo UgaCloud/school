@@ -1,5 +1,8 @@
 from app.models.school_settings import *
 
+def get_current_academic_year():
+    return AcademicYear.objects.get(is_current=True)
+
 def get_sections():
     return Section.objects.all()
 

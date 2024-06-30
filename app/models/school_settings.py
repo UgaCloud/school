@@ -26,6 +26,7 @@ class SchoolSetting(SingletonModel):
     postal = models.CharField(max_length=50, default="None")
     website = models.CharField(max_length=50, default="None")
     school_name = models.CharField(max_length=50, default="None")
+    school_motto = models.CharField(max_length=150, default="None")
     mobile = models.CharField(max_length=20, blank=True, null=True)
     office_phone_number1 = models.CharField(max_length=20, blank=True, null=True)
     office_phone_number2 = models.CharField(max_length=40, blank=True, null=True)
@@ -36,6 +37,7 @@ class SchoolSetting(SingletonModel):
 class AcademicYear(models.Model):
     
     academic_year = models.CharField(max_length=10, unique=True)
+    is_current = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = ("AcademicYear")

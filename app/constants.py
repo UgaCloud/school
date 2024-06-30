@@ -62,6 +62,7 @@ NATIONALITIES = [
 SUCCESS_ADD_MESSAGE = "Record Saved!"
 
 SUCCESS_EDIT_MESSAGE = "Changes Saved"
+SUCCESS_BULK_ADD_MESSAGE = "All Record Saved!"
 
 DELETE_MESSAGE = "Record Deleted"
 
@@ -70,7 +71,7 @@ FAILURE_MESSAGE = "Something Went Wrong!, Check your inputs and Try again"
 INTEGRITY_ERROR_MESSAGE = "The record you tried to add is a duplicate or contains duplicate values" \
                           " for unique fields."
 
-INVALID_FORM_MESSAGE = "The form values are invalid or duplicate for unique fields."
+INVALID_VALUE_MESSAGE = "One or more values provided is/are invalid or duplicate for unique fields."
 
 WAGE_BILL_PAYMENT_GENERATION_CONFIRM_MESSAGE \
     = "This operation can only be done once. All payables on unapproved " \

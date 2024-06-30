@@ -73,7 +73,7 @@
                     <ul class="nav child_menu">
                       <li><a href="{% url "class_page" %}">Classes</a></li>
                       <li><a href="{% url "stream_page" %}">Streams</a></li>
-                      <li><a href="#">Subjects</a></li>
+                      <li><a href="{% url 'subjects_page' %}">Subjects</a></li>
                       <li><a href="{% url "academic_class_page" %}">Academic Classes</a></li>
                       <li><a href="#">Class Register</a></li>
                       <li><a href="#">Grading Structure</a></li>
@@ -82,7 +82,7 @@
                   </li>
                   <li><a><i class="fa fa-mortar-board"></i> Student Center <span class="fa fa-chevron-down"></span></a>
                     <ul class="nav child_menu">
-                      <li><a href="general_elements.html">Student Info</a></li>
+                      <li><a href="{% url 'student_page' %}">Student Info</a></li>
                     </ul>
                   </li>
 

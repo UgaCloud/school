@@ -13,9 +13,11 @@ class Student(models.Model):
     guardian = models.CharField(max_length=50, verbose_name="Guardian Name")
     relationship = models.CharField(max_length=50)
     contact = models.CharField(max_length=50, verbose_name="Guardian Contact")
-    entry_year = models.IntegerField()
-    _class = models.ForeignKey("app.Class", verbose_name="Current Class", on_delete=models.CASCADE)
-    photo = models.ImageField(upload_to="student_photos")
+    academic_year = models.ForeignKey("app.AcademicYear", verbose_name=("Entry Year"), on_delete=models.CASCADE)
+    current_class = models.ForeignKey("app.Class", verbose_name="Current Class", on_delete=models.CASCADE)
+    stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
+    term = models.IntegerField()
+    photo = models.ImageField(upload_to="student_photos", null=True, blank=True)
 
     class Meta:
         verbose_name = ("student")
@@ -27,15 +29,24 @@ class Student(models.Model):
     def get_absolute_url(self):
         return reverse("student_detail", kwargs={"pk": self.pk})
 
+class StudentRegistrationCSV(models.Model):
+    file_name = models.FileField(upload_to='media/csvs/')
+    uploaded = models.DateTimeField(auto_now_add=True)
+    activated = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"File ID: {self.id}"
+    
 class ClassRegister(models.Model):
     
-    _class = models.ForeignKey("app.AcademicClassStream", on_delete=models.CASCADE)
+    academic_class_stream = models.ForeignKey("app.AcademicClassStream", on_delete=models.CASCADE)
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE)
-    payment_status = models.CharField(max_length=10)
+    payment_status = models.CharField(max_length=10, default=0)
 
     class Meta:
         verbose_name = ("ClassRegister")
         verbose_name_plural = ("ClassRegisters")
+        unique_together = ("academic_class_stream", "student")
 
     def __str__(self):
         return self._class

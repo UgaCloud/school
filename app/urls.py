@@ -3,6 +3,8 @@ from django.urls import path
 import app.views.index_views as index
 import app.views.classes as classes
 import app.views.school_settings as school_settings
+from app.views.student import *
+from app.views.subject_views import *
 
 urlpatterns = [
     path('', index.index_view, name="index_page"),
@@ -30,5 +32,17 @@ urlpatterns = [
     
     # Academic Class
     path('academic_classes/', classes.academic_class_view, name="academic_class_page"),
-    path('academic_class_details/<int:id>/', classes.academic_class_details_view, name="academic_class_details_page"),path('add_class_stream/', classes.add_class_stream, name="add_class_stream_page"),
+    path('academic_class_details/<int:id>/', classes.academic_class_details_view, name="academic_class_details_page"),path('add_class_stream/<int:id>/', classes.add_class_stream, name="add_class_stream_page"),
+    
+    # Student
+    path('students/', manage_student_view, name="student_page"),
+    path('add_student/', add_student_view, name="add_student"),
+    path('download_student_template/', download_student_template_csv, name="download_student_template"),
+    path('bulk_student_registration/', bulk_student_registration_view, name="bulk_student_registration"),
+    
+    # Subject
+    path('subjects/', manage_subjects_view, name="subjects_page"),
+    path('add_subject/', add_subject_view, name="add_subject_page"),
+    path('edit_subject/<int:id>/', edit_subject_view, name="edit_subject_page"),
+    path('delete_subject/<int:id>/', delete_subject_view, name="delete_subject_page"),
 ]
