@@ -1,5 +1,7 @@
 from django.db import models
 
+from app.constants import TERMS
+
 class Class(models.Model):
     
     name = models.CharField(max_length=50)
@@ -30,12 +32,32 @@ class Stream(models.Model):
     def get_absolute_url(self):
         return reverse("stream_detail", kwargs={"pk": self.pk})
 
+class Term(models.Model):
+    
+    academic_year = models.ForeignKey("app.AcademicYear", on_delete=models.CASCADE)
+    term = models.CharField(max_length=5, choices=TERMS)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_current = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f'Term {self.term}'
+
+    class Meta:
+        verbose_name = ("Term")
+        verbose_name_plural = ("Terms")
+        unique_together = ("academic_year", "term")
+
+    def get_absolute_url(self):
+        return reverse("Term_detail", kwargs={"pk": self.pk})
+
+
 class AcademicClass(models.Model):
     
     section = models.ForeignKey("app.Section", on_delete=models.CASCADE)
     Class = models.ForeignKey("app.Class", on_delete=models.CASCADE)
     academic_year = models.ForeignKey("app.AcademicYear", on_delete=models.CASCADE)
-    term = models.IntegerField()
+    term = models.ForeignKey(Term, on_delete=models.CASCADE)
     fees_amount = models.IntegerField()
 
     class Meta:

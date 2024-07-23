@@ -7,7 +7,6 @@ from django.urls import reverse
 from app.constants import *
 
 from app.models.school_settings import SchoolSetting, Currency, Section, AcademicYear
-from app.forms.school_settings import SectionForm
 import app.selectors.school_settings as school_settings_selectors
 import app.services.school_settings as school_settings_services
 import app.forms.school_settings as school_settings_forms
@@ -20,7 +19,7 @@ def settings_page(request):
     signatures = school_settings_selectors.get_signatures()
     
     school_settings_form = school_settings_forms.SchoolSettingForm(instance=school_settings)
-    sections_form = SectionForm()
+    sections_form = school_settings_forms.SectionForm()
     signature_form = school_settings_forms.SignatureForm()
     
     context = {
@@ -88,7 +87,7 @@ def delete_currency(request, currency_id):
 def school_section_view(request):
     
     if request.method == "POST":
-        section_form = SectionForm(request.POST)
+        section_form = school_settings_forms.SectionForm(request.POST)
         
         if section_form.is_valid():
             section_form.save()

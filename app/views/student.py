@@ -30,8 +30,7 @@ def add_student_view(request):
         if student_form.is_valid():
             student = student_form.save()
             
-            print("student: ", student)
-            register_student(student, student.current_class, student.term, student.stream)
+            register_student(student, student.current_class, student.stream)
             
             messages.success(request, SUCCESS_ADD_MESSAGE)
         else:

@@ -16,7 +16,7 @@ class Student(models.Model):
     academic_year = models.ForeignKey("app.AcademicYear", verbose_name=("Entry Year"), on_delete=models.CASCADE)
     current_class = models.ForeignKey("app.Class", verbose_name="Current Class", on_delete=models.CASCADE)
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
-    term = models.IntegerField()
+    term = models.ForeignKey("app.Term", on_delete=models.CASCADE)
     photo = models.ImageField(upload_to="student_photos", null=True, blank=True)
 
     class Meta:

@@ -1,46 +1,50 @@
 # Roles
 
-
-SUPERVISOR = "Supervisor"
-FIELD_MANAGER = "Field Manager"
-FINANCE_OFFICER = "Finance Office"
-PROJECT_MANAGER = "Project Manager"
-GENERAL_MANAGER = "General Manager"
+STUDENT = "Student"
+TEACHER = "Teacher"
+CLASS_TEACHER = "Class Teacher"
+BURSAR = "Bursar"
+DOS = "DOS"
+HEADTEACHER = "Headteacher"
 ######## End of Roles ############
 
 # Types
-ISP = 'ISP'
-OFC = 'OFC'
-OSP = 'OSP'
-FINANCIAL = 'Financial'
-WAREHOUSE = 'Warehouse'
-POWER = 'Power'
-MAINTENANCE = 'Maintenance'
-WORKSHOP = 'Workshop'
-ADMINISTRATOR = 'Administrator'
+ACADEMIC = 'Academic'
+FINANCE = 'Finance'
+ADMINISTRATION = 'Administration'
 SECURITY = 'Security'
 TRANSPORT = 'Transport'
-MISCELLANEOUS = 'Miscellaneous'
+SUPPORT = 'Support'
 
 TYPE_CHOICES = [
-    (ISP, ISP),
-    (OFC, OFC),
-    (OSP, OSP),
-    (FINANCIAL, FINANCIAL),
-    (WAREHOUSE, WAREHOUSE),
-    (POWER, POWER),
-    (MAINTENANCE, MAINTENANCE),
-    (WORKSHOP, WORKSHOP),
-    (ADMINISTRATOR, ADMINISTRATOR),
+    (STUDENT, STUDENT),
+    (ACADEMIC, ACADEMIC),
+    (FINANCE, FINANCE),
+    (ADMINISTRATION, ADMINISTRATION),
     (SECURITY, SECURITY),
     (TRANSPORT, TRANSPORT),
-    (MISCELLANEOUS, MISCELLANEOUS)
+    (SUPPORT, SUPPORT)
 ]
-
+TERMS = [
+    ("1", "I"),
+    ("2", "II"),
+    ("3", "III"),
+]
 GENDERS = [
     ("M", "Male"),
     ("F", "Female")
 ]
+
+MARITAL_STATUS = [
+    ("M", "Married"),
+    ("U", "Unmarried")
+]
+
+EMPLOYEE_STATUS = [
+        ('Active', 'Active'),
+        ('On Leave', 'On Leave'),
+        ('Retired', 'Retired')
+    ]
 
 RELIGIONS = [
     ("Muslim", "Muslim"),
@@ -57,6 +61,29 @@ NATIONALITIES = [
     ("Rwanda", "Rwanda"),
     ("South Sudan", "South Sudan"),
     ("Burundi", "Burundi"),
+]
+
+BILL_STATUS_CHOICES = [
+        ('Paid', 'Paid'),
+        ('Unpaid', 'Unpaid'),
+        ('Overdue', 'Overdue')
+    ]
+
+BILL_CATEGORY_CHOICES = [
+        ('One Off', 'One Off'),
+        ('Recurring', 'Recurring'),
+    ]
+
+BILL_DURATION_CHOICES = [
+        ('None', 'None'),
+        ('Termly', 'Termly'),
+        ('Annually', 'Annually'),
+    ]
+
+PAYMENT_METHODS = [
+    ('Cash', 'Cash'),
+    ('School Pay', 'School Pay'),
+    ('Bank', 'Bank')
 ]
 
 SUCCESS_ADD_MESSAGE = "Record Saved!"

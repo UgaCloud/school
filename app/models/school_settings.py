@@ -2,6 +2,8 @@ from django.db import models
 
 from AbstractModels.singleton import SingletonModel
 
+from app.constants import BILL_CATEGORY_CHOICES, BILL_DURATION_CHOICES
+
 class Currency(models.Model):
     code = models.CharField(max_length=10, unique=True, default="UGX")
     desc = models.CharField(max_length=20, default="Ugandan Shillings")
@@ -78,3 +80,20 @@ class Signature(models.Model):
 
     def get_absolute_url(self):
         return reverse("Signature_detail", kwargs={"pk": self.pk})
+
+class BillItem(models.Model):
+    
+    item_name = models.CharField(max_length=50)
+    category = models.CharField(max_length=50, choices=BILL_CATEGORY_CHOICES, default="Recurring")
+    bill_duration = models.CharField(max_length=50, choices=BILL_DURATION_CHOICES, default="None")
+    description = models.TextField()
+
+    class Meta:
+        verbose_name = ("billitem")
+        verbose_name_plural = ("billitems")
+
+    def __str__(self):
+        return self.item_name
+
+    def get_absolute_url(self):
+        return reverse("billitem_detail", kwargs={"pk": self.pk})

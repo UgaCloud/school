@@ -1,5 +1,6 @@
 from app.models.classes import *
 from app.models.students import ClassRegister
+from app.selectors.school_settings import get_current_academic_year
 
 def get_classes():
     return Class.objects.all()
@@ -29,4 +30,12 @@ def get_academic_class_register(academic_class):
     academic_class_streams = get_academic_class_streams(academic_class)
     
     return ClassRegister.objects.filter(academic_class_stream__in=academic_class_streams)
+
+def get_current_academic_year_terms():
+    academic_year = get_current_academic_year()
     
+    return Term.objects.filter(academic_year=academic_year)
+
+def get_current_term():
+    return Term.objects.get(is_current=True)
+       
