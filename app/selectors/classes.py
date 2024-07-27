@@ -8,6 +8,9 @@ def get_classes():
 def get_academic_classes():
     return AcademicClass.objects.all()
 
+def get_academic_class(id):
+    return AcademicClass.objects.get(pk=id)
+
 def get_academic_class(year, _class, term):
     return AcademicClass.objects.get(academic_year=year, Class=_class, term=term)
 

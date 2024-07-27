@@ -1,6 +1,6 @@
 import csv
 
-from app.selectors.school_settings import get_current_academic_year
+from app.selectors.school_settings import get_current_academic_year, get_bill_item_by_name
 from app.selectors.classes import get_academic_class, get_academic_class_stream, get_class_by_code, get_stream_by_name, get_current_term
 from app.models.students import ClassRegister, StudentRegistrationCSV
 from app.models.students import Student
@@ -82,8 +82,11 @@ def create_student_bill(student, academic_classs):
     
     return student_bill
     
-def create_bill_Item(bill, description, amount):
-    bill_item = StudentBillItem(bill=bill, description=description, amount=amount)
+def create_bill_Item(bill, description, amount, bill_item=None):
+    if bill_item == None:
+        bill_item = get_bill_item_by_name("School Fees")
+    
+    bill_item = StudentBillItem(bill=bill, bill_item=bill_item, description=description, amount=amount)
     
     bill_item.save()
     

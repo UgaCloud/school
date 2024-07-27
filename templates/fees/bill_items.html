@@ -1,0 +1,122 @@
+{% extends "../base.html" %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}Bill Item{% endblock page_title %}
+{% block content %}
+    <div class="clearfix"></div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="x_panel">
+            <div class="x_title">
+                <h2>Manage Items</h2>
+                <ul class="nav navbar-right panel_toolbox">
+                <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
+                </li>
+                </ul>
+                <div class="clearfix"></div>
+            </div>
+            <div class="x_content">
+
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".add-student-modal">
+                    <i class="fa fa-plus"></i>
+                    Add Item
+                </button> 
+
+                <!-- start Student list -->
+                <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
+                    <thead>
+                      <tr>
+                        <th>
+                           <th><input type="checkbox" id="check-all" ></th>
+                        </th>
+                        <th style="width: 1%">#</th>
+                        <th>Item Name</th>
+                        <th>Category</th>
+                        <th>Bill Duration</th>
+                        <th>Description</th>
+                        <th >Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in bill_items %}
+                    <tr>
+                        <td>
+                            <th><input type="checkbox" id="check-all" ></th>
+                         </td>
+                        <td>{{forloop.counter}}</td>
+                        <td>{{item.item_name}}</td>
+                        <td>
+                            {{item.category}}
+                        </td>
+                        <td>
+                            {{item.bill_duration}}
+                        </td>
+                        <td>
+                            {{item.description}}
+                        </td>
+                        <td>
+                            <a href="" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> Edit </a>
+                            <a href="#" class="btn btn-danger btn-xs"><i class="fa fa-trash-o"></i> Delete </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                </table>
+                <!-- end class list -->
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add student Modal -->
+    <div class="modal fade add-student-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+
+            <div class="modal-header">
+              <h4 class="modal-title" id="myModalLabel">Add Student</h4>
+              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'add_bill_item_page' %}">
+                    {% csrf_token %}
+                    {{bill_item_form|crispy}}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+
+          </div>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Modal -->
+    <div class="modal fade bulk-upload-modal" tabindex="0" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-md">
+          <div class="modal-content">
+
+            <div class="modal-header">
+              <h4 class="modal-title" id="myModalLabel">Bulk Upload</h4>
+              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'bulk_student_registration' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{csv_form}}
+
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-danger" data-dismiss="modal">Close</button>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+
+          </div>
+        </div>
+      </div>
+{% endblock content%}

@@ -1,6 +1,23 @@
 from django.db import models
 
-from app.constants import BILL_STATUS_CHOICES, PAYMENT_METHODS
+from app.constants import BILL_STATUS_CHOICES, PAYMENT_METHODS, BILL_CATEGORY_CHOICES, BILL_DURATION_CHOICES
+
+class BillItem(models.Model):
+    
+    item_name = models.CharField(max_length=50, default="School Fees")
+    category = models.CharField(max_length=50, choices=BILL_CATEGORY_CHOICES, default="Recurring")
+    bill_duration = models.CharField(max_length=50, choices=BILL_DURATION_CHOICES, default="Termly")
+    description = models.TextField(default="School Fees")
+
+    class Meta:
+        verbose_name = ("billitem")
+        verbose_name_plural = ("billitems")
+
+    def __str__(self):
+        return self.item_name
+
+    def get_absolute_url(self):
+        return reverse("billitem_detail", kwargs={"pk": self.pk})
 
 class StudentBill(models.Model):
 
@@ -14,6 +31,14 @@ class StudentBill(models.Model):
     @property
     def total_amount(self):
         return self.items.aggregate(total=models.Sum('amount'))['total'] or 0
+    
+    @property
+    def amount_paid(self):
+        return self.payments.aggregate(total=models.Sum('amount'))['total'] or 0
+    
+    @property
+    def balance(self):
+        return self.total_amount - self.amount_paid or 0
     
     def __str__(self):
         return f'Bill #{self.id} for {self.student}'

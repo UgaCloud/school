@@ -100,7 +100,7 @@
                 </li>
                 <li role="presentation" class=""><a href="#tab_content2" role="tab" id="profile-tab" data-toggle="tab" aria-expanded="false">Attendance</a>
                 </li>
-                <li role="presentation" class=""><a href="#tab_content3" role="tab" id="profile-tab2" data-toggle="tab" aria-expanded="false">Fees Payment</a>
+                <li role="presentation" class=""><a href="#bills-tab" role="tab" id="profile-tab2" data-toggle="tab" aria-expanded="false">Bill Items</a>
                 </li>
               </ul>
               <div id="myTabContent" class="tab-content">
@@ -136,47 +136,14 @@
                           </div>
                         </td>
                       </tr>
-                      <tr>
-                        <td>2</td>
-                        <td>New Partner Contracts Consultanci</td>
-                        <td>Deveint Inc</td>
-                        <td class="hidden-phone">13</td>
-                        <td class="vertical-align-mid">
-                          <div class="progress">
-                            <div class="progress-bar progress-bar-danger" data-transitiongoal="15"></div>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>3</td>
-                        <td>Partners and Inverstors report</td>
-                        <td>Deveint Inc</td>
-                        <td class="hidden-phone">30</td>
-                        <td class="vertical-align-mid">
-                          <div class="progress">
-                            <div class="progress-bar progress-bar-success" data-transitiongoal="45"></div>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>4</td>
-                        <td>New Company Takeover Review</td>
-                        <td>Deveint Inc</td>
-                        <td class="hidden-phone">28</td>
-                        <td class="vertical-align-mid">
-                          <div class="progress">
-                            <div class="progress-bar progress-bar-success" data-transitiongoal="75"></div>
-                          </div>
-                        </td>
-                      </tr>
+                      
                     </tbody>
                   </table>
                   <!-- end user projects -->
 
                 </div>
-                <div role="tabpanel" class="tab-pane fade" id="tab_content3" aria-labelledby="profile-tab">
-                  <p>xxFood truck fixie locavore, accusamus mcsweeney's marfa nulla single-origin coffee squid. Exercitation +1 labore velit, blog sartorial PBR leggings next level wes anderson artisan four loko farm-to-table craft beer twee. Qui
-                    photo booth letterpress, commodo enim craft beer mlkshk </p>
+                <div role="tabpanel" class="tab-pane fade" id="bills-tab" aria-labelledby="profile-tab">
+                  {% include "fees/class_bill_items.html" %}
                 </div>
               </div>
             </div>

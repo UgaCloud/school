@@ -52,4 +52,13 @@ def get_ugx_currency():
     except Currency.DoesNotExist:
         return None
 
+def get_bill_items():
+    return BillItem.objects.all()
+
+def get_bill_item(id):
+    return BillItem.objects.get(pk=id)
+
+def get_bill_item_by_name(item_name):
+    return BillItem.objects.get(item_name=item_name)
+    
     

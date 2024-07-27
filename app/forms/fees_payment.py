@@ -1,9 +1,36 @@
-from django.forms import ModelForm
+from django.forms import ModelForm, HiddenInput, DateInput
+from crispy_forms.helper import FormHelper
 
-from models.fees_payment import FeesPayment
+from app.models.fees_payment import BillItem, StudentBillItem, Payment
 
-class FeesPaymentForm(ModelForm):
+class BillItemForm(ModelForm):
     
     class Meta:
-        model = FeesPayment
-        fields = ("__all__",)
+        model = BillItem
+        fields = ("__all__")
+
+
+class StudentBillItemForm(ModelForm):
+    
+    class Meta:
+        model = StudentBillItem
+        fields = ("bill", "bill_item", "description", "amount")
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.Helper = FormHelper()
+        self.fields["bill"].widget = HiddenInput()
+
+class PaymentForm(ModelForm):
+    
+    class Meta:
+        model = Payment
+        fields = ("__all__")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.Helper = FormHelper()
+        self.fields["bill"].widget = HiddenInput()
+        self.fields["payment_date"].widget = DateInput(attrs={
+                    "type": "date",
+                })

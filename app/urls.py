@@ -6,6 +6,7 @@ from app.views.school_settings import *
 from app.views.student import *
 from app.views.subject_views import *
 from app.views.staffs_views import *
+from app.views.fees_view import *
 
 urlpatterns = [
     path('', index.index_view, name="index_page"),
@@ -51,4 +52,13 @@ urlpatterns = [
     path('staffs/', manage_staff_view, name="staff_page"),
     path('add_staff/', add_staff, name="add_staff"),
     path('staff_details/<int:id>/', staff_deitals_view, name="staff_details_page"),
+    
+    # Fees
+    path('bill_items/', manage_bill_items_view, name="bill_item_page"),
+    path('add_bill_item/', add_bill_item_view, name="add_bill_item_page"),
+    path('student_bill/', manage_student_bills_view, name="student_bill_page"),
+    path('student_bill_details/<int:id>/', manage_student_bill_details_view, name="student_bill_details_page"),
+    path('add_student_bill_item/<int:id>/', add_student_bill_item_view, name="add_student_bill_item"),
+    path('record_payment/<int:id>/', add_student_payment_view, name="record_payment"),
+    
 ]
