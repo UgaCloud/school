@@ -86,6 +86,11 @@ PAYMENT_METHODS = [
     ('Bank', 'Bank')
 ]
 
+PAYMENT_STATUS = [
+    ('Pending', 'Pending'), 
+    ('Paid', 'Paid')
+]
+
 SUCCESS_ADD_MESSAGE = "Record Saved!"
 
 SUCCESS_EDIT_MESSAGE = "Changes Saved"

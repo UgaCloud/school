@@ -4,10 +4,10 @@ from app.constants import BILL_STATUS_CHOICES, PAYMENT_METHODS, BILL_CATEGORY_CH
 
 class BillItem(models.Model):
     
-    item_name = models.CharField(max_length=50, default="School Fees")
-    category = models.CharField(max_length=50, choices=BILL_CATEGORY_CHOICES, default="Recurring")
-    bill_duration = models.CharField(max_length=50, choices=BILL_DURATION_CHOICES, default="Termly")
-    description = models.TextField(default="School Fees")
+    item_name = models.CharField(max_length=50)
+    category = models.CharField(max_length=50, choices=BILL_CATEGORY_CHOICES)
+    bill_duration = models.CharField(max_length=50, choices=BILL_DURATION_CHOICES)
+    description = models.TextField()
 
     class Meta:
         verbose_name = ("billitem")
@@ -23,8 +23,7 @@ class StudentBill(models.Model):
 
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='bills')
     bill_date = models.DateField(auto_now_add=True)
-    academic_year = models.ForeignKey("app.AcademicYear", on_delete=models.CASCADE)
-    term = models.ForeignKey("app.Term", on_delete=models.CASCADE)
+    academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE)
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=BILL_STATUS_CHOICES, default="Unpaid")
 

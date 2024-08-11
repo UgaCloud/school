@@ -81,3 +81,9 @@ class Signature(models.Model):
     def get_absolute_url(self):
         return reverse("Signature_detail", kwargs={"pk": self.pk})
 
+class Department(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name

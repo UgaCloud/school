@@ -27,7 +27,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in bill_items %}
+                    {% for item in class_bill_items %}
                     <tr>
                         <td>{{forloop.counter}}</td>
                         <td>{{item.bill_item}}</td>
@@ -63,7 +63,7 @@
               </button>
             </div>
             <div class="modal-body">
-                <form method="POST" action="{% url 'add_student_bill_item' 1 %}">
+                <form method="POST" action="{% url 'add_class_bill_item' academic_class.id %}">
                     {% csrf_token %}
                     {{bill_item_form|crispy}}
             </div>

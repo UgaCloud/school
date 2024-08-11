@@ -75,7 +75,7 @@
           <div class="modal-content">
 
             <div class="modal-header">
-              <h4 class="modal-title" id="myModalLabel">Add Student</h4>
+              <h4 class="modal-title" id="myModalLabel">Add Item</h4>
               <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
               </button>
             </div>
@@ -94,29 +94,4 @@
         </div>
     </div>
 
-    <!-- Bulk Upload Modal -->
-    <div class="modal fade bulk-upload-modal" tabindex="0" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-md">
-          <div class="modal-content">
-
-            <div class="modal-header">
-              <h4 class="modal-title" id="myModalLabel">Bulk Upload</h4>
-              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <div class="modal-body">
-                <form method="POST" action="{% url 'bulk_student_registration' %}" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    {{csv_form}}
-
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline-danger" data-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-
-          </div>
-        </div>
-      </div>
 {% endblock content%}

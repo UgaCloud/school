@@ -12,6 +12,8 @@ import app.selectors.classes as class_selectors
 import app.selectors.school_settings as school_settings_selectors
 import app.selectors.fees_selectors as fees_selectors
 
+from app.services.students import create_class_bill_item
+
 def class_view(request):
     if request.method == "POST":
         class_form = ClassForm(request.POST)
@@ -98,7 +100,7 @@ def delete_class_view(request, id):
 def academic_class_details_view(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
     academic_class_streams = class_selectors.get_academic_class_streams(academic_class)
-    bill_items = fees_selectors.get_bill_items()
+    class_bill_items = fees_selectors.get_academic_class_bill_item(academic_class)
     
     class_register = class_selectors.get_academic_class_register(academic_class)
     
@@ -112,7 +114,7 @@ def academic_class_details_view(request, id):
         "class_stream_form": class_stream_form,
         "class_register": class_register,
         "bill_item_form": bill_item_form,
-        "bill_items": bill_items
+        "class_bill_items": class_bill_items
     }
     
     return render(request, "classes/academic_class_details.html", context)
@@ -130,11 +132,19 @@ def add_class_stream(request, id):
         
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
 
-def add_class_bill_items(request, id):
+def add_class_bill_item_view(request, id):
+    academic_class = class_selectors.get_academic_class(id)
+    
     if request.method == "POST":
-        academic_class = class_selectors.get_academic_class()
         bill_item = request.POST["bill_item"]
-        description = request.POST["description"]
         amount = request.POST["amount"]
         
+        create_class_bill_item(academic_class, bill_item, amount)
+        
+        messages.success(request, SUCCESS_ADD_MESSAGE)
+    else:
+        messages.warning(request, "Not a GET Method")  
+    
+    return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
+    
         

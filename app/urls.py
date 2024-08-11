@@ -59,6 +59,7 @@ urlpatterns = [
     path('student_bill/', manage_student_bills_view, name="student_bill_page"),
     path('student_bill_details/<int:id>/', manage_student_bill_details_view, name="student_bill_details_page"),
     path('add_student_bill_item/<int:id>/', add_student_bill_item_view, name="add_student_bill_item"),
+    path('add_class_bill_item/<int:id>/', add_class_bill_item_view, name="add_class_bill_item"),
     path('record_payment/<int:id>/', add_student_payment_view, name="record_payment"),
     
 ]
