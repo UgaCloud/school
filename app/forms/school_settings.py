@@ -19,3 +19,10 @@ class SignatureForm(ModelForm):
     class Meta:
         model = Signature
         fields = ("__all__")
+
+class DepartmentForm(ModelForm):
+    
+    class Meta:
+        model = Department
+        fields = ("__all__")
+

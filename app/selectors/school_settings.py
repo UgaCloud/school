@@ -52,5 +52,10 @@ def get_ugx_currency():
     except Currency.DoesNotExist:
         return None
 
+def get_all_departments():
+    return Department.objects.all()
+
+def get_department(id):
+    return Department.objects.get(pk=id)
     
     

@@ -105,6 +105,16 @@ INTEGRITY_ERROR_MESSAGE = "The record you tried to add is a duplicate or contain
 
 INVALID_VALUE_MESSAGE = "One or more values provided is/are invalid or duplicate for unique fields."
 
+MEASUREMENTS = [
+    ("Piece", "Piece"),
+    ("Set", "Set"),
+    ("Pair", "Pair"),
+    ("Box", "Box"),
+    ("Kgs", "Kgs"),
+    ("Litre", "Litre"),
+    ("Jerry Can", "Jerry Can"),
+]
+
 WAGE_BILL_PAYMENT_GENERATION_CONFIRM_MESSAGE \
     = "This operation can only be done once. All payables on unapproved " \
       "submitted wage sheets will not be included in the wage bill payments " \
