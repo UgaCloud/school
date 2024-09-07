@@ -147,7 +147,6 @@ def manage_expenditure_items(request, id):
     expenditure = get_model_record(Expenditure, id)
     form = finance_forms.ExpenditureItemForm(initial={"expenditure":expenditure})
     expenditure_items = finance_selector.get_expenditure_items(expenditure)
-    print("Items: ", expenditure_items)
     
     context = {
         "expenditure_items": expenditure_items,

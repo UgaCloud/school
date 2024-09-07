@@ -14,7 +14,11 @@ class Staff(models.Model):
     qualification = models.CharField(max_length=100)
     hire_date = models.DateField()
     department = models.CharField(max_length=30,choices=TYPE_CHOICES)
+    position = models.CharField(max_length=50)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
+    is_academic_staff = models.BooleanField(default=False)
+    is_administrator_staff = models.BooleanField(default=False)
+    is_support_staff = models.BooleanField(default=False)
     staff_status = models.CharField(max_length=20, choices=EMPLOYEE_STATUS, default="Active")
     staff_photo = models.ImageField(upload_to="Staff/Profile_pics", height_field=None, width_field=None, max_length=None)
 

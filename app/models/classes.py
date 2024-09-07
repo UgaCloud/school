@@ -66,7 +66,7 @@ class AcademicClass(models.Model):
         unique_together = ("Class", "academic_year", "term")
 
     def __str__(self):
-        return f"{self.Class}"
+        return f"{self.Class} - Term {self.term} - {self.academic_year}"
 
     def get_absolute_url(self):
         return reverse("AcademicClass_detail", kwargs={"pk": self.pk})
@@ -75,7 +75,7 @@ class AcademicClassStream(models.Model):
     
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name="class_streams")
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
-    class_teacher = models.CharField(max_length=50, null=True, blank=True)
+    class_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = ("ClassStream")
@@ -83,8 +83,24 @@ class AcademicClassStream(models.Model):
         unique_together = ("academic_class", "stream")
 
     def __str__(self):
-        return f"{self.academic_class.Class} - {self.stream}"
+        return f"{self.academic_class} - {self.stream}"
 
     def get_absolute_url(self):
         return reverse("ClassStream_detail", kwargs={"pk": self.pk})
+
+class ClassSubjectAllocation(models.Model):
+    
+    academic_class_stream = models.ForeignKey("app.AcademicClassStream",on_delete=models.CASCADE, related_name="subjects")
+    subject = models.ForeignKey("app.Subject", on_delete=models.CASCADE, related_name="subjects")
+    subject_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE, related_name="subjects")
+
+    class Meta:
+        verbose_name = ("classsubjectallocation")
+        verbose_name_plural = ("classsubjectallocations")
+
+    def __str__(self):
+        return f"{self.academic_class_stream} - {self.subject} - {self.subject_teacher}"
+
+    def get_absolute_url(self):
+        return reverse("classsubjectallocation_detail", kwargs={"pk": self.pk})
 

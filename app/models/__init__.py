@@ -5,3 +5,4 @@ from .school_settings import *
 from .subjects import *
 from .staffs import *
 from .finance import *
+from .results import *
