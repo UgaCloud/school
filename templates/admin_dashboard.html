@@ -1,0 +1,81 @@
+
+{% load static %}
+
+<ul class="nav side-menu">
+    <li><a href="{% url 'index_page' %}"><i class="fa fa-dashboard"></i> Dashboard </a>
+      
+    </li>
+</li>
+<li><a><i class="fa fa-institution"></i> Administration <span class="fa fa-chevron-down"></span></a>
+  <ul class="nav child_menu">
+    <li><a href="{% url 'user_list' %}">Manage Users</a></li>
+    <li><a href="{% url 'settings_page' %}">School Profile</a></li>
+    
+  </ul>
+</li>
+    <li><a><i class="fa fa-book"></i> Academics <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+        <li><a href="{% url 'class_page' %}">Classes</a></li>
+        <li><a href="{% url 'stream_page' %}">Streams</a></li>
+        <li><a href="{% url 'subjects_page' %}">Subjects</a></li>
+        <li><a href="{% url 'subject_allocation_page' %}">Subject Allocation</a></li>
+        <li><a href="{% url 'academic_class_page' %}">Academic Classes</a></li>
+        <li><a href="{% url 'add_grading_system_page' %}">Grading Structure</a></li>
+        <li><a href="#">Classrooms</a></li>
+      </ul>
+    </li>
+  
+    <li><a><i class="fa fa-book"></i> Human Resource <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+        <li><a href="{% url 'staff_page' %}">Manage Staff</a></li>
+        <li><a href="#">Attendance</a></li>
+      </ul>
+    </li>
+  
+    <li><a><i class="fa fa-mortar-board"></i> Student Center <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+        <li><a href="{% url 'student_page' %}">Student Info</a></li>
+      </ul>
+    </li>
+  
+    <!-- Timetable -->
+    <li><a><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+        <li><a href="#">School Timetable</a></li>
+        <li><a href="#">Class Timetable</a></li>
+        <li><a href="#">Teacher Timetable</a></li>
+      </ul>
+    </li>
+  
+    <!-- Fees -->
+    <li><a><i class="fa fa-money"></i> Fees Center <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+        <li><a href="{% url 'bill_item_page' %}">Bill Items</a></li>
+        <li><a href="{% url 'student_bill_page' %}">Student Bill</a></li>
+        <li><a href="">Class Bill</a></li>
+        <li><a href="#">Fees Payment</a></li>
+      </ul>
+    </li>
+  
+    <!-- Finance -->
+    <li><a><i class="fa fa-money"></i> Finance <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+      <li><a href="#">Chart of Accounts</a></li>
+      <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
+        <li><a href="{% url 'expense_page' %}">Expenses</a></li>
+        <li><a href="{% url 'budget_page' %}">Budget</a></li>
+        <li><a href="{% url 'expenditure_page' %}">Expenditure</a></li>
+        <li><a href="{% url 'vendor_page' %}">Vendors</a></li>
+      </ul>
+    </li>
+  
+    <!--Results item-->
+    <li><a><i class="fa fa-book"></i>Results Center<span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+        <li><a href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
+        <li><a href="{% url 'assessment_create' %}">Assessment</a></li>
+        <li><a href="{% url 'add_results_page' %}">Results</a></li>
+        <li><a href="">View Results</a></li>
+      </ul>
+    </li>
+  </ul>

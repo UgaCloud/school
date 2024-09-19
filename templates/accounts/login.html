@@ -1,0 +1,216 @@
+
+<style>
+  body {
+    background-image: url('background-image.jpg');
+    background-size: cover;
+    background-position: center;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 16px;
+  }
+  .container {
+    height: 100vh; /* set the container height to full viewport height */
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .top-half {
+    background-color: #032B44;
+    display: flex;
+    justify-content: center;
+    align-items: center; /* dark blue color */
+    height: 50vh; 
+    /* set the top half height to 50% of the viewport height */
+  }
+  
+    
+    .top-half .card {
+      width: 100%; /* add this rule to maintain the original width */
+      max-width: 300px;
+      padding: 40px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* add this rule to add a shadow to the top card */
+    }
+  
+  .bottom-half {
+    background-color: #FFFFFF; /* white color */
+    height: 50vh; /* set the bottom half height to 50% of the viewport height */
+    padding: 20px; /* add some padding to the bottom half */
+  }
+  .bottom-half .card {
+    margin-top: -60px;
+    padding: 40px; 
+    box-shadow: 0 0 10px rgba(0, 0, 50, 0.5); /* add this rule to move the second card up by 1cm (approx. 20px) */
+  }
+  .card {
+    box-shadow: 0 0 10px rgba(0, 0, 50, 0.5);
+    border-radius: 10px;
+    background-color: #fff;
+    padding: 20px;
+    max-width: 300px;
+  }
+
+  .card-body {
+    padding: 20px;
+  }
+
+  .form-control {
+    height: 40px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+
+  .form-control:focus {
+    border-color: #aaa;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+
+  label {
+    color: #333;
+    font-weight: bold;
+  }
+
+  label i {
+    font-size: 18px;
+    margin-right: 10px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .form-group input[type="text"], .form-group input[type="password"] {
+    padding-left: 30px;
+  }
+
+  .form-group input[type="text"]:focus, .form-group input[type="password"]:focus {
+    border-color: #aaa;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+
+  #login-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  #login-btn.disabled::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px solid #fff;
+    border-top: 2px solid #333;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .card-margin {
+    margin-right: 20px;
+  }
+</style>
+
+<div class="container">
+  <div class="top-half">
+    <div class="card">
+      <center><div class="form-title">
+        <i class="fas fa-school me-2"></i>
+        SCHOOL NAME & logo
+      </div>
+      <div class="card-body">
+        <!-- school logo or image can be added here -->
+      </div>
+    </center>
+    </div>
+  </div>
+  <div class="bottom-half">
+    <div class="row gx-3">
+      <div class="col-md-3 mx-auto mt-5">
+        <center>
+          <div class="card">
+            <div class="form-title">
+              <i class="fas fa-lock me-2"></i>
+              Sign in
+            </div>
+            <div class="card-body">
+              <form action="" method="POST" id="login-form">
+                {% csrf_token %}
+                {{ form.non_field_errors }}  <!-- To display non-field errors -->
+                <div class="form-group mb-3">
+                  <label class="mb-2" for="username_id"><i class="fas fa-address-card me-2"></i>Username</label>
+                  {{ form.username }}  <!-- Renders the username field -->
+                  {% if form.username.errors %}
+                      <span class="text-danger"><i class="fas fa-exclamation-circle"></i>{{ form.username.errors }}</span>
+                  {% endif %}
+                  <div id="message-wrapper"></div>
+                </div>
+                <div class="form-group mb-3">
+                  <label class="mb-2" for="password_id"><i class="fas fa-key me-2"></i>Password</label>
+                  {{ form.password }}  <!-- Renders the password field -->
+                  {% if form.password.errors %}
+                      <span class="text-danger"><i class="fas fa-exclamation-circle"></i>{{ form.password.errors }}</span>
+                  {% endif %}
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="login-btn" style="background-color: #2f4f7f; width: 200px; color: #ffffff; padding: 10px 20px;">
+                  <i class="fas fa-sign-in-alt"></i><small> SIGN IN</small>
+                </button>
+              </form>
+              <br>
+              <div class="login-bottom">
+                <a href="" class="link">Forgot password?</a>
+              </div>
+            </div>
+          </div>
+        </center>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block js %}
+
+<script>
+  $('#login-form').submit(function (e) {
+    // e.preventDefault();
+    $('#login-btn').addClass('disabled')
+    $('#login-btn').html(`<i class="fas fa-sign-in-alt"></i> Signining you in . . .`)
+  })
+
+  $("#username_id").on("input", function () {
+    username = $(this).val();
+
+    $.ajax({
+      url: "/accounts/ajax/validate-username/",
+      data: {
+        username: username
+      },
+      dataType: 'json',
+      success: function(data) {
+        if (data.is_taken) {
+          $('#message-wrapper').html('<span class="text-danger"><i class="fas fa-exclamation-circle"></i> Username already taken.</span>');
+        } else {
+          $('#message-wrapper').html('');
+        }
+      }
+    });
+  })
+</script>
+
+{% endblock js %}

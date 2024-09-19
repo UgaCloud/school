@@ -1,8 +1,9 @@
 from django.db import models
+from django.urls import reverse
 
 from AbstractModels.singleton import SingletonModel
 
-from app.constants import BILL_CATEGORY_CHOICES, BILL_DURATION_CHOICES
+from app.constants import BILL_CATEGORY_CHOICES, BILL_DURATION_CHOICES, TYPE_CHOICES
 
 class Currency(models.Model):
     code = models.CharField(max_length=10, unique=True, default="UGX")
@@ -82,7 +83,7 @@ class Signature(models.Model):
         return reverse("Signature_detail", kwargs={"pk": self.pk})
 
 class Department(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100,choices=TYPE_CHOICES)
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):

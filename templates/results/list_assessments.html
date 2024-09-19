@@ -1,0 +1,26 @@
+{% extends "../base.html" %}
+
+{% block page_title %}Assessments -{{ assessments.academic_class}} {% endblock page_title %}
+
+{% block content %}
+<div class="spaced-table">
+    <table class="table table-bordered table-striped">
+        <tr>
+            <th>ID</th>
+            <th>Assessment</th>
+            <th>Actions</th>
+        </tr>
+        {% for assessment in assessments %}
+        <tr class="mb-2">
+            <td>{{assessment.id}}</td>
+            <td>{{ assessment }}</td>
+            <td>
+                <a href="{% url 'add_results' assessment.id %}" class="btn btn-primary">Add Results</a>
+                <a href="" class="btn btn-primary"><i class="fa fa-edit"></i></a>
+                <a href="" class="btn btn-danger" ><i class="fa fa-trash-o"></i></a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock content %}

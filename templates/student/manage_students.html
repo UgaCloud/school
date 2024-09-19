@@ -72,8 +72,9 @@
                             {{student.current_class.code}}
                         </td>
                         <td>
-                            <a href="" class="btn btn-primary btn-xs"><i class="fa fa-folder"></i> View </a>
-                            <a href="#" class="btn btn-danger btn-xs"><i class="fa fa-trash-o"></i> Delete </a>
+                            <a href="{% url 'edit_student_page' student.id %}" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>
+                            <a href="{% url 'delete_student_page' student.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Are you sure you want to delete this Record?')">
+                            <i class="fa fa-trash-o"> </i> 
                         </td>
                     </tr>
                     {%empty%}

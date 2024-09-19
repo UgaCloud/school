@@ -1,18 +1,18 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect
 from django.contrib import messages
 from django.urls import reverse
-
 from app.constants import *
-from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream
-
-from app.forms.classes import ClassForm, AcademicClassForm, StreamForm, AcademicClassStreamForm
+from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream,ClassSubjectAllocation
+from app.forms.classes import ClassForm, AcademicClassForm, StreamForm, AcademicClassStreamForm,ClassSubjectAllocationForm
 from app.forms.fees_payment import StudentBillItemForm
-
+from app.selectors.model_selectors import *
 import app.selectors.classes as class_selectors
 import app.selectors.school_settings as school_settings_selectors
 import app.selectors.fees_selectors as fees_selectors
-
 from app.services.students import create_class_bill_item
+from django.contrib.auth.decorators import login_required
+from app.decorators.decorators import *
+
 
 def class_view(request):
     if request.method == "POST":
@@ -25,6 +25,7 @@ def class_view(request):
             messages.error(request, FAILURE_MESSAGE)
     
     class_form = ClassForm()
+    classe = Class.objects.all()
     
     context = {
         "form": class_form,
@@ -32,8 +33,38 @@ def class_view(request):
     }
     return render(request, "classes/_class.html", context)
 
-def edit_classes(request):
-    return render(request)
+
+def edit_classe_view(request, id):
+    classe = get_model_record(Class,id)
+    
+    if request.method == "POST":
+        class_form = ClassForm(request.POST, instance= classe)
+        
+        if class_form.is_valid():
+            class_form.save()
+            messages.success(request, SUCCESS_ADD_MESSAGE)
+            return redirect(class_view)  
+        else:
+            messages.error(request, FAILURE_MESSAGE)
+    
+    else:
+        class_form = ClassForm(instance=classe)
+    
+    context = {
+        "form":class_form,
+        "classe":classe
+    }
+    
+    return render(request, "classes/edit_class.html", context)
+
+
+def delete_class_view(request, id):
+    classe = Class.objects.get(pk=id)
+    
+    classe.delete()
+    messages.success(request, DELETE_MESSAGE)
+    
+    return redirect(class_view)
 
 def stream_view(request):
     if request.method == "POST":
@@ -54,8 +85,29 @@ def stream_view(request):
     }
     return render(request, "classes/stream.html", context)
 
-def edit_streams(request):
-    return render(request)
+
+def edit_stream(request,id):
+    stream = get_model_record(Stream,id)
+    if request.method =="POST":
+        stream_form =StreamForm(request.POST,instance=stream)
+        
+        if stream_form.is_valid():
+            stream_form.save()
+
+            messages.success(request, SUCCESS_ADD_MESSAGE)
+            return redirect(stream_view)
+        else:
+            messages.error(request, FAILURE_MESSAGE)
+    
+            
+    stream_form =StreamForm(instance=stream)
+    
+    context ={
+        "form":stream_form,
+        "stream":stream
+    }
+    
+    return render(request, "classes/edit_stream.html",context)
 
 def delete_stream_view(request, id):
     stream = Stream.objects.get(pk=id)
@@ -64,6 +116,7 @@ def delete_stream_view(request, id):
     messages.success(request, DELETE_MESSAGE)
     
     return redirect(stream_view)
+
 
 def academic_class_view(request):
     if request.method == "POST":
@@ -86,16 +139,18 @@ def academic_class_view(request):
     }
     return render(request, "classes/academic_class.html", context)
 
-def edit_streams(request):
+def edit_academic_class_view(request):
     return render(request)
 
-def delete_class_view(request, id):
-    stream = Stream.objects.get(pk=id)
+
+
+def delete_academic_class_view(request, id):
+    academic_class = AcademicClass.objects.get(id=id)
     
-    stream.delete()
+    academic_class.delete()
     messages.success(request, DELETE_MESSAGE)
     
-    return redirect(stream_view)
+    return redirect(academic_class_view)
 
 def academic_class_details_view(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
@@ -119,6 +174,29 @@ def academic_class_details_view(request, id):
     
     return render(request, "classes/academic_class_details.html", context)
 
+
+def edit_academic_class_details_view(request,id):
+    academic_class = get_model_record(AcademicClass,id)
+    if request.method =="POST":
+        form = AcademicClassForm(request.POST,instance=academic_class)
+        
+        if form.is_valid():
+            form.save()
+            messages.success(request,SUCCESS_ADD_MESSAGE)
+            return redirect(academic_class_view)
+        else:
+            messages.error(request, FAILURE_MESSAGE)
+            
+    form = AcademicClassForm(instance=academic_class)
+    
+    context ={
+        "form": form,
+        "academic_class": academic_class
+        
+    }
+    return  render(request,"classes/edit_academic_class_details.html",context)
+
+
 def add_class_stream(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
     class_stream_form = AcademicClassStreamForm(request.POST)
@@ -131,6 +209,7 @@ def add_class_stream(request, id):
         messages.error(request, FAILURE_MESSAGE)
         
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
+
 
 def add_class_bill_item_view(request, id):
     academic_class = class_selectors.get_academic_class(id)
@@ -146,5 +225,62 @@ def add_class_bill_item_view(request, id):
         messages.warning(request, "Not a GET Method")  
     
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
-    
+
+   
         
+
+
+def class_subject_allocation_list(request):
+    allocations = ClassSubjectAllocation.objects.all()
+    context={
+        'allocations':allocations
+    }
+    return render(request, 'classes/classsubjectallocation_list.html',context)
+ 
+def add_class_subject_allocation(request):
+    if request.method == "POST":
+        form = ClassSubjectAllocationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, SUCCESS_ADD_MESSAGE)
+            return redirect(class_subject_allocation_list)
+    else:
+        form = ClassSubjectAllocationForm()
+    allocations = ClassSubjectAllocation.objects.all()
+    context={
+        'form':form,
+        'allocations':allocations
+    }
+    return render(request, 'classes/classsubjectallocation_form.html', context)
+
+def edit_subject_allocation_view(request,id):
+    allocation = get_model_record(ClassSubjectAllocation,id)
+    if request.method =="POST":
+            form = ClassSubjectAllocationForm(request.POST,instance=allocation)
+            if form.is_valid():
+                form.save()
+                messages.success(request,SUCCESS_ADD_MESSAGE)
+                return HttpResponseRedirect(reverse(add_class_subject_allocation))
+            else:
+                messages.error(request, FAILURE_MESSAGE)
+    form= ClassSubjectAllocationForm(instance=allocation)
+    
+    context={
+        "form":form,
+        "allocation":allocation
+        
+    }
+    return render (request,"classes/edit_class_allocation.html",context)
+
+ 
+
+
+
+def delete_class_subject_allocation(request, id):
+    allocation = ClassSubjectAllocation.objects.get( pk=id)
+    
+    allocation.delete()
+    messages.success(request, DELETE_MESSAGE)
+    return redirect(add_class_subject_allocation)
+    
+    

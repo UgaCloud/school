@@ -1,0 +1,155 @@
+{% extends "../base.html" %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}User Accounts{% endblock page_title %}
+
+{% block content %}
+<button id="openModalBtn" class="btn btn-success">Create Staff Account</button>
+
+<!-- Optional search form -->
+<form method="get" action="{% url 'user_list' %}">
+    <input type="text" name="search" placeholder="Search by username">
+    <button type="submit">Search</button>
+</form>
+
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Username</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
+            <th>Action</th> <!-- New Action column -->
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.first_name }}</td>
+            <td>{{ user.last_name }}</td>
+            <td>{{ user.email }}</td>
+            <td>
+                
+                <a href="{% url 'user_detail' user.id %}" class="btn btn-primary btn-sm">View</a>
+
+                
+                <form action="{% url 'delete_user' user.id %}" method="post" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this user?');">
+                        <i class="fa fa-trash-o"></i> 
+                    </button>
+                </form>
+                
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6">No users found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+  
+    <!-- Modal Structure -->
+    <div id="createAccountModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span id="closeModalBtn" class="close">&times;</span>
+            <h2>Create Staff Account</h2>
+            
+            <!-- AJAX-loaded form will go here -->
+            <div id="modalFormContent"></div>
+        </div>
+    </div>
+
+    <!-- Table for user list (existing code) -->
+    <!-- ... existing table code ... -->
+
+    <!-- CSS for modal styling -->
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 60%;
+            max-width: 500px;
+            border-radius: 8px;
+        }
+        .close {
+            color: #aaa;
+            font-size: 24px;
+            font-weight: bold;
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            cursor: pointer;
+        }
+    </style>
+
+    <!-- JavaScript for modal functionality and AJAX form submission -->
+    <script>
+        document.getElementById('openModalBtn').onclick = function() {
+            // Open the modal and load the form content
+            document.getElementById('createAccountModal').style.display = 'block';
+
+            // AJAX request to load the form
+            fetch("{% url 'create_account' %}")
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('modalFormContent').innerHTML = html;
+
+                    // Attach submit event to the loaded form
+                    const form = document.querySelector("#modalFormContent form");
+                    if (form) {
+                        form.onsubmit = function(event) {
+                            event.preventDefault();  // Prevent the default form submission
+
+                            const formData = new FormData(form);
+
+                            fetch("{% url 'create_account' %}", {
+                                method: 'POST',
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                body: formData
+                            })
+                            .then(response => response.json())  // Assuming server returns JSON
+                            .then(data => {
+                                if (data.success) {
+                                    // Close the modal and optionally refresh or update the user list
+                                    document.getElementById('createAccountModal').style.display = 'none';
+                                    // Optionally reload or update user list here
+                                    location.reload(); // or update user list dynamically
+                                } else {
+                                    // Handle form errors returned by the server
+                                    document.getElementById('modalFormContent').innerHTML = data.form_html;
+                                }
+                            })
+                            .catch(error => console.error('Error:', error));
+                        };
+                    }
+                });
+        }
+
+        document.getElementById('closeModalBtn').onclick = function() {
+            document.getElementById('createAccountModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('createAccountModal')) {
+                document.getElementById('createAccountModal').style.display = 'none';
+            }
+        }
+    </script>
+{% endblock %}

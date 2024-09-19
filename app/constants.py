@@ -1,5 +1,6 @@
 # Roles
 
+
 STUDENT = "Student"
 TEACHER = "Teacher"
 CLASS_TEACHER = "Class Teacher"
@@ -7,6 +8,16 @@ BURSAR = "Bursar"
 DOS = "DOS"
 HEADTEACHER = "Headteacher"
 ######## End of Roles ############
+
+##### Authentication Roles ###########
+ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('teacher', 'Teacher'),
+        ('bursar', 'Bursar'),
+        ('director_of_studies', 'Director of Studies'),
+        ('headmaster', 'Headmaster'),
+        ('class_teacher', 'Class Teacher'),
+ ]
 
 # Types
 ACADEMIC = 'Academic'
@@ -96,8 +107,9 @@ SUCCESS_ADD_MESSAGE = "Record Saved!"
 SUCCESS_EDIT_MESSAGE = "Changes Saved"
 SUCCESS_BULK_ADD_MESSAGE = "All Record Saved!"
 
+CONFIRMATION_MESSAGE ="Are you sure you want to delete this field?"
 DELETE_MESSAGE = "Record Deleted"
-
+FAILURE_LOGIN_MESSAGE="Invalid username or password"
 FAILURE_MESSAGE = "Something Went Wrong!, Check your inputs and Try again"
 
 INTEGRITY_ERROR_MESSAGE = "The record you tried to add is a duplicate or contains duplicate values" \

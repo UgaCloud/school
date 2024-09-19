@@ -1,4 +1,5 @@
 from django.db import models
+from django.urls import reverse
 from app.constants import *
 
 class Student(models.Model):
@@ -49,7 +50,7 @@ class ClassRegister(models.Model):
         unique_together = ("academic_class_stream", "student")
 
     def __str__(self):
-        return self._class
+       return f"{self.academic_class_stream} - {self.student}"
 
     def get_absolute_url(self):
         return reverse("ClassRegister_detail", kwargs={"pk": self.pk})

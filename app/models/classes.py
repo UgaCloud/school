@@ -1,4 +1,5 @@
 from django.db import models
+from django.urls import reverse
 
 from app.constants import TERMS
 
@@ -20,7 +21,7 @@ class Class(models.Model):
 
 class Stream(models.Model):
     
-    stream = models.CharField(max_length=10, unique=True, default="-")
+    stream = models.CharField(max_length=20, unique=True, default="-")
 
     class Meta:
         verbose_name = ("stream")
@@ -75,7 +76,7 @@ class AcademicClassStream(models.Model):
     
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name="class_streams")
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
-    class_teacher = models.CharField(max_length=50, null=True, blank=True)
+    class_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
 
     class Meta:
         verbose_name = ("ClassStream")
@@ -87,4 +88,20 @@ class AcademicClassStream(models.Model):
 
     def get_absolute_url(self):
         return reverse("ClassStream_detail", kwargs={"pk": self.pk})
+
+class ClassSubjectAllocation(models.Model):
+    
+    academic_class_stream = models.ForeignKey("app.AcademicClassStream",on_delete=models.CASCADE, related_name="subjects")
+    subject = models.ForeignKey("app.Subject", on_delete=models.CASCADE, related_name="subjects")
+    subject_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE, related_name="subjects")
+
+    class Meta:
+        verbose_name = ("classsubjectallocation")
+        verbose_name_plural = ("classsubjectallocations")
+
+    def __str__(self):
+        return f"{self.academic_class_stream} - {self.subject} - {self.subject_teacher}"
+
+    def get_absolute_url(self):
+        return reverse("classsubjectallocation_detail", kwargs={"pk": self.pk})
 

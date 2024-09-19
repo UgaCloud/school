@@ -32,7 +32,7 @@
                                     <option></option>
                                     {% for year in academic_years %}
                                     <option value="AK">{{year.academic_year}}</option>
-                                    {% endfor %}
+                                    {% endfor %} 
                                 </select>
                             </div>
                             <label class="control-label col-md-2">Term</label>
@@ -94,8 +94,9 @@
                             {{class.fees_amount}}
                         </td>
                         <td>
-                            <a href="{% url 'academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="fa fa-folder"></i> View </a>
-                            <a href="#" class="btn btn-danger btn-xs"><i class="fa fa-trash-o"></i> Delete </a>
+                            <a href="{% url 'academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="">View</i>  </a>
+                            <a href="{% url 'edit_academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i>  </a>
+                            <a href="{% url 'delete_academic_class' class.id %}" class="btn btn-danger btn-xs"><i class="fa fa-trash-o" onclick="return confirm('Are you sure you want to delete this field?')"></a></i></a>
                         </td>
                     </tr>
                     {% endfor %}

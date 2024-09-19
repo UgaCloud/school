@@ -8,7 +8,15 @@ from app.constants import *
 import app.selectors.students as student_selectors
 import app.forms.student as student_forms
 from app.services.students import register_student, bulk_student_registration, delete_all_csv_files
+from app.selectors.model_selectors import *
+from app.forms.student import StudentForm
+from app.models.students import Student
+import app.forms.student as student_forms
+import app.selectors.students as student_selectors
+from django.contrib.auth.decorators import login_required
 
+
+@login_required
 def manage_student_view(request):
     students = student_selectors.get_all_students()
     
@@ -23,6 +31,7 @@ def manage_student_view(request):
     
     return render(request, "student/manage_students.html", context)
 
+@login_required
 def add_student_view(request):
     if request.method == "POST":
         student_form = student_forms.StudentForm(request.POST, request.FILES)
@@ -37,7 +46,8 @@ def add_student_view(request):
             messages.error(request, FAILURE_MESSAGE)
     
     return HttpResponseRedirect(reverse(manage_student_view))
-
+    
+@login_required
 def download_student_template_csv(request):
     response = HttpResponse(content_type='text/csv')
     
@@ -58,6 +68,7 @@ def download_student_template_csv(request):
     # Return the response
     return response
 
+@login_required
 def bulk_student_registration_view(request):
     
     delete_all_csv_files()
@@ -79,3 +90,59 @@ def bulk_student_registration_view(request):
             messages.error(request, FAILURE_MESSAGE)
     
     return HttpResponseRedirect(reverse(manage_student_view))
+
+@login_required
+def edit_student_view(request,id):
+    student = get_model_record(Student,id)
+    
+    if request.method == 'POST':
+        student_form = StudentForm(request.POST, instance=student)
+        if student_form.is_valid():
+            student_form.save()
+            
+            messages.success(request, SUCCESS_ADD_MESSAGE)    
+        else:
+            messages.error(request, FAILURE_MESSAGE)
+        return redirect(add_student_view)
+    else:
+        student_form = StudentForm(instance=student)
+    
+    context = {
+        "form": student_form,
+        "student": student
+    }
+    
+    return render(request, "student/edit_student.html", context)
+
+@login_required
+def delete_student_view(request, id):
+    student = student_selectors.get_student(id)
+    
+    student.delete()
+    
+    messages.success(request, DELETE_MESSAGE)
+
+    return HttpResponseRedirect(reverse(manage_student_view))
+
+
+@login_required
+def classregister(request):
+    if request.method =="POST":
+        classregisterform= student_forms.ClassRegisterForm(request.POST,request.FILES)
+        if classregisterform.is_valid():
+            class_register= classregisterform.save()
+            messages.success(request,SUCCESS_ADD_MESSAGE)
+        else:
+            messages.error(request,FAILURE_MESSAGE)
+            
+        return HttpResponseRedirect(reverse(manage_student_view))
+    
+    context ={
+        "classregisterform":classregisterform,
+        "class_register":class_register
+        
+        
+    }
+    return render(request,"student/class_register.html",context)
+            
+        

@@ -1,15 +1,15 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect
 from django.contrib import messages
-
-# Create your views here.
 from django.urls import reverse
-
 from app.constants import *
-
+from app.forms.school_settings import SectionForm,DepartmentForm
 from app.models.school_settings import SchoolSetting, Currency, Section, AcademicYear
 import app.selectors.school_settings as school_settings_selectors
 import app.services.school_settings as school_settings_services
 import app.forms.school_settings as school_settings_forms
+from app.selectors.model_selectors import *
+from django.contrib.auth.decorators import *
+from app.decorators.decorators import *
 
 
 def settings_page(request):
@@ -17,8 +17,7 @@ def settings_page(request):
     school_settings = SchoolSetting.load()
     school_sections = school_settings_selectors.get_sections()
     signatures = school_settings_selectors.get_signatures()
-    departments = school_settings_selectors.get_all_departments()
-    
+    departments = school_settings_selectors.get_all_departments()   
     school_settings_form = school_settings_forms.SchoolSettingForm(instance=school_settings)
     sections_form = school_settings_forms.SectionForm()
     signature_form = school_settings_forms.SignatureForm()
@@ -36,6 +35,7 @@ def settings_page(request):
         "department_form": department_form
     }
     return render(request, 'school_settings/settings_page.html', context)
+
 
 def update_school_settings(request):
     school_settings = SchoolSetting.load()
@@ -88,6 +88,7 @@ def delete_currency(request, currency_id):
     messages.success(request, DELETE_MESSAGE)
     return HttpResponseRedirect(reverse('settings_page'))
 
+
 def school_section_view(request):
     
     if request.method == "POST":
@@ -102,8 +103,9 @@ def school_section_view(request):
     
     return HttpResponseRedirect(reverse('settings_page'))
 
+
 def edit_section_view(request, id):
-    section = school_settings_selectors.get_section(id)
+    section = get_model_record(Section,id)
     
     if request.method == "POST":
         section_form = school_settings_forms.SectionForm(request.POST, request.FILES, instance=section)
@@ -114,7 +116,15 @@ def edit_section_view(request, id):
             messages.success(request, SUCCESS_EDIT_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
-    return HttpResponseRedirect(reverse("settings_page"))
+        return redirect(settings_page)
+    
+    section_form = SectionForm(instance=section)
+    context ={
+        "form": section_form,
+        "section":section
+    }
+    return render(request,"school_settings/edit_section.html",context)
+
 
 def delete_section_view(request, id):
     section = school_settings_selectors.get_section(id)
@@ -123,7 +133,8 @@ def delete_section_view(request, id):
     
     messages.success(request, DELETE_MESSAGE)
     return HttpResponseRedirect(reverse("settings_page"))
-       
+
+
 def add_signature_view(request):
     if request.method == "POST":
         signature_form = school_settings_forms.SignatureForm(request.POST, request.FILES)
@@ -135,6 +146,8 @@ def add_signature_view(request):
             messages.error(request, FAILURE_MESSAGE)
     return HttpResponseRedirect(reverse("settings_page"))
 
+
+
 def edit_signature_view(request, id):
     signature = school_settings_selectors.get_signature(id)
     
@@ -143,11 +156,19 @@ def edit_signature_view(request, id):
         
         if signature_form.is_valid():
             signature_form.save()
-            
             messages.success(request, SUCCESS_EDIT_MESSAGE)
+            
         else:
             messages.error(request, FAILURE_MESSAGE)
-    return HttpResponseRedirect(reverse("settings_page"))
+        return HttpResponseRedirect(reverse(settings_page))    
+    else:
+        signature_form = school_settings_forms.SignatureForm(instance=signature)
+
+    context = {
+        "form": signature_form,
+        "signature": signature  
+    }
+    return render(request, "school_settings/edit_signature.html", context)
 
 def delete_signature_view(request, id):
     signature = school_settings_selectors.get_signature(id)
@@ -157,6 +178,7 @@ def delete_signature_view(request, id):
     messages.success(request, DELETE_MESSAGE)
     
     return HttpResponseRedirect(reverse("settings_page"))
+
 
 def add_department_view(request):
     
@@ -171,7 +193,7 @@ def add_department_view(request):
             
     return HttpResponseRedirect(reverse("settings_page"))
 
-def edit_department_view(request):
+def edit_department_view(request,id):
     department = school_settings_selectors.get_department(id)
     
     if request.method == "POST":
@@ -183,11 +205,20 @@ def edit_department_view(request):
             messages.success(request, SUCCESS_EDIT_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
-    return HttpResponseRedirect(reverse("settings_page"))  
+        return HttpResponseRedirect(reverse("settings_page"))
+    else:
+        department_form = school_settings_forms.DepartmentForm(instance = department)
+    context={
+        "form":department_form,
+        "department":department
+    }
+    return render(request,"school_settings/edit_department.html",context)
 
 def delete_department_view(request, id):
     department = school_settings_selectors.get_department(id)
     
     department.delete()
     
-    messages.success(request, DELETE_MESSAGE)        
+    messages.success(request, DELETE_MESSAGE)
+    
+    return redirect(add_department_view)        

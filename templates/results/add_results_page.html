@@ -1,0 +1,60 @@
+{% extends "../base.html" %}
+{% load crispy_forms_tags %}
+
+{% block page_title %}Add Results{% endblock page_title %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Enter Marks for {{ assessment.subject }} ({{ assessment.assessment_type }}) - {{ assessment.academic_class }}</h2>
+    <p>Date: {{ assessment.date }}</p>
+
+    {% if zipped_forms %}
+        <form method="post">
+            {% csrf_token %}
+            {{ formset.management_form }}
+            <table class="table table-striped" id="studenttable" class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Student ID</th>
+                        <th>Student Name</th>
+                        <th>Score</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form, student in zipped_forms %}
+                    <tr>
+                        <td>{{ student.reg_no }}</td>
+                        <td>{{ student }}</td>
+                        <td>
+                            {{ form.score }}
+                        </td>
+                        <td>
+                            <a href="{% url 'edit_results_view' assessment.id student.id %}" class="btn btn-sm btn-primary" ><i class="fa fa-edit"></i></a>
+                        </td>
+                    
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" class="btn btn-primary">Save Marks</button>
+        </form>
+    {% else %}
+        <table class="table table-striped" id="studenttable" class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Student Name</th>
+                    <th>Score</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="4" class="text-center">No students available</td>
+                </tr>
+            </tbody>
+        </table>
+    {% endif %}
+</div>
+{% endblock content %}

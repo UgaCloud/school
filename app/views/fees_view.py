@@ -1,10 +1,13 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect
 from django.contrib import messages
 from django.urls import reverse
-
+from app.selectors.model_selectors import *
 from app.constants import *
 from app.selectors.fees_selectors import * 
 from app.forms.fees_payment import * 
+from django.contrib.auth.decorators import login_required
+
+
 
 def manage_bill_items_view(request):
     bill_items = get_bill_items()
@@ -15,6 +18,7 @@ def manage_bill_items_view(request):
         "bill_item_form": bill_item_form
     }
     return render(request, "fees/bill_items.html", context)
+
 
 def add_bill_item_view(request):
     if request.method == "POST":
@@ -31,6 +35,39 @@ def add_bill_item_view(request):
         
     return HttpResponseRedirect(reverse(manage_bill_items_view))
 
+
+def edit_bill_item_view(request,id):
+    bill_item = get_model_record(BillItem,id)
+    if request.method =="POST":
+        form= BillItemForm(request.POST,instance=bill_item)
+        if form.is_valid():
+            form.save()
+            
+            messages.success(request,SUCCESS_ADD_MESSAGE)
+            return HttpResponseRedirect(reverse(manage_bill_items_view))
+        else:
+            messages.error(request,FAILURE_MESSAGE)
+            
+    form = BillItemForm(instance=bill_item)
+    context={
+        "form":form,
+        "bill_item":bill_item
+        
+    }
+    return render(request,"fees/edit_bill_item.html",context)
+
+
+def delete_bill_item_view(request, id):
+    bill_item = get_model_record(BillItem, id)
+    
+    bill_item.delete()
+    
+    messages.success(request, DELETE_MESSAGE)
+
+    return HttpResponseRedirect(reverse(manage_bill_items_view))
+
+
+
 def  manage_student_bills_view(request):
     student_bills = get_student_bills()
     
@@ -38,6 +75,7 @@ def  manage_student_bills_view(request):
         "student_bills": student_bills,
     }
     return render(request, "fees/student_bills.html", context)
+
 
 def manage_student_bill_details_view(request, id):
     student_bill = get_student_bill(id)
@@ -52,6 +90,7 @@ def manage_student_bill_details_view(request, id):
     }
     
     return render(request, "fees/student_bill_details.html", context)    
+
 
 def add_student_bill_item_view(request, id):
     bill = get_student_bill(id)
@@ -69,6 +108,7 @@ def add_student_bill_item_view(request, id):
         messages.warning(request, "Not a Post Method")
         
     return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill.id]))
+
 
 def add_student_payment_view(request, id):
     bill = get_student_bill(id)

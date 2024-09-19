@@ -1,7 +1,8 @@
 from django.forms import ModelForm, HiddenInput
 from crispy_forms.helper import FormHelper
 
-from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream
+from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream,ClassSubjectAllocation
+from app.models.staffs import Staff
 
 class ClassForm(ModelForm):
     
@@ -31,3 +32,14 @@ class AcademicClassStreamForm(ModelForm):
         super().__init__(*args, **kwargs)
         self.Helper = FormHelper()
         self.fields["academic_class"].widget = HiddenInput()
+        
+
+class ClassSubjectAllocationForm(ModelForm):
+    class Meta:
+        model = ClassSubjectAllocation
+        fields =("__all__")
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.Helper = FormHelper()
+        self.fields['subject_teacher'].queryset = Staff.objects.filter(department='Academic')

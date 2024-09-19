@@ -33,8 +33,13 @@
         </li>
       </ul>
 
-      <a class="btn btn-success"><i class="fa fa-edit m-right-xs"></i>Edit Profile</a>
-      <br />
+      <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-primary btn-xs" style="margin-right: 10px;">
+        <i class="fa fa-edit"></i>
+    </a>
+    <a href="{% url 'delete_staff_page' staff.id %}" class="btn btn-danger btn-xs" style="margin-left: 10px;">
+        <i class="fa fa-trash-o" onclick="return confirm('Are you sure you want to delete this Record?')"></i>
+    </a>
+    
 
       <!-- start skills -->
       <h4>Subjects</h4>

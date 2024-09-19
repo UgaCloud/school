@@ -1,7 +1,6 @@
 {% extends "../base.html" %}
 {% load crispy_forms_tags %}
 
-{% block page_title %}{{academic_class}}{% endblock page_title %}
 {% block content %}
     <div class="clearfix"></div>
 
@@ -11,7 +10,7 @@
             <div class="profile_img">
               <div id="crop-avatar">
                 <!-- Current avatar -->
-                <img class="img-responsive avatar-view" src="images/picture.jpg" alt="Avatar" title="Change the avatar">
+                <img class="img-responsive avatar-view" src="static/images/picture.jpg" alt="Avatar" title="Change the avatar">
               </div>
             </div>
             <h3>Samuel Okello</h3>
@@ -74,7 +73,7 @@
                                       {{stream.class_teacher}}
                                   </td>
                                   <td>
-                                      <a href="" class="btn btn-primary btn-xs"><i class="fa fa-folder"></i> View </a>
+                                      <a href="{% url 'edit_academic_class_details_page' stream.id %}" class="btn btn-primary btn-xs"><i class="fa fa-folder"></i> View </a>
                                       <a href="#" class="btn btn-danger btn-xs"><i class="fa fa-trash-o"></i> Delete </a>
                                   </td>
                               </tr>

@@ -1,7 +1,17 @@
 from django.db import models
-from app.constants import MEASUREMENTS
+from django.urls import reverse
+from app.constants import MEASUREMENTS,PAYMENT_STATUS
 
-from app.constants import PAYMENT_STATUS
+class BankAccount(models.Model):
+    bank_name = models.CharField(max_length=100)
+    account_number = models.CharField(max_length=50, unique=True)
+    account_name = models.CharField(max_length=100)
+    account_type = models.CharField(max_length=50)
+    balance = models.IntegerField()
+
+    def __str__(self):
+        return f'{self.account_name} - {self.bank_name}'
+
 
 class Vendor(models.Model):
     name = models.CharField(max_length=100)
@@ -64,7 +74,7 @@ class Expenditure(models.Model):
     approved_by = models.CharField(max_length=100)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='Pending')
     attachment = models.FileField(upload_to='attachments/', blank=True, null=True)
-
+    
     def __str__(self):
         return f'{self.description} '
     
