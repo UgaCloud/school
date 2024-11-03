@@ -1,6 +1,7 @@
 from django.db import models
 from django.urls import reverse
 from app.constants import *
+from app.constants import GENDERS, EMPLOYEE_STATUS, TYPE_CHOICES, MARITAL_STATUS, ROLE_CHOICES
 
 class Role(models.Model):
     name = models.CharField(max_length=50, choices=ROLE_CHOICES)
@@ -9,6 +10,14 @@ class Role(models.Model):
     def __str__(self):
         return self.name
 
+
+class Role(models.Model):
+    name = models.CharField(max_length=50, choices=ROLE_CHOICES)
+    
+
+    def __str__(self):
+        return self.name
+    
 class Staff(models.Model):
     first_name = models.CharField(max_length=20)
     last_name = models.CharField(max_length=20)
