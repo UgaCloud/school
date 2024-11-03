@@ -169,3 +169,13 @@ LOGGING = {
     }
     
 }
+
+USER_ROLE_PREFIXES = {
+    'admin': 'Admin-',
+    'teacher': 'Teacher-',
+    'bursar': 'bursar-',
+    'director_of_studies': 'Dos-',
+    'headmaster': 'Hm-',
+    'class_teacher': 'Class-Teacher-',
+}
+
