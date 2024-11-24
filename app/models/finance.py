@@ -13,6 +13,16 @@ class BankAccount(models.Model):
         return f'{self.account_name} - {self.bank_name}'
 
 
+class BankAccount(models.Model):
+    bank_name = models.CharField(max_length=100)
+    account_number = models.CharField(max_length=50, unique=True)
+    account_name = models.CharField(max_length=100)
+    account_type = models.CharField(max_length=50)
+    balance = models.IntegerField()
+
+    def __str__(self):
+        return f'{self.account_name} - {self.bank_name}'
+
 class Vendor(models.Model):
     name = models.CharField(max_length=100)
     contact = models.CharField(max_length=255)
@@ -121,13 +131,11 @@ class Transaction(models.Model):
         ('Income', 'Income'),
         ('Expense', 'Expense')
     ]
-
+    date = models.DateField()
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
     description = models.TextField()
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    date = models.DateField()
-    related_department = models.ForeignKey("app.Department", on_delete=models.SET_NULL, null=True, blank=True)
-    related_vendor = models.ForeignKey("app.Vendor", on_delete=models.SET_NULL, null=True, blank=True)
+    
     related_income_source = models.ForeignKey("app.IncomeSource", on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
