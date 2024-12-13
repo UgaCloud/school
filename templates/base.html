@@ -69,7 +69,6 @@
               <div class="menu_section"> 
                 {% if user.is_authenticated %}
                 <p>User role: {{ user.staff_account.role.name }}</p>  <!-- Debugging output -->
-                
                 {% if user.staff_account.role.name == "admin" %}
                     {% include 'admin_dashboard.html' %}
                 {% elif user.staff_account.role.name == "teacher" %}
@@ -91,8 +90,6 @@
                  </div>
           </div>
           <!-- /sidebar menu -->
-          
-
             <!-- /menu footer buttons -->
             <div class="sidebar-footer hidden-small">
               <a data-toggle="tooltip" data-placement="top" title="Settings">

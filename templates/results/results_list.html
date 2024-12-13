@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Student Results</h2>
+    {% for student, subjects in student_results.items %}
+        <h4><strong>{{ student }}</strong></h4>  
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>BOT</th>
+                    <th>MOT</th>
+                    <th>EOT</th>
+                    <th>Final Score</th>
+                    <th>Grade</th>
+                    <th>Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for subject, data in subjects.items %}
+                    {% if subject != 'total_final_score' and subject != 'total_points' %}
+                    <tr>
+                        <td>{{ subject }}</td>
+                        <td>{{ data.BOT }}</td>
+                        <td>{{ data.MOT }}</td>
+                        <td>{{ data.EOT }}</td>
+                        <td>{{ data.final_score }}</td>
+                        <td>{{ data.grade }}</td>
+                        <td>{{ data.points }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+                <!-- Total row for Final Score and Points -->
+                <tr>
+                    <td><strong>Total</strong></td>
+                    <td></td> <!-- Empty cell for BOT -->
+                    <td></td> <!-- Empty cell for MOT -->
+                    <td></td> <!-- Empty cell for EOT -->
+                    <td><strong>{{ subjects.total_final_score }}</strong></td>
+                    <td></td> <!-- Empty cell for Grade -->
+                    <td><strong>{{ subjects.total_points }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    {% endfor %}
+</div>
+{% endblock %}

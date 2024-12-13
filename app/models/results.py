@@ -26,9 +26,8 @@ class Assessment(models.Model):
     assessment_type = models.ForeignKey("app.AssessmentType", on_delete=models.CASCADE, related_name='assessments')
     subject = models.ForeignKey("app.Subject", on_delete=models.CASCADE, related_name='assessments')
     date = models.DateField()
-    out_of=models.IntegerField()
+    out_of = models.IntegerField(default=100)
     is_done = models.BooleanField(default=False)
-    
     class Meta:
         unique_together = ("academic_class", "assessment_type", "subject")
 
@@ -57,9 +56,23 @@ class Result(models.Model):
     
     @property
     def actual_score(self):
-        weight =self.assessment.assessment_type.weight
-        actual_score =(self.score/self.assessment.out_of)*weight
-        return actual_score
+       weight = self.assessment.assessment_type.weight
+       return round((self.score / self.assessment.out_of) * weight, 0)  # Round to remove decimals
+
+
+class ReportResults(models.Model):
+    student = models.ForeignKey("app.Student",on_delete=models.CASCADE)
+    subject = models.ForeignKey("app.Subject",on_delete=models.CASCADE)
+    academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name='report_results')
+    bot = models.IntegerField(default=0)
+    mot =models.IntegerField(default=0)
+    eot = models.IntegerField(default=0)
+    
+    def calculate_term_result(self):
+        student_results = self.student.results.filter(assessment__academic_class__term=self.term)
+        total_score = sum(result.actual_score for result in student_results)
+        total_points = sum(result.points for result in student_results)
+
 
 class TermResult(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='term_results')
@@ -78,7 +91,6 @@ class TermResult(models.Model):
         total_score = sum(result.actual_score for result in exam_results)
         total_points = sum(result.points for result in exam_results)
         subjects_count = exam_results.count()
-
         self.total_score = total_score
         self.average_score = total_score / subjects_count if subjects_count > 0 else 0
         self.total_points = total_points

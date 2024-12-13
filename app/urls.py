@@ -142,6 +142,8 @@ urlpatterns = [
     path('edit_results/<int:assessment_id>/<int:student_id>/edit_results/', edit_results_view, name='edit_results_view'),
     path('classes_assessments/',class_assessment_list_view,name='class_assessment_list'),
     path('classes_assessments/<int:class_id>/assessments/',list_assessments_view,name='list_assessments'),
+    path('results/',result_list, name='result_list'),
+
     
     
     #Assessment

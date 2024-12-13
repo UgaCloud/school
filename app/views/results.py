@@ -9,11 +9,8 @@ from app.selectors.model_selectors import *
 from app.models import *
 from app.selectors.model_selectors import *
 from django.db import transaction
+from django.db.models import Avg, Sum, F,Q,Count
 from django.contrib.auth.decorators import login_required
-
-
-
-
 
 
 # Add Results View
@@ -103,7 +100,7 @@ def class_assessment_list_view(request):
     return render(request,'results/class_assessments.html',{'classes':classes})
 
 #List of Assessments basing on specific academic_class
-@login_required
+
 def list_assessments_view(request, class_id):
     academic_class = AcademicClass.objects.get(id=class_id)
     print(academic_class)
@@ -111,7 +108,7 @@ def list_assessments_view(request, class_id):
     return render(request, 'results/list_assessments.html', {'assessments': assessments, 'class_id': class_id})
 
 #Grading System
-@login_required
+
 def grading_system_view(request):
     if request.method == "POST":
         grading_form = GradingSystemForm(request.POST)
@@ -135,7 +132,7 @@ def grading_system_view(request):
 
 
 #Edit grading system
-@login_required
+
 def edit_grading_system_view(request, id):
     grading_system = get_model_record(GradingSystem,id)
 
@@ -159,7 +156,7 @@ def edit_grading_system_view(request, id):
     
     return render(request, 'results/edit_grading_system.html', context)
 
-@login_required
+
 def delete_grading_system_view(request, id):
     grading_system = GradingSystem.objects.get(pk=id)
     
@@ -167,7 +164,7 @@ def delete_grading_system_view(request, id):
     messages.success(request, DELETE_MESSAGE)
     return redirect(grading_system_view)
 
-@login_required
+
 def assessment_list_view(request):
     assessments = Assessment.objects.all()
     context = {
@@ -175,7 +172,7 @@ def assessment_list_view(request):
     }
     return render(request, 'results/assessment_list.html', context)
 
-@login_required
+
 def add_assessment_view(request):
     if request.method == "POST":
         form = AssessmentForm(request.POST)
@@ -287,3 +284,75 @@ def delete_assesment_view(request, id):
     messages.success(request, DELETE_MESSAGE)
     
     return redirect(assesment_type_view)
+
+
+
+def get_grade_and_points(final_score):
+    grading_system = GradingSystem.objects.all()
+    
+    for grade in grading_system:
+        if grade.min_score <= final_score <= grade.max_score:
+            return grade.grade, grade.points
+    
+    return "F9", 9 
+ 
+ 
+def result_list(request):
+    # Fetch all related results
+    results = Result.objects.select_related(
+        'assessment', 'student', 'assessment__assessment_type', 'assessment__subject'
+    ).all()
+
+    student_results = {}
+
+    for result in results:
+        student_name = result.student.student_name
+        subject_name = result.assessment.subject.name
+        assessment_type = result.assessment.assessment_type.name
+
+        if student_name not in student_results:
+            student_results[student_name] = {}
+
+        if subject_name not in student_results[student_name]:
+            student_results[student_name][subject_name] = {
+                'BOT': 0,
+                'MOT': 0,
+                'EOT': 0,
+                'final_score': 0,
+                'grade': None,
+                'points': 0
+            }
+
+        # Assign the actual score (already weighted) to the correct assessment type
+        if assessment_type == 'BOT':
+            student_results[student_name][subject_name]['BOT'] = result.actual_score
+        elif assessment_type == 'MOT':
+            student_results[student_name][subject_name]['MOT'] = result.actual_score
+        elif assessment_type == 'EOT':
+            student_results[student_name][subject_name]['EOT'] = result.actual_score
+
+    # Calculate final scores, grades, points, total final score, and total points
+    for student_name, subjects in student_results.items():
+        total_final_score = 0
+        total_points = 0
+
+        for subject_name, data in subjects.items():
+            # Final score is the sum of the weighted scores
+            final_score = data['BOT'] + data['MOT'] + data['EOT']
+            final_score = min(final_score, 100)  # Cap final score at 100
+            data['final_score'] = int(round(final_score))  # Round to the nearest integer
+
+            # Get grade and points
+            grade, points = get_grade_and_points(data['final_score'])
+            data['grade'] = grade
+            data['points'] = points
+
+            # Accumulate total final score and total points
+            total_final_score += data['final_score']
+            total_points += data['points']
+
+        # Add totals to the student's data
+        student_results[student_name]['total_final_score'] = total_final_score
+        student_results[student_name]['total_points'] = total_points
+
+    return render(request, 'results/results_list.html', {'student_results': student_results})
