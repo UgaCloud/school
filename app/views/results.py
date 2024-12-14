@@ -298,10 +298,10 @@ def get_grade_and_points(final_score):
 
 def result_list(request):
     class_id = request.GET.get('Class_id') 
-    selected_class_id = class_id  # To pass to the template for pre-selection
+    selected_class_id = class_id  
     
     
-    classes = AcademicClass.objects.all()  # Adjust `AcademicClass` to your class model
+    classes = AcademicClass.objects.all()  
     
     # Filter results by the selected class if a class_id is provided
     if class_id:
