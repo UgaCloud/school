@@ -57,7 +57,7 @@ class Result(models.Model):
     @property
     def actual_score(self):
        weight = self.assessment.assessment_type.weight
-       return round((self.score / self.assessment.out_of) * weight, 0)  # Round to remove decimals
+       return round((self.score / self.assessment.out_of) * weight, 0)  
 
 
 class ReportResults(models.Model):

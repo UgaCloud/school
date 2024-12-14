@@ -5,6 +5,7 @@ from app.models.classes import *
 from app.models.staffs import *
 from app.models.results import *
 from app.models.school_settings import *
+from app.models.students import *
 
 admin.site.register(Staff)
 admin.site.register(Role)
@@ -16,3 +17,4 @@ admin.site.register(Term)
 admin.site.register(Result)
 admin.site.register(Assessment)
 admin.site.register(AssessmentType)
+admin.site.register(Student)
