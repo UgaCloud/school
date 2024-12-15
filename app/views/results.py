@@ -14,7 +14,6 @@ from app.utils.utils import calculate_grade_and_points
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.template.loader import render_to_string
-from weasyprint import HTML
 from django.shortcuts import get_object_or_404
 from io import BytesIO
 from django.http import HttpResponse
@@ -384,15 +383,6 @@ def result_list(request):
         'selected_class_id': selected_class_id,
     })
 
-# def student_report_card(request, student_id):
-#     student_results = get_student_results(student_id=student_id)
-
-#     return render(request, 'results/student_report.html', {
-#         'student_results': student_results,
-#     })
-
-
-
 
 def student_report_card(request, student_id):
     student = get_object_or_404(Student, id=student_id)
@@ -497,11 +487,11 @@ def generate_termly_report_pdf(request, student_id):
         'current_term': current_term,
     })
 
-    # Create a response object for the PDF output
+    
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{student.student_name}_Termly_Report.pdf"'
 
-    # Create PDF from HTML using xhtml2pdf (Pisa)
+    
     pdf_output = BytesIO()
     pisa_status = pisa.CreatePDF(html_string, dest=pdf_output)
 
