@@ -4,17 +4,12 @@ from app.constants import *
 from app.constants import GENDERS, EMPLOYEE_STATUS, TYPE_CHOICES, MARITAL_STATUS, ROLE_CHOICES
 
 class Role(models.Model):
-    name = models.CharField(max_length=50, choices=ROLE_CHOICES)
+    name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
     
-
-    def __str__(self):
-        return self.name
-
-
-class Role(models.Model):
-    name = models.CharField(max_length=50, choices=ROLE_CHOICES)
-    
-
+    class Meta:
+        verbose_name = ("Role")
+        verbose_name_plural = ("Roles")
+        
     def __str__(self):
         return self.name
     

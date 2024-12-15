@@ -12,17 +12,6 @@ class BankAccount(models.Model):
     def __str__(self):
         return f'{self.account_name} - {self.bank_name}'
 
-
-class BankAccount(models.Model):
-    bank_name = models.CharField(max_length=100)
-    account_number = models.CharField(max_length=50, unique=True)
-    account_name = models.CharField(max_length=100)
-    account_type = models.CharField(max_length=50)
-    balance = models.IntegerField()
-
-    def __str__(self):
-        return f'{self.account_name} - {self.bank_name}'
-
 class Vendor(models.Model):
     name = models.CharField(max_length=100)
     contact = models.CharField(max_length=255)
