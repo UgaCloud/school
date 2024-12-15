@@ -2,67 +2,102 @@
 
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">Termly Report</h1>
-    
-    <!-- PDF Download Button -->
-    <div class="text-right mb-4">
-        <a href="{% url 'generate_termly_report_pdf' student.id %}" class="btn btn-primary">
-            <i class="fas fa-file-pdf"></i> Download PDF
-        </a>
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white text-center">
+            <h2>Termly Report</h2>
+        </div>
+        <div class="card-body">
+            
+            <!-- Student Photo and Information -->
+            <div class="row mb-4">
+                <div class="col-md-4 text-center">
+                    {% if student.photo %}
+                        <img src="{{ student.photo.url }}" alt="Student Photo" class="img-thumbnail" style="max-width: 150px; height: auto;">
+                    {% else %}
+                        <img src="" alt="Default Student Photo" class="img-thumbnail" style="max-width: 150px; height: auto;">
+                    {% endif %}
+                </div>
+                <div class="col-md-8">
+    <div style="font-size: 1.5rem; font-weight: bold; line-height: 2;">
+        <p><strong>Student Name:</strong> <span style="font-weight: normal;">{{ student.student_name }}</span></p>
+        <p><strong>Class:</strong> <span style="font-weight: normal;">{{ student.current_class.name }}</span></p>
+        <p><strong>Term:</strong> <span style="font-weight: normal;">{{ current_term.term }}</span></p>
+        <p><strong>Academic Year:</strong> <span style="font-weight: normal;">{{ current_term.academic_year.academic_year }}</span></p>
+        <p><strong>Date:</strong> <span style="font-weight: normal;">{{ current_term.start_date|date:"M d, Y" }} - {{ current_term.end_date|date:"M d, Y" }}</span></p>
     </div>
+</div>
 
-    <div class="mb-3">
-        <p><strong>Student Name:</strong> {{ student.student_name }}</p>
-        <p><strong>Class:</strong> {{ student.current_class.name }}</p>
-        <p><strong>Term:</strong> {{ current_term.term }}</p>
-        <p><strong>Academic Year:</strong> {{ current_term.academic_year.academic_year }}</p>
-        <p><strong>Date:</strong> {{ current_term.start_date|date:"M d, Y" }} - {{ current_term.end_date|date:"M d, Y" }}</p>
-    </div>
+            </div>
 
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover">
-            <thead class="thead-dark">
-                <tr>
-                    <th>Subject</th>
-                    <th>BOT</th>
-                    <th>MOT</th>
-                    <th>EOT</th>
-                    <th>Final Score</th>
-                    <th>Grade</th>
-                    <th>Points</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for subject, data in report_data.items %}
-                <tr>
-                    <td>{{ subject }}</td>
-                    <td>{{ data.BOT }}</td>
-                    <td>{{ data.MOT }}</td>
-                    <td>{{ data.EOT }}</td>
-                    <td>{{ data.final_score }}</td>
-                    <td>{{ data.grade }}</td>
-                    <td>{{ data.points }}</td>
-                </tr>
-                {% endfor %}
-                <tr class="font-weight-bold">
-                    <td colspan="4" class="text-right">Total</td>
-                    <td>{{ total_final_score }}</td>
-                    <td></td>
-                    <td>{{ total_points }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+            <!-- PDF Download Button -->
+            <div class="text-right mb-4">
+                <a href="{% url 'generate_termly_report_pdf' student.id %}" class="btn btn-danger">
+                    <i class="fas fa-file-pdf"></i> Download Report as PDF
+                </a>
+            </div>
 
-    <div class="mt-4">
-        <p><strong>Class Teacher's Comments:</strong> ............................................................</p>
-        <p><strong>Head Teacher's Comments:</strong> ............................................................</p>
-    </div>
+            <!-- Results Table -->
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th>Subject</th>
+                            <th>BOT</th>
+                            <th>MOT</th>
+                            <th>EOT</th>
+                            <th>Final Score</th>
+                            <th>Grade</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subject, data in report_data.items %}
+                        <tr>
+                            <td>{{ subject }}</td>
+                            <td>{{ data.BOT }}</td>
+                            <td>{{ data.MOT }}</td>
+                            <td>{{ data.EOT }}</td>
+                            <td>{{ data.final_score }}</td>
+                            <td>{{ data.grade }}</td>
+                            <td>{{ data.points }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-info font-weight-bold">
+                            <td colspan="4" class="text-right">Total</td>
+                            <td>{{ total_final_score }}</td>
+                            <td></td>
+                            <td>{{ total_points }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-    <div class="mt-4">
-        <p><strong>Signatures:</strong></p>
-        <p><strong>Class Teacher:</strong> Teacher Signature</p>
-        <p><strong>Head Teacher:</strong> Head Teacher Signature</p>
+            <!-- Comments Section -->
+            <div class="mt-4">
+                <h5>Comments</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Class Teacher:</strong> ............................................................</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Head Teacher:</strong> ............................................................</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signatures -->
+            <div class="mt-4">
+                <h5>Signatures</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Class Teacher:</strong> Teacher Signature</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Head Teacher:</strong> Head Teacher Signature</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
