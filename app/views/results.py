@@ -10,7 +10,18 @@ from app.models import *
 from app.selectors.model_selectors import *
 from django.db import transaction
 from django.db.models import Avg, Sum, F,Q,Count
+from app.utils.utils import calculate_grade_and_points
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from weasyprint import HTML
+from django.shortcuts import get_object_or_404
+from io import BytesIO
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from xhtml2pdf import pisa
+import tempfile
+
 
 
 # Add Results View
@@ -294,35 +305,31 @@ def get_grade_and_points(final_score):
         if grade.min_score <= final_score <= grade.max_score:
             return grade.grade, grade.points
     
-    return "F9", 9 
+    return "F9", 9
 
-def result_list(request):
-    class_id = request.GET.get('Class_id') 
-    selected_class_id = class_id  
+def get_student_results(class_id=None, student_id=None):
+    results = Result.objects.select_related(
+        'assessment', 'student', 'assessment__assessment_type', 'assessment__subject'
+    )
     
-    
-    classes = AcademicClass.objects.all()  
-    
-    # Filter results by the selected class if a class_id is provided
+    # Filter by class if provided
     if class_id:
-        results = Result.objects.filter(student__current_class__academicclass__id=class_id).select_related(
-            'assessment', 'student', 'assessment__assessment_type', 'assessment__subject'
-        )
-    else:
-        results = Result.objects.select_related(
-            'assessment', 'student', 'assessment__assessment_type', 'assessment__subject'
-        ).all()
+        results = results.filter(student__current_class__academicclass__id=class_id)
+    
+    # Filter by student if provided
+    if student_id:
+        results = results.filter(student_id=student_id)
 
-    # Process results as in your current view
     student_results = {}
 
     for result in results:
         student_name = result.student.student_name
+        student_id = result.student.id  # Capture the student ID
         subject_name = result.assessment.subject.name
         assessment_type = result.assessment.assessment_type.name
 
         if student_name not in student_results:
-            student_results[student_name] = {}
+            student_results[student_name] = {'student_id': student_id}
 
         if subject_name not in student_results[student_name]:
             student_results[student_name][subject_name] = {
@@ -341,27 +348,166 @@ def result_list(request):
         elif assessment_type == 'EOT':
             student_results[student_name][subject_name]['EOT'] = result.actual_score
 
+    # Calculate grades and totals
     for student_name, subjects in student_results.items():
         total_final_score = 0
         total_points = 0
 
         for subject_name, data in subjects.items():
-            final_score = data['BOT'] + data['MOT'] + data['EOT']
-            final_score = min(final_score, 100)
-            data['final_score'] = int(round(final_score))
+            if subject_name != 'student_id':
+                final_score = data['BOT'] + data['MOT'] + data['EOT']
+                final_score = min(final_score, 100)
+                data['final_score'] = int(round(final_score))
 
-            grade, points = get_grade_and_points(data['final_score'])
-            data['grade'] = grade
-            data['points'] = points
+                grade, points = get_grade_and_points(data['final_score'])
+                data['grade'] = grade
+                data['points'] = points
 
-            total_final_score += data['final_score']
-            total_points += data['points']
+                total_final_score += data['final_score']
+                total_points += data['points']
 
         student_results[student_name]['total_final_score'] = total_final_score
         student_results[student_name]['total_points'] = total_points
+
+    return student_results
+
+def result_list(request):
+    class_id = request.GET.get('Class_id')
+    selected_class_id = class_id
+
+    classes = AcademicClass.objects.all()
+    student_results = get_student_results(class_id=class_id)
 
     return render(request, 'results/results_list.html', {
         'student_results': student_results,
         'classes': classes,
         'selected_class_id': selected_class_id,
     })
+
+# def student_report_card(request, student_id):
+#     student_results = get_student_results(student_id=student_id)
+
+#     return render(request, 'results/student_report.html', {
+#         'student_results': student_results,
+#     })
+
+
+
+
+def student_report_card(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    results = Result.objects.filter(student=student)
+
+    # Get the current term
+    current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
+    
+    # Organize report data
+    report_data = {}
+    total_final_score = 0
+    total_points = 0
+
+    for result in results:
+        assessment = result.assessment
+        assessment_type = assessment.assessment_type.name
+        subject_name = assessment.subject.name
+
+        if subject_name not in report_data:
+            report_data[subject_name] = {'BOT': 0, 'MOT': 0, 'EOT': 0, 'final_score': 0, 'grade': None, 'points': 0}
+
+        if assessment_type == 'BOT':
+            report_data[subject_name]['BOT'] = result.actual_score
+        elif assessment_type == 'MOT':
+            report_data[subject_name]['MOT'] = result.actual_score
+        elif assessment_type == 'EOT':
+            report_data[subject_name]['EOT'] = result.actual_score
+
+        final_score = (
+            report_data[subject_name]['BOT'] +
+            report_data[subject_name]['MOT'] +
+            report_data[subject_name]['EOT']
+        )
+        final_score = min(final_score, 100)
+        grade, points = get_grade_and_points(final_score)
+
+        report_data[subject_name]['final_score'] = int(round(final_score))
+        report_data[subject_name]['grade'] = grade
+        report_data[subject_name]['points'] = points
+
+        total_final_score += final_score
+        total_points += points
+
+    return render(request, 'results/student_report_card.html', {
+        'student': student,
+        'report_data': report_data,
+        'total_final_score': total_final_score,
+        'total_points': total_points,
+        'current_term': current_term,
+    })
+
+
+
+def generate_termly_report_pdf(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    results = Result.objects.filter(student=student)
+
+    # Get the current term
+    current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
+    
+    # Organize report data
+    report_data = {}
+    total_final_score = 0
+    total_points = 0
+
+    for result in results:
+        assessment = result.assessment
+        assessment_type = assessment.assessment_type.name
+        subject_name = assessment.subject.name
+
+        if subject_name not in report_data:
+            report_data[subject_name] = {'BOT': 0, 'MOT': 0, 'EOT': 0, 'final_score': 0, 'grade': None, 'points': 0}
+
+        if assessment_type == 'BOT':
+            report_data[subject_name]['BOT'] = result.actual_score
+        elif assessment_type == 'MOT':
+            report_data[subject_name]['MOT'] = result.actual_score
+        elif assessment_type == 'EOT':
+            report_data[subject_name]['EOT'] = result.actual_score
+
+        final_score = (
+            report_data[subject_name]['BOT'] +
+            report_data[subject_name]['MOT'] +
+            report_data[subject_name]['EOT']
+        )
+        final_score = min(final_score, 100)
+        grade, points = get_grade_and_points(final_score)
+
+        report_data[subject_name]['final_score'] = int(round(final_score))
+        report_data[subject_name]['grade'] = grade
+        report_data[subject_name]['points'] = points
+
+        total_final_score += final_score
+        total_points += points
+
+    # Render the HTML content
+    html_string = render_to_string('results/student_report_card.html', {
+        'student': student,
+        'report_data': report_data,
+        'total_final_score': total_final_score,
+        'total_points': total_points,
+        'current_term': current_term,
+    })
+
+    # Create a response object for the PDF output
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{student.student_name}_Termly_Report.pdf"'
+
+    # Create PDF from HTML using xhtml2pdf (Pisa)
+    pdf_output = BytesIO()
+    pisa_status = pisa.CreatePDF(html_string, dest=pdf_output)
+
+    if pisa_status.err:
+        return HttpResponse('We had some errors while generating your PDF', status=400)
+
+    pdf_output.seek(0)
+    response.write(pdf_output.read())
+    return response
