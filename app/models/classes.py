@@ -67,7 +67,7 @@ class AcademicClass(models.Model):
         unique_together = ("Class", "academic_year", "term")
 
     def __str__(self):
-        return f"{self.Class}"
+        return f"{self.Class} - Term {self.term} - {self.academic_year}"
 
     def get_absolute_url(self):
         return reverse("AcademicClass_detail", kwargs={"pk": self.pk})
@@ -84,7 +84,7 @@ class AcademicClassStream(models.Model):
         unique_together = ("academic_class", "stream")
 
     def __str__(self):
-        return f"{self.academic_class.Class} - {self.stream}"
+        return f"{self.academic_class} - {self.stream}"
 
     def get_absolute_url(self):
         return reverse("ClassStream_detail", kwargs={"pk": self.pk})

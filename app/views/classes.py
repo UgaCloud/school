@@ -1,6 +1,12 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect
 from django.contrib import messages
 from django.urls import reverse
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 from app.constants import *
 from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream,ClassSubjectAllocation
 from app.forms.classes import ClassForm, AcademicClassForm, StreamForm, AcademicClassStreamForm,ClassSubjectAllocationForm
@@ -110,12 +116,15 @@ def edit_stream(request,id):
     return render(request, "classes/edit_stream.html",context)
 
 def delete_stream_view(request, id):
-    stream = Stream.objects.get(pk=id)
-    
-    stream.delete()
-    messages.success(request, DELETE_MESSAGE)
-    
-    return redirect(stream_view)
+    try:
+        stream = Stream.objects.get(pk=id)
+        
+        stream.delete()
+        messages.success(request, DELETE_MESSAGE)
+        
+        return redirect(stream_view)
+    except:
+        logger.critical("Failed Delete record")
 
 
 def academic_class_view(request):

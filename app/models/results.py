@@ -2,7 +2,6 @@ from django.db import models
 from django.contrib.auth.models import User
 from decimal import Decimal
 
-
 class GradingSystem(models.Model):
     min_score = models.DecimalField(max_digits=5, decimal_places=2)
     max_score = models.DecimalField(max_digits=5, decimal_places=2)
@@ -12,14 +11,12 @@ class GradingSystem(models.Model):
     def __str__(self):
         return f'{self.grade} ({self.min_score} - {self.max_score})'
 
-
 class AssessmentType(models.Model):
     name = models.CharField(max_length=50, unique=True)  
     weight = models.DecimalField(max_digits=4, decimal_places=2)  
     
     def __str__(self):
         return self.name
-
 
 class Assessment(models.Model):
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name='assessments')
