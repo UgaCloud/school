@@ -3,7 +3,6 @@ from django.contrib import messages
 from django.urls import reverse
 import csv
 from django.db import IntegrityError
-
 from app.constants import *
 import app.selectors.students as student_selectors
 import app.forms.student as student_forms
@@ -14,6 +13,12 @@ from app.models.students import Student
 import app.forms.student as student_forms
 import app.selectors.students as student_selectors
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from app.models import ClassRegister
+from django.db.models import Q
+from app.models import ClassRegister, AcademicClassStream
+
 
 
 @login_required
@@ -144,5 +149,39 @@ def classregister(request):
         
     }
     return render(request,"student/class_register.html",context)
+
+def bulk_register_students(request):
+    # Filter students not yet registered
+    registered_students = ClassRegister.objects.values_list('student_id', flat=True)
+    unregistered_students = Student.objects.exclude(id__in=registered_students)
+
+    if request.method == "POST":
+        selected_students = request.POST.getlist("students")
+
+        # Register selected students
+        for student_id in selected_students:
+            student = Student.objects.get(id=student_id)
+
+            # Fetch the AcademicClassStream instance
+            try:
+                academic_class_stream = AcademicClassStream.objects.get(
+                    academic_class__Class=student.current_class,  # Match Class
+                    stream=student.stream  # Match Stream
+                )
+            except AcademicClassStream.DoesNotExist:
             
-        
+                continue  # or create a new AcademicClassStream
+
+            # Create the ClassRegister entry
+            ClassRegister.objects.create(
+                academic_class_stream=academic_class_stream,
+                student=student,
+            )
+        messages.success(request,SUCCESS_BULK_ADD_MESSAGE)
+
+        # Redirect after registration
+        return redirect("bulk_register_students")
+
+    return render(request, "student/bulk_register_students.html", {
+        "unregistered_students": unregistered_students,
+    })

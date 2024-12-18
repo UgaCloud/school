@@ -383,14 +383,13 @@ def result_list(request):
         'selected_class_id': selected_class_id,
     })
 
-
 def student_report_card(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)
 
     # Get the current term
     current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
-    
+
     # Organize report data
     report_data = {}
     total_final_score = 0
@@ -401,9 +400,11 @@ def student_report_card(request, student_id):
         assessment_type = assessment.assessment_type.name
         subject_name = assessment.subject.name
 
+        # Initialize subject if not already present in report_data
         if subject_name not in report_data:
             report_data[subject_name] = {'BOT': 0, 'MOT': 0, 'EOT': 0, 'final_score': 0, 'grade': None, 'points': 0}
 
+        # Assign scores to the correct assessment type
         if assessment_type == 'BOT':
             report_data[subject_name]['BOT'] = result.actual_score
         elif assessment_type == 'MOT':
@@ -411,20 +412,19 @@ def student_report_card(request, student_id):
         elif assessment_type == 'EOT':
             report_data[subject_name]['EOT'] = result.actual_score
 
-        final_score = (
-            report_data[subject_name]['BOT'] +
-            report_data[subject_name]['MOT'] +
-            report_data[subject_name]['EOT']
-        )
-        final_score = min(final_score, 100)
+    # Calculate grades and totals after all data is collected
+    for subject_name, data in report_data.items():
+        final_score = data['BOT'] + data['MOT'] + data['EOT']
+        final_score = min(final_score, 100)  # Ensure final score does not exceed 100
         grade, points = get_grade_and_points(final_score)
 
-        report_data[subject_name]['final_score'] = int(round(final_score))
-        report_data[subject_name]['grade'] = grade
-        report_data[subject_name]['points'] = points
+        data['final_score'] = int(round(final_score))
+        data['grade'] = grade
+        data['points'] = points
 
-        total_final_score += final_score
-        total_points += points
+        # Accumulate totals
+        total_final_score += data['final_score']
+        total_points += data['points']
 
     return render(request, 'results/student_report_card.html', {
         'student': student,
@@ -433,16 +433,13 @@ def student_report_card(request, student_id):
         'total_points': total_points,
         'current_term': current_term,
     })
-
-
-
 def generate_termly_report_pdf(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)
 
     # Get the current term
     current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
-    
+
     # Organize report data
     report_data = {}
     total_final_score = 0
@@ -453,9 +450,11 @@ def generate_termly_report_pdf(request, student_id):
         assessment_type = assessment.assessment_type.name
         subject_name = assessment.subject.name
 
+        # Initialize subject if not already present in report_data
         if subject_name not in report_data:
             report_data[subject_name] = {'BOT': 0, 'MOT': 0, 'EOT': 0, 'final_score': 0, 'grade': None, 'points': 0}
 
+        # Assign scores to the correct assessment type
         if assessment_type == 'BOT':
             report_data[subject_name]['BOT'] = result.actual_score
         elif assessment_type == 'MOT':
@@ -463,20 +462,19 @@ def generate_termly_report_pdf(request, student_id):
         elif assessment_type == 'EOT':
             report_data[subject_name]['EOT'] = result.actual_score
 
-        final_score = (
-            report_data[subject_name]['BOT'] +
-            report_data[subject_name]['MOT'] +
-            report_data[subject_name]['EOT']
-        )
-        final_score = min(final_score, 100)
+    # Calculate grades and totals after all data is collected
+    for subject_name, data in report_data.items():
+        final_score = data['BOT'] + data['MOT'] + data['EOT']
+        final_score = min(final_score, 100)  # Ensure final score does not exceed 100
         grade, points = get_grade_and_points(final_score)
 
-        report_data[subject_name]['final_score'] = int(round(final_score))
-        report_data[subject_name]['grade'] = grade
-        report_data[subject_name]['points'] = points
+        data['final_score'] = int(round(final_score))
+        data['grade'] = grade
+        data['points'] = points
 
-        total_final_score += final_score
-        total_points += points
+        # Accumulate totals
+        total_final_score += data['final_score']
+        total_points += data['points']
 
     # Render the HTML content
     html_string = render_to_string('results/student_report_card.html', {
@@ -487,11 +485,9 @@ def generate_termly_report_pdf(request, student_id):
         'current_term': current_term,
     })
 
-    
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{student.student_name}_Termly_Report.pdf"'
 
-    
     pdf_output = BytesIO()
     pisa_status = pisa.CreatePDF(html_string, dest=pdf_output)
 

@@ -59,6 +59,7 @@ urlpatterns = [
     path('bulk_student_registration/', bulk_student_registration_view, name="bulk_student_registration"),
     path('edit_student/<int:id>/', edit_student_view, name="edit_student_page"),
     path('delete_student/<int:id>/', delete_student_view, name="delete_student_page"),
+    path("register/", bulk_register_students, name="bulk_register_students"),# student registration in classes
     
     
     # Subject
