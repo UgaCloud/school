@@ -150,6 +150,7 @@ def classregister(request):
     }
     return render(request,"student/class_register.html",context)
 
+#class registration
 def bulk_register_students(request):
     # Filter students not yet registered
     registered_students = ClassRegister.objects.values_list('student_id', flat=True)
@@ -180,7 +181,7 @@ def bulk_register_students(request):
         messages.success(request,SUCCESS_BULK_ADD_MESSAGE)
 
         # Redirect after registration
-        return redirect("bulk_register_students")
+        return redirect(manage_student_view)
 
     return render(request, "student/bulk_register_students.html", {
         "unregistered_students": unregistered_students,

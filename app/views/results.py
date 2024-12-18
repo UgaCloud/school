@@ -306,18 +306,26 @@ def get_grade_and_points(final_score):
     
     return "F9", 9
 
-def get_student_results(class_id=None, student_id=None):
+
+
+def get_student_results(class_id=None, student_id=None,academic_year_id=None,term_id=None):
     results = Result.objects.select_related(
-        'assessment', 'student', 'assessment__assessment_type', 'assessment__subject'
+        'assessment', 'student', 'assessment__assessment_type', 'assessment__subject','assessment__academic_class','assessment__academic_class__term'
     )
     
-    # Filter by class if provided
+    
     if class_id:
         results = results.filter(student__current_class__academicclass__id=class_id)
     
-    # Filter by student if provided
+    
     if student_id:
         results = results.filter(student_id=student_id)
+    
+    if academic_year_id:
+        results = results.filter(assessment__academic_class__academic_year_id=academic_year_id)
+
+    if term_id:
+        results = results.filter(assessment__academic_class__term_id=term_id)
 
     student_results = {}
 
@@ -371,16 +379,32 @@ def get_student_results(class_id=None, student_id=None):
     return student_results
 
 def result_list(request):
-    class_id = request.GET.get('Class_id')
+    class_id = request.GET.get('class_id')
+    academic_year_id = request.GET.get('academic_year_id')
+    term_id = request.GET.get('term_id')
+
     selected_class_id = class_id
+    selected_academic_year_id = academic_year_id
+    selected_term_id = term_id
 
     classes = AcademicClass.objects.all()
-    student_results = get_student_results(class_id=class_id)
+    academic_years = AcademicYear.objects.all()
+    terms = Term.objects.all()
+
+    student_results = get_student_results(
+        class_id=class_id,
+        academic_year_id=academic_year_id,
+        term_id=term_id
+    )
 
     return render(request, 'results/results_list.html', {
         'student_results': student_results,
         'classes': classes,
+        'academic_years': academic_years,
+        'terms': terms,
         'selected_class_id': selected_class_id,
+        'selected_academic_year_id': selected_academic_year_id,
+        'selected_term_id': selected_term_id,
     })
 
 def student_report_card(request, student_id):
