@@ -1,14 +1,18 @@
 from django.db import models
 from django.urls import reverse
 from app.constants import *
+from app.constants import GENDERS, EMPLOYEE_STATUS, TYPE_CHOICES, MARITAL_STATUS, ROLE_CHOICES
 
 class Role(models.Model):
-    name = models.CharField(max_length=50, choices=ROLE_CHOICES)
+    name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
     
-
+    class Meta:
+        verbose_name = ("Role")
+        verbose_name_plural = ("Roles")
+        
     def __str__(self):
         return self.name
-
+    
 class Staff(models.Model):
     first_name = models.CharField(max_length=20)
     last_name = models.CharField(max_length=20)
@@ -20,8 +24,12 @@ class Staff(models.Model):
     email = models.EmailField(max_length=254)
     qualification = models.CharField(max_length=100)
     hire_date = models.DateField()
-    department = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    department = models.CharField(max_length=30,choices=TYPE_CHOICES)
+    position = models.CharField(max_length=50)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
+    is_academic_staff = models.BooleanField(default=False)
+    is_administrator_staff = models.BooleanField(default=False)
+    is_support_staff = models.BooleanField(default=False)
     staff_status = models.CharField(max_length=20, choices=EMPLOYEE_STATUS, default="Active")
     staff_photo = models.ImageField(upload_to="Staff/Profile_pics", height_field=None, width_field=None, max_length=None)
     roles = models.ManyToManyField(Role, related_name='staff_members')
