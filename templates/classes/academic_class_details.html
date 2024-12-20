@@ -73,8 +73,8 @@
                                       {{stream.class_teacher}}
                                   </td>
                                   <td>
-                                      <a href="{% url 'edit_academic_class_details_page' stream.id %}" class="btn btn-primary btn-xs"><i class="fa fa-folder"></i> View </a>
-                                      <a href="#" class="btn btn-danger btn-xs"><i class="fa fa-trash-o"></i> Delete </a>
+                                      <a href="{% url 'edit_academic_class_details_page' stream.id %}" class="btn btn-primary btn-xs"><i class="fa fa-folder"></i></a>
+                                      <a href="#" class="btn btn-danger btn-xs"><i class="fa fa-trash-o"></i> </a>
                                   </td>
                               </tr>
                               {%empty%}
@@ -95,11 +95,6 @@
 
             <div class="" role="tabpanel" data-example-id="togglable-tabs">
               <ul id="myTab" class="nav nav-tabs bar_tabs" role="tablist">
-                <li role="presentation" class="active">
-                    <a href="{% url 'bulk_register_students' %}" id="home-tab" role="tab" aria-expanded="true">
-                        Register
-                    </a>
-                </li>
                 <li role="presentation" class="">
                     <a href="#tab_content2" role="tab" id="profile-tab" data-toggle="tab" aria-expanded="false">
                         Attendance

@@ -5,9 +5,9 @@
     <h2>Student Results</h2>
 
     <!-- Filter Form -->
-    <form method="get" class="form-inline mb-4">
+    <form method="get" class="form-inline mb-4" id="filter-form">
         <label for="class_id" class="mr-2">Select Class:</label>
-        <select name="Class_id" id="class_id" class="form-control mr-2">
+        <select name="class_id" id="class_id" class="form-control mr-2" onchange="submitForm()">
             <option value="">All Classes</option>
             {% for cls in classes %}
                 <option value="{{ cls.id }}" {% if cls.id|stringformat:"s" == selected_class_id %}selected{% endif %}>
@@ -17,13 +17,44 @@
                 <option disabled>No classes available</option>
             {% endfor %}
         </select>
-        <button type="submit" class="btn btn-primary">Filter</button>
+    
+        <!-- Academic Year Dropdown -->
+        <select name="academic_year_id" id="academic_year_id" class="form-control mr-2" onchange="submitForm()">
+            <option value="">All Years</option>
+            {% for academic_year in academic_years %}
+                <option value="{{ academic_year.id }}" {% if academic_year.id|stringformat:"s" == selected_academic_year_id %}selected{% endif %}>
+                    {{ academic_year.academic_year }}
+                </option>
+            {% empty %}
+                <option disabled>No academic years available</option>
+            {% endfor %}
+        </select>
+
+        <!-- Term Dropdown -->
+        <select name="term_id" id="term_id" class="form-control mr-2" onchange="submitForm()">
+            <option value="">All Terms</option>
+            {% for term in terms %}
+                <option value="{{ term.id }}" {% if term.id|stringformat:"s" == selected_term_id %}selected{% endif %}>
+                    {{ term.term }}
+                </option>
+            {% empty %}
+                <option disabled>No terms available</option>
+            {% endfor %}
+        </select>
     </form>
     
-    {% for student, subjects in student_results.items %}
+    <script>
+        function submitForm() {
+            document.getElementById('filter-form').submit();
+        }
+    </script>
+
+    <!-- Display Student Results -->
+    {% if student_results %}
+        {% for student, subjects in student_results.items %}
         <div class="student-section mb-5">
-            <h4><strong>{{ student }}</strong> </h4> <!-- Display the student ID here -->
-            <table class="table table-striped projects">
+            <h4><strong>{{ student }}</strong></h4>
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Subject</th>
@@ -61,6 +92,7 @@
                     </tr>
                 </tbody>
             </table>
+
             <!-- Single "View Report Card" button -->
             <div class="text-right mt-2">
                 <a href="{% url 'report_card' student_id=subjects.student_id %}" class="btn btn-primary">
@@ -68,6 +100,11 @@
                 </a>
             </div>
         </div>
-    {% endfor %}
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+            No results available 
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

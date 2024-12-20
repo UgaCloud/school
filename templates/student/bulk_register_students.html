@@ -7,8 +7,8 @@
 
         <h4>Unregistered Students:</h4>
         {% if unregistered_students %}
-            <table class="table table-striped table-bordered table-hover">
-                <thead class="thead-dark">
+            <table class="table table-striped projects">
+                <thead>
                     <tr>
                         <!-- Master checkbox for select all functionality -->
                         <th><input type="checkbox" id="select_all" onclick="toggleSelectAll(this)"></th>
@@ -29,7 +29,7 @@
                             <td>{{ student.stream.stream }}</td>
                             <td>
                                 <!-- Edit Stream Button -->
-                                <a href="" class="btn btn-warning btn-sm">Edit Stream</a>
+                                <a href="" class="btn btn-primary">Edit Stream</a>
                             </td>
                         </tr>
                     {% endfor %}
