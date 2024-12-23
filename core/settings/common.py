@@ -30,6 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -55,6 +56,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'app.middleware.update_jazzmin.UpdateJazzminMiddleware',
+
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -180,3 +183,9 @@ USER_ROLE_PREFIXES = {
     'class_teacher': 'Class-Teacher-',
 }
 
+# admin dashboard settings
+JAZZMIN_SETTINGS = {
+    "site_title": "school",
+    "theme":"darkly",
+
+}
