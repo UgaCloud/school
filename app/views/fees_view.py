@@ -42,7 +42,7 @@ def edit_bill_item_view(request,id):
         form= BillItemForm(request.POST,instance=bill_item)
         if form.is_valid():
             form.save()
-            
+
             messages.success(request,SUCCESS_ADD_MESSAGE)
             return HttpResponseRedirect(reverse(manage_bill_items_view))
         else:

@@ -1,216 +1,178 @@
-
-<style>
-  body {
-    background-image: url('background-image.jpg');
-    background-size: cover;
-    background-position: center;
-    font-family: 'Open Sans', sans-serif;
-    font-size: 16px;
-  }
-  .container {
-    height: 100vh; /* set the container height to full viewport height */
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .top-half {
-    background-color: #032B44;
-    display: flex;
-    justify-content: center;
-    align-items: center; /* dark blue color */
-    height: 50vh; 
-    /* set the top half height to 50% of the viewport height */
-  }
-  
-    
-    .top-half .card {
-      width: 100%; /* add this rule to maintain the original width */
-      max-width: 300px;
-      padding: 40px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* add this rule to add a shadow to the top card */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Page</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(to bottom, #032B44, #FFFFFF);
+      font-family: 'Open Sans', sans-serif;
+      margin: 0;
+      padding: 0;
     }
-  
-  .bottom-half {
-    background-color: #FFFFFF; /* white color */
-    height: 50vh; /* set the bottom half height to 50% of the viewport height */
-    padding: 20px; /* add some padding to the bottom half */
-  }
-  .bottom-half .card {
-    margin-top: -60px;
-    padding: 40px; 
-    box-shadow: 0 0 10px rgba(0, 0, 50, 0.5); /* add this rule to move the second card up by 1cm (approx. 20px) */
-  }
-  .card {
-    box-shadow: 0 0 10px rgba(0, 0, 50, 0.5);
-    border-radius: 10px;
-    background-color: #fff;
-    padding: 20px;
-    max-width: 300px;
-  }
 
-  .card-body {
-    padding: 20px;
-  }
-
-  .form-control {
-    height: 40px;
-    padding: 10px;
-    font-size: 16px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-  }
-
-  .form-control:focus {
-    border-color: #aaa;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  }
-
-  label {
-    color: #333;
-    font-weight: bold;
-  }
-
-  label i {
-    font-size: 18px;
-    margin-right: 10px;
-  }
-
-  .form-group {
-    margin-bottom: 20px;
-  }
-
-  .form-group label {
-    display: block;
-    margin-bottom: 10px;
-  }
-
-  .form-group input[type="text"], .form-group input[type="password"] {
-    padding-left: 30px;
-  }
-
-  .form-group input[type="text"]:focus, .form-group input[type="password"]:focus {
-    border-color: #aaa;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  }
-
-  #login-btn.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  #login-btn.disabled::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    border: 2px solid #fff;
-    border-top: 2px solid #333;
-    width: 20px;
-    height: 20px;
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
+    .container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
     }
-    100% {
-      transform: rotate(360deg);
+
+    .card {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      width: 90%;
+      max-width: 350px;
+      margin: 20px 0;
+      padding: 20px;
+      text-align: center;
     }
-  }
 
-  .card-margin {
-    margin-right: 20px;
-  }
-</style>
+    .card-title {
+      font-size: 20px;
+      color: #032B44;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
 
-<div class="container">
-  <div class="top-half">
+    .school-card {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .school-logo img {
+      width: 60px;
+      height: 60px;
+      margin-bottom: 10px;
+    }
+
+    .school-name {
+      font-size: 18px;
+      font-weight: bold;
+      color: #032B44;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    label {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      font-size: 12px;
+      color: #aaa;
+      pointer-events: none;
+      transition: 0.3s;
+    }
+
+    .form-control {
+      width: 90%;
+      height: 30px;
+      padding: 5px 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+      transition: border-color 0.3s;
+    }
+
+    .form-control:focus {
+      border-color: #032B44;
+      outline: none;
+      background-color: #fff;
+    }
+
+    .form-control:focus + label,
+    .form-control:not(:placeholder-shown) + label {
+      top: -10px;
+      left: 8px;
+      font-size: 10px;
+      color: #032B44;
+    }
+
+    .btn {
+      width: 90%;
+      padding: 8px;
+      font-size: 14px;
+      background-color: #032B44;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background-color: #021f32;
+    }
+
+    .link {
+      font-size: 12px;
+      color: #032B44;
+      text-decoration: none;
+    }
+
+    .link:hover {
+      text-decoration: underline;
+    }
+
+    .error {
+      color: red;
+      font-size: 11px;
+      margin-top: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Top Card: School Information -->
+    <div class="card school-card">
+      <div class="school-logo">
+        <img src="media/images/logo.jpeg" alt="School Logo">
+      </div>
+      <div class="school-name">{{ school_settings.school_name }}</div>
+    </div>
+
+    <!-- Bottom Card: Login Form -->
     <div class="card">
-      <center><div class="form-title">
-        <i class="fas fa-school me-2"></i>
-        {{school_settings.school_name}} & logo
-      </div>
-      <div class="card-body">
-        <!-- school logo or image can be added here -->
-      </div>
-    </center>
+      <div class="card-title">Sign In</div>
+      <form action="" method="POST" id="login-form">
+        {% csrf_token %}
+        <div class="form-group">
+          <input type="text" id="username" name="username" class="form-control" placeholder=" " required>
+          <label for="username">
+            <i class="fas fa-user"></i> Username
+          </label>
+          {% if form.username.errors %}
+            <span class="error">{{ form.username.errors }}</span>
+          {% endif %}
+        </div>
+        <div class="form-group">
+          <input type="password" id="password" name="password" class="form-control" placeholder=" " required>
+          <label for="password">
+            <i class="fas fa-lock"></i> Password
+          </label>
+          {% if form.password.errors %}
+            <span class="error">{{ form.password.errors }}</span>
+          {% endif %}
+        </div>
+        <button type="submit" class="btn">Sign In</button>
+      </form>
+      <a href="#" class="link">Forgot password?</a>
     </div>
   </div>
-  <div class="bottom-half">
-    <div class="row gx-3">
-      <div class="col-md-3 mx-auto mt-5">
-        <center>
-          <div class="card">
-            <div class="form-title">
-              <i class="fas fa-lock me-2"></i>
-              Sign in
-            </div>
-            <div class="card-body">
-              <form action="" method="POST" id="login-form">
-                {% csrf_token %}
-                {{ form.non_field_errors }}  <!-- To display non-field errors -->
-                <div class="form-group mb-3">
-                  <label class="mb-2" for="username_id"><i class="fas fa-address-card me-2"></i>Username</label>
-                  {{ form.username }}  <!-- Renders the username field -->
-                  {% if form.username.errors %}
-                      <span class="text-danger"><i class="fas fa-exclamation-circle"></i>{{ form.username.errors }}</span>
-                  {% endif %}
-                  <div id="message-wrapper"></div>
-                </div>
-                <div class="form-group mb-3">
-                  <label class="mb-2" for="password_id"><i class="fas fa-key me-2"></i>Password</label>
-                  {{ form.password }}  <!-- Renders the password field -->
-                  {% if form.password.errors %}
-                      <span class="text-danger"><i class="fas fa-exclamation-circle"></i>{{ form.password.errors }}</span>
-                  {% endif %}
-                </div>
 
-                <button type="submit" class="btn btn-primary" id="login-btn" style="background-color: #2f4f7f; width: 200px; color: #ffffff; padding: 10px 20px;">
-                  <i class="fas fa-sign-in-alt"></i><small> SIGN IN</small>
-                </button>
-              </form>
-              <br>
-              <div class="login-bottom">
-                <a href="" class="link">Forgot password?</a>
-              </div>
-            </div>
-          </div>
-        </center>
-      </div>
-    </div>
-  </div>
-</div>
-
-{% block js %}
-
-<script>
-  $('#login-form').submit(function (e) {
-    // e.preventDefault();
-    $('#login-btn').addClass('disabled')
-    $('#login-btn').html(`<i class="fas fa-sign-in-alt"></i> Signining you in . . .`)
-  })
-
-  $("#username_id").on("input", function () {
-    username = $(this).val();
-
-    $.ajax({
-      url: "/accounts/ajax/validate-username/",
-      data: {
-        username: username
-      },
-      dataType: 'json',
-      success: function(data) {
-        if (data.is_taken) {
-          $('#message-wrapper').html('<span class="text-danger"><i class="fas fa-exclamation-circle"></i> Username already taken.</span>');
-        } else {
-          $('#message-wrapper').html('');
-        }
-      }
+  <script>
+    $('#login-form').submit(function () {
+      $('.btn').prop('disabled', true).text('Signing in...');
     });
-  })
-</script>
-
-{% endblock js %}
+  </script>
+</body>
+</html>

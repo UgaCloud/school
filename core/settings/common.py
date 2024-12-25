@@ -187,5 +187,24 @@ USER_ROLE_PREFIXES = {
 JAZZMIN_SETTINGS = {
     "site_title": "school",
     "theme":"darkly",
+    "show_ui_builder":True,
+    "topmenu_links":[
+         {"app":"app"}
+
+    ],
+
+   "recent_actions": {
+        "icon": "fas fa-history",  # Custom icon for the recent actions section
+        "title": "Recent Activities",  # Custom title
+        "card_class": "card-primary",  # Bootstrap card class
+        "show_scroll_bar": True,  # Add a scrollbar for long lists
+    },
+
+    "custom_css": "static/css/custom.css",
+    "custom_js": "static/js/custom.js",
+
+    
 
 }
+
+
