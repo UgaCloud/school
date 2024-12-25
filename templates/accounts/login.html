@@ -135,14 +135,22 @@
     <!-- Top Card: School Information -->
     <div class="card school-card">
       <div class="school-logo">
-        <img src="media/images/logo.jpeg" alt="School Logo">
+        <img src="{{ school_settings.school_logo.url }}" alt="School Logo">
       </div>
       <div class="school-name">{{ school_settings.school_name }}</div>
     </div>
+    
 
     <!-- Bottom Card: Login Form -->
     <div class="card">
       <div class="card-title">Sign In</div>
+        <!-- Error Message -->
+       {% if error_message %}
+         <div class="error">
+           {{ error_message }}
+        </div>
+       {% endif %}
+
       <form action="" method="POST" id="login-form">
         {% csrf_token %}
         <div class="form-group">

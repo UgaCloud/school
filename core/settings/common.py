@@ -144,6 +144,10 @@ LOGIN_URL = 'login'
 LOGOUT_REDIRECT_URL = 'login'
 
 
+#Ssessions
+SESSION_COOKIE_AGE = 1800  # 30 minutes
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
 
 
 LOGGING = {
