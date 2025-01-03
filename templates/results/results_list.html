@@ -9,14 +9,15 @@
         <label for="class_id" class="mr-2">Select Class:</label>
         <select name="class_id" id="class_id" class="form-control mr-2" onchange="submitForm()">
             <option value="">All Classes</option>
-            {% for cls in classes %}
-                <option value="{{ cls.id }}" {% if cls.id|stringformat:"s" == selected_class_id %}selected{% endif %}>
-                    {{ cls }}
+            {% for classe in classes %}
+                <option value="{{ classe.id }}" {% if classe.id|stringformat:"s" == selected_class_id %}selected{% endif %}>
+                    {{ classe.Class.name }}  <!-- This references the 'Class' model's 'name' field -->
                 </option>
             {% empty %}
                 <option disabled>No classes available</option>
             {% endfor %}
         </select>
+        
     
         <!-- Academic Year Dropdown -->
         <select name="academic_year_id" id="academic_year_id" class="form-control mr-2" onchange="submitForm()">

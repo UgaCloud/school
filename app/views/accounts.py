@@ -5,6 +5,7 @@ from app.models.staffs import *
 from django.utils.decorators import method_decorator
 from app.decorators.decorators import *
 from app.models.accounts import *
+from app.models.school_settings import *
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import update_session_auth_hash,authenticate, login,logout
 from django.contrib.auth.forms import PasswordChangeForm
@@ -71,15 +72,25 @@ def create_account_view(request):
 
 
 def user_login(request):
+    error_message = None  
+    school_settings = SchoolSetting.objects.first()
+
     if request.method == 'POST':
         form = CustomLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
             return redirect('dashboard')
+        else:
+            error_message ="Invalid username or password.Please try again."
     else:
         form = CustomLoginForm()
-    return render(request, 'accounts/login.html', {'form': form})
+    context={
+        'form':form,
+        'school_settings':school_settings,
+        'error_message': error_message,
+    }
+    return render(request, 'accounts/login.html',context)
 
 
 @login_required

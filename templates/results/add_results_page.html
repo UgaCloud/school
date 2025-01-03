@@ -7,54 +7,76 @@
 <div class="container mt-5">
     <h2>Enter Marks for {{ assessment.subject }} ({{ assessment.assessment_type }}) - {{ assessment.academic_class }}</h2>
     <p>Date: {{ assessment.date }}</p>
-
-    {% if zipped_forms %}
+    <!-- Existing Results -->
+    {% if existing_results %}
+        <h4>Existing Results</h4>
         <form method="post">
             {% csrf_token %}
-            {{ formset.management_form }}
-            <table class="table table-striped" id="studenttable" class="table table-sm">
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Student ID</th>
                         <th>Student Name</th>
                         <th>Score</th>
-                        <th>Actions</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for form, student in zipped_forms %}
+                    {% for result in existing_results %}
                     <tr>
-                        <td>{{ student.reg_no }}</td>
-                        <td>{{ student }}</td>
+                        <td>{{ result.student.reg_no }}</td>
+                        <td>{{ result.student }}</td>
                         <td>
-                            {{ form.score }}
+                            <input 
+                                type="number" 
+                                name="score_{{ result.student.id }}" 
+                                value="{{ result.score }}" 
+                                class="form-control form-control-sm" 
+                                style="max-width: 100px;" 
+                                required
+                            >
                         </td>
                         <td>
-                            <a href="{% url 'edit_results_view' assessment.id student.id %}" class="btn btn-sm btn-primary" ><i class="fa fa-edit"></i></a>
+                            <button type="submit" name="edit_result" value="{{ result.id }}" class="btn btn-sm btn-primary">Update</button>
                         </td>
-                    
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <button type="submit" class="btn btn-primary">Save Marks</button>
         </form>
     {% else %}
-        <table class="table table-striped" id="studenttable" class="table table-sm">
-            <thead>
-                <tr>
-                    <th>Student ID</th>
-                    <th>Student Name</th>
-                    <th>Score</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td colspan="4" class="text-center">No students available</td>
-                </tr>
-            </tbody>
-        </table>
+        <p>No results have been entered yet.</p>
+    {% endif %}
+
+    <!-- Add New Results -->
+    {% if students_without_results %}
+        <h4>Add New Results</h4>
+        <form method="post">
+            {% csrf_token %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Student ID</th>
+                        <th>Student Name</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students_without_results %}
+                    <tr>
+                        <td>{{ student.reg_no }}</td>
+                        <td>{{ student }}</td>
+                        <td>
+                            <input type="number" name="score_{{ student.id }}" class="form-control form-control-sm" style="max-width: 100px;" required>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" name="add_results" class="btn btn-primary">Save Results</button>
+        </form>
+    {% else %}
+        <p>All results have already been entered for this assessment.</p>
     {% endif %}
 </div>
 {% endblock content %}

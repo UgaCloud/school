@@ -30,6 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -55,6 +56,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'app.middleware.update_jazzmin.UpdateJazzminMiddleware',
+
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -141,6 +144,10 @@ LOGIN_URL = 'login'
 LOGOUT_REDIRECT_URL = 'login'
 
 
+#Ssessions
+SESSION_COOKIE_AGE = 1800  # 30 minutes
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
 
 
 LOGGING = {
@@ -179,4 +186,29 @@ USER_ROLE_PREFIXES = {
     'headmaster': 'Hm-',
     'class_teacher': 'Class-Teacher-',
 }
+
+# admin dashboard settings
+JAZZMIN_SETTINGS = {
+    "site_title": "school",
+    "theme":"darkly",
+    "show_ui_builder":True,
+    "topmenu_links":[
+         {"app":"app"}
+
+    ],
+
+   "recent_actions": {
+        "icon": "fas fa-history",  # Custom icon for the recent actions section
+        "title": "Recent Activities",  # Custom title
+        "card_class": "card-primary",  # Bootstrap card class
+        "show_scroll_bar": True,  # Add a scrollbar for long lists
+    },
+
+    "custom_css": "static/css/custom.css",
+    "custom_js": "static/js/custom.js",
+
+    
+
+}
+
 

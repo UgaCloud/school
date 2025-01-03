@@ -28,35 +28,65 @@ import tempfile
 def add_results_view(request, assessment_id=None):
     if assessment_id is None:
         return redirect('class_assessment_list')
-    assessment = Assessment.objects.get(id=assessment_id)
+
+    assessment = get_object_or_404(Assessment, id=assessment_id)
     academic_class = assessment.academic_class
     class_registers = ClassRegister.objects.filter(academic_class_stream__academic_class=academic_class)
-    students = [class_register.student for class_register in class_registers]
-    ResultFormSet = modelformset_factory(Result, form=ResultForm, extra=len(students))
+    students = [register.student for register in class_registers]
+
+    existing_results = Result.objects.filter(assessment=assessment)
+    existing_students = {result.student_id for result in existing_results}
+
+    # Prepare a list of students without results for this assessment
+    students_without_results = [student for student in students if student.id not in existing_students]
 
     if request.method == "POST":
-       with transaction.atomic():
-        formset = ResultFormSet(request.POST)
-        if formset.is_valid():
-            for i, form in enumerate(formset):
-                form.instance.assessment = assessment
-                form.instance.student_id = students[i].id
-            formset.save()
-            messages.success(request, SUCCESS_BULK_ADD_MESSAGE)
-            return redirect('list_assessments', class_id=academic_class.id)  
-        else:
-            messages.error(request, FAILURE_MESSAGE)
-    else:
-        formset = ResultFormSet(queryset=Result.objects.filter(assessment=assessment))
+        if "edit_result" in request.POST:
+            # Handle editing an existing result
+            result_id = request.POST.get("edit_result")
+            result = get_object_or_404(Result, id=result_id, assessment=assessment)
+            score = request.POST.get(f'score_{result.student.id}')
+            if score:
+                try:
+                    result.score = int(score)
+                    result.save()
+                    messages.success(request, f"Result for {result.student} updated successfully!")
+                except ValueError:
+                    messages.error(request, "Invalid score entered.")
+            return redirect(add_results_view, assessment_id=assessment.id)
 
-    zipped_forms = list(zip(formset.forms, students))
+        elif "add_results" in request.POST:
+            # Handle adding new results
+            with transaction.atomic():
+                bulk_results = []
+                for student in students_without_results:
+                    score = request.POST.get(f'score_{student.id}')
+                    if score is not None:
+                        try:
+                            score = int(score)
+                        except ValueError:
+                            messages.error(request, f"Invalid score for student {student}.")
+                            return redirect(add_results_view, assessment_id=assessment.id)
+
+                        bulk_results.append(Result(
+                            assessment=assessment,
+                            student=student,
+                            score=score
+                        ))
+
+                # Bulk create results
+                Result.objects.bulk_create(bulk_results)
+                messages.success(request, "New results added successfully!")
+                return redirect(add_results_view, assessment_id=assessment.id)
 
     context = {
         'assessment': assessment,
-        'formset': formset,
-        'zipped_forms': zipped_forms,
+        'students_without_results': students_without_results,
+        'existing_results': existing_results,
     }
     return render(request, 'results/add_results_page.html', context)
+
+
 
 #Edit Results view
 @login_required
@@ -113,12 +143,10 @@ def class_assessment_list_view(request):
 
 def list_assessments_view(request, class_id):
     academic_class = AcademicClass.objects.get(id=class_id)
-    print(academic_class)
     assessments = Assessment.objects.filter(academic_class=academic_class)
     return render(request, 'results/list_assessments.html', {'assessments': assessments, 'class_id': class_id})
 
 #Grading System
-
 def grading_system_view(request):
     if request.method == "POST":
         grading_form = GradingSystemForm(request.POST)
@@ -406,13 +434,15 @@ def result_list(request):
         'selected_academic_year_id': selected_academic_year_id,
         'selected_term_id': selected_term_id,
     })
-
 def student_report_card(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)
 
     # Get the current term
     current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
+
+    # Fetch assessment types with weights
+    assessment_types = AssessmentType.objects.values('name', 'weight')
 
     # Organize report data
     report_data = {}
@@ -455,8 +485,11 @@ def student_report_card(request, student_id):
         'report_data': report_data,
         'total_final_score': total_final_score,
         'total_points': total_points,
+        'assessment_types': assessment_types,
         'current_term': current_term,
     })
+
+
 def generate_termly_report_pdf(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)
