@@ -18,6 +18,7 @@ import app.selectors.fees_selectors as fees_selectors
 from app.services.students import create_class_bill_item
 from django.contrib.auth.decorators import login_required
 from app.decorators.decorators import *
+from app.models.accounts import *
 
 
 def class_view(request):
@@ -239,12 +240,26 @@ def add_class_bill_item_view(request, id):
         
 
 
+from django.contrib.auth.decorators import login_required
+
+@login_required
 def class_subject_allocation_list(request):
-    allocations = ClassSubjectAllocation.objects.all()
-    context={
-        'allocations':allocations
+    # Get the logged-in user's staff account
+    try:
+        staff_account = StaffAccount.objects.get(user=request.user)
+        staff_member = staff_account.staff
+    except StaffAccount.DoesNotExist:
+        messages.error(request, "You do not have the necessary permissions to view this page.")
+        return redirect('dashboard')
+    
+    # Filter allocations based on the logged-in staff member
+    allocations = ClassSubjectAllocation.objects.filter(subject_teacher=staff_member)
+    
+    context = {
+        'allocations': allocations
     }
-    return render(request, 'classes/classsubjectallocation_list.html',context)
+    return render(request, 'classes/classsubjectallocation_list.html', context)
+
  
 def add_class_subject_allocation(request):
     if request.method == "POST":
@@ -252,7 +267,7 @@ def add_class_subject_allocation(request):
         if form.is_valid():
             form.save()
             messages.success(request, SUCCESS_ADD_MESSAGE)
-            return redirect(class_subject_allocation_list)
+            return redirect(add_class_subject_allocation)
     else:
         form = ClassSubjectAllocationForm()
     allocations = ClassSubjectAllocation.objects.all()
