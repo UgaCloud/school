@@ -67,7 +67,7 @@ class AcademicClass(models.Model):
         unique_together = ("Class", "academic_year", "term")
 
     def __str__(self):
-        return f"{self.Class} - Term {self.term} - {self.academic_year}"
+        return f"{self.Class} {self.term} - {self.academic_year}"
 
     def get_absolute_url(self):
         return reverse("AcademicClass_detail", kwargs={"pk": self.pk})

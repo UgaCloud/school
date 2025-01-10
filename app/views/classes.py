@@ -237,10 +237,6 @@ def add_class_bill_item_view(request, id):
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
 
    
-        
-
-
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def class_subject_allocation_list(request):
