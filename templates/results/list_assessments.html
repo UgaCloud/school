@@ -15,10 +15,15 @@
             <td>{{assessment.id}}</td>
             <td>{{ assessment }}</td>
             <td>
-                <a href="{% url 'add_results' assessment.id %}" class="btn btn-primary">Add Results</a>
-                <a href="" class="btn btn-primary"><i class="fa fa-edit"></i></a>
-                <a href="" class="btn btn-danger" ><i class="fa fa-trash-o"></i></a>
+                {% if not request.user.is_superuser %}
+                    <a href="{% url 'add_results' assessment.id %}" class="btn btn-primary">Add Results</a>
+                {% else %}
+                    <a href="{% url 'edit_assessment_page' assessment.id  %}" class="btn btn-primary"><i class="fa fa-edit"></i></a>
+                    <a href="{% url 'delete_assessment' assessment.id %}" class="btn btn-danger"><i class="fa fa-trash-o"></i></a>
+                {% endif %}
             </td>
+            
+            
         </tr>
         {% endfor %}
     </table>

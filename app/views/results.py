@@ -156,13 +156,10 @@ def class_assessment_list_view(request):
             allocated_classes = AcademicClass.objects.filter(
                 id__in=allocated_streams.values_list('academic_class', flat=True)
             )
-
-            # Get the actual classes from AcademicClass
             classes = Class.objects.filter(
                 id__in=allocated_classes.values_list('Class', flat=True)
             ).distinct()
         except StaffAccount.DoesNotExist:
-            # If no staff account is found, return an empty list
             classes = Class.objects.none()
 
     return render(request, 'results/class_assessments.html', {'classes': classes})
@@ -175,9 +172,7 @@ def list_assessments_view(request, class_id):
     academic_class = get_object_or_404(AcademicClass, id=class_id)
     # Get the staff account for the logged-in user
     staff_account = StaffAccount.objects.filter(user=request.user).first()
-    # Check if the logged-in user is an admin
     if request.user.is_superuser:
-        # Admin sees all assessments for the class
         assessments = Assessment.objects.filter(academic_class=academic_class)
     else:
         if staff_account:
