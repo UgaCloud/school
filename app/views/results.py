@@ -134,17 +134,73 @@ def edit_results_view(request, assessment_id=None, student_id=None):
     }
     return render(request, 'results/edit_results_page.html', context)
 
+
+
 @login_required
 def class_assessment_list_view(request):
-    classes =Class.objects.all()
-    return render(request,'results/class_assessments.html',{'classes':classes})
+    if request.user.is_superuser:
+        # Admin sees all classes
+        classes = Class.objects.all()
+    else:
+        try:
+            # Get the staff account for the logged-in user
+            staff_account = StaffAccount.objects.get(user=request.user)
+
+            # Get the AcademicClassStream objects allocated to the teacher
+            teacher_allocations = ClassSubjectAllocation.objects.filter(subject_teacher=staff_account.staff)
+            allocated_streams = AcademicClassStream.objects.filter(
+                id__in=teacher_allocations.values_list('academic_class_stream', flat=True)
+            )
+
+            # Get the academic classes from these streams
+            allocated_classes = AcademicClass.objects.filter(
+                id__in=allocated_streams.values_list('academic_class', flat=True)
+            )
+            classes = Class.objects.filter(
+                id__in=allocated_classes.values_list('Class', flat=True)
+            ).distinct()
+        except StaffAccount.DoesNotExist:
+            classes = Class.objects.none()
+
+    return render(request, 'results/class_assessments.html', {'classes': classes})
+
+
 
 #List of Assessments basing on specific academic_class
-
+@login_required
 def list_assessments_view(request, class_id):
-    academic_class = AcademicClass.objects.get(id=class_id)
-    assessments = Assessment.objects.filter(academic_class=academic_class)
-    return render(request, 'results/list_assessments.html', {'assessments': assessments, 'class_id': class_id})
+    academic_class = get_object_or_404(AcademicClass, id=class_id)
+    # Get the staff account for the logged-in user
+    staff_account = StaffAccount.objects.filter(user=request.user).first()
+    if request.user.is_superuser:
+        assessments = Assessment.objects.filter(academic_class=academic_class)
+    else:
+        if staff_account:
+            # Get the class subject allocations for the logged-in teacher for the specific class
+            teacher_allocations = ClassSubjectAllocation.objects.filter(
+                subject_teacher=staff_account.staff,
+                academic_class_stream__academic_class=academic_class
+            )
+
+            # If the teacher is assigned to any subject in this class, fetch the corresponding assessments
+            if teacher_allocations.exists():
+                subject_ids = teacher_allocations.values_list('subject', flat=True)
+                assessments = Assessment.objects.filter(
+                    academic_class=academic_class,
+                    subject__in=subject_ids
+                )
+            else:
+                assessments = []
+        else:
+            assessments = []
+
+    return render(request, 'results/list_assessments.html', {
+        'assessments': assessments, 
+        'academic_class': academic_class
+    })
+
+
+
 
 #Grading System
 def grading_system_view(request):

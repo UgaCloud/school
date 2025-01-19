@@ -4,29 +4,35 @@
 
 {% block content %}
     <div class="spaced-table">
-        <table class="table table-bordered table-striped">
-            <tr>
-                <th>ID</th>
-                <th>Class</th>
-                <th>Actions</th>
-            </tr>
-            {% for class in classes %}
-            <tr class="mb-2">
-                <td>{{ class.id }}</td>
-                <td>{{ class.name }}</td>
-                <td>
-                    {% with assessments=class.academicclass_set.all %}
-                    {% if assessments %}
-                        {% for academic_class in assessments %}
-                            <a href="{% url 'list_assessments' academic_class.id %}" class="btn btn-primary">View Assessments </a>
-                        {% endfor %}
-                    {% else %}
-                        No assessment available for this class
-                    {% endif %}
-                    {% endwith %}
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
+        {% if classes %}
+            <table class="table table-bordered table-striped">
+                <tr>
+                    <th>ID</th>
+                    <th>Class</th>
+                    <th>Actions</th>
+                </tr>
+                {% for class in classes %}
+                <tr class="mb-2">
+                    <td>{{ class.id }}</td>
+                    <td>{{ class.name }}</td>
+                    <td>
+                        {% with assessments=class.academicclass_set.all %}
+                        {% if assessments %}
+                            {% for academic_class in assessments %}
+                                <a href="{% url 'list_assessments' academic_class.id %}" class="btn btn-primary">View Assessments</a>
+                            {% endfor %}
+                        {% else %}
+                            No assessment available for this class
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <div class="alert alert-warning text-center mt-4">
+                <strong>No classes assigned to you.</strong>
+            </div>
+        {% endif %}
     </div>
 {% endblock content %}
