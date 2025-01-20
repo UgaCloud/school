@@ -9,6 +9,13 @@ DOS = "DOS"
 HEADTEACHER = "Headteacher"
 ######## End of Roles ############
 
+POSITION_SIGNATURE_CHOICES=[
+    ("HEAD TEACHER", "HEAD TEACHER"),
+    ("DIRECTOR OF STUDIES", "DIRECTOR OF STUDIES"),
+    ("CLASS TEACHER", "CLASS TEACHER"),
+
+]
+
 ##### Authentication Roles ###########
 ROLE_CHOICES = [
         ('admin', 'Admin'),

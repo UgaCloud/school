@@ -490,6 +490,7 @@ def result_list(request):
         'selected_academic_year_id': selected_academic_year_id,
         'selected_term_id': selected_term_id,
     })
+
 def student_report_card(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)
@@ -536,6 +537,11 @@ def student_report_card(request, student_id):
         total_final_score += data['final_score']
         total_points += data['points']
 
+    # Fetch school settings
+    school_settings = SchoolSetting.objects.first()
+    signatures = Signature.objects.filter(position__in=["HEAD TEACHER", "DIRECTOR OF STUDIES"])
+    class_teacher_signature = AcademicClassStream.class_teacher_signature if AcademicClassStream else None
+
     return render(request, 'results/student_report_card.html', {
         'student': student,
         'report_data': report_data,
@@ -543,8 +549,10 @@ def student_report_card(request, student_id):
         'total_points': total_points,
         'assessment_types': assessment_types,
         'current_term': current_term,
+        'school_setting': school_settings,
+        'signatures': signatures,
+        'class_teacher_signature': class_teacher_signature,
     })
-
 
 def generate_termly_report_pdf(request, student_id):
     student = get_object_or_404(Student, id=student_id)

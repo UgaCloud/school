@@ -96,6 +96,7 @@ def add_student_bill_item_view(request, id):
     bill = get_student_bill(id)
     
     if request.method == "POST":
+        
         form = StudentBillItemForm(request.POST)
         
         if form.is_valid():
