@@ -540,7 +540,7 @@ def student_report_card(request, student_id):
     # Fetch school settings
     school_settings = SchoolSetting.objects.first()
     signatures = Signature.objects.filter(position__in=["HEAD TEACHER", "DIRECTOR OF STUDIES"])
-    class_teacher_signature = AcademicClassStream.class_teacher_signature if AcademicClassStream else None
+    
 
     return render(request, 'results/student_report_card.html', {
         'student': student,
@@ -551,7 +551,7 @@ def student_report_card(request, student_id):
         'current_term': current_term,
         'school_setting': school_settings,
         'signatures': signatures,
-        'class_teacher_signature': class_teacher_signature,
+
     })
 
 def generate_termly_report_pdf(request, student_id):
