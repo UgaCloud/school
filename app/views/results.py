@@ -203,6 +203,7 @@ def list_assessments_view(request, class_id):
 
 
 #Grading System
+@login_required
 def grading_system_view(request):
     if request.method == "POST":
         grading_form = GradingSystemForm(request.POST)
@@ -266,7 +267,7 @@ def assessment_list_view(request):
     }
     return render(request, 'results/assessment_list.html', context)
 
-
+@login_required
 def add_assessment_view(request):
     if request.method == "POST":
         form = AssessmentForm(request.POST)
@@ -320,16 +321,7 @@ def delete_assessment_view(request,id):
 
 
 
-
-
-
-
-
-
-
-
-
-
+@login_required
 def assesment_type_view(request):
     if request.method == "POST":
         assesment_type_form = AssesmentTypeForm(request.POST)
@@ -462,6 +454,7 @@ def get_student_results(class_id=None, student_id=None,academic_year_id=None,ter
 
     return student_results
 
+@login_required
 def result_list(request):
     class_id = request.GET.get('class_id')
     academic_year_id = request.GET.get('academic_year_id')
@@ -491,6 +484,7 @@ def result_list(request):
         'selected_term_id': selected_term_id,
     })
 
+@login_required
 def student_report_card(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)
@@ -554,6 +548,7 @@ def student_report_card(request, student_id):
 
     })
 
+@login_required
 def generate_termly_report_pdf(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)

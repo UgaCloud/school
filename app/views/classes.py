@@ -1,12 +1,8 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect
 from django.contrib import messages
 from django.urls import reverse
-
 import logging
-
 logger = logging.getLogger(__name__)
-
-
 from app.constants import *
 from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream,ClassSubjectAllocation
 from app.forms.classes import ClassForm, AcademicClassForm, StreamForm, AcademicClassStreamForm,ClassSubjectAllocationForm
@@ -20,7 +16,7 @@ from django.contrib.auth.decorators import login_required
 from app.decorators.decorators import *
 from app.models.accounts import *
 
-
+@login_required
 def class_view(request):
     if request.method == "POST":
         class_form = ClassForm(request.POST)
@@ -127,7 +123,7 @@ def delete_stream_view(request, id):
     except:
         logger.critical("Failed Delete record")
 
-
+@login_required
 def academic_class_view(request):
     if request.method == "POST":
         academic_class_form = AcademicClassForm(request.POST)
@@ -206,7 +202,7 @@ def edit_academic_class_details_view(request,id):
     }
     return  render(request,"classes/edit_academic_class_details.html",context)
 
-
+@login_required
 def add_class_stream(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
     class_stream_form = AcademicClassStreamForm(request.POST)
@@ -220,7 +216,7 @@ def add_class_stream(request, id):
         
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
 
-
+@login_required
 def add_class_bill_item_view(request, id):
     academic_class = class_selectors.get_academic_class(id)
     
@@ -256,7 +252,7 @@ def class_subject_allocation_list(request):
     }
     return render(request, 'classes/classsubjectallocation_list.html', context)
 
- 
+@login_required
 def add_class_subject_allocation(request):
     if request.method == "POST":
         form = ClassSubjectAllocationForm(request.POST)

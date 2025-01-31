@@ -11,7 +11,7 @@ from app.selectors.model_selectors import *
 from django.contrib.auth.decorators import *
 from app.decorators.decorators import *
 
-
+@login_required
 def settings_page(request):
     all_currencies = school_settings_selectors.get_all_currencies()
     school_settings = SchoolSetting.load()
@@ -36,7 +36,7 @@ def settings_page(request):
     }
     return render(request, 'school_settings/settings_page.html', context)
 
-
+@login_required
 def update_school_settings(request):
     school_settings = SchoolSetting.load()
     count = SchoolSetting.objects.count()

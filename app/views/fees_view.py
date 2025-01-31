@@ -8,7 +8,7 @@ from app.forms.fees_payment import *
 from django.contrib.auth.decorators import login_required
 
 
-
+@login_required
 def manage_bill_items_view(request):
     bill_items = get_bill_items()
     bill_item_form = BillItemForm()
@@ -19,7 +19,7 @@ def manage_bill_items_view(request):
     }
     return render(request, "fees/bill_items.html", context)
 
-
+@login_required
 def add_bill_item_view(request):
     if request.method == "POST":
         bill_item_form = BillItemForm(request.POST)
@@ -67,7 +67,7 @@ def delete_bill_item_view(request, id):
     return HttpResponseRedirect(reverse(manage_bill_items_view))
 
 
-
+@login_required
 def  manage_student_bills_view(request):
     student_bills = get_student_bills()
     
@@ -76,7 +76,7 @@ def  manage_student_bills_view(request):
     }
     return render(request, "fees/student_bills.html", context)
 
-
+@login_required
 def manage_student_bill_details_view(request, id):
     student_bill = get_student_bill(id)
     
@@ -91,7 +91,7 @@ def manage_student_bill_details_view(request, id):
     
     return render(request, "fees/student_bill_details.html", context)    
 
-
+@login_required
 def add_student_bill_item_view(request, id):
     bill = get_student_bill(id)
     
@@ -110,7 +110,7 @@ def add_student_bill_item_view(request, id):
         
     return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill.id]))
 
-
+@login_required
 def add_student_payment_view(request, id):
     bill = get_student_bill(id)
     
