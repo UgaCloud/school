@@ -52,7 +52,7 @@ def update_school_settings(request):
     
     return HttpResponseRedirect(reverse('settings_page'))
     
-
+@login_required
 def add_currency(request):
     if request.POST:
         code = request.POST.get('code')
@@ -88,7 +88,7 @@ def delete_currency(request, currency_id):
     messages.success(request, DELETE_MESSAGE)
     return HttpResponseRedirect(reverse('settings_page'))
 
-
+@login_required
 def school_section_view(request):
     
     if request.method == "POST":
@@ -134,7 +134,7 @@ def delete_section_view(request, id):
     messages.success(request, DELETE_MESSAGE)
     return HttpResponseRedirect(reverse("settings_page"))
 
-
+@login_required
 def add_signature_view(request):
     if request.method == "POST":
         signature_form = school_settings_forms.SignatureForm(request.POST, request.FILES)
@@ -179,7 +179,7 @@ def delete_signature_view(request, id):
     
     return HttpResponseRedirect(reverse("settings_page"))
 
-
+@login_required
 def add_department_view(request):
     
     if request.method == "POST":

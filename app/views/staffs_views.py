@@ -11,6 +11,7 @@ import app.selectors.staffs as staff_selectors
 import app.forms.staff as staff_forms
 from django.contrib.auth.decorators import login_required
 
+@login_required
 def manage_staff_view(request):
     
     staffs = staff_selectors.get_all_staffs()
@@ -36,7 +37,7 @@ def add_staff(request):
     
     return HttpResponseRedirect(reverse(manage_staff_view))
 
-
+@login_required
 def staff_details_view(request, id):
     staff = staff_selectors.get_staff(id)
     
