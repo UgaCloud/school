@@ -203,6 +203,7 @@ def list_assessments_view(request, class_id):
 
 
 #Grading System
+@login_required
 def grading_system_view(request):
     if request.method == "POST":
         grading_form = GradingSystemForm(request.POST)
@@ -266,7 +267,7 @@ def assessment_list_view(request):
     }
     return render(request, 'results/assessment_list.html', context)
 
-
+@login_required
 def add_assessment_view(request):
     if request.method == "POST":
         form = AssessmentForm(request.POST)
@@ -320,16 +321,7 @@ def delete_assessment_view(request,id):
 
 
 
-
-
-
-
-
-
-
-
-
-
+@login_required
 def assesment_type_view(request):
     if request.method == "POST":
         assesment_type_form = AssesmentTypeForm(request.POST)
@@ -462,6 +454,7 @@ def get_student_results(class_id=None, student_id=None,academic_year_id=None,ter
 
     return student_results
 
+@login_required
 def result_list(request):
     class_id = request.GET.get('class_id')
     academic_year_id = request.GET.get('academic_year_id')
@@ -490,6 +483,8 @@ def result_list(request):
         'selected_academic_year_id': selected_academic_year_id,
         'selected_term_id': selected_term_id,
     })
+
+@login_required
 def student_report_card(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)
@@ -536,6 +531,11 @@ def student_report_card(request, student_id):
         total_final_score += data['final_score']
         total_points += data['points']
 
+    # Fetch school settings
+    school_settings = SchoolSetting.objects.first()
+    signatures = Signature.objects.filter(position__in=["HEAD TEACHER", "DIRECTOR OF STUDIES"])
+    
+
     return render(request, 'results/student_report_card.html', {
         'student': student,
         'report_data': report_data,
@@ -543,9 +543,12 @@ def student_report_card(request, student_id):
         'total_points': total_points,
         'assessment_types': assessment_types,
         'current_term': current_term,
+        'school_setting': school_settings,
+        'signatures': signatures,
+
     })
 
-
+@login_required
 def generate_termly_report_pdf(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)

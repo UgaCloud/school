@@ -20,6 +20,7 @@ def manage_income_sources(request):
     }
     return render(request, "finance/income_sources.html", context)
 
+@login_required
 def add_income_source(request):
     if request.method == "POST":
         form = finance_forms.IncomeSourceForm(request.POST)
@@ -72,7 +73,7 @@ def manage_expenses(request):
     }
     return render(request, "finance/expenses.html", context)
 
-
+@login_required
 def add_expense(request):
     if request.method == "POST":
         form = finance_forms.ExpenseForm(request.POST)
@@ -128,7 +129,7 @@ def manage_expenditures(request):
     }
     return render(request, "finance/expenditures.html", context)
 
-
+@login_required
 def add_expenditure(request):
     if request.method == "POST":
         form = finance_forms.ExpenditureForm(request.POST, request.FILES)
@@ -166,7 +167,7 @@ def delete_expenditure(request, id):
     
     return HttpResponsePermanentRedirect(reverse(manage_expenditures))
 
-
+@login_required
 def manage_expenditure_items(request, id):
     expenditure = get_model_record(Expenditure, id)
     form = finance_forms.ExpenditureItemForm(initial={"expenditure":expenditure})
@@ -179,7 +180,7 @@ def manage_expenditure_items(request, id):
     }
     return render(request, "finance/expenditure_items.html", context)
 
-
+@login_required
 def add_expenditure_item(request):
     if request.method == "POST":
         form = finance_forms.ExpenditureItemForm(request.POST)
@@ -233,7 +234,7 @@ def manage_vendors(request):
     }
     return render(request, "finance/vendors.html", context)
 
-
+@login_required
 def add_vendor(request):
     if request.method == "POST":
         form = finance_forms.VendorForm(request.POST, request.FILES)
@@ -279,7 +280,7 @@ def delete_vendor(request, id):
     
     return HttpResponsePermanentRedirect(reverse(manage_vendors))
 
-
+@login_required
 def manage_budgets(request):
     form = finance_forms.BudgetForm()
     budgets = get_all_model_records(Budget)
@@ -290,7 +291,7 @@ def manage_budgets(request):
     }
     return render(request, "finance/budgets.html", context)
 
-
+@login_required
 def add_budget(request):
     if request.method == "POST":
         form = finance_forms.BudgetForm(request.POST, request.FILES)
@@ -334,7 +335,7 @@ def delete_budget(request, id):
     
     return HttpResponsePermanentRedirect(reverse(manage_budgets))
 
-
+@login_required
 def manage_budget_items(request, id):
     budget = get_model_record(Budget, id)
     form = finance_forms.BudgetItemForm(initial={"budget": budget})
@@ -347,7 +348,7 @@ def manage_budget_items(request, id):
     }
     return render(request, "finance/budget_items.html", context)
 
-
+@login_required
 def add_budget_item(request):
     if request.method == "POST":
         form = finance_forms.BudgetItemForm(request.POST)

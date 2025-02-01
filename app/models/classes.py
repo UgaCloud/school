@@ -73,14 +73,14 @@ class AcademicClass(models.Model):
         return reverse("AcademicClass_detail", kwargs={"pk": self.pk})
 
 class AcademicClassStream(models.Model):
-    
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name="class_streams")
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
     class_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
+    
 
     class Meta:
-        verbose_name = ("ClassStream")
-        verbose_name_plural = ("ClassStreams")
+        verbose_name = "Class Stream"
+        verbose_name_plural = "Class Streams"
         unique_together = ("academic_class", "stream")
 
     def __str__(self):
@@ -88,6 +88,7 @@ class AcademicClassStream(models.Model):
 
     def get_absolute_url(self):
         return reverse("ClassStream_detail", kwargs={"pk": self.pk})
+
 
 class ClassSubjectAllocation(models.Model):
     

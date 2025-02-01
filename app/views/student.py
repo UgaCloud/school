@@ -151,6 +151,7 @@ def classregister(request):
     return render(request,"student/class_register.html",context)
 
 #class registration
+@login_required
 def bulk_register_students(request):
     # Filter students not yet registered
     registered_students = ClassRegister.objects.values_list('student_id', flat=True)

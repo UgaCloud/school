@@ -23,6 +23,7 @@ def manage_subjects_view(request):
     }
     return render(request, "subjects/manage_subjects.html", context)
 
+@login_required
 def add_subject_view(request):
     subject_form = subject_forms.SubjectForm(request.POST)
     
@@ -57,7 +58,6 @@ def edit_subject_view(request,id):
     }
     
     return render(request, "subjects/edit_subject.html", context)
-
 
 def delete_subject_view(request, id):
     subject = subject_selectors.get_subject(id)

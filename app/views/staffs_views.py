@@ -22,6 +22,7 @@ def manage_staff_view(request):
     }
     return render(request, "staff/manage_staff.html", context)
 
+@login_required
 def add_staff(request):
     if request.method == "POST":
         staff_form = staff_forms.StaffForm(request.POST, request.FILES)
@@ -34,6 +35,7 @@ def add_staff(request):
             messages.error(request, FAILURE_MESSAGE)
     
     return HttpResponseRedirect(reverse(manage_staff_view))
+
 
 def staff_details_view(request, id):
     staff = staff_selectors.get_staff(id)

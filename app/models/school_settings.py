@@ -1,9 +1,7 @@
 from django.db import models
 from django.urls import reverse
-
 from AbstractModels.singleton import SingletonModel
-
-from app.constants import BILL_CATEGORY_CHOICES, BILL_DURATION_CHOICES, TYPE_CHOICES
+from app.constants import *
 
 class Currency(models.Model):
     code = models.CharField(max_length=10, unique=True, default="UGX")
@@ -69,7 +67,7 @@ class Section(models.Model):
 
 class Signature(models.Model):
     
-    position = models.CharField(max_length=25)
+    position = models.CharField(max_length=25,choices=POSITION_SIGNATURE_CHOICES)
     signature = models.ImageField(upload_to="signatures", height_field=None, width_field=None, max_length=None)
 
     class Meta:

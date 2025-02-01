@@ -23,46 +23,12 @@
                     Add Academic Class
                 </button>
 
-                <div class="card">
-                    <div class="card-body">
-                        <div class="form-group row">
-                            <label class="control-label col-md-2">Academic Year</label>
-                            <div class="col-md-3 col-sm-9 ">
-                                <select class="select2_single form-control" tabindex="-1">
-                                    <option></option>
-                                    {% for year in academic_years %}
-                                    <option value="AK">{{year.academic_year}}</option>
-                                    {% endfor %} 
-                                </select>
-                            </div>
-                            <label class="control-label col-md-2">Term</label>
-                            <div class="col-md-3 col-sm-9 ">
-                                <select class="select2_single form-control" tabindex="-1">
-                                    <option></option>
-                                    <option value="AK">1</option>
-                                    <option value="HI">2</option>
-                                    <option value="CA">3</option>
-                                </select>
-                            </div>
-                            <label class="control-label col-md-2">Class</label>
-                            <div class="col-md-3 col-sm-9 ">
-                                <select class="select2_single form-control" tabindex="-1">
-                                    <option></option>
-                                    {% for class in classes %}
-                                    <option value="{{class.id}}">{{class.name}}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        
-                    </div>
-                </div>
                 <br/>
                 <hr/>
 
                 {% if academic_classes %}
                 <!-- start Class list -->
-                <table class="table table-striped projects">
+                <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
                 <thead>
                     <tr>
                     <th style="width: 1%">#</th>

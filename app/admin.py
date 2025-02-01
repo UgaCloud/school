@@ -1,5 +1,4 @@
 from django.contrib import admin
-
 from app.models.accounts import StaffAccount
 from app.models.classes import *
 from app.models.staffs import *
@@ -21,3 +20,4 @@ admin.site.register(Student)
 admin.site.register(ClassRegister)
 admin.site.register(Section)
 admin.site.register(Class)
+admin.site.register(Stream)
