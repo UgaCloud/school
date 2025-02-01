@@ -9,7 +9,7 @@ import app.forms.finance as finance_forms
 import app.selectors.finance as finance_selector
 from django.contrib.auth.decorators import login_required
 
-
+@login_required
 def manage_income_sources(request):
     form = finance_forms.IncomeSourceForm()
     income_sources = get_all_model_records(IncomeSource)
@@ -63,6 +63,7 @@ def delete_income_source(request, id):
     
     return HttpResponsePermanentRedirect(reverse(manage_income_sources))
 
+@login_required
 def manage_expenses(request):
     form = finance_forms.ExpenseForm()
     expenses = get_all_model_records(Expense)
@@ -118,7 +119,7 @@ def delete_expense(request, id):
     
     return HttpResponsePermanentRedirect(reverse(manage_expenses))
 
-
+@login_required
 def manage_expenditures(request):
     form = finance_forms.ExpenditureForm()
     expenditures = get_all_model_records(Expenditure)
@@ -223,7 +224,7 @@ def delete_expenditure_item(request, id):
     
     return HttpResponsePermanentRedirect(reverse(manage_expenditure_items))
 
-
+@login_required
 def manage_vendors(request):
     form = finance_forms.VendorForm()
     vendors = get_all_model_records(Vendor)

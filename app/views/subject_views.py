@@ -12,7 +12,7 @@ import app.forms.subjects as subject_forms
 import app.selectors.subjects as subject_selectors
 from django.contrib.auth.decorators import login_required
 
-
+@login_required
 def manage_subjects_view(request):
     subject_form = subject_forms.SubjectForm()
     all_subjects = subject_selectors.get_all_subjects()
