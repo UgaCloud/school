@@ -216,6 +216,33 @@ def add_class_stream(request, id):
         
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
 
+def edit_class_stream(request, id):
+    class_stream = get_model_record(AcademicClassStream,id)
+    
+    if request.method == "POST":
+        form = AcademicClassStreamForm(request.POST, instance=class_stream)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Class Stream updated successfully!")
+            return redirect(reverse("academic_class_details_page", args=[class_stream.academic_class.id]))
+
+        else:
+            messages.error(request, FAILURE_MESSAGE)
+    else:
+        form = AcademicClassStreamForm(instance=class_stream)
+    
+    return render(request, "classes/edit_class_stream.html", {"form": form, "class_stream": class_stream})
+
+
+def delete_class_stream(request, id):
+    class_stream = get_model_record(AcademicClassStream,id)
+    academic_class_id = class_stream.academic_class.id
+    class_stream.delete()
+    
+    messages.success(request,DELETE_MESSAGE)
+    return redirect(reverse("academic_class_details_page", args=[class_stream.academic_class.id]))
+
+
 @login_required
 def add_class_bill_item_view(request, id):
     academic_class = class_selectors.get_academic_class(id)

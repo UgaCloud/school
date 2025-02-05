@@ -38,6 +38,9 @@ urlpatterns = [
     path('classes/', class_view, name="class_page"),
     path('edit_class/<int:id>/', edit_classe_view,name="edit_class"),
     path('delete_class/<int:id>/',delete_class_view, name="delete_class"),
+    path('class-stream/edit/<int:id>/', edit_class_stream, name="edit_class_stream"),
+    path('class-stream/delete/<int:id>/', delete_class_stream, name="delete_class_stream"),
+
     
     
     # Stream
