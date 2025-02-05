@@ -56,6 +56,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app.middleware.update_jazzmin.UpdateJazzminMiddleware',
+    'core.middleware.AutoLogoutMiddleware',
 
 ]
 
@@ -146,6 +147,8 @@ LOGOUT_REDIRECT_URL = 'login'
 #Ssessions
 SESSION_COOKIE_AGE = 1800  # 30 minutes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True  
+
 
 
 
