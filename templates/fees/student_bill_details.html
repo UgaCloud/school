@@ -28,24 +28,46 @@
       <h4>Bill Summary</h4>
       <ul class="list-unstyled user_data">
         <li>
-          <p>Total Amount - {{student_bill.total_amount|intcomma}}/-</p>
-          <div class="progress progress_sm">
-            <div class="progress-bar bg-green" role="progressbar" data-transitiongoal={{student_bill.total_amount}}></div>
-          </div>
+            <p>Total Amount - {{ student_bill.total_amount|intcomma }}/-</p>
+            <div class="progress progress_sm">
+                <div
+                    class="progress-bar bg-green"
+                    role="progressbar"
+                    aria-valuenow="{{ student_bill.total_amount }}"
+                    aria-valuemin="0"
+                    aria-valuemax="{{ student_bill.total_amount }}"
+                    style="width: 100%;"
+                ></div>
+            </div>
         </li>
         <li>
-          <p>Amount Paid - {{student_bill.amount_paid|intcomma}}/-</p>
-          <div class="progress progress_sm">
-            <div class="progress-bar bg-green" role="progressbar" data-transitiongoal={{student_bill.amount_paid}}></div>
-          </div>
+            <p>Amount Paid - {{ student_bill.amount_paid|intcomma }}/-</p>
+            <div class="progress progress_sm">
+                <div
+                    class="progress-bar bg-green"
+                    role="progressbar"
+                    aria-valuenow="{{ student_bill.amount_paid }}"
+                    aria-valuemin="0"
+                    aria-valuemax="{{ student_bill.total_amount }}"
+                    style="width: {{ amount_paid_percentage }}%;"
+                ></div>
+            </div>
         </li>
         <li>
-          <p>Balance - {{student_bill.balance|intcomma}}/-</p>
-          <div class="progress progress_sm">
-            <div class="progress-bar bg-green" role="progressbar" data-transitiongoal=({{student_bill.balance}}/{{student_bill.total_amount}})*100></div>
-          </div>
+            <p>Balance - {{ student_bill.balance|intcomma }}/-</p>
+            <div class="progress progress_sm">
+                <div
+                    class="progress-bar bg-green"
+                    role="progressbar"
+                    aria-valuenow="{{ student_bill.balance }}"
+                    aria-valuemin="0"
+                    aria-valuemax="{{ student_bill.total_amount }}"
+                    style="width: {{ balance_percentage }}%;"
+                ></div>
+            </div>
         </li>
-      </ul>
+    </ul>
+    
       <!-- end of skills -->
 
     </div>

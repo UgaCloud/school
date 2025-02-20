@@ -8,11 +8,10 @@
 
 <!-- Optional search form -->
 <form method="get" action="{% url 'user_list' %}">
-    <input type="text" name="search" placeholder="Search by username">
-    <button type="submit">Search</button>
+    
 </form>
 
-<table class="table table-hover">
+<table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
     <thead>
         <tr>
             <th>Id</th>

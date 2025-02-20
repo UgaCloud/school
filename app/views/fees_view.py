@@ -79,17 +79,29 @@ def  manage_student_bills_view(request):
 @login_required
 def manage_student_bill_details_view(request, id):
     student_bill = get_student_bill(id)
-    
+
+
+    if student_bill.total_amount > 0:
+        amount_paid_percentage = (student_bill.amount_paid / student_bill.total_amount) * 100
+        balance_percentage = (student_bill.balance / student_bill.total_amount) * 100
+    else:
+        amount_paid_percentage = 0
+        balance_percentage = 0
+
     bill_item_form = StudentBillItemForm(initial={"bill": student_bill})
     payment_form = PaymentForm(initial={"bill": student_bill})
+
     
     context = {
         "student_bill": student_bill,
         "bill_item_form": bill_item_form,
-        "payment_form": payment_form
+        "payment_form": payment_form,
+        "amount_paid_percentage": amount_paid_percentage,
+        "balance_percentage": balance_percentage,
     }
-    
-    return render(request, "fees/student_bill_details.html", context)    
+
+    return render(request, "fees/student_bill_details.html", context)
+
 
 @login_required
 def add_student_bill_item_view(request, id):
