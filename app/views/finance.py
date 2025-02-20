@@ -195,7 +195,6 @@ def add_expenditure_item(request):
     
     return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
 
-
 def edit_expenditure_items(request, id):
     expenditure_item = get_model_record(ExpenditureItem, id)
     if request.method == "POST":
@@ -203,17 +202,20 @@ def edit_expenditure_items(request, id):
         if form.is_valid():
             form.save()
             messages.success(request, SUCCESS_ADD_MESSAGE)
-            
         else:
             messages.error(request, FAILURE_MESSAGE)
-        return HttpResponsePermanentRedirect(reverse(manage_expenditure_items))
 
-    form =ExpenditureItemForm(instance=expenditure_item)
-    context ={
-        "form":form,
-        "expenditure_item":expenditure_item
+        
+        expenditure_id = expenditure_item.expenditure.id  
+        return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
+
+    form = finance_forms.ExpenditureItemForm(instance=expenditure_item)
+    context = {
+        "form": form,
+        "expenditure_item": expenditure_item
     }
-    return render(request,"finance/edit_expenditure_item.html",context)
+    return render(request, "finance/edit_expenditure_item.html", context)
+
     
 
 def delete_expenditure_item(request, id):

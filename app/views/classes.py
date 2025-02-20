@@ -145,8 +145,27 @@ def academic_class_view(request):
     }
     return render(request, "classes/academic_class.html", context)
 
-def edit_academic_class_view(request):
-    return render(request)
+
+def edit_academic_class_view(request, class_id):
+    academic_class = get_model_record(AcademicClass,class_id)
+
+    if request.method == "POST":
+        academic_class_form = AcademicClassForm(request.POST, instance=academic_class)
+        
+        if academic_class_form.is_valid():
+            academic_class_form.save()
+            messages.success(request,SUCCESS_ADD_MESSAGE)
+            return redirect("academic_class_view")  
+        else:
+            messages.error(request,FAILURE_MESSAGE)
+    else:
+        academic_class_form = AcademicClassForm(instance=academic_class)
+
+    context = {
+        "form": academic_class_form,
+        "academic_class": academic_class,
+    }
+    return render(request, "classes/edit_academic_class.html", context)
 
 
 
@@ -162,23 +181,26 @@ def academic_class_details_view(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
     academic_class_streams = class_selectors.get_academic_class_streams(academic_class)
     class_bill_items = fees_selectors.get_academic_class_bill_item(academic_class)
-    
     class_register = class_selectors.get_academic_class_register(academic_class)
+
     
+    class_teachers = AcademicClassStream.objects.filter(academic_class=academic_class).select_related('class_teacher')
+
     class_stream_form = AcademicClassStreamForm(initial={"academic_class": academic_class})
     bill_item_form = StudentBillItemForm()
-    
-    
+
     context = {
         "academic_class": academic_class,
         "class_streams": academic_class_streams,
         "class_stream_form": class_stream_form,
         "class_register": class_register,
         "bill_item_form": bill_item_form,
-        "class_bill_items": class_bill_items
+        "class_bill_items": class_bill_items,
+        "class_teachers": class_teachers,  
     }
     
     return render(request, "classes/academic_class_details.html", context)
+
 
 
 def edit_academic_class_details_view(request,id):

@@ -5,34 +5,32 @@
     <div class="clearfix"></div>
 
     <div class="x_content">
-        
-        <div class="col-md-3 col-sm-3  profile_left">
-            <div class="profile_img">
+        <center><h3>Academic Class:{{academic_class.Class}}</h3></center>
+        <div class="col-md-3 col-sm-3 profile_left">
+          <div class="profile_img">
               <div id="crop-avatar">
-                <!-- Current avatar -->
-                <img class="img-responsive avatar-view" src="static/images/picture.jpg" alt="Avatar" title="Change the avatar">
+                  <!-- Current avatar -->
+                  {% for stream in class_teachers %}
+                  <h4 class="font-weight-bold text-dark">Class Teacher: {{ stream.class_teacher.first_name }} {{ stream.class_teacher.last_name }}</h4>
+
+                      <img class="img-fluid rounded-circle" 
+                        src="{{ stream.class_teacher.staff_photo.url }}" 
+                        alt="Avatar" 
+                        title="Class Teacher Avatar" 
+                        style="width: 150px; height: 150px; object-fit: cover;">
+
+                  {% endfor %}
               </div>
-            </div>
-            <h3>Samuel Okello</h3>
-
-            <ul class="list-unstyled user_data">
-              <li><i class="fa fa-map-marker user-profile-icon"></i> Eng, SST
-              </li>
-
-              <li>
-                <i class="fa fa-briefcase user-profile-icon"></i> Grade II
-              </li>
-            </ul>
-
-            <a class="btn btn-success"><i class="fa fa-edit m-right-xs"></i>View Profile</a>
-            <br />
-
-            <!-- start skills -->
-            <h4>Skills</h4>
-            <ul class="list-unstyled user_data"></ul>
-            <!-- end of skills -->
-
           </div>
+      
+          <ul class="list-unstyled user_data">
+              <li><i class="fa fa-map-marker user-profile-icon"></i> Eng, SST</li>
+              <li><i class="fa fa-briefcase user-profile-icon"></i> Grade II</li>
+          </ul>
+      
+          <a class="btn btn-success"><i class="fa fa-edit m-right-xs"></i>View Profile</a>
+      </div>
+      
           <div class="col-md-9 col-sm-9 ">
 
             <div class="profile_title">
