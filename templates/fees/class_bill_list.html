@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Manage Class Bills</h2>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Class Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for academic_class in academic_classes %}
+        <tr>
+            <td>{{ academic_class.Class.name }}</td>
+            <td>
+                <a href="{% url 'add_class_bill_items' academic_class.id %}" class="btn btn-primary">Add Class Bill</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="2">No academic classes available.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

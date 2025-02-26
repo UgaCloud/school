@@ -24,7 +24,7 @@ class StudentBill(models.Model):
 
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='bills')
     bill_date = models.DateField(auto_now_add=True)
-    academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE)
+    academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE,related_name="student_bills")
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=BILL_STATUS_CHOICES, default="Unpaid")
 

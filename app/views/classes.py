@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, HttpResponseRedirect
+from django.shortcuts import render, redirect, HttpResponseRedirect,get_object_or_404, redirect
 from django.contrib import messages
 from django.urls import reverse
 import logging
@@ -15,6 +15,7 @@ from app.services.students import create_class_bill_item
 from django.contrib.auth.decorators import login_required
 from app.decorators.decorators import *
 from app.models.accounts import *
+from app.models.fees_payment import *
 
 @login_required
 def class_view(request):
@@ -180,7 +181,7 @@ def delete_academic_class_view(request, id):
 def academic_class_details_view(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
     academic_class_streams = class_selectors.get_academic_class_streams(academic_class)
-    class_bill_items = fees_selectors.get_academic_class_bill_item(academic_class)
+    
     class_register = class_selectors.get_academic_class_register(academic_class)
 
     
@@ -195,7 +196,6 @@ def academic_class_details_view(request, id):
         "class_stream_form": class_stream_form,
         "class_register": class_register,
         "bill_item_form": bill_item_form,
-        "class_bill_items": class_bill_items,
         "class_teachers": class_teachers,  
     }
     
@@ -264,24 +264,70 @@ def delete_class_stream(request, id):
     messages.success(request,DELETE_MESSAGE)
     return redirect(reverse("academic_class_details_page", args=[class_stream.academic_class.id]))
 
+@login_required
+def class_bill_list_view(request):
+    academic_classes = AcademicClass.objects.all()  
+    
+    context = {
+        "academic_classes": academic_classes,
+    }
+    return render(request, "fees/class_bill_list.html", context)
+
 
 @login_required
 def add_class_bill_item_view(request, id):
     academic_class = class_selectors.get_academic_class(id)
     
-    if request.method == "POST":
-        bill_item = request.POST["bill_item"]
-        amount = request.POST["amount"]
-        
-        create_class_bill_item(academic_class, bill_item, amount)
-        
-        messages.success(request, SUCCESS_ADD_MESSAGE)
-    else:
-        messages.warning(request, "Not a GET Method")  
-    
-    return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
+    student_bills = academic_class.student_bills.all()
+    class_bill_items = StudentBillItem.objects.filter(bill__in=student_bills)
 
-   
+    if request.method == "POST":
+        bill_item = request.POST.get("bill_item")
+        amount = request.POST.get("amount")
+        
+        if bill_item and amount:
+            create_class_bill_item(academic_class, bill_item, amount)
+            messages.success(request,SUCCESS_ADD_MESSAGE)
+            return redirect("class_bill_list")  
+        else:
+            messages.error(request,FAILURE_MESSAGE)
+
+    bill_item_form = StudentBillItemForm()
+    
+    context = {
+        "academic_class": academic_class,
+        "bill_item_form": bill_item_form,
+        "class_bill_items": class_bill_items,
+        "academic_year": academic_class.academic_year,  
+        "term": academic_class.term,
+    }
+    return render(request, "fees/class_bill_items.html", context)
+
+def edit_class_bill_item_view(request, id):
+    bill_item = get_model_record(StudentBillItem,id)
+    if request.method == "POST":
+        form = StudentBillItemForm(request.POST, instance=bill_item)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Bill item updated successfully!")
+            return redirect(reverse('add_class_bill_items', args=[bill_item.bill.id]))
+        else:
+            messages.error(request, "Error updating the bill item.")
+    else:
+        form = StudentBillItemForm(instance=bill_item)
+    
+    context = {
+        "form": form,
+        "bill_item": bill_item,
+    }
+    return render(request, "fees/edit_class_bill_item.html", context)
+
+def delete_class_bill_item_view(request, id):
+    bill_item = get_object_or_404(StudentBillItem, pk=id)
+    bill_item.delete()
+    messages.success(request, DELETE_MESSAGE)
+    return redirect('add_class_bill_items', id=bill_item.bill.id)
+
 
 @login_required
 def class_subject_allocation_list(request):

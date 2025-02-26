@@ -21,7 +21,8 @@ def get_academic_class_streams(academic_class):
     return AcademicClassStream.objects.filter(academic_class=academic_class)
 
 def get_class_by_code(code):
-    return Class.objects.get(code=code)
+    return Class.objects.filter(code=code).first()  # Returns None instead of raising an error
+
 
 def get_stream_by_name(stream):
     return Stream.objects.get(stream=stream)
