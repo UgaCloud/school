@@ -2,182 +2,115 @@
 {% load crispy_forms_tags %}
 
 {% block content %}
-    <div class="clearfix"></div>
-
-    <div class="x_content">
-        <center><h3>Academic Class:{{academic_class.Class}}</h3></center>
-        <div class="col-md-3 col-sm-3 profile_left">
-          <div class="profile_img">
-              <div id="crop-avatar">
-                  <!-- Current avatar -->
-                  {% for stream in class_teachers %}
-                  <h4 class="font-weight-bold text-dark">Class Teacher: {{ stream.class_teacher.first_name }} {{ stream.class_teacher.last_name }}</h4>
-
-                      <img class="img-fluid rounded-circle" 
-                        src="{{ stream.class_teacher.staff_photo.url }}" 
-                        alt="Avatar" 
-                        title="Class Teacher Avatar" 
-                        style="width: 150px; height: 150px; object-fit: cover;">
-
-                  {% endfor %}
-              </div>
-          </div>
-      
-          <ul class="list-unstyled user_data">
-              <li><i class="fa fa-map-marker user-profile-icon"></i> Eng, SST</li>
-              <li><i class="fa fa-briefcase user-profile-icon"></i> Grade II</li>
-          </ul>
-      
-          <a class="btn btn-success"><i class="fa fa-edit m-right-xs"></i>View Profile</a>
-      </div>
-      
-          <div class="col-md-9 col-sm-9 ">
-
-            <div class="profile_title">
-                {% comment %} <h2></h2> {% endcomment %}
-                <div class="x_panel">
-                    <div class="x_title">
-                        <h2>Streams</h2>
-                        <ul class="nav navbar-right panel_toolbox">
-                        <li>
-                            <a class="btn" data-toggle="modal" data-target=".bs-example-modal-lg">
-                                <i class="fa fa-plus"> 
-                                    Add Stream
-                                </i>
-                            </a>
-                        </li>
-                        </ul>
-                        <div class="clearfix"></div>
-                    </div>
-                    <div class="x_content">
-                        <!-- start Stream list -->
-                        <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
-                          <thead>
-                              <tr>
-                                  <th style="width: 1%">#</th>
-                                  <th>Stream</th>
-                                  <th>Class Teacher</th>
-                                  <th>Action</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                              {% for stream in class_streams %}
-                              <tr>
-                                  <td>{{ forloop.counter }}</td>
-                                  <td>{{ stream.stream }}</td>
-                                  <td>{{ stream.class_teacher }}</td>
-                                  <td>
-                                      <!-- Edit Button -->
-                                      <a href="{% url 'edit_class_stream' stream.id %}" class="btn btn-primary btn-xs">
-                                          <i class="fa fa-pencil"></i> 
-                                      </a>
-                                      
-                                      <!-- Delete Button (with confirmation) -->
-                                      <a href="{% url 'delete_class_stream' stream.id %}" 
-                                         class="btn btn-danger btn-xs"
-                                         onclick="return confirm('Are you sure you want to delete this stream?');">
-                                          <i class="fa fa-trash-o"></i> 
-                                      </a>
-                                  </td>
-                              </tr>
-                              {% empty %}
-                              <tr>
-                                  <td colspan="4" class="text-center">No Streams Found</td>
-                              </tr>
-                              {% endfor %}
-                          </tbody>
-                      </table>
-                      
-                        <!-- end stream list -->
-                    </div>
-        
-                </div>
-              
-              </div>
-            </div>
-            <!-- start of user-activity-graph -->
-            <div id="graph_bar" style="width:100%; height:280px;"></div>
-            <!-- end of user-activity-graph -->
-
-            <div class="" role="tabpanel" data-example-id="togglable-tabs">
-              <ul id="myTab" class="nav nav-tabs bar_tabs" role="tablist">
-                <li role="presentation" class="">
-                    <a href="#tab_content2" role="tab" id="profile-tab" data-toggle="tab" aria-expanded="false">
-                        Attendance
-                    </a>
-                </li>
-                
-            </ul>
-            
-            
-              <div id="myTabContent" class="tab-content">
-                <div role="tabpanel" class="tab-pane active " id="tab_content1" aria-labelledby="home-tab">
-
-                  <!-- start recent activity -->
-                  {% include "classes/class_register.html" %}
-                  <!-- end recent activity -->
-
-                </div>
-                <div role="tabpanel" class="tab-pane fade" id="tab_content2" aria-labelledby="profile-tab">
-
-                  <!-- start user projects -->
-                  <table class="data table table-striped no-margin">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Project Name</th>
-                        <th>Client Company</th>
-                        <th class="hidden-phone">Hours Spent</th>
-                        <th>Contribution</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>1</td>
-                        <td>New Company Takeover Review</td>
-                        <td>Deveint Inc</td>
-                        <td class="hidden-phone">18</td>
-                        <td class="vertical-align-mid">
-                          <div class="progress">
-                            <div class="progress-bar progress-bar-success" data-transitiongoal="35"></div>
-                          </div>
-                        </td>
-                      </tr>
-                      
-                    </tbody>
-                  </table>
-                  <!-- end user projects -->
-
-                </div>
-                <div role="tabpanel" class="tab-pane fade" id="bills-tab" aria-labelledby="profile-tab">
-               
-                </div>
-              </div>
-            </div>
-          </div>
+<div class="container mt-4">
+    
+    <!-- Academic Class Title -->
+    <div class="text-center mb-4">
+        <h3 class="font-weight-bold">Academic Class: {{ academic_class.Class.name }}</h3>
     </div>
 
-    <div class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
+    <div class="row">
+        <!-- Class Teacher Profile -->
+        <div class="col-md-4">
+            <div class="card shadow-sm p-3">
+                {% for stream in class_teachers %}
+                    <div class="text-center">
+                        <h4 class="text-dark font-weight-bold">Class Teacher</h4>
+                        <img src="{{ stream.class_teacher.staff_photo.url }}" 
+                            alt="Avatar" 
+                            class="img-fluid rounded-circle mb-2"
+                            style="width: 120px; height: 120px; object-fit: cover;">
+                        <h5>{{ stream.class_teacher.first_name }} {{ stream.class_teacher.last_name }}</h5>
+                        <a href="#" class="btn btn-success btn-sm mt-2">View Profile</a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
 
+        <!-- Streams Table -->
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="mb-0">Streams</h5>
+                    <button class="btn btn-primary btn-sm" data-toggle="modal" data-target=".bs-example-modal-lg">
+                        <i class="fa fa-plus"></i> Add Stream
+                    </button>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Stream</th>
+                                <th>Class Teacher</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stream in class_streams %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ stream.stream }}</td>
+                                <td>{{ stream.class_teacher }}</td>
+                                <td>
+                                    <a href="{% url 'edit_class_stream' stream.id %}" class="btn btn-primary btn-sm">
+                                        <i class="fa fa-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'delete_class_stream' stream.id %}" 
+                                       class="btn btn-danger btn-sm"
+                                       onclick="return confirm('Are you sure you want to delete this stream?');">
+                                        <i class="fa fa-trash-o"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No Streams Found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Section -->
+    <div class="mt-4">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-toggle="tab" href="#attendance">Attendance</a>
+            </li>
+        </ul>
+
+        <div class="tab-content p-3 border rounded">
+            <div id="attendance" class="tab-pane active">
+                {% include "classes/class_register.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Stream Modal -->
+<div class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
             <div class="modal-header">
-              <h4 class="modal-title" id="myModalLabel">Add Class Stream</h4>
-              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
-              </button>
+                <h4 class="modal-title">Add Class Stream</h4>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
             </div>
             <div class="modal-body">
                 <form method="POST" action="{% url 'add_class_stream_page' academic_class.id %}">
                     {% csrf_token %}
-                    {{class_stream_form|crispy}}
+                    {{ class_stream_form|crispy }}
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
         </form>
-
-          </div>
         </div>
-      </div>
-{% endblock content%}
+    </div>
+</div>
+
+{% endblock %}

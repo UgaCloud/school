@@ -51,6 +51,16 @@ def add_student_view(request):
             messages.error(request, FAILURE_MESSAGE)
     
     return HttpResponseRedirect(reverse(manage_student_view))
+
+@login_required
+def student_details_view(request, id):
+    student = student_selectors.get_student(id)
+    context = {
+        "student": student,  
+    }
+    return render(request, "student/student_details.html", context)
+
+
     
 @login_required
 def download_student_template_csv(request):
@@ -79,7 +89,7 @@ def bulk_student_registration_view(request):
     delete_all_csv_files()
     if request.method == "POST":
         csv_form = student_forms.StudentRegistrationCSVForm(request.POST, request.FILES)
-        
+           
         if csv_form.is_valid():
             csv_object = csv_form.save()
             
@@ -145,8 +155,6 @@ def classregister(request):
     context ={
         "classregisterform":classregisterform,
         "class_register":class_register
-        
-        
     }
     return render(request,"student/class_register.html",context)
 
@@ -182,7 +190,7 @@ def bulk_register_students(request):
         messages.success(request,SUCCESS_BULK_ADD_MESSAGE)
 
         # Redirect after registration
-        return redirect(manage_student_view)
+        return redirect('academic_class_details')
 
     return render(request, "student/bulk_register_students.html", {
         "unregistered_students": unregistered_students,

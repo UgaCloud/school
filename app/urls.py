@@ -58,6 +58,7 @@ urlpatterns = [
     # Student
     path('students/', manage_student_view, name="student_page"),
     path('add_student/', add_student_view, name="add_student"),
+    path('student_details/<int:id>/', student_details_view, name="student_details_page"),
     path('download_student_template/', download_student_template_csv, name="download_student_template"),
     path('bulk_student_registration/', bulk_student_registration_view, name="bulk_student_registration"),
     path('edit_student/<int:id>/', edit_student_view, name="edit_student_page"),
