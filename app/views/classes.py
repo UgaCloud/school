@@ -313,7 +313,7 @@ def add_class_bill_item_view(request, id):
     else:
         
         form = ClassBillForm()
-        
+
     context = {
         "academic_class": academic_class,
         "bill_item_form": form,
@@ -324,24 +324,54 @@ def add_class_bill_item_view(request, id):
     return render(request, "fees/class_bill_items.html", context)
 
 
+
+@login_required
 def edit_class_bill_item_view(request, id):
-    bill_item = get_model_record(StudentBillItem,id)
+    class_bill = get_object_or_404(ClassBill, id=id)
+    academic_class = class_bill.academic_class  # Retrieve related AcademicClass
+
     if request.method == "POST":
-        form = StudentBillItemForm(request.POST, instance=bill_item)
+        form = ClassBillForm(request.POST, instance=class_bill)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Bill item updated successfully!")
-            return redirect(reverse('add_class_bill_items', args=[bill_item.bill.id]))
+            updated_class_bill = form.save()  
+
+            # Update the StudentBillItems for all students in the academic class
+            students_in_class = Student.objects.filter(current_class=academic_class.Class)
+
+            for student in students_in_class:
+                student_bill, created = StudentBill.objects.get_or_create(
+                    student=student,
+                    academic_class=academic_class,
+                    status="Unpaid",
+                )
+
+                
+                if updated_class_bill.bill_item.item_name != "School Fees":
+                    student_bill_item, created = StudentBillItem.objects.get_or_create(
+                        bill=student_bill,
+                        bill_item=updated_class_bill.bill_item,
+                        description=updated_class_bill.bill_item.description,
+                    )
+
+                    student_bill_item.amount = updated_class_bill.amount 
+                    student_bill_item.save()
+
+                student_bill.save()
+
+            messages.success(request, SUCCESS_ADD_MESSAGE)
+            return redirect("class_bill_list")  # Redirect to list of class bills after update
         else:
-            messages.error(request, "Error updating the bill item.")
+            messages.error(request, FAILURE_MESSAGE)
     else:
-        form = StudentBillItemForm(instance=bill_item)
-    
+        form = ClassBillForm(instance=class_bill)
+
     context = {
-        "form": form,
-        "bill_item": bill_item,
+        "class_bill": class_bill,
+        "bill_item_form": form,
     }
     return render(request, "fees/edit_class_bill_item.html", context)
+
+    
 
 def delete_class_bill_item_view(request, id):
     bill_item = get_object_or_404(StudentBillItem, pk=id)
