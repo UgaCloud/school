@@ -79,6 +79,7 @@ NATIONALITIES = [
     ("Rwanda", "Rwanda"),
     ("South Sudan", "South Sudan"),
     ("Burundi", "Burundi"),
+    ("Somali","Somali")
 ]
 
 BILL_STATUS_CHOICES = [

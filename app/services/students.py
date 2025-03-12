@@ -5,20 +5,21 @@ from app.selectors.classes import get_current_academic_class, get_academic_class
 import app.selectors.fees_selectors as fees_selectors
 
 from app.models.students import Student, ClassRegister, StudentRegistrationCSV
-from app.models.fees_payment import StudentBill, StudentBillItem
+from app.models.fees_payment import StudentBill, StudentBillItem,ClassBill
 
 def register_student(student, _class, stream):
+    if isinstance(_class, str):  
+        _class = get_class_by_code(_class)  
     current_academic_year = get_current_academic_year()
     term = get_current_term()
-    academic_class = get_current_academic_class(current_academic_year, _class,term)
+    academic_class = get_current_academic_class(current_academic_year, _class, term)
     class_stream = get_academic_class_stream(academic_class, stream)
-    
     class_register = ClassRegister(academic_class_stream=class_stream, student=student)
     class_register.save()
-    
     create_student_bill(student, academic_class)
-    
     return class_register
+
+
     
 def bulk_student_registration(csv_obj):
     with open(csv_obj.file_name.path, 'r') as f:
@@ -64,22 +65,37 @@ def delete_all_csv_files():
     StudentRegistrationCSV.objects.all().delete()
         
 def create_student_bill(student, academic_class):
+    """
+    Creates a StudentBill and assigns all Class Bills (including school fees).
+    """
     
-    student_bill = StudentBill(student=student, academic_class=academic_class)
-    
-    student_bill.save()
-    
-    # Create School fees Bill Item
-    description = f"School Fees for {academic_class.term} - {academic_class.academic_year}"
-    fees_bill_item = create_bill_Item(
-        student_bill,
-        description,
-        academic_class.fees_amount 
-        )
-    
-    fees_bill_item.save()
-    
+    student_bill, _ = StudentBill.objects.get_or_create(
+        student=student,
+        academic_class=academic_class,
+        status="Unpaid"
+    )
+
+    school_fees_description = f"School Fees for {academic_class.term} - {academic_class.academic_year}"
+    school_fees_bill_item = create_bill_Item(
+        student_bill, school_fees_description, academic_class.fees_amount
+    )
+
+    school_fees_bill_item.save()
+    # Get all additional Class Bills for this academic class
+    class_bills = ClassBill.objects.filter(academic_class=academic_class)
+
+    for class_bill in class_bills:
+        if not StudentBillItem.objects.filter(
+            bill=student_bill, bill_item=class_bill.bill_item
+        ).exists():
+            StudentBillItem.objects.create(
+                bill=student_bill,
+                bill_item=class_bill.bill_item,
+                description=class_bill.bill_item.description,
+                amount=class_bill.amount
+            )
     return student_bill
+
     
 def create_bill_Item(bill, description, amount, bill_item=None):
     if bill_item == None:

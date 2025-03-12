@@ -4,9 +4,10 @@ from django.urls import reverse
 import logging
 logger = logging.getLogger(__name__)
 from app.constants import *
+from app.models.students  import Student
 from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream,ClassSubjectAllocation
 from app.forms.classes import ClassForm, AcademicClassForm, StreamForm, AcademicClassStreamForm,ClassSubjectAllocationForm
-from app.forms.fees_payment import StudentBillItemForm
+from app.forms.fees_payment import StudentBillItemForm,ClassBillForm
 from app.selectors.model_selectors import *
 import app.selectors.classes as class_selectors
 import app.selectors.school_settings as school_settings_selectors
@@ -273,35 +274,55 @@ def class_bill_list_view(request):
     }
     return render(request, "fees/class_bill_list.html", context)
 
-
 @login_required
 def add_class_bill_item_view(request, id):
     academic_class = class_selectors.get_academic_class(id)
-    
-    student_bills = academic_class.student_bills.all()
-    class_bill_items = StudentBillItem.objects.filter(bill__in=student_bills)
+    class_bills = ClassBill.objects.filter(academic_class=academic_class)
 
     if request.method == "POST":
-        bill_item = request.POST.get("bill_item")
-        amount = request.POST.get("amount")
-        
-        if bill_item and amount:
-            create_class_bill_item(academic_class, bill_item, amount)
-            messages.success(request,SUCCESS_ADD_MESSAGE)
+        form = ClassBillForm(request.POST)
+        if form.is_valid():
+            
+            class_bill = form.save(commit=False)
+            class_bill.academic_class = academic_class 
+            class_bill.save()
+            
+            students_in_class = Student.objects.filter(current_class=academic_class.Class)  
+            
+            for student in students_in_class:
+                # Checking  if there's already an existing StudentBill for the student $ academic class
+                student_bill, created = StudentBill.objects.get_or_create(
+                    student=student,
+                    academic_class=academic_class,
+                    status="Unpaid",  
+                )
+                                                
+                if class_bill.bill_item.item_name != "School Fees":
+                    StudentBillItem.objects.create(
+                        bill=student_bill,
+                        bill_item=class_bill.bill_item,
+                        description=class_bill.bill_item.description,  
+                        amount=class_bill.amount  
+                    )                                
+                student_bill.save()
+
+            messages.success(request, SUCCESS_ADD_MESSAGE)
             return redirect("class_bill_list")  
         else:
-            messages.error(request,FAILURE_MESSAGE)
-
-    bill_item_form = StudentBillItemForm()
-    
+            messages.error(request, FAILURE_MESSAGE)
+    else:
+        
+        form = ClassBillForm()
+        
     context = {
         "academic_class": academic_class,
-        "bill_item_form": bill_item_form,
-        "class_bill_items": class_bill_items,
-        "academic_year": academic_class.academic_year,  
+        "bill_item_form": form,
+        "class_bills": class_bills,
+        "academic_year": academic_class.academic_year,
         "term": academic_class.term,
     }
     return render(request, "fees/class_bill_items.html", context)
+
 
 def edit_class_bill_item_view(request, id):
     bill_item = get_model_record(StudentBillItem,id)

@@ -93,12 +93,14 @@ urlpatterns = [
     path('student_bill/', manage_student_bills_view, name="student_bill_page"),
     path('student_bill_details/<int:id>/', manage_student_bill_details_view, name="student_bill_details_page"),
     path('add_student_bill_item/<int:id>/', add_student_bill_item_view, name="add_student_bill_item"),
-    path('add_class_bill_item/<int:id>/', add_class_bill_item_view, name="add_class_bill_item"),
+    path('add_class_bill_item/<int:id>/add-bill/', add_class_bill_item_view, name="add_class_bill_items"),
     path('record_payment/<int:id>/', add_student_payment_view, name="record_payment"),
     path("class-bills/", class_bill_list_view, name="class_bill_list"),
-    path("class/<int:id>/add-bill/", add_class_bill_item_view, name="add_class_bill_items"),
+    # path("class/<int:id>/add-bill/", add_class_bill_item_view, name="add_class_bill_items"),
     path('class/bill-item/<int:id>/edit/', edit_class_bill_item_view, name="edit_class_bill_item"),
     path('class/bill-item/<int:id>/delete/', delete_class_bill_item_view, name='delete_class_bill_item'),
+    path('fees-status/', student_fees_status_view, name='fees_status'),
+
     
     # Finance
     path('income_sources/', manage_income_sources, name="income_source_page"),

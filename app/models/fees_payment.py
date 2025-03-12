@@ -1,7 +1,7 @@
 from django.db import models
 from django.urls import reverse
+from app.constants import *
 
-from app.constants import BILL_STATUS_CHOICES, PAYMENT_METHODS, BILL_CATEGORY_CHOICES, BILL_DURATION_CHOICES
 
 class BillItem(models.Model):
     
@@ -24,7 +24,7 @@ class StudentBill(models.Model):
 
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='bills')
     bill_date = models.DateField(auto_now_add=True)
-    academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE,related_name="student_bills")
+    academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE)
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=BILL_STATUS_CHOICES, default="Unpaid")
 
@@ -51,6 +51,14 @@ class StudentBillItem(models.Model):
 
     def __str__(self):
         return f'Item {self.description} for Bill #{self.bill.id}'
+    
+class ClassBill(models.Model):
+    academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name='class_bills')
+    bill_item = models.ForeignKey("app.BillItem", on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        unique_together = ('academic_class', 'bill_item') 
 
 class Payment(models.Model):
     bill = models.ForeignKey(StudentBill, on_delete=models.CASCADE, related_name='payments')

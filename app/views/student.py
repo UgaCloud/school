@@ -12,6 +12,7 @@ from app.forms.student import StudentForm
 from app.models.students import Student
 import app.forms.student as student_forms
 import app.selectors.students as student_selectors
+import app.selectors.classes as class_selectors
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -35,21 +36,21 @@ def manage_student_view(request):
     }
     
     return render(request, "student/manage_students.html", context)
-
 @login_required
 def add_student_view(request):
     if request.method == "POST":
         student_form = student_forms.StudentForm(request.POST, request.FILES)
-        
+
         if student_form.is_valid():
             student = student_form.save()
-            
+
+        
             register_student(student, student.current_class, student.stream)
-            
+
             messages.success(request, SUCCESS_ADD_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
-    
+
     return HttpResponseRedirect(reverse(manage_student_view))
 
 @login_required
@@ -190,7 +191,7 @@ def bulk_register_students(request):
         messages.success(request,SUCCESS_BULK_ADD_MESSAGE)
 
         # Redirect after registration
-        return redirect('academic_class_details')
+        return redirect(ClassRegister)
 
     return render(request, "student/bulk_register_students.html", {
         "unregistered_students": unregistered_students,

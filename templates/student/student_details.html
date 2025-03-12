@@ -15,15 +15,15 @@
       <h3>{{student.student_name}}</h3>
 
       <ul class="list-unstyled user_data">
-        <li><i class="fa fa-map-marker user-profile-icon"></i> {{student.reg_no}}
+        <li><i class="fas fa-id-card"></i> {{student.reg_no}}
         </li>
 
         <li>
-          <i class="fa fa-briefcase user-profile-icon"></i> {{student.student_name}}
+          <i class="fas fa-user"></i> {{student.student_name}}
         </li>
 
         <li class="m-top-xs">
-            <i class="fa fa-external-link phone"></i>
+            <i class="fas fa-school"></i>
             <a href="#" target="_blank">{{student.current_class}}</a>
           </li>
 
@@ -70,7 +70,7 @@
 
       <div class="profile_title">
         <div class="col-md-6">
-          <h2>Current Classes</h2>
+          <h2>Current Class</h2>
         </div>
         <div class="col-md-6">
           <div id="reportrange" class="pull-right" style="margin-top: 5px; background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #E6E9ED">
@@ -94,7 +94,8 @@
             <tbody>
               <tr>
                 <td>1</td>
-                <td>Primary One</td>
+                <td>{{ student.current_class.name }} - {{ student.stream.stream }}
+                </td>
                 <td>Maths, Science</td>
                 <td class="hidden-phone">8</td>
                 <td class="vertical-align-mid">

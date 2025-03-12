@@ -1,7 +1,6 @@
 from django.forms import ModelForm, HiddenInput, DateInput
 from crispy_forms.helper import FormHelper
-
-from app.models.fees_payment import BillItem, StudentBillItem, Payment
+from app.models.fees_payment import BillItem, StudentBillItem, Payment,ClassBill
 
 class BillItemForm(ModelForm):
     
@@ -20,6 +19,14 @@ class StudentBillItemForm(ModelForm):
         super().__init__(*args, **kwargs)
         self.Helper = FormHelper()
         self.fields["bill"].widget = HiddenInput()
+
+
+
+class ClassBillForm(ModelForm):
+    class Meta:
+        model = ClassBill
+        fields = ['bill_item','amount']
+
 
 class PaymentForm(ModelForm):
     

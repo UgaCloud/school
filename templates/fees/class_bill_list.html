@@ -3,26 +3,27 @@
 {% block content %}
 <h2>Manage Class Bills</h2>
 
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>Class Name</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for academic_class in academic_classes %}
-        <tr>
-            <td>{{ academic_class.Class.name }}</td>
-            <td>
+<div class="row">
+    {% for academic_class in academic_classes %}
+    <div class="col-md-4">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header">
+                <h5 class="card-title">{{ academic_class.Class.name }}</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Academic Year: {{ academic_class.academic_year }}</p>
+                <p class="card-text">Term: {{ academic_class.term }}</p>
                 <a href="{% url 'add_class_bill_items' academic_class.id %}" class="btn btn-primary">Add Class Bill</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="2">No academic classes available.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-warning" role="alert">
+            No academic classes available.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
 {% endblock %}
