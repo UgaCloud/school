@@ -358,7 +358,7 @@ def edit_class_bill_item_view(request, id):
 
                 student_bill.save()
 
-            messages.success(request, SUCCESS_ADD_MESSAGE)
+            messages.success(request, SUCCESS_EDIT_MESSAGE)
             return redirect("class_bill_list")  # Redirect to list of class bills after update
         else:
             messages.error(request, FAILURE_MESSAGE)
@@ -371,14 +371,15 @@ def edit_class_bill_item_view(request, id):
     }
     return render(request, "fees/edit_class_bill_item.html", context)
 
-    
 
+@login_required
 def delete_class_bill_item_view(request, id):
-    bill_item = get_object_or_404(StudentBillItem, pk=id)
-    bill_item.delete()
+    class_bill = get_object_or_404(ClassBill, id=id)
+    StudentBillItem.objects.filter(bill_item=class_bill.bill_item).delete()
+    class_bill.delete()
     messages.success(request, DELETE_MESSAGE)
-    return redirect('add_class_bill_items', id=bill_item.bill.id)
-
+    return redirect("class_bill_list")
+ 
 
 @login_required
 def class_subject_allocation_list(request):

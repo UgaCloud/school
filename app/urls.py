@@ -96,9 +96,8 @@ urlpatterns = [
     path('add_class_bill_item/<int:id>/add-bill/', add_class_bill_item_view, name="add_class_bill_items"),
     path('record_payment/<int:id>/', add_student_payment_view, name="record_payment"),
     path("class-bills/", class_bill_list_view, name="class_bill_list"),
-    # path("class/<int:id>/add-bill/", add_class_bill_item_view, name="add_class_bill_items"),
     path('class/bill-item/<int:id>/edit/', edit_class_bill_item_view, name="edit_class_bill_item"),
-    path('class/bill-item/<int:id>/delete/', delete_class_bill_item_view, name='delete_class_bill_item'),
+    path('delete_class_bill_item/<int:id>/', delete_class_bill_item_view, name='delete_class_bill_item'),
     path('fees-status/', student_fees_status_view, name='fees_status'),
 
     

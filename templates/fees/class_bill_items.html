@@ -43,8 +43,9 @@
                                     <a href="{% url 'edit_class_bill_item' class_bill.id %}" class="btn btn-primary btn-xs">
                                         <i class="fa fa-edit"></i>
                                     </a>
-                                    <!-- Delete button (already present) -->
-                                    <a href="" 
+                                    
+                                    <!-- Delete button linking to the delete view for ClassBill Item -->
+                                    <a href="{% url 'delete_class_bill_item' class_bill.id %}" 
                                        class="btn btn-danger btn-xs" 
                                        onclick="return confirm('Are you sure you want to delete this bill item?');">
                                         <i class="fa fa-trash-o"></i>
