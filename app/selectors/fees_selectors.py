@@ -1,4 +1,5 @@
 from app.models.fees_payment import *
+from django.shortcuts import get_object_or_404
 
 def get_student_bills():
     return StudentBill.objects.all()
@@ -24,3 +25,37 @@ def get_bill_item(id):
 
 def get_bill_item_by_name(item_name):
     return BillItem.objects.get(item_name=item_name)
+
+def get_student_bill_details(bill_id):
+    student_bill = get_object_or_404(StudentBill, id=bill_id)
+
+    total_amount = student_bill.total_amount or 0  # Ensure it's not None
+    amount_paid = student_bill.amount_paid or 0
+    balance = total_amount - amount_paid
+
+    # Prevent division by zero
+    if total_amount > 0:
+        amount_paid_percentage = (amount_paid / total_amount) * 100
+        balance_percentage = (balance / total_amount) * 100
+    else:
+        amount_paid_percentage = 0
+        balance_percentage = 0
+
+    # Determine payment status
+    if amount_paid > total_amount:
+        payment_status = "CR"  # Overpaid
+    elif amount_paid < total_amount:
+        payment_status = "DR"  # Underpaid
+    else:
+        payment_status = "Balanced"
+
+    context = {
+        "student_bill": student_bill,
+        "amount_paid_percentage": amount_paid_percentage,
+        "balance_percentage": balance_percentage,
+        "payment_status": payment_status,
+        "balance": balance,
+    }
+    
+    return context
+

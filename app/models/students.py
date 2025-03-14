@@ -4,7 +4,7 @@ from app.constants import *
 
 class Student(models.Model):
     
-    reg_no = models.CharField(max_length=30)
+    reg_no = models.CharField(max_length=30,unique=True)
     student_name = models.CharField(max_length=50)
     gender = models.CharField(max_length=2, choices=GENDERS)
     birthdate = models.DateField(auto_now=False)
