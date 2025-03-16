@@ -29,11 +29,9 @@ def get_bill_item_by_name(item_name):
 def get_student_bill_details(bill_id):
     student_bill = get_object_or_404(StudentBill, id=bill_id)
 
-    total_amount = student_bill.total_amount or 0  # Ensure it's not None
+    total_amount = student_bill.total_amount or 0 
     amount_paid = student_bill.amount_paid or 0
     balance = total_amount - amount_paid
-
-    # Prevent division by zero
     if total_amount > 0:
         amount_paid_percentage = (amount_paid / total_amount) * 100
         balance_percentage = (balance / total_amount) * 100

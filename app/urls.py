@@ -1,4 +1,5 @@
 from django.urls import path
+from django.contrib.auth import views as auth_views
 import app.views.index_views as index
 from app.views.classes import *
 from app.views.school_settings import *
@@ -176,6 +177,13 @@ urlpatterns = [
     path('create-account/',create_account_view, name='create_account'),
     path('users/delete/<int:id>/',delete_user_view, name='delete_user'),
     path('password_change/',password_change_view, name='password_change'),
+
+#Reset Password
+
+path('password_reset/', auth_views.PasswordResetView.as_view(), name='password_reset'),
+    path('password_reset/done/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
 ]
     
 

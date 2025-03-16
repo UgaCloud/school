@@ -54,11 +54,14 @@
                     </td>
                     <td>
                         {% if student_fee.bill_id %}
-                            <a href="{% url 'student_bill_details_page' student_fee.bill_id %}" class="btn btn-info btn-sm">View</a>
+                            <a href="{% url 'student_bill_details_page' student_fee.bill_id %}" class="btn btn-info btn-sm">
+                                <i class="fas fa-eye"></i> <!-- Eye icon inside the link -->
+                            </a>
                         {% else %}
-                            <span class="text-muted">No Bill</span>
+                            <span class="text-muted">No Bill</span>  
                         {% endif %}
                     </td>
+                    
                 </tr>
                 {% empty %}
                 <tr>

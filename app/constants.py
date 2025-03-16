@@ -18,12 +18,12 @@ POSITION_SIGNATURE_CHOICES=[
 
 ##### Authentication Roles ###########
 ROLE_CHOICES = [
-        ('admin', 'Admin'),
-        ('teacher', 'Teacher'),
-        ('bursar', 'Bursar'),
-        ('director_of_studies', 'Director of Studies'),
-        ('headmaster', 'Headmaster'),
-        ('class_teacher', 'Class Teacher'),
+        ('Admin', 'Admin'),
+        ('Teacher', 'Teacher'),
+        ('Bursar', 'Bursar'),
+        ('Director of Studies', 'Director of Studies'),
+        ('Head master', 'Head master'),
+        ('Class Teacher', 'Class Teacher'),
  ]
 
 # Types

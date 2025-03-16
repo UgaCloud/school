@@ -52,16 +52,18 @@
             <div class="col-md-6">
                 <h2>Billed Items</h2>
             </div>
-            <div class="col-md-6">
-                <div id="add-bill-item" class="pull-right" style="margin-top: 5px; cursor: pointer;">
-                    <a class="btn" data-toggle="modal" data-target=".bill-item-modal-lg">
-                        <i class="fa fa-plus"> Add Bill Item</i>
-                    </a>
+            {% if request.user.staff_account.role.name == "bursar" %}
+                <div class="col-md-6">
+                    <div id="add-bill-item" class="pull-right" style="margin-top: 5px; cursor: pointer;">
+                        <a class="btn" data-toggle="modal" data-target=".bill-item-modal-lg">
+                            <i class="fa fa-plus"> Add Bill Item</i>
+                        </a>
+                    </div>
                 </div>
-            </div>
+            {% endif %}
         </div>
 
-        <!-- User Activity Graph -->
+        <!-- Billed Items Table -->
         <div id="graph_bar" style="width:100%; height:280px;">
             <table class="data table table-striped no-margin">
                 <thead>
@@ -101,9 +103,11 @@
             <div id="myTabContent" class="tab-content">
                 <!-- Payments Tab -->
                 <div role="tabpanel" class="tab-pane active" id="tab_content1">
-                    <a class="btn" data-toggle="modal" data-target=".payment-modal-lg">
-                        <i class="fa fa-plus"> Record Payment</i>
-                    </a>
+                    {% if request.user.staff_account.role.name == "bursar" %}
+                        <a class="btn" data-toggle="modal" data-target=".payment-modal-lg">
+                            <i class="fa fa-plus"> Record Payment</i>
+                        </a>
+                    {% endif %}
 
                     <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action">
                         <thead>

@@ -65,7 +65,7 @@ class Payment(models.Model):
     payment_date = models.DateField()
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=50, choices=PAYMENT_METHODS)
-    reference_no = models.CharField(max_length=50)
+    reference_no = models.CharField(max_length=50,unique=True)
     recorded_by = models.CharField(max_length=50)
 
     def __str__(self):

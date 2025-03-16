@@ -13,12 +13,19 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from app.forms.accounts import CustomLoginForm,RoleSwitchForm,StaffAccountForm
 from app.views.index_views import *
-from django.conf import settings
+from core.settings import common
 from django.views.generic import ListView
 from app.selectors.model_selectors import *
 from django.views.generic import DetailView
 from django.template.loader import render_to_string
 from django.http import JsonResponse
+from django.core.mail import send_mail
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.template.loader import render_to_string
+from django.contrib.auth.views import PasswordResetView
+from django.contrib.auth.forms import PasswordResetForm
+
 
 
 @login_required
@@ -193,3 +200,35 @@ def password_change_view(request):
 
 
 
+class CustomPasswordResetView(PasswordResetView):
+    template_name = 'accounts/password_reset_form.html'
+    email_template_name = 'accounts/password_reset_email.html'
+    subject_template_name = 'accounts/password_reset_subject.txt'
+
+    def form_valid(self, form):
+        # Get the email entered by the user in the form
+        email = form.cleaned_data.get('email')
+        users = User.objects.filter(email=email)
+        
+        # Check if the user exists
+        if not users.exists():
+            messages.error(self.request, "No account found with that email.")
+            return render(self.request, self.template_name, {'form': form})
+
+        # Generate reset URL using dev tunnel (or your domain)
+        user = users.first()  # assuming we are sending reset link for the first matching user
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(str(user.pk).encode())  # Convert user.pk to string before encoding
+        reset_url = f"{common.DEV_TUNNEL_URL}/password-reset/{uid}/{token}/"
+
+        # Send the password reset email with the correct reset URL
+        subject = "Password Reset Request"  # Ensure no newline characters here
+        message = render_to_string(self.email_template_name, {
+            'reset_url': reset_url,
+            'user': user,
+        })
+
+        send_mail(subject, message, 'no-reply@yourdomain.com', [email])
+
+        # Proceed with the default behavior of the PasswordResetView
+        return super().form_valid(form)
