@@ -24,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -149,9 +150,8 @@ SESSION_COOKIE_AGE = 1800  # 30 minutes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True  
 
-#This is for testing 
-
-DEV_TUNNEL_URL = "https://wg2tdd3t-8000.uks1.devtunnels.ms"  
+#This is for testing  only
+DEV_TUNNEL_URL = "http//:192.168.5.56:8000"  
 
 # Email Configuration for SMTP (Using Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

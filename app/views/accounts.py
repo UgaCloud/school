@@ -206,29 +206,21 @@ class CustomPasswordResetView(PasswordResetView):
     subject_template_name = 'accounts/password_reset_subject.txt'
 
     def form_valid(self, form):
-        # Get the email entered by the user in the form
         email = form.cleaned_data.get('email')
         users = User.objects.filter(email=email)
-        
-        # Check if the user exists
         if not users.exists():
             messages.error(self.request, "No account found with that email.")
             return render(self.request, self.template_name, {'form': form})
 
-        # Generate reset URL using dev tunnel (or your domain)
-        user = users.first()  # assuming we are sending reset link for the first matching user
+        user = users.first()  
         token = default_token_generator.make_token(user)
-        uid = urlsafe_base64_encode(str(user.pk).encode())  # Convert user.pk to string before encoding
+        uid = urlsafe_base64_encode(str(user.pk).encode()) 
         reset_url = f"{common.DEV_TUNNEL_URL}/password-reset/{uid}/{token}/"
 
-        # Send the password reset email with the correct reset URL
-        subject = "Password Reset Request"  # Ensure no newline characters here
+        subject = "Password Reset Request"
         message = render_to_string(self.email_template_name, {
             'reset_url': reset_url,
             'user': user,
         })
-
         send_mail(subject, message, 'no-reply@yourdomain.com', [email])
-
-        # Proceed with the default behavior of the PasswordResetView
         return super().form_valid(form)

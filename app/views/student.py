@@ -13,6 +13,7 @@ from app.models.students import Student
 import app.forms.student as student_forms
 import app.selectors.students as student_selectors
 import app.selectors.classes as class_selectors
+from app.selectors.classes import *
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -42,16 +43,30 @@ def add_student_view(request):
         student_form = student_forms.StudentForm(request.POST, request.FILES)
 
         if student_form.is_valid():
+            _class = student_form.cleaned_data.get("current_class")
+            stream = student_form.cleaned_data.get("stream")
+
+            current_academic_year = get_current_academic_year()
+            term = get_current_term()
+            academic_class = get_current_academic_class(current_academic_year, _class, term)
+
+            class_stream_exists = AcademicClassStream.objects.filter(
+                academic_class=academic_class, stream=stream
+            ).exists()
+
+            if not class_stream_exists:
+                messages.error(request, "No academic class stream found. Student registration aborted.")
+                return HttpResponseRedirect(reverse(manage_student_view))  
+
             student = student_form.save()
-
-        
-            register_student(student, student.current_class, student.stream)
-
+            register_student(student, _class, stream)
             messages.success(request, SUCCESS_ADD_MESSAGE)
+
         else:
             messages.error(request, FAILURE_MESSAGE)
 
     return HttpResponseRedirect(reverse(manage_student_view))
+
 
 @login_required
 def student_details_view(request, id):
