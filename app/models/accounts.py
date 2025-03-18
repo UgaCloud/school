@@ -11,14 +11,11 @@ class StaffAccount(models.Model):
         if not self.user.username:
             self.user.username = f"{self.staff.first_name}.{self.staff.last_name}".lower()
             self.user.set_password('123')  
-    
-        self.user.email = self.staff.email  
-        self.user.save()
+
         
+        if self.user.email != self.staff.email:
+            User.objects.filter(pk=self.user.pk).update(email=self.staff.email)
+
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"{self.staff} - {self.role}"
 
-    class Meta:
-        unique_together = ('staff', 'user', 'role')

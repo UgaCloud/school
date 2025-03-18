@@ -25,6 +25,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.template.loader import render_to_string
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 
 
@@ -86,18 +87,21 @@ def user_login(request):
         form = CustomLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
+
             login(request, user)
             return redirect('dashboard')
         else:
-            error_message ="Invalid username or password.Please try again."
+            error_message = "Invalid username or password. Please try again."
     else:
         form = CustomLoginForm()
-    context={
-        'form':form,
-        'school_settings':school_settings,
+
+    context = {
+        'form': form,
+        'school_settings': school_settings,
         'error_message': error_message,
     }
-    return render(request, 'accounts/login.html',context)
+    return render(request, 'accounts/login.html', context)
+
 
 
 @login_required
@@ -158,25 +162,24 @@ class UserListView(ListView):
         return queryset
 
 
-
-class UserDetailView(DetailView):
+class UserDetailView(LoginRequiredMixin, DetailView):
     model = User
     template_name = 'accounts/user_detail.html'
-    context_object_name = 'user'
+    context_object_name = 'viewed_user'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Get the StaffAccount instance for the user
-        staff_account = get_object_or_404(StaffAccount, user=self.object)
-        
-        # Retrieve the related Staff instance
-        staff_member = staff_account.staff  # This will access the related Staff instance
+        viewed_user = self.object  
+        staff_account = StaffAccount.objects.filter(user=viewed_user).first()
 
-        context['staff'] = staff_member  # Pass the Staff instance to the context
-        context['roles'] = StaffAccount.objects.filter(user=self.object)  # Retrieve roles for the user
-        context['last_login'] = self.object.last_login  
+        context['staff'] = staff_account.staff if staff_account else None
+        context['role'] = staff_account.role if staff_account else None
+        context['last_login'] = viewed_user.last_login
+
         return context
+
+
 
 def delete_user_view(request, id):
     user = get_model_record(User,id)
