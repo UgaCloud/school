@@ -38,7 +38,16 @@
         </div>
 
         <div class="col-md-3 d-flex align-items-end">
-            
+        </div>
+    </div>
+
+    <!-- Button to Download as PDF -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <form method="get" action="{% url 'fees_status' %}">
+                <input type="hidden" name="download_pdf" value="true">
+                <button type="submit" class="btn btn-danger">Download as PDF</button>
+            </form>
         </div>
     </div>
 

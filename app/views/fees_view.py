@@ -1,4 +1,7 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect,get_object_or_404
+from django.http import HttpResponse
+from weasyprint import HTML
+from django.template.loader import render_to_string
 from django.contrib import messages
 from django.urls import reverse
 from app.selectors.model_selectors import *
@@ -127,6 +130,7 @@ def add_student_payment_view(request, id):
     
 
     
+
 @login_required
 def student_fees_status_view(request):
     students = Student.objects.all()
@@ -144,11 +148,9 @@ def student_fees_status_view(request):
     if selected_term:
         filtered_academic_classes = filtered_academic_classes.filter(term_id=selected_term)
 
-    
     if selected_academic_class or selected_term:
         class_ids = filtered_academic_classes.values_list("Class_id", flat=True)
         students = students.filter(current_class_id__in=class_ids)
-
 
     for student in students:
         student_bill = StudentBill.objects.filter(student=student).first()
@@ -183,6 +185,22 @@ def student_fees_status_view(request):
             "balance": balance,
             "bill_id": student_bill.id if student_bill else None,
         })
+
+    
+    if request.GET.get("download_pdf"):
+        html_string = render_to_string("fees/student_fees_status_pdf.html", {
+            "academic_classes": academic_classes,
+            "terms": terms,
+            "class_filter": int(selected_academic_class) if selected_academic_class else "",
+            "term_filter": int(selected_term) if selected_term else "",
+            "student_fees_data": student_fees_data,
+        })
+        html = HTML(string=html_string)
+        pdf = html.write_pdf()
+        
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="student_fees_status.pdf"'
+        return response
 
     context = {
         "academic_classes": academic_classes, 
