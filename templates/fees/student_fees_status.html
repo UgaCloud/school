@@ -1,9 +1,47 @@
 {% extends "base.html" %}
 {% load humanize %}
-{% block page_title %}<h3 class="text-primary">Student Fees Payment Status</h3>{% endblock page_title %}
+
+{% block page_title %}
+    <h3 class="text-primary">Student Fees Payment Status</h3>
+{% endblock page_title %}
+
 {% block content %}
 <div class="container-fluid">
-    
+
+    <!-- Filter Section -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <form method="get" action="{% url 'fees_status' %}" id="filterForm">
+                <label for="academic_class">Select Class:</label>
+                <select name="academic_class" id="academic_class" class="form-control" onchange="this.form.submit()">
+                    <option value="">-- All Classes --</option>
+                    {% for academic_class in academic_classes %}
+                        <option value="{{ academic_class.Class.id }}" 
+                            {% if academic_class.Class.id|stringformat:"s" == academic_class_filter|stringformat:"s" %}selected{% endif %}>
+                            {{ academic_class.Class.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+        </div>
+
+        <div class="col-md-3">
+            <label for="term">Select Term:</label>
+            <select name="term" id="term" class="form-control" onchange="this.form.submit()">
+                <option value="">-- All Terms --</option>
+                {% for term in terms %}
+                    <option value="{{ term.id }}" 
+                        {% if term.id|stringformat:"s" == term_filter|stringformat:"s" %}selected{% endif %}>
+                        {{ term.term }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-3 d-flex align-items-end">
+            
+        </div>
+    </div>
+
     <!-- Table Section -->
     <div class="table-responsive">
         <table id="datatable-checkbox" class="table table-hover table-bordered table-striped shadow-sm rounded">
@@ -11,7 +49,7 @@
                 <tr>
                     <th colspan="2">Term: {{ term }}</th>
                     <th colspan="2">Academic Year: {{ academic_year }}</th>
-                    <th colspan="5"></th> <!-- Empty cells to align the table properly -->
+                    <th colspan="5"></th> <!-- Empty cells for alignment -->
                 </tr>
                 <tr>
                     <th>Class</th>
@@ -20,13 +58,13 @@
                     <th>Amount Paid</th>
                     <th>Balance</th>
                     <th>Payment Status</th>
-                    <th>Action</th>  
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for student_fee in student_fees_data %}
                 <tr>
-                    <td>{{ student_fee.academic_class }}</td>  
+                    <td>{{ student_fee.academic_class }}</td>
                     <td>{{ student_fee.student.student_name }}</td>
                     <td>{{ student_fee.total_amount|intcomma }}</td>
                     <td>{{ student_fee.amount_paid|intcomma }}</td>
@@ -55,13 +93,12 @@
                     <td>
                         {% if student_fee.bill_id %}
                             <a href="{% url 'student_bill_details_page' student_fee.bill_id %}" class="btn btn-info btn-sm">
-                                <i class="fas fa-eye"></i> 
+                                <i class="fas fa-eye"></i>
                             </a>
                         {% else %}
-                            <span class="text-muted">No Bill</span>  
+                            <span class="text-muted">No Bill</span>
                         {% endif %}
                     </td>
-                    
                 </tr>
                 {% empty %}
                 <tr>
@@ -73,10 +110,9 @@
     </div>
 </div>
 
-
 <script>
     $(document).ready(function () {
-        $('[data-toggle="tooltip"]').tooltip(); // 
+        $('[data-toggle="tooltip"]').tooltip();
     });
 </script>
 {% endblock %}
