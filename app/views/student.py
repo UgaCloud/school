@@ -101,48 +101,48 @@ def download_student_template_csv(request):
 
 @login_required
 def bulk_student_registration_view(request):
-    
     delete_all_csv_files()
     if request.method == "POST":
         csv_form = student_forms.StudentRegistrationCSVForm(request.POST, request.FILES)
-           
+
         if csv_form.is_valid():
             csv_object = csv_form.save()
-            
+
             try:
-                bulk_student_registration(csv_object)
+                bulk_student_registration(csv_object)  # Now no `request` parameter is passed here
                 messages.success(request, SUCCESS_BULK_ADD_MESSAGE)
-            except(ValueError, IntegrityError):
-                if ValueError:
-                    messages.error(request, INVALID_VALUE_MESSAGE)
-                elif IntegrityError:
-                    messages.error(request, INTEGRITY_ERROR_MESSAGE)
+            except ValueError as e:
+                # Catch the ValueError raised from `bulk_student_registration`
+                messages.error(request, str(e))  # Display the error message
+            except IntegrityError:
+                messages.error(request, INTEGRITY_ERROR_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
-    
+
     return HttpResponseRedirect(reverse(manage_student_view))
 
 @login_required
-def edit_student_view(request,id):
-    student = get_model_record(Student,id)
-    
+def edit_student_view(request, id):
+    student = get_model_record(Student, id)
+
     if request.method == 'POST':
-        student_form = StudentForm(request.POST, instance=student)
+        student_form = StudentForm(request.POST, request.FILES, instance=student)
         if student_form.is_valid():
+        
             student_form.save()
-            
+
             messages.success(request, SUCCESS_ADD_MESSAGE)    
         else:
             messages.error(request, FAILURE_MESSAGE)
         return redirect(add_student_view)
     else:
         student_form = StudentForm(instance=student)
-    
+
     context = {
         "form": student_form,
         "student": student
     }
-    
+
     return render(request, "student/edit_student.html", context)
 
 @login_required
