@@ -17,6 +17,8 @@ from django.contrib.auth.decorators import login_required
 from app.decorators.decorators import *
 from app.models.accounts import *
 from app.models.fees_payment import *
+from app.models.school_settings import *
+from app.models.classes import *
 
 @login_required
 def class_view(request):
@@ -267,11 +269,33 @@ def delete_class_stream(request, id):
 
 @login_required
 def class_bill_list_view(request):
-    academic_classes = AcademicClass.objects.all()  
-    
+    academic_classes = AcademicClass.objects.all()
+    class_filter = request.GET.get('class')
+    academic_year_filter = request.GET.get('academic_year')
+    term_filter = request.GET.get('term')
+
+
+    if class_filter:
+        academic_classes = academic_classes.filter(Class__id=class_filter)  
+    if academic_year_filter:
+        academic_classes = academic_classes.filter(academic_year__id=academic_year_filter)  
+    if term_filter:
+        academic_classes = academic_classes.filter(term__id=term_filter) 
+
+    class_options = Class.objects.all()
+    academic_year_options = AcademicYear.objects.all()
+    term_options = Term.objects.all()
+
     context = {
         "academic_classes": academic_classes,
+        "class_options": class_options,
+        "academic_year_options": academic_year_options,
+        "term_options": term_options,
+        "class_filter": class_filter,
+        "academic_year_filter": academic_year_filter,
+        "term_filter": term_filter,
     }
+
     return render(request, "fees/class_bill_list.html", context)
 
 @login_required

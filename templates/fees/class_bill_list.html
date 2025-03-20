@@ -1,29 +1,83 @@
 {% extends 'base.html' %}
 
-{% block content %}
-<h2>Manage Class Bills</h2>
+{% block page_title %}
+    <h2 class="mb-4 text-center">📚 Manage Class Bills</h2>
+{% endblock %}
 
-<div class="row">
-    {% for academic_class in academic_classes %}
-    <div class="col-md-4">
-        <div class="card mb-4 shadow-sm">
-            <div class="card-header">
-                <h5 class="card-title">{{ academic_class.Class.name }}</h5>
-            </div>
-            <div class="card-body">
-                <p class="card-text">Academic Year: {{ academic_class.academic_year }}</p>
-                <p class="card-text">Term: {{ academic_class.term }}</p>
-                <a href="{% url 'add_class_bill_items' academic_class.id %}" class="btn btn-primary">Add Class Bill</a>
-            </div>
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <!-- Filters Section -->
+            <form method="get" action="{% url 'class_bill_list' %}" id="filter-form">
+                <div class="row">
+                    <div class="col-md-4">
+                        <select class="form-control" name="class" id="class" onchange="this.form.submit()">
+                            <option value="">All Classes</option>
+                            {% for class_option in class_options %}
+                                <option value="{{ class_option.id }}" {% if class_option.id == class_filter %}selected{% endif %}>
+                                    {{ class_option.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <select class="form-control" name="academic_year" id="academic_year" onchange="this.form.submit()">
+                            <option value="">All Academic Years</option>
+                            {% for academic_year_option in academic_year_options %}
+                                <option value="{{ academic_year_option.id }}" {% if academic_year_option.id == academic_year_filter %}selected{% endif %}>
+                                    {{ academic_year_option.academic_year }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <select class="form-control" name="term" id="term" onchange="this.form.submit()">
+                            <option value="">All Terms</option>
+                            {% for term_option in term_options %}
+                                <option value="{{ term_option.id }}" {% if term_option.id == term_filter %}selected{% endif %}>
+                                    {{ term_option.term }} - {{ term_option.academic_year.academic_year }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="alert alert-warning" role="alert">
-            No academic classes available.
+
+    <!-- Display Filtered Academic Classes -->
+    <div class="row">
+        {% for academic_class in academic_classes %}
+        <div class="col-lg-4 col-md-6 col-sm-12">
+            <div class="card shadow-lg border-0 rounded-3 overflow-hidden">
+                <div class="card-header bg-light text-dark text-center">
+                    <h5 class="card-title mb-0">{{ academic_class.Class.name }}</h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text">
+                        <i class="bi bi-calendar3"></i> <strong>Academic Year:</strong> {{ academic_class.academic_year.academic_year }}
+                    </p>
+                    <p class="card-text">
+                        <i class="bi bi-clock"></i> <strong>Term:</strong> {{ academic_class.term.term }}
+                    </p>
+                    <a href="{% url 'add_class_bill_items' academic_class.id %}" class="btn btn-primary btn-sm shadow-sm rounded mt-auto d-flex align-items-center justify-content-center">
+                        <i class="bi bi-file-earmark-plus mr-2"></i>
+                        <span>Add Class Bill</span>
+                    </a>
+                </div>
+            </div>
         </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-warning text-center" role="alert">
+                🚨 No academic classes available.
+            </div>
+        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
 </div>
 
 {% endblock %}
