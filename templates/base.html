@@ -96,17 +96,17 @@
                   </span>
               </p>
               <!-- Debugging output -->
-                {% if user.staff_account.role.name == "admin" %}
+                {% if user.staff_account.role.name == "Admin" %}
                     {% include 'admin_dashboard.html' %}
-                {% elif user.staff_account.role.name == "teacher" %}
+                {% elif user.staff_account.role.name == "Teacher" %}
                     {% include 'teacher_dashboard.html' %}
-                {% elif user.staff_account.role.name == "bursar" %}
+                {% elif user.staff_account.role.name == "Bursar" %}
                     {% include 'bursar_dashboard.html' %}
-                {% elif user.staff_account.role.name == "director_of_studies" %}
+                {% elif user.staff_account.role.name == "Director of Studies" %}
                     {% include 'dos_dashboard.html' %}
-                {% elif user.staff_account.role.name == "headmaster" %}
+                {% elif user.staff_account.role.name == "Head Teacher" %}
                     {% include 'headteacher_dashboard.html' %}
-                {% elif user.staff_account.role.name == "class_teacher" %}
+                {% elif user.staff_account.role.name == "Class Teacher" %}
                     {% include 'class_teacher_dashboard.html' %}
                 {% else %}
                     <p>No dashboard available for your role.</p>
@@ -154,15 +154,23 @@
                     {{ request.user.username }}
                 </a>
                 
-                  <div class="dropdown-menu dropdown-usermenu pull-right" aria-labelledby="navbarDropdown"><a class="dropdown-item" href="{url 'user_detail' user.id}">Profile</a>
-                    <a class="dropdown-item" href="javascript:;">
-                        <span class="badge bg-red pull-right">50%</span>
-                        <span>Settings</span>
-                    </a>
-                    <a class="dropdown-item" href="{% url 'password_change' %}">Change Password</a>  <!-- Add this line -->
-                    <a class="dropdown-item" href="{%url 'dashboard' %}">Switch Role</a>
-                    <a class="dropdown-item" href=""><i class="fa fa-sign-out pull-right"></i> Log Out</a>
-                    </div>
+                <div class="dropdown-menu dropdown-usermenu pull-right" aria-labelledby="navbarDropdown">
+                  <a class="dropdown-item" href="{% url 'user_detail' request.user.id %}">Profile</a> 
+                  
+                  <a class="dropdown-item" href="javascript:;">
+                      <span class="badge bg-red pull-right">50%</span>
+                      <span>Settings</span>
+                  </a>
+                  
+                  <a class="dropdown-item" href="{% url 'password_change' %}">Change Password</a>  
+                  
+                  <a class="dropdown-item" href="{% url 'dashboard' %}">Switch Role</a>
+                  
+                  <a class="dropdown-item" href="{% url 'logout' %}">  
+                      <i class="fa fa-sign-out pull-right"></i> Log Out
+                  </a>
+              </div>
+              
                 </li>
                
                 <li role="presentation" class="nav-item dropdown open">

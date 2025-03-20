@@ -36,20 +36,20 @@ def create_account_view(request):
         if form.is_valid():
             staff = form.cleaned_data['staff']
 
-            
-            username = (staff.last_name).lower()
-            unique_username = username
+            first_initial = staff.first_name[0].upper()
+            last_name = staff.last_name.lower()
+            base_username = f"{first_initial}-{last_name}"
+            unique_username = base_username
             counter = 1
 
-            
             while User.objects.filter(username=unique_username).exists():
-                unique_username = f"{username}{counter}"
+                unique_username = f"{base_username}{counter}"
                 counter += 1
 
-            
+            # Create user account
             user = User.objects.create_user(
                 username=unique_username,
-                password='123',  # default password
+                password='123',  # Default password
                 first_name=staff.first_name,
                 last_name=staff.last_name
             )
@@ -57,15 +57,13 @@ def create_account_view(request):
             staff.save()
             messages.success(request, f"Account for {user.username} created successfully.")
 
-            
+            # Assign role if available
             role = staff.roles.first() if staff.roles.exists() else None
-
             if role:
                 StaffAccount.objects.create(user=user, staff=staff, role=role)
             else:
                 return JsonResponse({'error': "No role available for this staff member. Please assign a role."}, status=400)
 
-            
             return JsonResponse({'success': True})
 
     else:
@@ -75,7 +73,6 @@ def create_account_view(request):
         html = render_to_string('accounts/staff_account_form.html', {'form': form}, request=request)
         return JsonResponse({'form_html': html})
     return render(request, 'accounts/staff_account_form.html', {'form': form})
-
 
 
 
