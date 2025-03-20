@@ -274,7 +274,6 @@ def class_bill_list_view(request):
     academic_year_filter = request.GET.get('academic_year')
     term_filter = request.GET.get('term')
 
-
     if class_filter:
         academic_classes = academic_classes.filter(Class__id=class_filter)  
     if academic_year_filter:
