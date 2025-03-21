@@ -78,20 +78,19 @@
                     <td>{{ student_fee.total_amount|intcomma }}</td>
                     <td>{{ student_fee.amount_paid|intcomma }}</td>
                     <td>
-                        {% if student_fee.balance == "0" %}
-                            <span class="text-success" style="font-size: 1.1rem;">{{ student_fee.balance }}</span>
-                        {% elif student_fee.balance|slice:":2" == "CR" %}
-                            <span class="text-success" style="font-size: 1.1rem;">{{ student_fee.balance }}</span>
-                        {% elif student_fee.balance|slice:":2" == "DR" %}
-                            <span class="text-danger" style="font-size: 1.1rem;">{{ student_fee.balance }}</span>
+                        {% if student_fee.balance_label %}
+                            <span 
+                                {% if student_fee.balance_label == "CR" %}class="text-success"{% endif %}
+                                {% if student_fee.balance_label == "DR" %}class="text-danger"{% endif %}
+                                style="font-size: 1.1rem;">
+                                {{ student_fee.balance_label }} {{ student_fee.balance|intcomma }}
+                            </span>
                         {% else %}
-                            <span style="font-size: 1.1rem;">{{ student_fee.balance }}</span>
+                            <span style="font-size: 1.1rem;">{{ student_fee.balance|intcomma }}</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if student_fee.balance == "0" %}
-                            <span class="text-success" style="font-size: 1.1rem;">Cleared</span>
-                        {% elif student_fee.payment_status == "Cleared" or "CR" in student_fee.balance %}
+                        {% if student_fee.payment_status == "Cleared" %}
                             <span class="text-success" style="font-size: 1.1rem;">Cleared</span>
                         {% elif student_fee.payment_status == "Defaulter" %}
                             <span class="text-danger" style="font-size: 1.1rem;">Defaulter</span>

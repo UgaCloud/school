@@ -165,13 +165,16 @@ def student_fees_status_view(request):
 
         if amount_paid > total_amount:
             payment_status = "Cleared"
-            balance = f"CR {amount_paid - total_amount}"
+            balance = amount_paid - total_amount 
+            balance_label = "CR"
         elif amount_paid < total_amount:
             payment_status = "Defaulter"
-            balance = f"DR {total_amount - amount_paid}"
+            balance = total_amount - amount_paid 
+            balance_label = "DR"
         else:
             payment_status = "Balanced"
-            balance = "0"
+            balance = 0
+            balance_label = ""
 
         student_fees_data.append({
             "student": student,
@@ -182,11 +185,11 @@ def student_fees_status_view(request):
             "amount_paid": amount_paid,
             "amount_paid_percentage": amount_paid_percentage,
             "payment_status": payment_status,
-            "balance": balance,
+            "balance": balance, 
+            "balance_label": balance_label,
             "bill_id": student_bill.id if student_bill else None,
         })
 
-    
     if request.GET.get("download_pdf"):
         html_string = render_to_string("fees/student_fees_status_pdf.html", {
             "academic_classes": academic_classes,
@@ -197,14 +200,14 @@ def student_fees_status_view(request):
         })
         html = HTML(string=html_string)
         pdf = html.write_pdf()
-        
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="student_fees_status.pdf"'
+
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = 'attachment; filename="student_fees_status.pdf"'
         return response
 
     context = {
-        "academic_classes": academic_classes, 
-        "terms": terms, 
+        "academic_classes": academic_classes,
+        "terms": terms,
         "class_filter": int(selected_academic_class) if selected_academic_class else "",
         "term_filter": int(selected_term) if selected_term else "",
         "student_fees_data": student_fees_data,

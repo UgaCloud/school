@@ -41,9 +41,19 @@ def bulk_student_registration(csv_obj):
                 year = row[10]
                 class_code = row[11]
                 stream_name = row[12]
-                term = row[13]
+                term_id = row[13]
 
-                
+           
+                existing_student = Student.objects.filter(reg_no=reg_no).first()
+                if existing_student:
+                    raise ValueError(f"Student with Reg No {reg_no} already exists. Skipping row {i+1}.")
+
+                try:
+                    term_id = int(term_id)
+                    term = Term.objects.get(id=term_id)
+                except (ValueError, Term.DoesNotExist):
+                    raise ValueError(f"Invalid term ID '{row[13]}' in row {i+1}.")
+
                 try:
                     birthdate = datetime.strptime(birthdate, "%m/%d/%Y").date()  
                 except ValueError:
@@ -53,8 +63,8 @@ def bulk_student_registration(csv_obj):
                 current_class = get_class_by_code(class_code)  
                 stream = get_stream_by_name(stream_name)
 
-                
                 academic_class = get_current_academic_class(academic_year, current_class, term)
+
                 class_stream_exists = AcademicClassStream.objects.filter(
                     academic_class=academic_class, stream=stream
                 ).exists()
@@ -64,18 +74,24 @@ def bulk_student_registration(csv_obj):
 
                 student = Student(
                     reg_no=reg_no, 
-                    student_name=student_name, gender=gender,
-                    birthdate=birthdate, nationality=nationality,
-                    religion=religion, address=address,
-                    guardian=guardian, relationship=relationship,
-                    contact=contact, academic_year=academic_year,
-                    current_class=current_class, stream=stream,
+                    student_name=student_name, 
+                    gender=gender,
+                    birthdate=birthdate, 
+                    nationality=nationality,
+                    religion=religion, 
+                    address=address,
+                    guardian=guardian, 
+                    relationship=relationship,
+                    contact=contact, 
+                    academic_year=academic_year,
+                    current_class=current_class, 
+                    stream=stream,
                     term=term
                 )
                 student.save()
 
-                register_student(student, current_class, stream)
-                create_student_bill(student, academic_class)
+                register_student(student, current_class, stream) 
+
 
 
 

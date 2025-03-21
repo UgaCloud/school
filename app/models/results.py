@@ -14,8 +14,6 @@ class GradingSystem(models.Model):
 class AssessmentType(models.Model):
     name = models.CharField(max_length=50, unique=True)  
     weight = models.DecimalField(max_digits=4, decimal_places=2)  
-    is_cumulative = models.BooleanField(default=False)  # New field to indicate if the assessment is cumulative
-
     
     def __str__(self):
         return self.name

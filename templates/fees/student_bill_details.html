@@ -52,7 +52,7 @@
             <div class="col-md-6">
                 <h2>Billed Items</h2>
             </div>
-            {% if request.user.staff_account.role.name == "bursar" %}
+            {% if request.user.staff_account.role.name == "Bursar" %}
                 <div class="col-md-6">
                     <div id="add-bill-item" class="pull-right" style="margin-top: 5px; cursor: pointer;">
                         <a class="btn" data-toggle="modal" data-target=".bill-item-modal-lg">
@@ -103,7 +103,7 @@
             <div id="myTabContent" class="tab-content">
                 <!-- Payments Tab -->
                 <div role="tabpanel" class="tab-pane active" id="tab_content1">
-                    {% if request.user.staff_account.role.name == "bursar" %}
+                    {% if request.user.staff_account.role.name == "Bursar" %}
                         <a class="btn" data-toggle="modal" data-target=".payment-modal-lg">
                             <i class="fa fa-plus"> Record Payment</i>
                         </a>

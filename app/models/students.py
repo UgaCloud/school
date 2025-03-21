@@ -3,8 +3,7 @@ from django.urls import reverse
 from app.constants import *
 
 class Student(models.Model):
-    
-    reg_no = models.CharField(max_length=30,unique=True)
+    reg_no = models.CharField(max_length=30, unique=True)
     student_name = models.CharField(max_length=50)
     gender = models.CharField(max_length=2, choices=GENDERS)
     birthdate = models.DateField(auto_now=False)
@@ -18,7 +17,7 @@ class Student(models.Model):
     current_class = models.ForeignKey("app.Class", verbose_name="Current Class", on_delete=models.CASCADE)
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
     term = models.ForeignKey("app.Term", on_delete=models.CASCADE)
-    photo = models.ImageField(upload_to="student_photos", null=True, blank=True)
+    photo = models.ImageField(upload_to="student_photos", null=True, blank=True, default="student_photos/default.jpg")
 
     class Meta:
         verbose_name = ("student")
