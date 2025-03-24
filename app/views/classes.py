@@ -131,12 +131,24 @@ def delete_stream_view(request, id):
 
 @login_required
 def academic_class_view(request):
-    try:
-        staff_account = StaffAccount.objects.get(user=request.user)
-        staff_member = staff_account.staff
-    except StaffAccount.DoesNotExist:
-        messages.error(request, "You do not have the necessary permissions to view this page.")
-        return redirect('dashboard')
+    if request.user.is_superuser:
+        academic_classes = AcademicClass.objects.all()
+    else:
+        # Get the logged-in user's staff account
+        try:
+            staff_account = StaffAccount.objects.get(user=request.user)
+            staff_member = staff_account.staff
+        except StaffAccount.DoesNotExist:
+            messages.error(request, "You do not have the necessary permissions to view this page.")
+            return redirect('dashboard')
+
+        # Filter academic classes based on the teacher's assigned subjects
+        academic_classes = AcademicClass.objects.filter(
+            id__in=AcademicClassStream.objects.filter(
+                id__in=ClassSubjectAllocation.objects.filter(subject_teacher=staff_member)
+                .values_list("academic_class_stream_id", flat=True)
+            ).values_list("academic_class_id", flat=True)
+        ).distinct()
 
     if request.method == "POST":
         academic_class_form = AcademicClassForm(request.POST)
@@ -145,16 +157,8 @@ def academic_class_view(request):
             messages.success(request, SUCCESS_ADD_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
-
-    academic_class_form = AcademicClassForm()
-
-
-    academic_classes = AcademicClass.objects.filter(
-        id__in=AcademicClassStream.objects.filter(
-            id__in=ClassSubjectAllocation.objects.filter(subject_teacher=staff_member)
-            .values_list("academic_class_stream_id", flat=True)
-        ).values_list("academic_class_id", flat=True)
-    ).distinct()
+    else:
+        academic_class_form = AcademicClassForm()
 
     context = {
         "form": academic_class_form,
@@ -164,6 +168,7 @@ def academic_class_view(request):
     }
 
     return render(request, "classes/academic_class.html", context)
+
 
 
 @login_required
