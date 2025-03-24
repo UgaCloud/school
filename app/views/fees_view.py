@@ -42,6 +42,7 @@ def add_bill_item_view(request):
     return HttpResponseRedirect(reverse(manage_bill_items_view))
 
 
+@login_required
 def edit_bill_item_view(request,id):
     bill_item = get_model_record(BillItem,id)
     if request.method =="POST":

@@ -49,6 +49,7 @@ def staff_details_view(request, id):
     
     return render(request, "staff/staff_details.html", context)
 
+@login_required
 def edit_staff_details_view(request, id):
     staff_details = get_model_record(Staff, id)
 

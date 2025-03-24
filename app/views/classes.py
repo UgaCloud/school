@@ -40,7 +40,7 @@ def class_view(request):
     }
     return render(request, "classes/_class.html", context)
 
-
+@login_required
 def edit_classe_view(request, id):
     classe = get_model_record(Class,id)
     
@@ -73,6 +73,7 @@ def delete_class_view(request, id):
     
     return redirect(class_view)
 
+@login_required
 def stream_view(request):
     if request.method == "POST":
         stream_form = StreamForm(request.POST)
@@ -93,6 +94,7 @@ def stream_view(request):
     return render(request, "classes/stream.html", context)
 
 
+@login_required
 def edit_stream(request,id):
     stream = get_model_record(Stream,id)
     if request.method =="POST":
@@ -164,7 +166,7 @@ def academic_class_view(request):
     return render(request, "classes/academic_class.html", context)
 
 
-
+@login_required
 def edit_academic_class_view(request, class_id):
     academic_class = get_model_record(AcademicClass,class_id)
 
@@ -196,6 +198,7 @@ def delete_academic_class_view(request, id):
     
     return redirect(academic_class_view)
 
+@login_required
 def academic_class_details_view(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
     academic_class_streams = class_selectors.get_academic_class_streams(academic_class)
@@ -220,7 +223,7 @@ def academic_class_details_view(request, id):
     return render(request, "classes/academic_class_details.html", context)
 
 
-
+@login_required
 def edit_academic_class_details_view(request,id):
     academic_class = get_model_record(AcademicClass,id)
     if request.method =="POST":
@@ -256,6 +259,7 @@ def add_class_stream(request, id):
         
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
 
+@login_required
 def edit_class_stream(request, id):
     class_stream = get_model_record(AcademicClassStream,id)
     
@@ -458,6 +462,7 @@ def add_class_subject_allocation(request):
     }
     return render(request, 'classes/classsubjectallocation_form.html', context)
 
+@login_required
 def edit_subject_allocation_view(request,id):
     allocation = get_model_record(ClassSubjectAllocation,id)
     if request.method =="POST":

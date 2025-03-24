@@ -36,7 +36,7 @@ def add_subject_view(request):
     
     return HttpResponseRedirect(reverse(manage_subjects_view))
 
-
+@login_required
 def edit_subject_view(request,id):
     subject = get_model_record(Subject,id)
     

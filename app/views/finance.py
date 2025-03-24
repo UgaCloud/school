@@ -35,6 +35,7 @@ def add_income_source(request):
     return HttpResponsePermanentRedirect(reverse(manage_income_sources))
 
 
+@login_required
 def edit_income_sources(request, id):
     income_source = get_model_record(IncomeSource,id)
     if request.method =="POST":
@@ -89,6 +90,7 @@ def add_expense(request):
     return HttpResponsePermanentRedirect(reverse(manage_expenses))
 
 
+@login_required
 def edit_expenses(request, id):
     expense = get_model_record(Expense, id)
     
@@ -144,7 +146,7 @@ def add_expenditure(request):
     
     return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure.id]))
 
-
+@login_required
 def edit_expenditures(request, id):
     expenditure = get_model_record(Expenditure, id)
     
@@ -195,6 +197,7 @@ def add_expenditure_item(request):
     
     return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
 
+@login_required
 def edit_expenditure_items(request, id):
     expenditure_item = get_model_record(ExpenditureItem, id)
     if request.method == "POST":
@@ -252,6 +255,7 @@ def add_vendor(request):
     return HttpResponsePermanentRedirect(reverse(manage_vendors))
 
 
+@login_required
 def edit_vendors(request, id):
     vendor = get_model_record(Vendor, id)
     if request.method=="POST":
@@ -309,6 +313,7 @@ def add_budget(request):
     return HttpResponsePermanentRedirect(reverse(manage_budgets))
 
 
+@login_required
 def edit_budgets(request, id):
     budget = get_model_record(Budget,id)
     if request.method=="POST":
@@ -367,6 +372,7 @@ def add_budget_item(request):
     return HttpResponsePermanentRedirect(reverse(manage_budget_items, args=[budget]))
 
 
+@login_required
 def edit_budget_items(request, id):
     budget_item = get_model_record(BudgetItem, id)
     if request.method=="POST":

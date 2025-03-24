@@ -66,7 +66,7 @@ def add_currency(request):
     messages.error(request, 'You sent a get request')
     return HttpResponseRedirect(reverse('settings_page'))
 
-
+@login_required
 def edit_currency_page(request, currency_id):
     currency = school_settings_selectors.get_currency(currency_id)
     if request.POST:
@@ -103,7 +103,7 @@ def school_section_view(request):
     
     return HttpResponseRedirect(reverse('settings_page'))
 
-
+@login_required
 def edit_section_view(request, id):
     section = get_model_record(Section,id)
     
@@ -147,7 +147,7 @@ def add_signature_view(request):
     return HttpResponseRedirect(reverse("settings_page"))
 
 
-
+@login_required
 def edit_signature_view(request, id):
     signature = school_settings_selectors.get_signature(id)
     
@@ -193,6 +193,7 @@ def add_department_view(request):
             
     return HttpResponseRedirect(reverse("settings_page"))
 
+@login_required
 def edit_department_view(request,id):
     department = school_settings_selectors.get_department(id)
     
