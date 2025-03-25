@@ -6,106 +6,111 @@
     <!-- top tiles -->
     <div class="row" style="display: inline-block;" >
         <div class="tile_count">
-            <div class="col-md-2 col-sm-4  tile_stats_count">
-            <span class="count_top"><i class="fa fa-user"></i> Total Users</span>
-            <div class="count">2500</div>
-            <span class="count_bottom"><i class="green">4% </i> From last Week</span>
+            <div class="col-md-2 col-sm-4 tile_stats_count">
+                <span class="count_top"><i class="fa fa-user"></i>Total Staff Members</span>
+                <div class="count blue">{{ total_staff }}</div>
+                <span class="count_bottom"><i class="green">100% of Staff</i></span> 
             </div>
-            <div class="col-md-2 col-sm-4  tile_stats_count">
-            <span class="count_top"><i class="fa fa-clock-o"></i> Average Time</span>
-            <div class="count">123.50</div>
-            <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>3% </i> From last Week</span>
+            
+            <div class="col-md-2 col-sm-4 tile_stats_count">
+                <span class="count_top"><i class="fa fa-clock-o"></i>Total Male Staff</span>
+                <div class="count">{{ total_males }}</div>
+                <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>{{male_percentage}}% of Male staff</i></span>
             </div>
-            <div class="col-md-2 col-sm-4  tile_stats_count">
-            <span class="count_top"><i class="fa fa-user"></i> Total Males</span>
-            <div class="count green">2,500</div>
-            <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>34% </i> From last Week</span>
+            <div class="col-md-2 col-sm-4 tile_stats_count">
+                <span class="count_top"><i class="fa fa-user"></i>Total Female Staffs</span>
+                <div class="count green">{{ total_females }}</div>
+                <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>{{female_percentage}}% of Female staff</i></span>
             </div>
-            <div class="col-md-2 col-sm-4  tile_stats_count">
-            <span class="count_top"><i class="fa fa-user"></i> Total Females</span>
-            <div class="count">4,567</div>
-            <span class="count_bottom"><i class="red"><i class="fa fa-sort-desc"></i>12% </i> From last Week</span>
+            <div class="col-md-2 col-sm-4 tile_stats_count">
+                <span class="count_top"><i class="fa fa-user"></i>Student Population</span>
+                <div class="count blue">{{total_students}}</div>
+                <span class="count_bottom"><i class="green">100% of Students</i></span> 
             </div>
-            <div class="col-md-2 col-sm-4  tile_stats_count">
-            <span class="count_top"><i class="fa fa-user"></i> Total Collections</span>
-            <div class="count">2,315</div>
-            <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>34% </i> From last Week</span>
+            <div class="col-md-2 col-sm-4 tile_stats_count">
+                <span class="count_top"><i class="fa fa-user"></i>Female Students</span>
+                <div class="count green">{{total_female_students}}</div>
+                <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>{{female_students_percentage}}% of Female students</i></span>
             </div>
-            <div class="col-md-2 col-sm-4  tile_stats_count">
-            <span class="count_top"><i class="fa fa-user"></i> Total Connections</span>
-            <div class="count">7,325</div>
-            <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>34% </i> From last Week</span>
+            <div class="col-md-2 col-sm-4 tile_stats_count">
+                <span class="count_top"><i class="fa fa-user"></i>Male Students</span>
+                <div class="count">{{total_male_students}}</div>
+                <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>{{male_students_percentage}}% of Male Students</i></span>
             </div>
         </div>
+        
     </div>
     <!-- /top tiles -->
 
     <div class="row">
         <div class="col-md-12 col-sm-12 ">
-        <div class="dashboard_graph">
-
-            <div class="row x_title">
-            <div class="col-md-6">
-                <h3>Network Activities <small>Graph title sub-title</small></h3>
-            </div>
-            <div class="col-md-6">
-                <div id="reportrange" class="pull-right" style="background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc">
-                <i class="glyphicon glyphicon-calendar fa fa-calendar"></i>
-                <span>December 30, 2014 - January 28, 2015</span> <b class="caret"></b>
+            <div class="dashboard_graph">
+                <div class="row x_title">
+                    <div class="col-md-6">
+                        <h3>School Performance Overview <small>Academic Year Progress</small></h3>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="reportrange" class="pull-right" style="background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc">
+                            <i class="glyphicon glyphicon-calendar fa fa-calendar"></i>
+                            <span>January 1, 2024 - December 31, 2024</span> <b class="caret"></b>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            </div>
-
-            <div class="col-md-9 col-sm-9 ">
-            <div id="chart_plot_01" class="demo-placeholder"></div>
-            </div>
-            <div class="col-md-3 col-sm-3  bg-white">
-            <div class="x_title">
-                <h2>Top Campaign Performance</h2>
+            
+                <div class="col-md-9 col-sm-9">
+                    <div id="chart_plot_01" class="demo-placeholder"></div> 
+                </div>
+            
+                <div class="col-md-3 col-sm-3 bg-white">
+                    <div class="x_title">
+                        <h2>Key Performance Indicators</h2>
+                        <div class="clearfix"></div>
+                    </div>
+            
+                    <div class="col-md-12 col-sm-12">
+                        <div>
+                            <p>Student Enrollment Progress</p>
+                            <div class="">
+                                <div class="progress progress_sm" style="width: 100%;">
+                                    <div class="progress-bar bg-green" role="progressbar" data-transitiongoal="{{ enrollment_percentage }}"></div>
+                                </div>
+                            </div>
+                        </div>
+            
+                        <div>
+                            <p>Fee Collection Status</p>
+                            <div class="">
+                                <div class="progress progress_sm" style="width: 100%;">
+                                    <div class="progress-bar bg-blue" role="progressbar" data-transitiongoal="{{ fee_collection_percentage }}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            
+                    <div class="col-md-12 col-sm-12">
+                        <div>
+                            <p>Library Book Borrowing</p>
+                            <div class="">
+                                <div class="progress progress_sm" style="width: 100%;">
+                                    <div class="progress-bar bg-orange" role="progressbar" data-transitiongoal="{{ library_usage_percentage }}"></div>
+                                </div>
+                            </div>
+                        </div>
+            
+                        <div>
+                            <p>Teacher Attendance Rate</p>
+                            <div class="">
+                                <div class="progress progress_sm" style="width: 100%;">
+                                    <div class="progress-bar bg-purple" role="progressbar" data-transitiongoal="{{ teacher_attendance_percentage }}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            
                 <div class="clearfix"></div>
             </div>
-
-            <div class="col-md-12 col-sm-12 ">
-                <div>
-                <p>Facebook Campaign</p>
-                <div class="">
-                    <div class="progress progress_sm" style="width: 76%;">
-                    <div class="progress-bar bg-green" role="progressbar" data-transitiongoal="80"></div>
-                    </div>
-                </div>
-                </div>
-                <div>
-                <p>Twitter Campaign</p>
-                <div class="">
-                    <div class="progress progress_sm" style="width: 76%;">
-                    <div class="progress-bar bg-green" role="progressbar" data-transitiongoal="60"></div>
-                    </div>
-                </div>
-                </div>
-            </div>
-            <div class="col-md-12 col-sm-12 ">
-                <div>
-                <p>Conventional Media</p>
-                <div class="">
-                    <div class="progress progress_sm" style="width: 76%;">
-                    <div class="progress-bar bg-green" role="progressbar" data-transitiongoal="40"></div>
-                    </div>
-                </div>
-                </div>
-                <div>
-                <p>Bill boards</p>
-                <div class="">
-                    <div class="progress progress_sm" style="width: 76%;">
-                    <div class="progress-bar bg-green" role="progressbar" data-transitiongoal="50"></div>
-                    </div>
-                </div>
-                </div>
-            </div>
-
-            </div>
-
-            <div class="clearfix"></div>
-        </div>
+            
         </div>
 
     </div>

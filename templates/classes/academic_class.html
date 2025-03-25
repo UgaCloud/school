@@ -52,7 +52,7 @@
                                         <td>{{ class.term }}</td>
                                         <td>{{ class.fees_amount }}</td>
                                         <td>
-                                            <a href="{% url 'academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="">View</i></a>
+                                            <a href="{% url 'academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="fas fa-eye"></i> </a>
                                             
                                             {% if request.user.is_superuser %}
                                                 <a href="{% url 'edit_academic_class_details_page' class.id %}" class="btn btn-primary btn-xs">
