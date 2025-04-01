@@ -12,6 +12,8 @@ from app.forms.student import StudentForm
 from app.models.students import Student
 import app.forms.student as student_forms
 import app.selectors.students as student_selectors
+import app.selectors.classes as class_selectors
+from app.selectors.classes import *
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -35,22 +37,46 @@ def manage_student_view(request):
     }
     
     return render(request, "student/manage_students.html", context)
-
 @login_required
 def add_student_view(request):
     if request.method == "POST":
         student_form = student_forms.StudentForm(request.POST, request.FILES)
-        
+
         if student_form.is_valid():
+            _class = student_form.cleaned_data.get("current_class")
+            stream = student_form.cleaned_data.get("stream")
+
+            current_academic_year = get_current_academic_year()
+            term = get_current_term()
+            academic_class = get_current_academic_class(current_academic_year, _class, term)
+
+            class_stream_exists = AcademicClassStream.objects.filter(
+                academic_class=academic_class, stream=stream
+            ).exists()
+
+            if not class_stream_exists:
+                messages.error(request, "No academic class stream found. Student registration aborted.")
+                return HttpResponseRedirect(reverse(manage_student_view))  
+
             student = student_form.save()
-            
-            register_student(student, student.current_class, student.stream)
-            
+            register_student(student, _class, stream)
             messages.success(request, SUCCESS_ADD_MESSAGE)
+
         else:
             messages.error(request, FAILURE_MESSAGE)
-    
+
     return HttpResponseRedirect(reverse(manage_student_view))
+
+
+@login_required
+def student_details_view(request, id):
+    student = student_selectors.get_student(id)
+    context = {
+        "student": student,  
+    }
+    return render(request, "student/student_details.html", context)
+
+
     
 @login_required
 def download_student_template_csv(request):
@@ -75,48 +101,48 @@ def download_student_template_csv(request):
 
 @login_required
 def bulk_student_registration_view(request):
-    
     delete_all_csv_files()
     if request.method == "POST":
         csv_form = student_forms.StudentRegistrationCSVForm(request.POST, request.FILES)
-        
+
         if csv_form.is_valid():
             csv_object = csv_form.save()
-            
+
             try:
-                bulk_student_registration(csv_object)
+                bulk_student_registration(csv_object)  # Now no `request` parameter is passed here
                 messages.success(request, SUCCESS_BULK_ADD_MESSAGE)
-            except(ValueError, IntegrityError):
-                if ValueError:
-                    messages.error(request, INVALID_VALUE_MESSAGE)
-                elif IntegrityError:
-                    messages.error(request, INTEGRITY_ERROR_MESSAGE)
+            except ValueError as e:
+                # Catch the ValueError raised from `bulk_student_registration`
+                messages.error(request, str(e))  # Display the error message
+            except IntegrityError:
+                messages.error(request, INTEGRITY_ERROR_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
-    
+
     return HttpResponseRedirect(reverse(manage_student_view))
 
 @login_required
-def edit_student_view(request,id):
-    student = get_model_record(Student,id)
-    
+def edit_student_view(request, id):
+    student = get_model_record(Student, id)
+
     if request.method == 'POST':
-        student_form = StudentForm(request.POST, instance=student)
+        student_form = StudentForm(request.POST, request.FILES, instance=student)
         if student_form.is_valid():
+        
             student_form.save()
-            
+
             messages.success(request, SUCCESS_ADD_MESSAGE)    
         else:
             messages.error(request, FAILURE_MESSAGE)
         return redirect(add_student_view)
     else:
         student_form = StudentForm(instance=student)
-    
+
     context = {
         "form": student_form,
         "student": student
     }
-    
+
     return render(request, "student/edit_student.html", context)
 
 @login_required
@@ -145,8 +171,6 @@ def classregister(request):
     context ={
         "classregisterform":classregisterform,
         "class_register":class_register
-        
-        
     }
     return render(request,"student/class_register.html",context)
 
@@ -182,7 +206,7 @@ def bulk_register_students(request):
         messages.success(request,SUCCESS_BULK_ADD_MESSAGE)
 
         # Redirect after registration
-        return redirect(manage_student_view)
+        return redirect(ClassRegister)
 
     return render(request, "student/bulk_register_students.html", {
         "unregistered_students": unregistered_students,

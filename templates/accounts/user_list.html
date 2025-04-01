@@ -4,15 +4,14 @@
 {% block page_title %}User Accounts{% endblock page_title %}
 
 {% block content %}
-<button id="openModalBtn" class="btn btn-success">Create Staff Account</button>
+<button id="openModalBtn" class="btn btn-primary">Create Staff Account</button>
 
 <!-- Optional search form -->
 <form method="get" action="{% url 'user_list' %}">
-    <input type="text" name="search" placeholder="Search by username">
-    <button type="submit">Search</button>
+    
 </form>
 
-<table class="table table-hover">
+<table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
     <thead>
         <tr>
             <th>Id</th>
@@ -33,7 +32,10 @@
             <td>{{ user.email }}</td>
             <td>
                 
-                <a href="{% url 'user_detail' user.id %}" class="btn btn-primary btn-sm">View</a>
+                <a href="{% url 'user_detail' user.id %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-eye"></i>
+                </a>
+                
 
                 
                 <form action="{% url 'delete_user' user.id %}" method="post" style="display:inline;">

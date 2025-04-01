@@ -13,12 +13,20 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from app.forms.accounts import CustomLoginForm,RoleSwitchForm,StaffAccountForm
 from app.views.index_views import *
-from django.conf import settings
+from core.settings import common
 from django.views.generic import ListView
 from app.selectors.model_selectors import *
 from django.views.generic import DetailView
 from django.template.loader import render_to_string
 from django.http import JsonResponse
+from django.core.mail import send_mail
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.template.loader import render_to_string
+from django.contrib.auth.views import PasswordResetView
+from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.mixins import LoginRequiredMixin
+
 
 
 @login_required
@@ -28,20 +36,20 @@ def create_account_view(request):
         if form.is_valid():
             staff = form.cleaned_data['staff']
 
-            
-            username = (staff.last_name).lower()
-            unique_username = username
+            first_initial = staff.first_name[0].upper()
+            last_name = staff.last_name.lower()
+            base_username = f"{first_initial}-{last_name}"
+            unique_username = base_username
             counter = 1
 
-            
             while User.objects.filter(username=unique_username).exists():
-                unique_username = f"{username}{counter}"
+                unique_username = f"{base_username}{counter}"
                 counter += 1
 
-            
+            # Create user account
             user = User.objects.create_user(
                 username=unique_username,
-                password='123',  # default password
+                password='123',  # Default password
                 first_name=staff.first_name,
                 last_name=staff.last_name
             )
@@ -49,15 +57,13 @@ def create_account_view(request):
             staff.save()
             messages.success(request, f"Account for {user.username} created successfully.")
 
-            
+            # Assign role if available
             role = staff.roles.first() if staff.roles.exists() else None
-
             if role:
                 StaffAccount.objects.create(user=user, staff=staff, role=role)
             else:
                 return JsonResponse({'error': "No role available for this staff member. Please assign a role."}, status=400)
 
-            
             return JsonResponse({'success': True})
 
     else:
@@ -70,7 +76,6 @@ def create_account_view(request):
 
 
 
-
 def user_login(request):
     error_message = None  
     school_settings = SchoolSetting.objects.first()
@@ -79,18 +84,21 @@ def user_login(request):
         form = CustomLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
+
             login(request, user)
             return redirect('dashboard')
         else:
-            error_message ="Invalid username or password.Please try again."
+            error_message = "Invalid username or password. Please try again."
     else:
         form = CustomLoginForm()
-    context={
-        'form':form,
-        'school_settings':school_settings,
+
+    context = {
+        'form': form,
+        'school_settings': school_settings,
         'error_message': error_message,
     }
-    return render(request, 'accounts/login.html',context)
+    return render(request, 'accounts/login.html', context)
+
 
 
 @login_required
@@ -151,25 +159,24 @@ class UserListView(ListView):
         return queryset
 
 
-
-class UserDetailView(DetailView):
+class UserDetailView(LoginRequiredMixin, DetailView):
     model = User
     template_name = 'accounts/user_detail.html'
-    context_object_name = 'user'
+    context_object_name = 'viewed_user'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Get the StaffAccount instance for the user
-        staff_account = get_object_or_404(StaffAccount, user=self.object)
-        
-        # Retrieve the related Staff instance
-        staff_member = staff_account.staff  # This will access the related Staff instance
+        viewed_user = self.object  
+        staff_account = StaffAccount.objects.filter(user=viewed_user).first()
 
-        context['staff'] = staff_member  # Pass the Staff instance to the context
-        context['roles'] = StaffAccount.objects.filter(user=self.object)  # Retrieve roles for the user
-        context['last_login'] = self.object.last_login  
+        context['staff'] = staff_account.staff if staff_account else None
+        context['role'] = staff_account.role if staff_account else None
+        context['last_login'] = viewed_user.last_login
+
         return context
+
+
 
 def delete_user_view(request, id):
     user = get_model_record(User,id)
@@ -193,3 +200,27 @@ def password_change_view(request):
 
 
 
+class CustomPasswordResetView(PasswordResetView):
+    template_name = 'accounts/password_reset_form.html'
+    email_template_name = 'accounts/password_reset_email.html'
+    subject_template_name = 'accounts/password_reset_subject.txt'
+
+    def form_valid(self, form):
+        email = form.cleaned_data.get('email')
+        users = User.objects.filter(email=email)
+        if not users.exists():
+            messages.error(self.request, "No account found with that email.")
+            return render(self.request, self.template_name, {'form': form})
+
+        user = users.first()  
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(str(user.pk).encode()) 
+        reset_url = f"{common.DEV_TUNNEL_URL}/password-reset/{uid}/{token}/"
+
+        subject = "Password Reset Request"
+        message = render_to_string(self.email_template_name, {
+            'reset_url': reset_url,
+            'user': user,
+        })
+        send_mail(subject, message, 'no-reply@yourdomain.com', [email])
+        return super().form_valid(form)

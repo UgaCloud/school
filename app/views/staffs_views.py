@@ -49,31 +49,31 @@ def staff_details_view(request, id):
     
     return render(request, "staff/staff_details.html", context)
 
+@login_required
+def edit_staff_details_view(request, id):
+    staff_details = get_model_record(Staff, id)
 
-def edit_staff_details_view(request,id):
-
-    staff_details = get_model_record(Staff,id)
-    
     if request.method == "POST":
-        staff_detail_form = StaffForm(request.POST, instance=staff_details)
-        
+        staff_detail_form = StaffForm(request.POST, request.FILES, instance=staff_details) 
+
         if staff_detail_form.is_valid():
             staff_detail_form.save()
             messages.success(request, SUCCESS_ADD_MESSAGE)
-            
-            return redirect(staff_details_view , id=id)
+
+            return redirect(staff_details_view, id=id)
         else:
             messages.error(request, FAILURE_MESSAGE)
-    
+
     else:
         staff_detail_form = StaffForm(instance=staff_details)
-    
+
     context = {
         "form": staff_detail_form,
         "staff_details": staff_details,
     }
-    
+
     return render(request, "staff/edit_staff_details.html", context)
+
 
 
 def delete_staff_view(request, id):

@@ -5,6 +5,9 @@ from app.selectors.school_settings import get_current_academic_year
 def get_classes():
     return Class.objects.all()
 
+def get_class_by_code(class_code):
+    return Class.objects.filter(code=class_code).first() 
+
 def get_academic_classes():
     return AcademicClass.objects.all()
 
@@ -12,8 +15,8 @@ def get_academic_class(id):
     return AcademicClass.objects.get(pk=id)
 
 def get_current_academic_class(year, _class, term):
-    return AcademicClass.objects.get(academic_year=year, Class=_class, term=term)
-
+    return AcademicClass.objects.get(academic_year=year,Class=_class,term=term)
+    
 def get_academic_class_stream(year, stream):
     return AcademicClassStream.objects.get(academic_class=year, stream=stream)
 
@@ -21,7 +24,7 @@ def get_academic_class_streams(academic_class):
     return AcademicClassStream.objects.filter(academic_class=academic_class)
 
 def get_class_by_code(code):
-    return Class.objects.get(code=code)
+    return Class.objects.filter(code=code).first()  
 
 def get_stream_by_name(stream):
     return Stream.objects.get(stream=stream)

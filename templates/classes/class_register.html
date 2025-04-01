@@ -19,11 +19,11 @@
                     </div>
 
                     <!-- Register Button -->
-                    <div class="form-group">
+                    <!-- <div class="form-group">
                         <a href="{% url 'bulk_register_students' %}" class="btn btn-primary" style="color: white; font-weight: bold; border-radius: 5px; margin-bottom: 20px;">
                             <i class="fa fa-plus"></i> Register New Students
                         </a>
-                    </div>
+                    </div> -->
 
                     <!-- Start Student List -->
                     <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
@@ -34,7 +34,7 @@
                                 <th>Student Name</th>
                                 <th>Gender</th>
                                 <th>Stream</th>
-                                <th>Action</th>
+                               <!-- <th>Action</th> -->
                             </tr>
                         </thead>
                         <tbody>
@@ -50,10 +50,10 @@
                                 </td>
                                 <td>{{ register.student.gender }}</td>
                                 <td>{{ register.academic_class_stream.stream }}</td>
-                                <td>
+                                <!-- <td>
                                     <a href="" class="btn btn-primary btn-xs"><i class="fa fa-folder"></i></a>
                                     <a href="#" class="btn btn-danger btn-xs"><i class="fa fa-trash-o"></i></a>
-                                </td>
+                                </td> -->
                             </tr>
                             {% empty %}
                             <tr>

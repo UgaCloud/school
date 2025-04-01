@@ -5,4 +5,4 @@ def calculate_grade_and_points(score):
         grading = GradingSystem.objects.get(min_score__lte=score, max_score__gte=score)
         return grading.grade, grading.points
     except GradingSystem.DoesNotExist:
-        return "N/A", None  # Handle cases where no matching grading is found
+        return "N/A", None  

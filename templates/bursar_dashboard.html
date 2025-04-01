@@ -17,15 +17,6 @@
         </ul>
     </li>
 
-    <li>
-        <a>
-            <i class="fa fa-mortar-board"></i> Student Center <span class="fa fa-chevron-down"></span>
-        </a>
-        <ul class="nav child_menu">
-            <li><a href="{% url 'student_page' %}">Student Info</a></li>
-        </ul>
-    </li>
-
     <!-- Fees -->
     <li>
         <a>
@@ -34,8 +25,8 @@
         <ul class="nav child_menu">
             <li><a href="{% url 'bill_item_page' %}">Bill Items</a></li>
             <li><a href="{% url 'student_bill_page' %}">Student Bill</a></li>
-            <li><a href="#">Class Bill</a></li>
-            <li><a href="#">Fees Payment</a></li>
+            <li><a href="{% url 'class_bill_list' %}">Class Bill</a></li>
+            <li><a href="{% url 'fees_status' %}">Fees Status</a></li>
         </ul>
     </li>
 

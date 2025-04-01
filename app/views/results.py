@@ -227,7 +227,7 @@ def grading_system_view(request):
 
 
 #Edit grading system
-
+@login_required
 def edit_grading_system_view(request, id):
     grading_system = get_model_record(GradingSystem,id)
 
@@ -259,7 +259,7 @@ def delete_grading_system_view(request, id):
     messages.success(request, DELETE_MESSAGE)
     return redirect(grading_system_view)
 
-
+@login_required
 def assessment_list_view(request):
     assessments = Assessment.objects.all()
     context = {
@@ -344,6 +344,7 @@ def assesment_type_view(request):
     
     return render(request, "results/assesment_type.html", context)
 
+@login_required
 def edit_assesment_type(request,id):
     assesment_type = get_model_record(AssessmentType,id)
     if request.method =="POST":

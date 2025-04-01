@@ -13,7 +13,6 @@ import os
 from pathlib import Path
 from decouple import config
 
-
 import sys
 
 
@@ -25,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app.middleware.update_jazzmin.UpdateJazzminMiddleware',
+    'core.middleware.AutoLogoutMiddleware',
 
 ]
 
@@ -147,7 +148,19 @@ LOGOUT_REDIRECT_URL = 'login'
 #Ssessions
 SESSION_COOKIE_AGE = 1800  # 30 minutes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True  
 
+#This is for testing  only
+DEV_TUNNEL_URL = "http//: 192.168.5.56:8000"  
+
+# Email Configuration for SMTP (Using Gmail)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587 
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "wmizaac@gmail.com" #This is for testing only 
+EMAIL_HOST_PASSWORD = "ghpjuehpwanwycci" 
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 LOGGING = {
@@ -179,12 +192,12 @@ LOGGING = {
 }
 
 USER_ROLE_PREFIXES = {
-    'admin': 'Admin-',
-    'teacher': 'Teacher-',
-    'bursar': 'bursar-',
-    'director_of_studies': 'Dos-',
-    'headmaster': 'Hm-',
-    'class_teacher': 'Class-Teacher-',
+    'Admin': 'Admin-',
+    'Teacher': 'Teacher-',
+    'Bursar': 'bursar-',
+    'Director of studies': 'Dos-',
+    'Head master': 'Hm-',
+    'class Teacher': 'Class-Teacher-',
 }
 
 # admin dashboard settings

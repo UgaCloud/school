@@ -1,4 +1,4 @@
-from django.conf import settings
+from core.settings import common
 
 class UpdateJazzminMiddleware:
     def __init__(self, get_response):
@@ -11,5 +11,5 @@ class UpdateJazzminMiddleware:
             if SchoolSetting.objects.exists()
             else "Default School"
         )
-        settings.JAZZMIN_SETTINGS["site_brand"] = school_name
+        common.JAZZMIN_SETTINGS["site_brand"] = school_name
         return self.get_response(request)

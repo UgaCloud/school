@@ -2,107 +2,109 @@
 {% load crispy_forms_tags %}
 
 {% block page_title %}Academic Classes{% endblock page_title %}
+
 {% block content %}
     <div class="clearfix"></div>
 
     <div class="row">
         <div class="col-md-12">
             <div class="x_panel">
-            <div class="x_title">
-                <h2>Manage Classes</h2>
-                <ul class="nav navbar-right panel_toolbox">
-                <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
-                </li>
-                </ul>
-                <div class="clearfix"></div>
-            </div>
-            <div class="x_content">
-
-                <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".bs-example-modal-lg">
-                    <i class="fa fa-plus"></i>
-                    Add Academic Class
-                </button>
-
-                <br/>
-                <hr/>
-
-                {% if academic_classes %}
-                <!-- start Class list -->
-                <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
-                <thead>
-                    <tr>
-                    <th style="width: 1%">#</th>
-                    <th>Section</th>
-                    <th>Class</th>
-                    <th>Year</th>
-                    <th>Term</th>
-                    <th>Fees Amount</th>
-                    <th >Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for class in academic_classes %}
-                    <tr>
-                        <td>{{class.id}}</td>
-                        <td>
-                            {{class.section}}
-                        </td>
-                        <td>
-                            {{class.Class.code}}
-                        </td>
-                        <td>
-                            {{class.academic_year}}
-                        </td>
-                        <td>
-                            {{class.term}}
-                        </td>
-                        <td>
-                            {{class.fees_amount}}
-                        </td>
-                        <td>
-                            <a href="{% url 'academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="">View</i>  </a>
-                            <a href="{% url 'edit_academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i>  </a>
-                            <a href="{% url 'delete_academic_class' class.id %}" class="btn btn-danger btn-xs"><i class="fa fa-trash-o" onclick="return confirm('Are you sure you want to delete this field?')"></a></i></a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                </table>
-                <!-- end class list -->
-                {% else %}
-                <div class="card">
-                    <div class="card-body">
-                        <h4><center>No Classes Available</center></h4>
-                    </div>
+                <div class="x_title">
+                    <h2>Manage Classes</h2>
+                    <ul class="nav navbar-right panel_toolbox">
+                        <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+                    </ul>
+                    <div class="clearfix"></div>
                 </div>
-                {% endif %}
+                <div class="x_content">
 
-            </div>
+                    {% if request.user.is_superuser %}
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".bs-example-modal-lg">
+                            <i class="fa fa-plus"></i>
+                            Add Academic Class
+                        </button>
+                    {% endif %}
+
+                    <br/>
+                    <hr/>
+
+                    {% if academic_classes %}
+                        <!-- Start Class List -->
+                        <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th style="width: 1%">#</th>
+                                    <th>Section</th>
+                                    <th>Class</th>
+                                    <th>Year</th>
+                                    <th>Term</th>
+                                    <th>Fees Amount</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for class in academic_classes %}
+                                    <tr>
+                                        <td>{{ class.id }}</td>
+                                        <td>{{ class.section }}</td>
+                                        <td>{{ class.Class.code }}</td>
+                                        <td>{{ class.academic_year }}</td>
+                                        <td>{{ class.term }}</td>
+                                        <td>{{ class.fees_amount }}</td>
+                                        <td>
+                                            <a href="{% url 'academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="fas fa-eye"></i> </a>
+                                            
+                                            {% if request.user.is_superuser %}
+                                                <a href="{% url 'edit_academic_class_details_page' class.id %}" class="btn btn-primary btn-xs">
+                                                    <i class="fa fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'delete_academic_class' class.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Are you sure you want to delete this field?')">
+                                                    <i class="fa fa-trash-o"></i>
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <!-- End Class List -->
+                    {% else %}
+                        <div class="card">
+                            <div class="card-body">
+                                <h4><center>No Classes Available</center></h4>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
+    {% if request.user.is_superuser %}
+        <div class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
 
-            <div class="modal-header">
-              <h4 class="modal-title" id="myModalLabel">Add Academic Class</h4>
-              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <div class="modal-body">
-                <form method="POST">
-                    {% csrf_token %}
-                    {{form|crispy}}
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
+                    <div class="modal-header">
+                        <h4 class="modal-title" id="myModalLabel">Add Academic Class</h4>
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span></button>
+                    </div>
 
-          </div>
+                    <div class="modal-body">
+                        <form method="POST">
+                            {% csrf_token %}
+                            {{ form|crispy }}
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                        </form>
+
+                </div>
+            </div>
         </div>
-      </div>
-{% endblock content%}
+    {% endif %}
+
+{% endblock content %}

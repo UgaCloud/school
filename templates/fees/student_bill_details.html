@@ -6,203 +6,191 @@
 
 {% block content %}
 <div class="x_content">
-    <div class="col-md-3 col-sm-3  profile_left">
-      <div class="profile_img">
-        <div id="crop-avatar">
-          <!-- Current avatar -->
-          <img class="img-responsive img-fluid" src="{{student_bill.student.photo.url}}" alt="Avatar" title="Change the avatar">
+    <div class="col-md-3 col-sm-3 profile_left">
+        <div class="profile_img">
+            <div id="crop-avatar">
+                <img class="img-responsive img-fluid" src="{{ student_bill.student.photo.url }}" alt="Avatar">
+            </div>
         </div>
-      </div>
-      <h3>{{student_bill.student}}</h3>
+        <h3>{{ student_bill.student }}</h3>
 
-      <ul class="list-unstyled user_data">
-        <li><i class="fa fa-map-marker user-profile-icon"></i> {{student_bill.student.reg_no}}
-        </li>
-
-        <li>
-          <i class="fa fa-briefcase user-profile-icon"></i> {{student_bill.student.current_class.code}}
-        </li>
-      </ul>
-
-      <!-- start skills -->
-      <h4>Bill Summary</h4>
-      <ul class="list-unstyled user_data">
-        <li>
-          <p>Total Amount - {{student_bill.total_amount|intcomma}}/-</p>
-          <div class="progress progress_sm">
-            <div class="progress-bar bg-green" role="progressbar" data-transitiongoal={{student_bill.total_amount}}></div>
-          </div>
-        </li>
-        <li>
-          <p>Amount Paid - {{student_bill.amount_paid|intcomma}}/-</p>
-          <div class="progress progress_sm">
-            <div class="progress-bar bg-green" role="progressbar" data-transitiongoal={{student_bill.amount_paid}}></div>
-          </div>
-        </li>
-        <li>
-          <p>Balance - {{student_bill.balance|intcomma}}/-</p>
-          <div class="progress progress_sm">
-            <div class="progress-bar bg-green" role="progressbar" data-transitiongoal=({{student_bill.balance}}/{{student_bill.total_amount}})*100></div>
-          </div>
-        </li>
-      </ul>
-      <!-- end of skills -->
-
-    </div>
-    <div class="col-md-9 col-sm-9 ">
-
-      <div class="profile_title">
-        <div class="col-md-6">
-          <h2>Billed Items</h2>
-        </div>
-        <div class="col-md-6">
-          <div id="add-bill-item" class="pull-right" style="margin-top: 5px; background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #E6E9ED">
-            <a class="btn" data-toggle="modal" data-target=".bill-item-modal-lg">
-                <i class="fa fa-plus"> 
-                    Add Bill Item
-                </i>
-            </a>
-          </div>
-        </div>
-      </div>
-      <!-- start of user-activity-graph -->
-      <div id="graph_bar" style="width:100%; height:280px;">
-        <table class="data table table-striped no-margin">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Item</th>
-                <th>Description</th>
-                <th class="hidden-phone">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-                {% for item in student_bill.items.all %}
-                    <tr>
-                        <td>{{forloop.counter}}</td>
-                        <td>{{item.bill_item}}</td>
-                        <td>{{item.description}}</td>
-                        <td class="hidden-phone">{{item.amount|intcomma}}/-</td>
-                        <td class="vertical-align-mid">
-                        <div class="progress">
-                            <div class="progress-bar progress-bar-success" data-transitiongoal="35"></div>
-                        </div>
-                        </td>
-                    </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-      </div>
-      <!-- end of user-activity-graph -->
-
-      <div class="" role="tabpanel" data-example-id="togglable-tabs">
-        <ul id="myTab" class="nav nav-tabs bar_tabs" role="tablist">
-          <li role="presentation" class="active"><a href="#tab_content1" id="home-tab" role="tab" data-toggle="tab" aria-expanded="true">Payments</a>
-          </li>
-          <li role="presentation" class=""><a href="#tab_content2" role="tab" id="profile-tab" data-toggle="tab" aria-expanded="false">Discounts</a>
-          </li>
-          <li role="presentation" class=""><a href="#tab_content3" role="tab" id="profile-tab2" data-toggle="tab" aria-expanded="false">Documents</a>
-          </li>
+        <ul class="list-unstyled user_data">
+            <li><i class="fa fa-map-marker user-profile-icon"></i> {{ student_bill.student.reg_no }}</li>
+            <li><i class="fa fa-briefcase user-profile-icon"></i> {{ student_bill.student.current_class.code }}</li>
         </ul>
-        <div id="myTabContent" class="tab-content">
-          <div role="tabpanel" class="tab-pane active " id="tab_content1" aria-labelledby="home-tab">
 
-            <a class="btn" data-toggle="modal" data-target=".payment-modal-lg">
-                <i class="fa fa-plus"> 
-                    Record Payment
-                </i>
-            </a>
+        <!-- Bill Summary -->
+        <h4>Bill Summary</h4>
+        <ul class="list-unstyled user_data">
+            <li>
+                <p>Total Amount - {{ student_bill.total_amount|intcomma }}/-</p>
+                <div class="progress progress_sm">
+                    <div class="progress-bar bg-blue" role="progressbar" style="width: 100%;"></div>
+                </div>
+            </li>
+            <li>
+                <p>Amount Paid - {{ student_bill.amount_paid|intcomma }}/-</p>
+                <div class="progress progress_sm">
+                    <div class="progress-bar bg-green" role="progressbar"
+                         style="width: {{ amount_paid_percentage }}%;">
+                    </div>
+                </div>
+            </li>
+            <li>
+                <p>Balance - {{ balance|intcomma }}/-</p>
+                <div class="progress progress_sm">
+                    <div class="progress-bar bg-red" role="progressbar"
+                         style="width: {{ balance_percentage }}%;">
+                    </div>
+                </div>
+            </li>
+        </ul>
+    </div>
 
-            <!-- start Payments -->
-            <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
+    <div class="col-md-9 col-sm-9">
+        <div class="profile_title">
+            <div class="col-md-6">
+                <h2>Billed Items</h2>
+            </div>
+            {% if request.user.staff_account.role.name == "Bursar" %}
+                <div class="col-md-6">
+                    <div id="add-bill-item" class="pull-right" style="margin-top: 5px; cursor: pointer;">
+                        <a class="btn" data-toggle="modal" data-target=".bill-item-modal-lg">
+                            <i class="fa fa-plus"> Add Bill Item</i>
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Billed Items Table -->
+        <div id="graph_bar" style="width:100%; height:280px;">
+            <table class="data table table-striped no-margin">
                 <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Date</th>
-                    <th>Payment Mode</th>
-                    <th>Reference No</th>
-                    <th>Amount</th>
-                    <th>Recorded By</th>
-                  </tr>
+                    <tr>
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Description</th>
+                        <th class="hidden-phone">Amount</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    {% for payment in student_bill.payments.all %}
+                    {% for item in student_bill.items.all %}
                         <tr>
-                            <td>{{forloop.counter}}</td>
-                            <td>{{payment.payment_date}}</td>
-                            <td>{{payment.payment_method}}</td>
-                            <td>{{payment.reference_no}}</td>
-                            <td>{{payment.amount|intcomma}}/-</td>
-                            <td>{{payment.recorded_by}}</td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ item.bill_item }}</td>
+                            <td>{{ item.description }}</td>
+                            <td class="hidden-phone">{{ item.amount|intcomma }}/-</td>
                         </tr>
                     {% endfor %}
                 </tbody>
-              </table>
-            <!-- end Payments -->
-
-          </div>
-          <div role="tabpanel" class="tab-pane fade" id="tab_content2" aria-labelledby="profile-tab">
-
-            <!-- start user projects -->
-            
-            <!-- end user projects -->
-
-          </div>
-          <div role="tabpanel" class="tab-pane fade" id="tab_content3" aria-labelledby="profile-tab">
-            <p>Staff Documents will be listed here! </p>
-          </div>
+            </table>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <div class="modal fade bill-item-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
+        <!-- Tabs Section -->
+        <div class="" role="tabpanel" data-example-id="togglable-tabs">
+            <ul id="myTab" class="nav nav-tabs bar_tabs" role="tablist">
+                <li role="presentation" class="active">
+                    <a href="#tab_content1" role="tab" data-toggle="tab">Payments</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab_content2" role="tab" data-toggle="tab">Discounts</a>
+                </li>
+                <li role="presentation">
+                    <a href="#tab_content3" role="tab" data-toggle="tab">Documents</a>
+                </li>
+            </ul>
+            <div id="myTabContent" class="tab-content">
+                <!-- Payments Tab -->
+                <div role="tabpanel" class="tab-pane active" id="tab_content1">
+                    {% if request.user.staff_account.role.name == "Bursar" %}
+                        <a class="btn" data-toggle="modal" data-target=".payment-modal-lg">
+                            <i class="fa fa-plus"> Record Payment</i>
+                        </a>
+                    {% endif %}
+
+                    <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Date</th>
+                                <th>Payment Mode</th>
+                                <th>Reference No</th>
+                                <th>Amount</th>
+                                <th>Recorded By</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in student_bill.payments.all %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ payment.payment_date }}</td>
+                                    <td>{{ payment.payment_method }}</td>
+                                    <td>{{ payment.reference_no }}</td>
+                                    <td>{{ payment.amount|intcomma }}/-</td>
+                                    <td>{{ payment.recorded_by }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Discounts Tab -->
+                <div role="tabpanel" class="tab-pane fade" id="tab_content2">
+                    <p>Discount details will be shown here.</p>
+                </div>
+
+                <!-- Documents Tab -->
+                <div role="tabpanel" class="tab-pane fade" id="tab_content3">
+                    <p>Student documents will be listed here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Bill Item Modal -->
+<div class="modal fade bill-item-modal-lg" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-
-        <div class="modal-header">
-          <h4 class="modal-title" id="myModalLabel">Add Bill Item</h4>
-          <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
-          </button>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Add Bill Item</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'add_student_bill_item' student_bill.id %}">
+                    {% csrf_token %}
+                    {{ bill_item_form|crispy }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+            </form>
         </div>
-        <div class="modal-body">
-            <form method="POST" action="{% url 'add_student_bill_item' student_bill.id %}">
-                {% csrf_token %}
-                {{bill_item_form|crispy}}
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-          <button type="submit" class="btn btn-primary">Save Changes</button>
-        </div>
-    </form>
-
-      </div>
     </div>
-  </div>
+</div>
 
-  <!-- Record Payment Modal -->
-  <div class="modal fade payment-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
+<!-- Record Payment Modal -->
+<div class="modal fade payment-modal-lg" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-
-        <div class="modal-header">
-          <h4 class="modal-title" id="myModalLabel">Record Payment</h4>
-          <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
-          </button>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Record Payment</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{% url 'record_payment' student_bill.id %}">
+                    {% csrf_token %}
+                    {{ payment_form|crispy }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+            </form>
         </div>
-        <div class="modal-body">
-            <form method="POST" action="{% url 'record_payment' student_bill.id %}">
-                {% csrf_token %}
-                {{payment_form|crispy}}
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-          <button type="submit" class="btn btn-primary">Save Changes</button>
-        </div>
-    </form>
-
-      </div>
     </div>
-  </div>
-  <!-- Ent Payment Modal-->
+</div>
+
 {% endblock content %}
