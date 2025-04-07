@@ -92,7 +92,7 @@ DATABASES = {
         'NAME': 'schooldb',
         'USER': 'postgres',
         'PASSWORD': 'root',
-        'HOST': '162.254.35.90',  
+        'HOST': '162.254.35.90:8080',  
         'PORT': '5050',
     }
 }
