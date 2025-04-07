@@ -88,10 +88,22 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': str(BASE_DIR / 'db.sqlite3'),
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'schooldb',
+        'USER': 'postgres',
+        'PASSWORD': 'mypassword',
+        'HOST': 'localhost',  
+        'PORT': '5432',
     }
 }
+
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': str(BASE_DIR / 'db.sqlite3'),
+#     }
+# }
 
 
 # Password validation
@@ -158,7 +170,7 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587 
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "wmizaac@gmail.com" #This is for testing only 
+EMAIL_HOST_USER = "ugacloud1@gmail.com"
 EMAIL_HOST_PASSWORD = "ghpjuehpwanwycci" 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
