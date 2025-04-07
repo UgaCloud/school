@@ -91,9 +91,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'schooldb',
         'USER': 'postgres',
-        'PASSWORD': 'mypassword',
-        'HOST': 'localhost',  
-        'PORT': '5432',
+        'PASSWORD': 'root',
+        'HOST': '162.254.35.90',  
+        'PORT': '5050',
     }
 }
 
@@ -162,8 +162,8 @@ SESSION_COOKIE_AGE = 1800  # 30 minutes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True  
 
-#This is for testing  only
-DEV_TUNNEL_URL = "http//: 192.168.5.56:8000"  
+
+DEV_TUNNEL_URL = "https//:162.254.35.90:8080"  
 
 # Email Configuration for SMTP (Using Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

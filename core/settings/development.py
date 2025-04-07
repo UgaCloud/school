@@ -12,8 +12,8 @@ DATABASES = {
         'NAME': 'schooldb',
         'USER': 'postgres',
         'PASSWORD': 'root',
-        'HOST': 'localhost',  
-        'PORT': '5432',
+        'HOST': '162.254.35.90',  
+        'PORT': '5050',
     }
 }
 
