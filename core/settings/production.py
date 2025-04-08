@@ -14,6 +14,18 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'schooldb',
+        'USER': 'schooluser',
+        'PASSWORD': 'root@admin',
+        'HOST': '162.254.35.90',  
+        'PORT': '3306',
+    }
+}
+
+
 
 # Email Configuration for SMTP (Using Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
