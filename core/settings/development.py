@@ -23,7 +23,7 @@ DATABASES = {
         'NAME': 'schooldb',
         'USER': 'schooluser',
         'PASSWORD': 'root@admin',
-        'HOST': '162.254.35.90',  
+        'HOST': 'localhost',  
         'PORT': '3306',
     }
 }
