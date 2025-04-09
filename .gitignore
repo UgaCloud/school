@@ -7,11 +7,10 @@ __pycache__/
 *.so
 
 # Distribution / packaging
-.Python
+school-env/
 schoolenv/
-school_env/
+.Python
 develop-eggs/
-
 downloads/
 eggs/
 .eggs/
