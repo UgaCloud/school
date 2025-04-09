@@ -34,9 +34,7 @@ class SchoolSetting(SingletonModel):
     school_logo = models.ImageField(upload_to="logo", height_field=None, width_field=None, max_length=None)
     app_name = models.CharField(max_length=20, default="E-School")
     
-    @property
-    def __str__(self):
-        return self.school_name
+   
 
 
 class AcademicYear(models.Model):
