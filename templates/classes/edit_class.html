@@ -4,10 +4,6 @@
 
    <h2>Edit - {{classe.name}}</h2>
     
-
-    <div class="container">
-        
-        </div>
         <form method="POST">
              {% csrf_token %}
              {{form|crispy}}
@@ -16,7 +12,7 @@
            
 
         </form>
-    </div>
+
     
 
-{% endblock content %}
+     {% endblock content %}

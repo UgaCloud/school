@@ -2,20 +2,14 @@
    {% block content %}
    {% load crispy_forms_tags %}
 
-    <h2>Edit - {{stream.stream}}</h2>
+      <h2>Edit - {{stream.stream}}</h2>
 
-    <div class="container">
-        
-        </div>
         <form method="POST">
              {% csrf_token %}
              {{form|crispy}}
 
             <input type ="submit" class="btn btn-primary">
-           
-
         </form>
-    </div>
     
-
-{% endblock content %}
+    
+     {% endblock content %}

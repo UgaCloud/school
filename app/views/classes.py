@@ -19,6 +19,8 @@ from app.models.accounts import *
 from app.models.fees_payment import *
 from app.models.school_settings import *
 from app.models.classes import *
+from itertools import groupby
+from operator import attrgetter
 
 @login_required
 def class_view(request):
@@ -131,10 +133,13 @@ def delete_stream_view(request, id):
 
 @login_required
 def academic_class_view(request):
+    # Get search parameters from GET request
+    class_filter = request.GET.get('class', '').strip()
+    year_filter = request.GET.get('year', '').strip()
+
     if request.user.is_superuser:
         academic_classes = AcademicClass.objects.all()
     else:
-        # Get the logged-in user's staff account
         try:
             staff_account = StaffAccount.objects.get(user=request.user)
             staff_member = staff_account.staff
@@ -142,7 +147,6 @@ def academic_class_view(request):
             messages.error(request, "You do not have the necessary permissions to view this page.")
             return redirect('dashboard')
 
-        # Filter academic classes based on the teacher's assigned subjects
         academic_classes = AcademicClass.objects.filter(
             id__in=AcademicClassStream.objects.filter(
                 id__in=ClassSubjectAllocation.objects.filter(subject_teacher=staff_member)
@@ -150,24 +154,30 @@ def academic_class_view(request):
             ).values_list("academic_class_id", flat=True)
         ).distinct()
 
-    if request.method == "POST":
-        academic_class_form = AcademicClassForm(request.POST)
-        if academic_class_form.is_valid():
-            academic_class_form.save()
-            messages.success(request, SUCCESS_ADD_MESSAGE)
-        else:
-            messages.error(request, FAILURE_MESSAGE)
-    else:
-        academic_class_form = AcademicClassForm()
+    # Apply filters if search parameters are provided
+    if class_filter:
+        academic_classes = academic_classes.filter(Class__code__icontains=class_filter)  # Adjust this field as necessary
+    # Group by Section and Class
+    grouped_classes = []
+    sorted_classes = sorted(academic_classes, key=attrgetter('section', 'Class.code'))
+    
+    for key, group in groupby(sorted_classes, key=attrgetter('section', 'Class.code')):
+        class_list = list(group)
+        grouped_classes.append({
+            "section": key[0],
+            "class": key[1],
+            "entries": class_list
+        })
 
     context = {
-        "form": academic_class_form,
+        "grouped_classes": grouped_classes,
+        "form": AcademicClassForm(),
         "academic_years": school_settings_selectors.get_academic_years(),
-        "academic_classes": academic_classes,
         "classes": class_selectors.get_classes()
     }
 
     return render(request, "classes/academic_class.html", context)
+
 
 
 
