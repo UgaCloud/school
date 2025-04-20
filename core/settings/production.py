@@ -13,17 +13,19 @@ SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'schooldb',
         'USER': 'schooluser',
         'PASSWORD': 'root@admin',
-        'HOST': 'localhost',  
-        'PORT': '3306',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
+
+
+
 
 
 
@@ -35,3 +37,9 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "ugacloud1@gmail.com"  
 EMAIL_HOST_PASSWORD = "ghpjuehpwanwycci" 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
