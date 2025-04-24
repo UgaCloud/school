@@ -13,18 +13,27 @@ SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'schooldb',
+#         'USER': 'schooluser',
+#         'PASSWORD': 'root@admin',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'schooldb',
-        'USER': 'schooluser',
-        'PASSWORD': 'root@admin',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'USER': 'root',
+        'PASSWORD': 'root',
+        'HOST': 'localhost',  
+        'PORT': '3306',
     }
 }
-
-
 
 
 
