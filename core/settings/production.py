@@ -1,5 +1,7 @@
 import os
 from .common import *
+import pymysql
+pymysql.install_as_MySQLdb()
 
 DEBUG = False
 
@@ -29,7 +31,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'schooldb',
         'USER': 'root',
-        'PASSWORD': 'root',
+        'PASSWORD': '',
         'HOST': 'localhost',  
         'PORT': '3306',
     }
