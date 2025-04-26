@@ -102,13 +102,14 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # }
 
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'schooldb',
-        'USER': 'schooluser',
-        'PASSWORD': '',
-        'HOST': 'localhost',  
+        'NAME': 'bayezieu_schooldb',
+        'USER': 'bayezieu_bayan_user',
+        'PASSWORD': '@bayan%dbuser',
+        'HOST': '127.0.0.1',  
         'PORT': '3306',
     }
 }
@@ -252,5 +253,4 @@ JAZZMIN_SETTINGS = {
     
 
 }
-
 

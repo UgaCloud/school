@@ -29,10 +29,10 @@ CSRF_COOKIE_SECURE = True
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'schooldb',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',  
+        'NAME': 'bayezieu_schooldb',
+        'USER': 'bayezieu_bayan_user',
+        'PASSWORD': '@bayan%dbuser',
+        'HOST': '127.0.0.1',  
         'PORT': '3306',
     }
 }
