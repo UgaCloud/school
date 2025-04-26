@@ -457,5 +457,34 @@
 <script src="{% static 'vendors/jszip/dist/jszip.min.js' %}"></script>
 <script src="{% static 'vendors/pdfmake/build/pdfmake.min.js' %}"></script>
 <script src="{% static 'vendors/pdfmake/build/vfs_fonts.js' %}"></script>
+<script>
+  $(document).ready(function() {
+    $('.datatable').DataTable({
+      responsive: true,
+      paging: true,
+      searching: true,
+      ordering: true,
+      fixedHeader: true,
+      language: {
+        search: "_INPUT_",
+        searchPlaceholder: "Search...",
+        lengthMenu: "Show _MENU_ entries per page"
+      },
+      columnDefs: [
+        { orderable: false, targets: -1 } // disables sorting on last column (e.g., Action column)
+      ]
+    });
+  });
+</script>
+
+<style>
+  .table {
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(39, 41, 93, 0.1);
+  }
+  </style>
+  
+
   </body>
 </html>
