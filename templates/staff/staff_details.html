@@ -34,19 +34,15 @@
         <tr>
           <th>#</th>
           <th>Class</th>
-          <th>Subjects</th>
+          <th>Subject</th>
         </tr>
       </thead>
       <tbody>
         {% for assignment in teaching_assignments %}
           <tr>
             <td>{{ forloop.counter }}</td>
-            <td>{{ assignment.academic_class.name }}</td>
-            <td>
-              {% for subject in assignment.subjects.all %}
-                {{ subject.name }}{% if not forloop.last %}, {% endif %}
-              {% endfor %}
-            </td>
+            <td>{{ assignment.academic_class_stream }}</td>
+            <td>{{ assignment.subject }}</td>
           </tr>
         {% empty %}
           <tr>
@@ -55,6 +51,7 @@
         {% endfor %}
       </tbody>
     </table>
+    
 
     <div class="tab-content mt-4">
       <ul class="nav nav-tabs">

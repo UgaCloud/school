@@ -10,6 +10,7 @@ from app.models.staffs import Staff
 import app.selectors.staffs as staff_selectors
 import app.forms.staff as staff_forms
 from django.contrib.auth.decorators import login_required
+from app.models.classes import ClassSubjectAllocation
 
 @login_required
 def manage_staff_view(request):
@@ -41,10 +42,12 @@ def add_staff(request):
 def staff_details_view(request, id):
     staff = staff_selectors.get_staff(id)
     
-    
+    # Get the teaching assignments for this staff member
+    teaching_assignments = ClassSubjectAllocation.objects.filter(subject_teacher=staff)
+
     context = {
         "staff": staff,
-        
+        "teaching_assignments": teaching_assignments,
     }
     
     return render(request, "staff/staff_details.html", context)
