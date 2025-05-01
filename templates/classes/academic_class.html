@@ -2,141 +2,142 @@
 {% load crispy_forms_tags %}
 
 {% block page_title %}Academic Classes{% endblock page_title %}
+
 {% block content %}
-    <div class="clearfix"></div>
+<div class="clearfix"></div>
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2>Manage Classes</h2>
+        <ul class="nav navbar-right panel_toolbox">
+          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+        </ul>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
 
-    <div class="row">
-        <div class="col-md-12">
-            <div class="x_panel">
-            <div class="x_title">
-                <h2>Manage Classes</h2>
-                <ul class="nav navbar-right panel_toolbox">
-                <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
-                </li>
-                </ul>
-                <div class="clearfix"></div>
+        {% if user.staff_account.role.name == "Admin" %}
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".bs-example-modal-lg">
+          <i class="fa fa-plus"></i> Add Academic Class
+        </button>
+        {% endif %}
+
+        <div class="card mt-3">
+          <div class="card-body">
+            <div class="form-group row">
+              <label class="control-label col-md-2">Academic Year</label>
+              <div class="col-md-3">
+                <select class="select2_single form-control">
+                  <option></option>
+                  {% for year in academic_years %}
+                  <option value="{{ year.id }}">{{ year.academic_year }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <label class="control-label col-md-2">Term</label>
+              <div class="col-md-3">
+                <select class="select2_single form-control">
+                  <option></option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                </select>
+              </div>
+
+              <label class="control-label col-md-2">Class</label>
+              <div class="col-md-3">
+                <select class="select2_single form-control">
+                  <option></option>
+                  {% for class in classes %}
+                  <option value="{{ class.id }}">{{ class.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
             </div>
-            <div class="x_content">
-
-                <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".bs-example-modal-lg">
-                    <i class="fa fa-plus"></i>
-                    Add Academic Class
-                </button>
-
-                <div class="card">
-                    <div class="card-body">
-                        <div class="form-group row">
-                            <label class="control-label col-md-2">Academic Year</label>
-                            <div class="col-md-3 col-sm-9 ">
-                                <select class="select2_single form-control" tabindex="-1">
-                                    <option></option>
-                                    {% for year in academic_years %}
-                                    <option value="AK">{{year.academic_year}}</option>
-                                    {% endfor %} 
-                                </select>
-                            </div>
-                            <label class="control-label col-md-2">Term</label>
-                            <div class="col-md-3 col-sm-9 ">
-                                <select class="select2_single form-control" tabindex="-1">
-                                    <option></option>
-                                    <option value="AK">1</option>
-                                    <option value="HI">2</option>
-                                    <option value="CA">3</option>
-                                </select>
-                            </div>
-                            <label class="control-label col-md-2">Class</label>
-                            <div class="col-md-3 col-sm-9 ">
-                                <select class="select2_single form-control" tabindex="-1">
-                                    <option></option>
-                                    {% for class in classes %}
-                                    <option value="{{class.id}}">{{class.name}}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        
-                    </div>
-                </div>
-                <br/>
-                <hr/>
-
-                {% if academic_classes %}
-                <!-- start Class list -->
-                <table class="table table-striped projects">
-                <thead>
-                    <tr>
-                    <th style="width: 1%">#</th>
-                    <th>Section</th>
-                    <th>Class</th>
-                    <th>Year</th>
-                    <th>Term</th>
-                    <th>Fees Amount</th>
-                    <th >Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for class in academic_classes %}
-                    <tr>
-                        <td>{{class.id}}</td>
-                        <td>
-                            {{class.section}}
-                        </td>
-                        <td>
-                            {{class.Class.code}}
-                        </td>
-                        <td>
-                            {{class.academic_year}}
-                        </td>
-                        <td>
-                            {{class.term}}
-                        </td>
-                        <td>
-                            {{class.fees_amount}}
-                        </td>
-                        <td>
-                            <a href="{% url 'academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="">View</i>  </a>
-                            <a href="{% url 'edit_academic_class_details_page' class.id %}" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i>  </a>
-                            <a href="{% url 'delete_academic_class' class.id %}" class="btn btn-danger btn-xs"><i class="fa fa-trash-o" onclick="return confirm('Are you sure you want to delete this field?')"></a></i></a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                </table>
-                <!-- end class list -->
-                {% else %}
-                <div class="card">
-                    <div class="card-body">
-                        <h4><center>No Classes Available</center></h4>
-                    </div>
-                </div>
-                {% endif %}
-
-            </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-
-            <div class="modal-header">
-              <h4 class="modal-title" id="myModalLabel">Add Academic Class</h4>
-              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <div class="modal-body">
-                <form method="POST">
-                    {% csrf_token %}
-                    {{form|crispy}}
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-
           </div>
         </div>
+
+        <br />
+        <hr />
+
+        {% if academic_classes %}
+        <table class="table table-striped projects">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Section</th>
+              <th>Class</th>
+              <th>Year</th>
+              <th>Term</th>
+              <th>Fees Amount</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for class in academic_classes %}
+            <tr>
+              <td>{{ class.id }}</td>
+              <td>{{ class.section }}</td>
+              <td>{{ class.Class.code }}</td>
+              <td>{{ class.academic_year }}</td>
+              <td>{{ class.term }}</td>
+              <td>{{ class.fees_amount }}</td>
+              <td>
+                <a href="{% url 'academic_class_details_page' class.id %}" class="btn btn-info btn-xs">View</a>
+
+                {% if user.staff_account.role.name == "Admin" %}
+                <a href="{% url 'edit_academic_class_details_page' class.id %}" class="btn btn-primary btn-xs">
+                  <i class="fa fa-edit"></i>
+                </a>
+                <a href="{% url 'delete_academic_class' class.id %}" class="btn btn-danger btn-xs"
+                   onclick="return confirm('Are you sure you want to delete this field?')">
+                  <i class="fa fa-trash-o"></i>
+                </a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="card">
+          <div class="card-body">
+            <h4 class="text-center">No Classes Available</h4>
+          </div>
+        </div>
+        {% endif %}
+
       </div>
-{% endblock content%}
+    </div>
+  </div>
+</div>
+
+{% if user.staff_account.role.name == "Admin" %}
+<!-- Modal: Add Academic Class -->
+<div class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h4 class="modal-title">Add Academic Class</h4>
+        <button type="button" class="close" data-dismiss="modal"><span>×</span></button>
+      </div>
+
+      <form method="POST">
+        {% csrf_token %}
+        <div class="modal-body">
+          {{ form|crispy }}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock content %}

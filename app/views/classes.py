@@ -131,27 +131,46 @@ def delete_stream_view(request, id):
     except:
         logger.critical("Failed Delete record")
 
+
 @login_required
 def academic_class_view(request):
     if request.method == "POST":
         academic_class_form = AcademicClassForm(request.POST)
-        
         if academic_class_form.is_valid():
             academic_class_form.save()
             messages.success(request, SUCCESS_ADD_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
-    
+
     academic_class_form = AcademicClassForm()
-    academic_classes = AcademicClass.objects.all()
-    
+
+    # Safely get StaffAccount and Role
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+
+    if role_name == "Admin":
+        academic_classes = AcademicClass.objects.all()
+    elif role_name == "Teacher":
+        if staff_account.staff:
+            academic_classes = AcademicClass.objects.filter(
+                id__in=ClassSubjectAllocation.objects.filter(
+                    subject_teacher=staff_account.staff
+                ).values_list("academic_class_stream__academic_class_id", flat=True)
+            ).distinct()
+        else:
+            academic_classes = AcademicClass.objects.none()
+    else:
+        academic_classes = AcademicClass.objects.none()
+
     context = {
         "form": academic_class_form,
         "academic_years": school_settings_selectors.get_academic_years(),
         "academic_classes": academic_classes,
         "classes": class_selectors.get_classes()
     }
+
     return render(request, "classes/academic_class.html", context)
+
 
 
 
