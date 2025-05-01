@@ -81,21 +81,18 @@
             </thead>
             <tbody>
               {% for assignment in teaching_assignments %}
-              <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ assignment.academic_class.name }}</td>
-                <td>
-                  {% for subject in assignment.subjects.all %}
-                    {{ subject.name }}{% if not forloop.last %}, {% endif %}
-                  {% endfor %}
-                </td>
-              </tr>
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ assignment.academic_class_stream }}</td>
+                  <td>{{ assignment.subject.name }}</td>
+                </tr>
               {% empty %}
-              <tr>
-                <td colspan="3" class="text-center text-muted">No assignments found.</td>
-              </tr>
+                <tr>
+                  <td colspan="3" class="text-center text-muted">No assignments found.</td>
+                </tr>
               {% endfor %}
             </tbody>
+            
           </table>
         </div>
       </div>
