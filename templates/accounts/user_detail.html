@@ -4,81 +4,103 @@
 {% block page_title %}User Details{% endblock page_title %}
 
 {% block content %}
-<div class="x_content">
-  <div class="col-md-3 col-sm-3 profile_left">
-    <div class="profile_img">
-      <div id="crop-avatar">
-        <img class="img-responsive img-fluid" src="{{ staff.staff_photo.url }}" alt="Staff Photo">
+<div class="container-fluid">
+  <div class="row">
+
+    <!-- Profile Card (Left) -->
+    <div class="col-md-4 mb-4">
+      <div class="card shadow-lg">
+        <div class="card-body text-center">
+          <img src="{{ staff.staff_photo.url }}" class="rounded-circle img-fluid mb-3" style="width: 120px; height: 120px;" alt="Staff Photo">
+          <h4 class="card-title">{{ staff }}</h4>
+          <p class="card-text text-muted">{{ role|title }}</p>
+
+          <ul class="list-group list-group-flush text-left mt-3">
+            <li class="list-group-item"><i class="fa fa-map-marker"></i> {{ staff.address }}</li>
+            <li class="list-group-item"><i class="fa fa-briefcase"></i> {{ staff.department }}</li>
+            <li class="list-group-item"><i class="fa fa-phone"></i> {{ staff.contacts }}</li>
+            <li class="list-group-item"><i class="fa fa-envelope"></i> {{ staff.email }}</li>
+          </ul>
+
+          <div class="mt-3">
+            <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-sm btn-outline-primary mr-2"><i class="fa fa-edit"></i> Edit</a>
+            <a href="{% url 'delete_staff_page' staff.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this record?')"><i class="fa fa-trash-o"></i> Delete</a>
+          </div>
+        </div>
       </div>
     </div>
-    <h3>{{ staff }}</h3>
 
-    <ul class="list-unstyled user_data">
-      <li><i class="fa fa-map-marker user-profile-icon"></i> {{ staff.address }}</li>
-      <li><i class="fa fa-briefcase user-profile-icon"></i> {{ staff.department }}</li>
-      <li><i class="fa fa-phone user-profile-icon"></i> {{ staff.contacts }}</li>
-      <li><i class="fa fa-envelope user-profile-icon"></i> {{ staff.email }}</li>
-    </ul>
-
-    <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>
-    <a href="{% url 'delete_staff_page' staff.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Delete this record?')"><i class="fa fa-trash-o"></i></a>
-  </div>
-
-  <div class="col-md-9 col-sm-9">
-    <div class="profile_title">
-      <h2>Assigned Classes & Subjects</h2>
-    </div>
-
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Class</th>
-          <th>Subjects</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for assignment in teaching_assignments %}
-          <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ assignment.academic_class.name }}</td>
-            <td>
-              {% for subject in assignment.subjects.all %}
-                {{ subject.name }}{% if not forloop.last %}, {% endif %}
-              {% endfor %}
-            </td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="3">No assignments found.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-    <div class="tab-content mt-4">
-      <ul class="nav nav-tabs">
-        <li class="active"><a href="#qualifications" data-toggle="tab">Qualifications</a></li>
-        <li><a href="#documents" data-toggle="tab">Documents</a></li>
-      </ul>
-
-      <div class="tab-content">
-        <div class="tab-pane active" id="qualifications">
-          <ul class="messages">
-            <li>
-              <div class="message_wrapper">
-                <h4 class="heading">{{ staff.qualification }}</h4>
-                <blockquote class="message">Further qualifications or certifications can be added here.</blockquote>
-              </div>
+    <!-- Quick Info + Assignments (Right) -->
+    <div class="col-md-8">
+      <!-- Quick Info -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0"><i class="fa fa-info-circle"></i> Quick Info</h5>
+        </div>
+        <div class="card-body p-3">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Username:</strong> <span>{{ viewed_user.username }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Role:</strong> <span>{{ role|title }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Last Login:</strong> <span>{{ last_login|date:"D, d M Y H:i" }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Status:</strong> 
+              <span>
+                {% if viewed_user.is_active %}
+                  <span class="badge badge-success">Active</span>
+                {% else %}
+                  <span class="badge badge-secondary">Inactive</span>
+                {% endif %}
+              </span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Date Joined:</strong> <span>{{ viewed_user.date_joined|date:"D, d M Y" }}</span>
             </li>
           </ul>
         </div>
+      </div>
 
-        <div class="tab-pane" id="documents">
-          <p>No documents uploaded.</p>
+      <!-- Assigned Classes & Subjects -->
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="fa fa-book"></i> Assigned Classes & Subjects</h5>
+        </div>
+        <div class="card-body p-0">
+          <table class="table mb-0 table-hover">
+            <thead class="thead-light">
+              <tr>
+                <th>#</th>
+                <th>Class</th>
+                <th>Subjects</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for assignment in teaching_assignments %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ assignment.academic_class.name }}</td>
+                <td>
+                  {% for subject in assignment.subjects.all %}
+                    {{ subject.name }}{% if not forloop.last %}, {% endif %}
+                  {% endfor %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="3" class="text-center text-muted">No assignments found.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 {% endblock content %}
