@@ -29,7 +29,20 @@
                             <div class="col-md-4 col-sm-4  profile_details">
                                 <div class="well profile_view">
                                 <div class="col-sm-12">
-                                    <h4 class="brief"><i>Teacher</i></h4>
+                                    <h4 class="brief">
+                                        <i>
+                                          {% if staff.is_academic_staff %}
+                                            Teacher
+                                          {% elif staff.is_administrator_staff %}
+                                            Administrator
+                                          {% elif staff.is_support_staff %}
+                                            Support
+                                          {% else %}
+                                            Staff
+                                          {% endif %}
+                                        </i>
+                                      </h4>
+                                      
                                     <div class="left col-md-7 col-sm-7">
                                     <h2>{{staff}}</h2>
                                     <p><strong>Dept: </strong> {{staff.department}}</p>
