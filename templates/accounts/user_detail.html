@@ -22,10 +22,15 @@
             <li class="list-group-item"><i class="fa fa-envelope"></i> {{ staff.email }}</li>
           </ul>
 
+          {% if user.staff_account.role.name == "Admin" %}
           <div class="mt-3">
-            <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-sm btn-outline-primary mr-2"><i class="fa fa-edit"></i> Edit</a>
-            <a href="{% url 'delete_staff_page' staff.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this record?')"><i class="fa fa-trash-o"></i> Delete</a>
+           <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-sm btn-outline-primary mr-2">
+            <i class="fa fa-edit"></i> Edit
+            </a>
+           
           </div>
+          {% endif %}
+
         </div>
       </div>
     </div>

@@ -149,7 +149,7 @@ class UserListView(ListView):
     model = User
     template_name = 'accounts/user_list.html'  
     context_object_name = 'users'     
-    paginate_by = 10                  
+    paginate_by = 150                  
 
     def get_queryset(self):
         # Optionally, add filters (e.g., only active users)

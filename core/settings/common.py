@@ -181,7 +181,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True  
 
 
-DEV_TUNNEL_URL = "https//:162.254.35.90:8080"  
+DEV_TUNNEL_URL = "https//:bayan-learningcenter.com"  
 
 # Email Configuration for SMTP (Using Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
