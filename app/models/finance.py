@@ -68,9 +68,10 @@ class Expenditure(models.Model):
     budget_item = models.ForeignKey("app.BudgetItem", on_delete=models.CASCADE, related_name='budget_expenditures')
     vendor = models.ForeignKey("app.Vendor", on_delete=models.SET_NULL, null=True, blank=True, related_name='expenses')
     description = models.TextField()
+    vat = models.DecimalField(max_digits=10, decimal_places=2)
     date_incurred = models.DateField()
     date_recorded = models.DateField(auto_now_add=True)
-    approved_by = models.CharField(max_length=100)
+    approved_by = models.CharField(max_length=100, null=True, blank=True,)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='Pending')
     attachment = models.FileField(upload_to='attachments/', blank=True, null=True)
     
@@ -89,7 +90,7 @@ class ExpenditureItem(models.Model):
     
     expenditure = models.ForeignKey("app.Expenditure", on_delete=models.CASCADE, related_name="items")
     item_name = models.CharField(max_length=100)
-    quantity = models.IntegerField()
+    quantity = models.DecimalField(max_digits=5, decimal_places=2)
     units = models.CharField(max_length=50, choices=MEASUREMENTS)
     unit_cost = models.IntegerField()
 
