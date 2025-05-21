@@ -44,11 +44,21 @@ class Budget(models.Model):
     def get_absolute_url(self):
         return reverse("budget_detail", kwargs={"pk": self.pk})
 
+    @property
+    def budget_total(self):
+        """Calculate the budget total by summing related items."""
+        total = sum(item.allocated_amount for item in self.budget_items.all())
+        return round(total, 2)
+
+
 class BudgetItem(models.Model):
     budget = models.ForeignKey("app.Budget", on_delete=models.CASCADE, related_name="budget_items")
     department = models.ForeignKey("app.Department", on_delete=models.CASCADE, related_name='budgets')
     expense = models.ForeignKey("app.Expense", on_delete=models.CASCADE, related_name='budgets')
     allocated_amount = models.IntegerField()
+
+    class Meta:
+        unique_together = ('budget', 'department', 'expense')
 
     @property
     def amount_spent(self):
