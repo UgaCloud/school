@@ -39,14 +39,16 @@
     </li>
   
     <!-- Timetable -->
-    <li><a><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
+    <li>
+      <a><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
-        <li><a href="#">School Timetable</a></li>
-        <li><a href="#">Class Timetable</a></li>
-        <li><a href="#">Teacher Timetable</a></li>
-        <li><a href="#">Classrooms</a></li>
+          <li><a href="{% url 'school_timetable' %}">School Timetable</a></li>
+          <li><a href="{% url 'class_timetable' class_id=1 %}">Class Timetable</a></li>
+          <li><a href="{% url 'teacher_timetable' teacher_id=1 %}">Teacher Timetable</a></li>
+          <li><a href="{% url 'classrooms' %}">Classrooms</a></li>
+          <li><a href="">Add Timetable Entry</a></li>
       </ul>
-    </li>
+  </li>
   
     <!-- Fees -->
     <li><a><i class="fa fa-money"></i> Fees Center <span class="fa fa-chevron-down"></span></a>

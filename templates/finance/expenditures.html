@@ -55,7 +55,7 @@
                         <td>{{expenditure.payment_status}}</td>
                         <td>
                             <a href="{% url 'items_page' expenditure.id %}" class="btn btn-primary btn-xs"><i class="fa fa-eye"></i> </a>
-                            <a href="{% url 'edit_expenditure_item' expenditure.id %}" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> </a>
+                            <a href="{% url 'edit_expenditure' expenditure.id %}" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i> </a>
                             <a href="{% url 'delete_expenditure' expenditure.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Are you sure you want to Delete this Record?')"><i class="fa fa-trash-o"></i> </a>
                         </td>
                     </tr>

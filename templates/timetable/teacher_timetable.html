@@ -1,0 +1,31 @@
+{% extends "../base.html" %}
+
+{% block content %}
+    <h1>Timetable for Teacher: {{ teacher_id }}</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Class Stream</th>
+                <th>Day</th>
+                <th>Time Slot</th>
+                <th>Classroom</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for timetable in timetables %}
+                <tr>
+                    <td>{{ timetable.subject }}</td>
+                    <td>{{ timetable.class_stream }}</td>
+                    <td>{{ timetable.weekday }}</td>
+                    <td>{{ timetable.time_slot }}</td>
+                    <td>{{ timetable.classroom }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5">No timetable available for this teacher.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

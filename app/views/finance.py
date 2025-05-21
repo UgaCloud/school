@@ -150,16 +150,20 @@ def add_expenditure(request):
 def edit_expenditures(request, id):
     expenditure = get_model_record(Expenditure, id)
     
-    form = finance_forms.ExpenditureForm(request.POST, request.FILES, instance=expenditure)
-    
-    if form.is_valid():
-        form.save()
-            
-        messages.success(request, SUCCESS_ADD_MESSAGE)
+    if request.method == 'POST':
+        form = ExpenditureForm(request.POST, request.FILES, instance=expenditure)
+        
+        if form.is_valid():
+            form.save()
+            messages.success(request, SUCCESS_ADD_MESSAGE)
+            return redirect(reverse(manage_expenditures))
+        else:
+            messages.error(request, FAILURE_MESSAGE)
     else:
-        messages.error(request, FAILURE_MESSAGE)
-    
-    return HttpResponsePermanentRedirect(reverse(manage_expenditures))
+        form = ExpenditureForm(instance=expenditure)
+
+    # Inline HTML rendering
+    return render(request, 'finance/edit_expenditure.html', {'form': form})
 
 @login_required
 def delete_expenditure(request, id):

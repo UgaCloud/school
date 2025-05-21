@@ -6,7 +6,7 @@ from django.db import IntegrityError
 from app.selectors.model_selectors import *
 from app.constants import *
 from app.forms.staff import *
-from app.models.staffs import Staff
+from app.models.staffs import Staff, StaffDocument
 import app.selectors.staffs as staff_selectors
 import app.forms.staff as staff_forms
 from django.contrib.auth.decorators import login_required
@@ -40,17 +40,40 @@ def add_staff(request):
 
 @login_required
 def staff_details_view(request, id):
-    staff = staff_selectors.get_staff(id)
-    
-    # Get the teaching assignments for this staff member
+    staff = get_object_or_404(Staff, id=id)
     teaching_assignments = ClassSubjectAllocation.objects.filter(subject_teacher=staff)
+    staff_documents = StaffDocument.objects.filter(staff=staff)
+
+    if request.method == "POST":
+        document_type = request.POST.get("document_type")
+        file = request.FILES.get("file")
+        
+        if document_type and file:
+            StaffDocument.objects.create(
+                staff=staff,
+                document_type=document_type,
+                file=file
+            )
+            messages.success(request, "Document uploaded successfully!")
+            return redirect('staff_details_page', id=staff.id)  # <-- Fixed here
+        else:
+            messages.error(request, "Both fields are required.")
 
     context = {
         "staff": staff,
         "teaching_assignments": teaching_assignments,
+        "staff_documents": staff_documents,
     }
     
     return render(request, "staff/staff_details.html", context)
+
+@login_required
+def delete_staff_document(request, id):
+    document = get_object_or_404(StaffDocument, id=id)
+    staff_id = document.staff.id  # Get the staff ID before deletion
+    document.delete()
+    messages.success(request, "Document deleted successfully.")
+    return redirect('staff_details_page', id=staff_id)
 
 @login_required
 def edit_staff_details_view(request, id):

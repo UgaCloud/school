@@ -6,14 +6,11 @@ from app.models.results import *
 from app.models.school_settings import *
 from app.models.students import *
 from django.utils.html import format_html
+from .models import Classroom, TimeSlot, BreakPeriod, Timetable
 
 # admin.site.register(Staff)
 admin.site.register(Role)
-# admin.site.register(StaffAccount)
-# admin.site.register(AcademicClass)
-# admin.site.register(AcademicClassStream)
-# admin.site.register(AcademicYear)
-# admin.site.register(Term)
+
 admin.site.register(Result)
 admin.site.register(Assessment)
 admin.site.register(AssessmentType)
@@ -142,3 +139,52 @@ class StaffAccountAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
     
         super().save_model(request, obj, form, change)  
+
+
+# Register Classroom model
+@admin.register(Classroom)
+class ClassroomAdmin(admin.ModelAdmin):
+    list_display = ('name', 'location', 'capacity')
+    list_filter = ('location',)
+    search_fields = ('name', 'location')
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset
+
+# Register TimeSlot model
+@admin.register(TimeSlot)
+class TimeSlotAdmin(admin.ModelAdmin):
+    list_display = ('start_time', 'end_time')
+    list_filter = ('start_time', 'end_time')
+    search_fields = ('start_time', 'end_time')
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset
+
+# Register BreakPeriod model
+@admin.register(BreakPeriod)
+class BreakPeriodAdmin(admin.ModelAdmin):
+    list_display = ('weekday', 'name', 'time_slot')
+    list_filter = ('weekday',)
+    search_fields = ('name', 'time_slot__start_time', 'time_slot__end_time')
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('time_slot')
+
+# Register Timetable model
+@admin.register(Timetable)
+class TimetableAdmin(admin.ModelAdmin):
+    list_display = ('class_stream', 'subject', 'teacher', 'weekday', 'time_slot', 'classroom')
+    list_filter = ('class_stream', 'weekday', 'time_slot', 'teacher', 'classroom')
+    search_fields = ('class_stream__academic_class__Class__name', 'subject__name', 'teacher__first_name', 'teacher__last_name', 'classroom__name')
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('class_stream', 'subject', 'teacher', 'classroom')
+
+    def save_model(self, request, obj, form, change):
+        # Additional actions before saving the object (if any)
+        super().save_model(request, obj, form, change)

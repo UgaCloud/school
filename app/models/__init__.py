@@ -7,3 +7,4 @@ from .staffs import *
 from .finance import *
 from .accounts import *
 from .results import *
+from .timetables import *

@@ -9,90 +9,95 @@
     <div class="row">
         <div class="col-md-12">
             <div class="x_panel">
-            <div class="x_title">
-                <h2>Manage Expenditure Items</h2>
-                <ul class="nav navbar-right panel_toolbox">
-                <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
-                </li>
-                </ul>
-                <div class="clearfix"></div>
-            </div>
-            <div class="x_content">
-                <table class="table">
-                    <tr>
-                        <th>Department:</th><td>{{expenditure.department}}</td>
-                        <th>Expense:</th><td>{{expenditure.expense}}</td>
-                    </tr>
-                    <tr>
-                        <th>Vendor:</th><td>{{expenditure.vendor}}</td>
-                        <th>Date Incurred:</th><td>{{expenditure.date_incurred}}</td>
-                    </tr>
-                    <tr>
-                        <th>Date Reorded:</th><td>{{expenditure.date_recorded}}</td>
-                        <th>Status:</th><td>{{expenditure.payment_status}}</td>
-                    </tr>
-                    <tr>
-                        <th>Approved By:</th><td>{{expenditure.approved_by}}</td>
-                        <th>Attachment:</th>
-                        <td>
-                            {% if expenditure.attachment %}{{expenditure.attachment}}
-                            {% else %}
-                                <p>None</p>
-                            {% endif %}
-                        </td>
-                    </tr>
-                </table>
-                <h3>Expenditure Total: {{expenditure.amount|intcomma}}/-</h3>
+                <div class="x_title">
+                    <h2>Manage Expenditure Items</h2>
+                    <ul class="nav navbar-right panel_toolbox">
+                        <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+                    </ul>
+                    <div class="clearfix"></div>
+                </div>
 
-                <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".add-item-modal">
-                    <i class="fa fa-plus"></i>
-                    Add Item
-                </button> 
+                <div class="x_content">
+                    <table class="table">
+                        <tr>
+                            <th>Department:</th><td>{{expenditure.department}}</td>
+                            <th>Expense:</th><td>{{expenditure.expense}}</td>
+                        </tr>
+                        <tr>
+                            <th>Vendor:</th><td>{{expenditure.vendor}}</td>
+                            <th>Date Incurred:</th><td>{{expenditure.date_incurred}}</td>
+                        </tr>
+                        <tr>
+                            <th>Date Recorded:</th><td>{{expenditure.date_recorded}}</td>
+                            <th>Status:</th><td>{{expenditure.payment_status}}</td>
+                        </tr>
+                        <tr>
+                            <th>Approved By:</th><td>{{expenditure.approved_by}}</td>
+                            <th>Attachment:</th>
+                            <td>
+                                {% if expenditure.attachment %}
+                                    <a href="{{ expenditure.attachment.url }}" target="_blank" class="btn btn-info btn-sm">
+                                        <i class="fa fa-paperclip"></i> View Attachment
+                                    </a>
+                                {% else %}
+                                    <p>None</p>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <h3>Expenditure Total: {{expenditure.amount|intcomma}}/-</h3>
 
-                <!-- start item list -->
-                 {% if expenditure_items %}
-                <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
-                    <thead>
-                      <tr>
-                        <th>
-                           <th><input type="checkbox" id="check-all" ></th>
-                        </th>
-                        <th style="width: 1%">#</th>
-                        <th>Item</th>
-                        <th>Qty</th>
-                        <th>Unit Cost</th>
-                        <th>Amount</th>
-                        <th >Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in expenditure_items %}
-                    <tr>
-                        <td>
-                            <th><input type="checkbox" id="check-all" ></th>
-                         </td>
-                        <td>{{forloop.counter}}</td>
-                        <td>{{item.item_name}}</td>
-                        <td>{{item.quantity}}</td>
-                        <td>{{item.unit_cost|intcomma}}/-</td>
-                        <td>{{item.amount|intcomma}}/-</td>
-                        <td>
-                            <a href="{% url 'edit_expenditure_item' item.id %}" class="btn btn-primary btn-xs"><i class="fa fa-edit"></i></a>
-                            <a href="{% url 'delete_expenditure_item' item.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Are you sure you want to Delete this Record?')"><i class="fa fa-trash-o"></i></a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                </table>
-                {% else %}
-                    <div class="card">
-                        <div class="card-body">
-                            <h4><center>No Items Available</center></h4>
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".add-item-modal">
+                        <i class="fa fa-plus"></i> Add Item
+                    </button> 
+
+                    <!-- start item list -->
+                    {% if expenditure_items %}
+                        <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="check-all"></th>
+                                    <th style="width: 1%">#</th>
+                                    <th>Item</th>
+                                    <th>Qty</th>
+                                    <th>Unit Cost</th>
+                                    <th>Amount</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in expenditure_items %}
+                                    <tr>
+                                        <td><input type="checkbox" id="check-all"></td>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ item.item_name }}</td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td>{{ item.unit_cost|intcomma }} /-</td>
+                                        <td>{{ item.amount|intcomma }} /-</td>
+                                        <td>
+                                            <a href="{% url 'edit_expenditure_item' item.id %}" class="btn btn-primary btn-xs">
+                                                <i class="fa fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'delete_expenditure_item' item.id %}" 
+                                               class="btn btn-danger btn-xs" 
+                                               onclick="return confirm('Are you sure you want to Delete this Record?')">
+                                                <i class="fa fa-trash-o"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="card">
+                            <div class="card-body">
+                                <h4><center>No Items Available</center></h4>
+                            </div>
                         </div>
-                    </div>
-                {% endif %}
-                <!-- end class list -->
-            </div>
+                    {% endif %}
+                    <!-- end class list -->
+                </div>
             </div>
         </div>
     </div>
@@ -100,26 +105,25 @@
     <!-- Add item Modal -->
     <div class="modal fade add-item-modal" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-
-            <div class="modal-header">
-              <h4 class="modal-title" id="myModalLabel">Add Item</h4>
-              <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
-              </button>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="myModalLabel">Add Item</h4>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{% url 'add_expenditure_item_page' %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+                </form>
             </div>
-            <div class="modal-body">
-                <form method="POST" action="{% url 'add_expenditure_item_page' %}" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    {{form|crispy}}
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-
-          </div>
         </div>
     </div>
 
-{% endblock content%}
+{% endblock content %}
