@@ -19,27 +19,27 @@
             </div>
             <div class="x_content">
                 <table class="table">
-                    <tr>
-                        <th>Department:</th><td>{{expenditure.department}}</td>
-                        <th>Expense:</th><td>{{expenditure.expense}}</td>
-                    </tr>
+                    
                     <tr>
                         <th>Vendor:</th><td>{{expenditure.vendor}}</td>
                         <th>Date Incurred:</th><td>{{expenditure.date_incurred}}</td>
                     </tr>
                     <tr>
                         <th>Date Reorded:</th><td>{{expenditure.date_recorded}}</td>
-                        <th>Status:</th><td>{{expenditure.payment_status}}</td>
+                            <th>V.A.T:</th><td>{{expenditure.vat}}</td>
                     </tr>
                     <tr>
                         <th>Approved By:</th><td>{{expenditure.approved_by}}</td>
                         <th>Attachment:</th>
                         <td>
-                            {% if expenditure.attachment %}{{expenditure.attachment}}
+                            {% if expenditure.attachment %}<a href="{{expenditure.attachment.url}}">{{expenditure.attachment}}</a>
                             {% else %}
                                 <p>None</p>
                             {% endif %}
                         </td>
+                    </tr>
+                    <tr>
+                        <th>Status:</th><td>{{expenditure.payment_status}}</td>
                     </tr>
                 </table>
                 <h3>Expenditure Total: {{expenditure.amount|intcomma}}/-</h3>
