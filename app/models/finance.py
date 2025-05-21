@@ -83,7 +83,7 @@ class Expenditure(models.Model):
         items = self.items.all()
         total = sum(item.amount for item in items)
         
-        return total
+        return total + self.vat
         
 
 class ExpenditureItem(models.Model):
