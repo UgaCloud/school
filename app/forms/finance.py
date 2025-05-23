@@ -57,11 +57,13 @@ class ExpenditureItemForm(ModelForm):
     class Meta:
         model = ExpenditureItem
         fields = ("__all__")
+        
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.Helper = FormHelper()
         self.fields["expenditure"].widget = HiddenInput()
+        # self.fields["expenditure"].widget = HiddenInput()
 
 
 class TransactionForm(ModelForm):
@@ -69,4 +71,3 @@ class TransactionForm(ModelForm):
     class Meta:
         model = Transaction
         fields = ("__all__")
-

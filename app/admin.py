@@ -20,6 +20,7 @@ admin.site.register(ClassRegister)
 # admin.site.register(Class)
 admin.site.register(Stream)
 admin.site.register(SchoolSetting)
+admin.site.register(Department)
 
 
 

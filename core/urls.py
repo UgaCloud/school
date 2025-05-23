@@ -4,9 +4,12 @@ from django.urls import path,include
 from django.conf.urls.static import static
 from core.settings import common
 
+import debug_toolbar
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('app.urls')),
+    path('__debug__/', include(debug_toolbar.urls)),
     
 ]
 
