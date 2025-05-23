@@ -131,52 +131,46 @@ def delete_stream_view(request, id):
     except:
         logger.critical("Failed Delete record")
 
+
 @login_required
 def academic_class_view(request):
-    # Get search parameters from GET request
-    class_filter = request.GET.get('class', '').strip()
-    year_filter = request.GET.get('year', '').strip()
+    if request.method == "POST":
+        academic_class_form = AcademicClassForm(request.POST)
+        if academic_class_form.is_valid():
+            academic_class_form.save()
+            messages.success(request, SUCCESS_ADD_MESSAGE)
+        else:
+            messages.error(request, FAILURE_MESSAGE)
 
-    if request.user.is_superuser:
+    academic_class_form = AcademicClassForm()
+
+    # Safely get StaffAccount and Role
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+
+    if role_name == "Admin":
         academic_classes = AcademicClass.objects.all()
+    elif role_name == "Teacher":
+        if staff_account.staff:
+            academic_classes = AcademicClass.objects.filter(
+                id__in=ClassSubjectAllocation.objects.filter(
+                    subject_teacher=staff_account.staff
+                ).values_list("academic_class_stream__academic_class_id", flat=True)
+            ).distinct()
+        else:
+            academic_classes = AcademicClass.objects.none()
     else:
-        try:
-            staff_account = StaffAccount.objects.get(user=request.user)
-            staff_member = staff_account.staff
-        except StaffAccount.DoesNotExist:
-            messages.error(request, "You do not have the necessary permissions to view this page.")
-            return redirect('dashboard')
-
-        academic_classes = AcademicClass.objects.filter(
-            id__in=AcademicClassStream.objects.filter(
-                id__in=ClassSubjectAllocation.objects.filter(subject_teacher=staff_member)
-                .values_list("academic_class_stream_id", flat=True)
-            ).values_list("academic_class_id", flat=True)
-        ).distinct()
-
-    # Apply filters if search parameters are provided
-    if class_filter:
-        academic_classes = academic_classes.filter(Class__code__icontains=class_filter)  # Adjust this field as necessary
-    # Group by Section and Class
-    grouped_classes = []
-    sorted_classes = sorted(academic_classes, key=attrgetter('section', 'Class.code'))
-    
-    for key, group in groupby(sorted_classes, key=attrgetter('section', 'Class.code')):
-        class_list = list(group)
-        grouped_classes.append({
-            "section": key[0],
-            "class": key[1],
-            "entries": class_list
-        })
+        academic_classes = AcademicClass.objects.none()
 
     context = {
-        "grouped_classes": grouped_classes,
-        "form": AcademicClassForm(),
+        "form": academic_class_form,
         "academic_years": school_settings_selectors.get_academic_years(),
+        "academic_classes": academic_classes,
         "classes": class_selectors.get_classes()
     }
 
     return render(request, "classes/academic_class.html", context)
+
 
 
 

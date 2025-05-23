@@ -115,6 +115,25 @@ WSGI_APPLICATION = 'core.wsgi.application'
 #     }
 # }
 
+
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'bayezieu_schooldb',
+        'USER': 'bayezieu_bayan_user',
+        'PASSWORD': '@bayan%dbuser',
+        'HOST': '127.0.0.1',  
+        'PORT': '3306',
+    }
+}
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': str(BASE_DIR / 'db.sqlite3'),
+#     }
+# }
 # # DATABASES = {
 # #     'default': {
 # #         'ENGINE': 'django.db.backends.sqlite3',
@@ -182,15 +201,15 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True  
 
 
-DEV_TUNNEL_URL = "https//:162.254.35.90:8080"  
+DEV_TUNNEL_URL = "https//:bayan-learningcenter.com"  
 
 # Email Configuration for SMTP (Using Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587 
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "ugacloud1@gmail.com"
-EMAIL_HOST_PASSWORD = "ghpjuehpwanwycci" 
+EMAIL_HOST_USER = "wmizaac@gmail.com"
+EMAIL_HOST_PASSWORD = "xxxqcmbgthxzvbuj" 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
@@ -254,5 +273,4 @@ JAZZMIN_SETTINGS = {
     
 
 }
-
 

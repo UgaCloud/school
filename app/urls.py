@@ -10,6 +10,13 @@ from app.views.fees_view import *
 from app.views.finance import *
 from app.views.results import *
 from app.views.accounts import *
+from app.views.timetables import (
+    SchoolTimetableView,
+    ClassTimetableView,
+    TeacherTimetableView,
+    ClassroomListView,
+    ClassroomDetailView
+)
 
 
 urlpatterns = [
@@ -80,11 +87,14 @@ urlpatterns = [
     path('delete_subject_allocation/<int:id>/',delete_class_subject_allocation, name="delete_subject_allocation"),
     
     #Staff
+    path('staff/<int:id>/upload-document/', staff_details_view, name='upload_staff_document'),
     path('staffs/', manage_staff_view, name="staff_page"),
     path('add_staff/', add_staff, name="add_staff"),
     path('staff_details/<int:id>/', staff_details_view, name="staff_details_page"),
     path('edit_staff_details/<int:id>/', edit_staff_details_view, name="edit_staff_details_page"),
     path('delete_staff/<int:id>/', delete_staff_view, name="delete_staff_page"),
+    path('staff/document/delete/<int:id>/', delete_staff_document, name='delete_staff_document'),
+
     
     #Fees
     path('bill_items/', manage_bill_items_view, name="bill_item_page"),
@@ -118,8 +128,9 @@ urlpatterns = [
     path('expenditures/', manage_expenditures, name="expenditure_page"),
     path('add_expenditure/', add_expenditure, name="add_expenditure_page"),
     path('edit_expenditure/<int:id>/', edit_expenditures, name="edit_expenditure"),
+    path('expenditure/edit/<int:id>/', edit_expenditures, name='edit_expenditure'),
     path('delete_expenditure/<int:id>/', delete_expenditure, name="delete_expenditure"),
-    
+     
     #Expenditure Items
     path('items/<int:id>/', manage_expenditure_items, name="items_page"),
     path('add_expenditure_item/', add_expenditure_item, name="add_expenditure_item_page"),
@@ -183,7 +194,18 @@ urlpatterns = [
     path('password_reset/done/', auth_views.PasswordResetDoneView.as_view(), name='password_reset_done'),
     path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
+
+
+    #Timetable
+    path('school/', SchoolTimetableView.as_view(), name='school_timetable'),
+    path('class/<int:class_id>/', ClassTimetableView.as_view(), name='class_timetable'),
+    path('teacher/<int:teacher_id>/', TeacherTimetableView.as_view(), name='teacher_timetable'),
+    path('classrooms/', ClassroomListView.as_view(), name='classrooms'),
+    path('classroom/<int:pk>/', ClassroomDetailView.as_view(), name='classroom_detail'),
 ]
+
+
+
     
 
 

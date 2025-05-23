@@ -1,161 +1,108 @@
 {% extends "../base.html" %}
 {% load crispy_forms_tags %}
 
-{% block page_title %}User Profile{% endblock page_title %}
+{% block page_title %}User Details{% endblock page_title %}
 
 {% block content %}
+<div class="container-fluid">
+  <div class="row">
 
-<div class="x_content">
-    <div class="col-md-3 col-sm-3 profile_left">
-        <div class="profile_img">
-            <div id="crop-avatar">
-                <!-- Profile Picture -->
-                <img class="img-responsive img-fluid" src="{{ staff.staff_photo.url }}" alt="Avatar" title="Change the avatar">
-            </div>
+    <!-- Profile Card (Left) -->
+    <div class="col-md-4 mb-4">
+      <div class="card shadow-lg">
+        <div class="card-body text-center">
+          <img src="{{ staff.staff_photo.url }}" class="rounded-circle img-fluid mb-3" style="width: 120px; height: 120px;" alt="Staff Photo">
+          <h4 class="card-title">{{ staff }}</h4>
+          <p class="card-text text-muted">{{ role|title }}</p>
+
+          <ul class="list-group list-group-flush text-left mt-3">
+            <li class="list-group-item"><i class="fa fa-map-marker"></i> {{ staff.address }}</li>
+            <li class="list-group-item"><i class="fa fa-briefcase"></i> {{ staff.department }}</li>
+            <li class="list-group-item"><i class="fa fa-phone"></i> {{ staff.contacts }}</li>
+            <li class="list-group-item"><i class="fa fa-envelope"></i> {{ staff.email }}</li>
+          </ul>
+
+          {% if user.staff_account.role.name == "Admin" %}
+          <div class="mt-3">
+           <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-sm btn-outline-primary mr-2">
+            <i class="fa fa-edit"></i> Edit
+            </a>
+           
+          </div>
+          {% endif %}
+
         </div>
-
-        <h3>{{ staff }}</h3>
-
-        <!-- Contact Information -->
-        <ul class="list-unstyled user_data">
-            <li><i class="fa fa-map-marker user-profile-icon"></i> {{ staff.address }}</li>
-            <li><i class="fa fa-briefcase user-profile-icon"></i> {{ staff.department }}</li>
-            <li><i class="fa fa-phone user-profile-icon"></i> {{ staff.contacts }}</li>
-            <li><i class="fa fa-envelope user-profile-icon"></i> {{ staff.email }}</li>
-        </ul>
-
-        <!-- Action Buttons (Visible Only to Admins) -->
-        {% if user.staff_account.role.name == "Admin" %}
-            <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-primary btn-xs">
-                <i class="fa fa-edit"></i> 
-            </a>
-            <a href="{% url 'delete_staff_page' staff.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Are you sure you want to delete this record?')">
-                <i class="fa fa-trash-o"></i>
-            </a>
-        {% endif %}
-
-        <!-- Roles Section -->
-        <h4>Roles Assigned:</h4>
-        <ul class="list-unstyled user_data">
-            <p>Current Role: {{ current_role }}</p>
-            {% for role in roles %}
-                <li>{{ role }}</li>
-            {% endfor %}
-        </ul>
+      </div>
     </div>
 
-    <!-- Profile Details & Activity -->
-    <div class="col-md-9 col-sm-9">
-        <div class="profile_title">
-            <h2>Recent Activities & Classes</h2>
+    <!-- Quick Info + Assignments (Right) -->
+    <div class="col-md-8">
+      <!-- Quick Info -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0"><i class="fa fa-info-circle"></i> Quick Info</h5>
         </div>
+        <div class="card-body p-3">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Username:</strong> <span>{{ viewed_user.username }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Role:</strong> <span>{{ role|title }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Last Login:</strong> <span>{{ last_login|date:"D, d M Y H:i" }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Status:</strong> 
+              <span>
+                {% if viewed_user.is_active %}
+                  <span class="badge badge-success">Active</span>
+                {% else %}
+                  <span class="badge badge-secondary">Inactive</span>
+                {% endif %}
+              </span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <strong>Date Joined:</strong> <span>{{ viewed_user.date_joined|date:"D, d M Y" }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
 
-        <!-- Recent Classes Table -->
-        <table class="data table table-striped no-margin">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Class</th>
-                    <th>Subjects</th>
-                    <th class="hidden-phone">Hours</th>
-                    <th>Contribution</th>
-                </tr>
+      <!-- Assigned Classes & Subjects -->
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="fa fa-book"></i> Assigned Classes & Subjects</h5>
+        </div>
+        <div class="card-body p-0">
+          <table class="table mb-0 table-hover">
+            <thead class="thead-light">
+              <tr>
+                <th>#</th>
+                <th>Class</th>
+                <th>Subjects</th>
+              </tr>
             </thead>
             <tbody>
+              {% for assignment in teaching_assignments %}
                 <tr>
-                    <td>1</td>
-                    <td>Primary One</td>
-                    <td>Maths, Science</td>
-                    <td class="hidden-phone">8</td>
-                    <td>
-                        <div class="progress">
-                            <div class="progress-bar progress-bar-success" data-transitiongoal="35"></div>
-                        </div>
-                    </td>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ assignment.academic_class_stream }}</td>
+                  <td>{{ assignment.subject.name }}</td>
                 </tr>
+              {% empty %}
                 <tr>
-                    <td>2</td>
-                    <td>Primary Two</td>
-                    <td>Integrated Sciences</td>
-                    <td class="hidden-phone">6</td>
-                    <td>
-                        <div class="progress">
-                            <div class="progress-bar progress-bar-danger" data-transitiongoal="15"></div>
-                        </div>
-                    </td>
+                  <td colspan="3" class="text-center text-muted">No assignments found.</td>
                 </tr>
+              {% endfor %}
             </tbody>
-        </table>
-
-        <!-- Tabs for Qualifications, Awards, and Documents -->
-        <div role="tabpanel">
-            <ul class="nav nav-tabs" role="tablist">
-                <li role="presentation" class="active"><a href="#qualifications" role="tab" data-toggle="tab">Qualifications</a></li>
-                <li role="presentation"><a href="#awards" role="tab" data-toggle="tab">Awards</a></li>
-                <li role="presentation"><a href="#documents" role="tab" data-toggle="tab">Documents</a></li>
-            </ul>
-            <div class="tab-content">
-                <!-- Qualifications Tab -->
-                <div role="tabpanel" class="tab-pane active" id="qualifications">
-                    <ul class="messages">
-                        <li>
-                            <div class="message_date">
-                                <h3 class="date text-info">24</h3>
-                                <p class="month">May</p>
-                            </div>
-                            <div class="message_wrapper">
-                                <h4 class="heading">Bachelors of Primary Education</h4>
-                                <blockquote class="message">Obtained from the Islamic University in Uganda</blockquote>
-                            </div>
-                        </li>
-                        <li>
-                            <div class="message_date">
-                                <h3 class="date text-error">21</h3>
-                                <p class="month">May</p>
-                            </div>
-                            <div class="message_wrapper">
-                                <h4 class="heading">Grade III Certificate</h4>
-                                <blockquote class="message">Obtained from the Kibuli Primary Teachers College</blockquote>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Awards Tab -->
-                <div role="tabpanel" class="tab-pane fade" id="awards">
-                    <table class="data table table-striped no-margin">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Award Name</th>
-                                <th>Institution</th>
-                                <th>Year</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>Best Teacher of the Year</td>
-                                <td>Islamic University</td>
-                                <td>2023</td>
-                            </tr>
-                            <tr>
-                                <td>2</td>
-                                <td>Excellence in Science Education</td>
-                                <td>Kibuli Teachers College</td>
-                                <td>2022</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Documents Tab -->
-                <div role="tabpanel" class="tab-pane fade" id="documents">
-                    <p>Staff Documents will be listed here!</p>
-                </div>
-            </div>
+            
+          </table>
         </div>
+      </div>
     </div>
-</div>
 
-{% endblock %}
+  </div>
+</div>
+{% endblock content %}

@@ -71,4 +71,3 @@ class TransactionForm(ModelForm):
     class Meta:
         model = Transaction
         fields = ("__all__")
-

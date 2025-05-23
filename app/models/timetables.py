@@ -54,11 +54,12 @@ class Timetable(models.Model):
     classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True, related_name="allocations")
 
     class Meta:
-        unique_together = ('timetable', 'weekday', 'time_slot')
+        # Update this to refer to the correct fields
+        unique_together = ('class_stream', 'weekday', 'time_slot')
 
     def __str__(self):
         return f'{self.subject} on {self.weekday} at {self.time_slot}'
-    
+
     def clean(self):
         # Conflict: Same teacher at same time
         teacher_conflict = Timetable.objects.filter(
@@ -94,6 +95,7 @@ class Timetable(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()  
         super().save(*args, **kwargs)
+
 
 
     

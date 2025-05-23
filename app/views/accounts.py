@@ -26,6 +26,7 @@ from django.template.loader import render_to_string
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.mixins import LoginRequiredMixin
+from app.models.classes import ClassSubjectAllocation
 
 
 
@@ -148,7 +149,7 @@ class UserListView(ListView):
     model = User
     template_name = 'accounts/user_list.html'  
     context_object_name = 'users'     
-    paginate_by = 10                  
+    paginate_by = 150                  
 
     def get_queryset(self):
         # Optionally, add filters (e.g., only active users)
@@ -166,16 +167,20 @@ class UserDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        viewed_user = self.object  
-        staff_account = StaffAccount.objects.filter(user=viewed_user).first()
 
-        context['staff'] = staff_account.staff if staff_account else None
+        viewed_user = self.object
+        staff_account = StaffAccount.objects.filter(user=viewed_user).first()
+        staff = staff_account.staff if staff_account else None
+
+        # Get teaching assignments for staff
+        teaching_assignments = ClassSubjectAllocation.objects.filter(subject_teacher=staff) if staff else None
+
+        context['staff'] = staff
         context['role'] = staff_account.role if staff_account else None
         context['last_login'] = viewed_user.last_login
+        context['teaching_assignments'] = teaching_assignments
 
         return context
-
 
 
 def delete_user_view(request, id):

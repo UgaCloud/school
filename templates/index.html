@@ -5,39 +5,89 @@
 {% block content %}
     <!-- top tiles -->
     <div class="row" style="display: inline-block;" >
-        <div class="tile_count">
-            <div class="col-md-2 col-sm-4 tile_stats_count">
-                <span class="count_top"><i class="fa fa-user"></i>Total Staff Members</span>
-                <div class="count blue">{{ total_staff }}</div>
-                <span class="count_bottom"><i class="green">100% of Staff</i></span> 
+        <div class="row">
+            {% comment %} Card Template Start {% endcomment %}
+            <div class="col-md-6 col-lg-2 mb-4">
+              <div class="card stat-card shadow-sm border-0 text-center">
+                <div class="card-body">
+                  <div class="icon-circle bg-primary mb-3 mx-auto">
+                    <i class="fa fa-user fa-2x text-white"></i>
+                  </div>
+                  <h3 class="count" data-count="{{ total_staff }}">0</h3>
+                  <p class="text-muted">Total Staff Members</p>
+                  <small class="text-success">100% of Staff</small>
+                </div>
+              </div>
             </div>
-            
-            <div class="col-md-2 col-sm-4 tile_stats_count">
-                <span class="count_top"><i class="fa fa-clock-o"></i>Total Male Staff</span>
-                <div class="count">{{ total_males }}</div>
-                <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>{{male_percentage}}% of Male staff</i></span>
+          
+            <div class="col-md-6 col-lg-2 mb-4">
+              <div class="card stat-card shadow-sm border-0 text-center">
+                <div class="card-body">
+                  <div class="icon-circle bg-info mb-3 mx-auto">
+                    <i class="fa fa-male fa-2x text-white"></i>
+                  </div>
+                  <h3 class="count" data-count="{{ total_males }}">0</h3>
+                  <p class="text-muted">Total Male Staff</p>
+                  <small class="text-success"><i class="fa fa-arrow-up"></i> {{ male_percentage }}%</small>
+                </div>
+              </div>
             </div>
-            <div class="col-md-2 col-sm-4 tile_stats_count">
-                <span class="count_top"><i class="fa fa-user"></i>Total Female Staffs</span>
-                <div class="count green">{{ total_females }}</div>
-                <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>{{female_percentage}}% of Female staff</i></span>
+          
+            <div class="col-md-6 col-lg-2 mb-4">
+              <div class="card stat-card shadow-sm border-0 text-center">
+                <div class="card-body">
+                  <div class="icon-circle bg-danger mb-3 mx-auto">
+                    <i class="fa fa-female fa-2x text-white"></i>
+                  </div>
+                  <h3 class="count" data-count="{{ total_females }}">0</h3>
+                  <p class="text-muted">Total Female Staff</p>
+                  <small class="text-success"><i class="fa fa-arrow-up"></i> {{ female_percentage }}%</small>
+                </div>
+              </div>
             </div>
-            <div class="col-md-2 col-sm-4 tile_stats_count">
-                <span class="count_top"><i class="fa fa-user"></i>Student Population</span>
-                <div class="count blue">{{total_students}}</div>
-                <span class="count_bottom"><i class="green">100% of Students</i></span> 
+          
+            <div class="col-md-6 col-lg-2 mb-4">
+              <div class="card stat-card shadow-sm border-0 text-center">
+                <div class="card-body">
+                  <div class="icon-circle bg-success mb-3 mx-auto">
+                    <i class="fa fa-users fa-2x text-white"></i>
+                  </div>
+                  <h3 class="count" data-count="{{ total_students }}">0</h3>
+                  <p class="text-muted">Student Population</p>
+                  <small class="text-success">100% of Students</small>
+                </div>
+              </div>
             </div>
-            <div class="col-md-2 col-sm-4 tile_stats_count">
-                <span class="count_top"><i class="fa fa-user"></i>Female Students</span>
-                <div class="count green">{{total_female_students}}</div>
-                <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>{{female_students_percentage}}% of Female students</i></span>
+          
+            <div class="col-md-6 col-lg-2 mb-4">
+              <div class="card stat-card shadow-sm border-0 text-center">
+                <div class="card-body">
+                  <div class="icon-circle bg-pink mb-3 mx-auto">
+                    <i class="fa fa-female fa-2x text-white"></i>
+                  </div>
+                  <h3 class="count" data-count="{{ total_female_students }}">0</h3>
+                  <p class="text-muted">Female Students</p>
+                  <small class="text-success"><i class="fa fa-arrow-up"></i> {{ female_students_percentage }}%</small>
+                </div>
+              </div>
             </div>
-            <div class="col-md-2 col-sm-4 tile_stats_count">
-                <span class="count_top"><i class="fa fa-user"></i>Male Students</span>
-                <div class="count">{{total_male_students}}</div>
-                <span class="count_bottom"><i class="green"><i class="fa fa-sort-asc"></i>{{male_students_percentage}}% of Male Students</i></span>
+          
+            <div class="col-md-6 col-lg-2 mb-4">
+              <div class="card stat-card shadow-sm border-0 text-center">
+                <div class="card-body">
+                  <div class="icon-circle bg-warning mb-3 mx-auto">
+                    <i class="fa fa-male fa-2x text-white"></i>
+                  </div>
+                  <h3 class="count" data-count="{{ total_male_students }}">0</h3>
+                  <p class="text-muted">Male Students</p>
+                  <small class="text-success"><i class="fa fa-arrow-up"></i> {{ male_students_percentage }}%</small>
+                </div>
+              </div>
             </div>
-        </div>
+          </div>
+          
+          
+          
         
     </div>
     <!-- /top tiles -->
@@ -685,5 +735,59 @@
         </div>
         </div>
     </div>
+    <style>
+        .icon-circle {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .bg-pink {
+          background: #e83e8c;
+        }
+        
+        .stat-card {
+          transition: all 0.3s ease;
+          border-radius: 1rem;
+        }
+        
+        .stat-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        
+        .count {
+          font-size: 2rem;
+          font-weight: bold;
+        }
+
+        
+        </style>
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+              const counters = document.querySelectorAll('.count');
+              counters.forEach(counter => {
+                counter.innerText = '0';
+                const updateCounter = () => {
+                  const target = +counter.getAttribute('data-count');
+                  const current = +counter.innerText;
+                  const increment = target / 200;
+            
+                  if(current < target) {
+                    counter.innerText = `${Math.ceil(current + increment)}`;
+                    setTimeout(updateCounter, 10);
+                  } else {
+                    counter.innerText = target;
+                  }
+                };
+                updateCounter();
+              });
+            });
+            </script>
+            
+        
           
 {% endblock content %}

@@ -1,6 +1,5 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect,get_object_or_404
 from django.http import HttpResponse
-from weasyprint import HTML
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.urls import reverse
@@ -13,6 +12,11 @@ from app.models.students import *
 from app.models.classes import *
 from app.models.school_settings import AcademicYear
 
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.lib import colors
+from io import BytesIO
 
 @login_required
 def manage_bill_items_view(request):
@@ -132,6 +136,8 @@ def add_student_payment_view(request, id):
 
     
 
+
+
 @login_required
 def student_fees_status_view(request):
     students = Student.objects.all()
@@ -192,19 +198,78 @@ def student_fees_status_view(request):
         })
 
     if request.GET.get("download_pdf"):
-        html_string = render_to_string("fees/student_fees_status_pdf.html", {
-            "academic_classes": academic_classes,
-            "terms": terms,
-            "class_filter": int(selected_academic_class) if selected_academic_class else "",
-            "term_filter": int(selected_term) if selected_term else "",
-            "student_fees_data": student_fees_data,
-        })
-        html = HTML(string=html_string)
-        pdf = html.write_pdf()
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
 
-        response = HttpResponse(pdf, content_type="application/pdf")
-        response["Content-Disposition"] = 'attachment; filename="student_fees_status.pdf"'
-        return response
+        # Margins and title
+        left_margin = 2 * cm
+        top_margin = height - 2 * cm
+        bottom_margin = 2 * cm
+        row_height = 1 * cm
+
+        p.setFont("Helvetica-Bold", 16)
+        title = "Student Fees Payment Status"
+        title_width = p.stringWidth(title, "Helvetica-Bold", 16)
+        p.drawString((width - title_width) / 2, top_margin, title)
+        y = top_margin - 1.5 * cm
+
+        headers = ["Class", "Student", "Total Fees", "Amount Paid", "Balance", "Status"]
+        col_widths = [3 * cm, 5 * cm, 3 * cm, 3 * cm, 3 * cm, 4 * cm]
+
+        def draw_table_row(values, y_pos, is_header=False, shade=False):
+            x = left_margin
+            p.setStrokeColor(colors.black)
+
+            if shade:
+                p.setFillColor(colors.lightgrey)
+                p.rect(left_margin, y_pos - row_height + 0.2 * cm, sum(col_widths), row_height, fill=1, stroke=0)
+
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica-Bold", 10 if is_header else 9)
+
+            for i, value in enumerate(values):
+                p.drawString(x + 0.2 * cm, y_pos, str(value))
+                x += col_widths[i]
+
+            # Draw horizontal lines
+            p.line(left_margin, y_pos + 0.2 * cm, left_margin + sum(col_widths), y_pos + 0.2 * cm)
+            p.line(left_margin, y_pos - row_height + 0.2 * cm, left_margin + sum(col_widths), y_pos - row_height + 0.2 * cm)
+
+            # Draw vertical lines
+            x = left_margin
+            for w in col_widths:
+                p.line(x, y_pos + 0.2 * cm, x, y_pos - row_height + 0.2 * cm)
+                x += w
+            p.line(x, y_pos + 0.2 * cm, x, y_pos - row_height + 0.2 * cm)
+
+        draw_table_row(headers, y, is_header=True)
+        y -= row_height
+
+        for idx, row in enumerate(student_fees_data):
+            if y < bottom_margin + row_height:
+                p.showPage()
+                y = top_margin
+                p.setFont("Helvetica-Bold", 16)
+                p.drawString((width - title_width) / 2, y, title)
+                y -= 1.5 * cm
+                draw_table_row(headers, y, is_header=True)
+                y -= row_height
+
+            values = [
+                str(row["academic_class"]),
+                row["student"].student_name,
+                f"{row['total_amount']:,}",
+                f"{row['amount_paid']:,}",
+                f"{row['balance_label']} {row['balance']:,}" if row["balance_label"] else f"{row['balance']:,}",
+                row["payment_status"],
+            ]
+            draw_table_row(values, y, shade=(idx % 2 == 0))
+            y -= row_height
+
+        p.save()
+        buffer.seek(0)
+        return HttpResponse(buffer, content_type="application/pdf")
 
     context = {
         "academic_classes": academic_classes,
@@ -215,3 +280,4 @@ def student_fees_status_view(request):
     }
 
     return render(request, "fees/student_fees_status.html", context)
+
