@@ -9,7 +9,7 @@ class ResultForm(forms.ModelForm):
     class Meta:
         model = Result
         fields = ('score',)
-
+ 
 class AssesmentTypeForm(ModelForm):
     
     class Meta:
