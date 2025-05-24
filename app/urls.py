@@ -10,6 +10,7 @@ from app.views.fees_view import *
 from app.views.finance import *
 from app.views.results import *
 from app.views.accounts import *
+from app.views.timetables import *
 from app.views.timetables import (
     SchoolTimetableView,
     ClassTimetableView,
@@ -197,6 +198,8 @@ urlpatterns = [
 
 
     #Timetable
+    path('timetable/timeslots/', create_time_slots, name='time_slots_list'),
+
     path('school/', SchoolTimetableView.as_view(), name='school_timetable'),
     path('class/<int:class_id>/', ClassTimetableView.as_view(), name='class_timetable'),
     path('teacher/<int:teacher_id>/', TeacherTimetableView.as_view(), name='teacher_timetable'),

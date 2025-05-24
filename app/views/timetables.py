@@ -1,7 +1,70 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404,redirect
 from django.views.generic import ListView, DetailView
 from app.models import AcademicClassStream, Staff, Subject
 from app.models import Timetable, Classroom, WeekDay, TimeSlot, BreakPeriod
+
+from app.forms.timetables import TimeSlotForm
+from app.models.timetables import TimeSlot
+
+def create_time_slots(request):
+    if request.method == 'POST':
+        form = TimeSlotForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('time_slots_list')
+    else:
+        form = TimeSlotForm()
+
+    time_slots = TimeSlot.objects.all()
+    return render(request, 'timetable/create_time_slots.html', {
+        'form': form,
+        'time_slots': time_slots
+    })
+
+def edit_time_slot(request, pk):
+    slot = get_object_or_404(TimeSlot, pk=pk)
+    if request.method == 'POST':
+        form = TimeSlotForm(request.POST, instance=slot)
+        if form.is_valid():
+            form.save()
+            return redirect('time_slots_list')
+    else:
+        form = TimeSlotForm(instance=slot)
+    return render(request, 'timetable/edit_time_slot.html', {'form': form, 'slot': slot})
+
+
+def delete_time_slot(request, pk):
+    slot = get_object_or_404(TimeSlot, pk=pk)
+    if request.method == 'POST':
+        slot.delete()
+        return redirect('time_slots_list')
+    return render(request, 'timetable/delete_time_slot.html', {'slot': slot})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class SchoolTimetableView(ListView):

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Create Time Slots</h2>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Add Time Slot</button>
+</form>
+
+<h3>Existing Time Slots</h3>
+<table border="1" cellpadding="5">
+  <tr>
+    <th>#</th>
+    <th>Start Time</th>
+    <th>End Time</th>
+  </tr>
+  {% for slot in time_slots %}
+  <tr>
+    <td>{{ forloop.counter }}</td>
+    <td>{{ slot.start_time }}</td>
+    <td>{{ slot.end_time }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="3">No time slots defined yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
