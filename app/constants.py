@@ -24,6 +24,7 @@ ROLE_CHOICES = [
         ('Director of Studies', 'Director of Studies'),
         ('Head master', 'Head master'),
         ('Class Teacher', 'Class Teacher'),
+        ('Support Staff', 'Support Staff'),
  ]
 
 # Types
