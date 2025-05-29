@@ -199,6 +199,10 @@ urlpatterns = [
 
     #Timetable
     path('timetable/timeslots/', create_time_slots, name='time_slots_list'),
+    path('timetable/timeslots/edit/<int:pk>/', edit_time_slot, name='edit_time_slot'),
+    path('timetable/timeslots/delete/<int:pk>/', delete_time_slot, name='delete_time_slot'),
+    path('timetable/select-class/', select_class_for_timetable, name='select_class_for_timetable'),
+    path('timetable/edit/<int:class_stream_id>/', set_timetable, name='edit_timetable'),
 
     path('school/', SchoolTimetableView.as_view(), name='school_timetable'),
     path('class/<int:class_id>/', ClassTimetableView.as_view(), name='class_timetable'),

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Edit Timetable for {{ class_stream }}</h2>
+    <table class="table table-bordered">
+        <thead class="table-dark">
+            <tr>
+                <th>Time Slot</th>
+                {% for day_code, day_name in weekdays %}
+                    <th>{{ day_name }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in table_data %}
+                <tr>
+                    <td><strong>{{ row.slot_label }}</strong></td>
+                    {% for entry in row.entries %}
+                        <td>
+                            {% if entry %}
+                                {{ entry.subject.name }}<br>
+                                <small>{{ entry.teacher.first_name }} {{ entry.teacher.last_name }}</small>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

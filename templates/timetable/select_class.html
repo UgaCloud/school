@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Select Class to Set Timetable</h2>
+
+<p>DEBUG: {{ classes|length }} classes found.</p>
+
+<ul class="list-group">
+  {% for class_ in classes %}
+    <li class="list-group-item">
+      <strong>{{ class_ }}</strong>
+      <br>
+      <a href="{% url 'edit_timetable' class_.id %}" class="btn btn-sm btn-primary mt-1">Set Timetable</a>
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}

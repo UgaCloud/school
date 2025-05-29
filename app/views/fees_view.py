@@ -92,8 +92,12 @@ def manage_student_bill_details_view(request, id):
     context = get_student_bill_details(id)
     context["bill_item_form"] = StudentBillItemForm(initial={"bill": context["student_bill"]})
     context["payment_form"] = PaymentForm(initial={"bill": context["student_bill"]})
+    student = context["student_bill"].student
+    context["academic_year"] = student.academic_year
+    context["term"] = student.term
 
     return render(request, "fees/student_bill_details.html", context)
+
 
 
 @login_required

@@ -1,12 +1,15 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load static %}
+{% load humanize %}
+{% load crispy_forms_tags %}
 
 {% block page_title %}Edit Time Slot{% endblock page_title %}
 {% block content %}
 <h2>Edit Time Slot</h2>
 <form method="post">
   {% csrf_token %}
-  {{ form.as_p }}
+  {{ form|crispy }}
   <button type="submit">Update</button>
 </form>
 <a href="{% url 'time_slots_list' %}">← Back</a>

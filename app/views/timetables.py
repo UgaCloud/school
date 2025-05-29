@@ -2,9 +2,49 @@ from django.shortcuts import render, get_object_or_404,redirect
 from django.views.generic import ListView, DetailView
 from app.models import AcademicClassStream, Staff, Subject
 from app.models import Timetable, Classroom, WeekDay, TimeSlot, BreakPeriod
-
+from django.views.decorators.http import require_POST
 from app.forms.timetables import TimeSlotForm
 from app.models.timetables import TimeSlot
+
+
+
+def select_class_for_timetable(request):
+    classes = AcademicClassStream.objects.all()
+    return render(request, 'timetable/select_class.html', {'classes': classes})
+
+
+
+def set_timetable(request, class_stream_id):
+    class_stream = get_object_or_404(AcademicClassStream, pk=class_stream_id)
+    time_slots = TimeSlot.objects.all().order_by('start_time')
+    weekdays = list(WeekDay.choices)
+
+    # Build a lookup table for quick access
+    timetable_entries = Timetable.objects.filter(class_stream=class_stream)
+    timetable_lookup = {}
+    for entry in timetable_entries:
+        key = f"{entry.weekday}_{entry.time_slot_id}"
+        timetable_lookup[key] = entry
+
+    # Prepare rows for rendering
+    table_data = []
+    for slot in time_slots:
+        row = {
+            'slot_label': f"{slot.start_time.strftime('%H:%M')} - {slot.end_time.strftime('%H:%M')}",
+            'entries': []
+        }
+        for day_code, _ in weekdays:
+            key = f"{day_code}_{slot.id}"
+            row['entries'].append(timetable_lookup.get(key))  # Could be None
+        table_data.append(row)
+
+    context = {
+        'class_stream': class_stream,
+        'weekdays': weekdays,
+        'table_data': table_data,
+    }
+    return render(request, 'timetable/set_timetable.html', context)
+
 
 def create_time_slots(request):
     if request.method == 'POST':
@@ -32,13 +72,11 @@ def edit_time_slot(request, pk):
         form = TimeSlotForm(instance=slot)
     return render(request, 'timetable/edit_time_slot.html', {'form': form, 'slot': slot})
 
-
+@require_POST
 def delete_time_slot(request, pk):
     slot = get_object_or_404(TimeSlot, pk=pk)
-    if request.method == 'POST':
-        slot.delete()
-        return redirect('time_slots_list')
-    return render(request, 'timetable/delete_time_slot.html', {'slot': slot})
+    slot.delete()
+    return redirect('time_slots_list')
 
 
 
