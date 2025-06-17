@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load get_item %}
+
+{% block content %}
+<style>
+  /* Responsive container for horizontal scrolling */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #ddd;
+    border-radius: 0.375rem;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: fixed; /* Fixed layout for equal column widths */
+  }
+
+  th, td {
+    border: 1px solid #ddd;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    word-wrap: break-word;
+    white-space: normal;
+    vertical-align: top;
+  }
+
+  /* Define min and max widths to control column sizes */
+  th, td {
+    min-width: 100px;
+    max-width: 150px;
+  }
+
+  /* Slightly wider first column for time slots */
+  th:first-child, td:first-child {
+    min-width: 120px;
+    max-width: 180px;
+    font-weight: 600;
+  }
+
+  /* Row hover highlight */
+  tbody tr:hover {
+    background-color: #f9fafb;
+  }
+
+  /* Scrollbar styling (optional) */
+  .table-responsive::-webkit-scrollbar {
+    height: 8px;
+  }
+  .table-responsive::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.5);
+    border-radius: 4px;
+  }
+
+  /* Button styling */
+  .btn-primary {
+    background-color: #3b82f6;
+    color: white;
+    font-weight: 600;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.375rem;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgb(59 130 246 / 0.5);
+    transition: background-color 0.3s ease;
+  }
+  .btn-primary:hover {
+    background-color: #2563eb;
+  }
+
+  /* Form elements styling */
+  select {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.3);
+  }
+
+  @media (max-width: 768px) {
+    th, td {
+      min-width: 80px;
+      max-width: 120px;
+      font-size: 0.875rem;
+    }
+    th:first-child, td:first-child {
+      min-width: 100px;
+      max-width: 140px;
+    }
+  }
+</style>
+
+<div class="container mx-auto p-6">
+  <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Timetable Center</h2>
+
+  <form method="get" class="mb-6">
+    <label class="block mb-2 text-lg font-semibold">Select Class Stream:</label>
+    <select name="class_stream_id" required onchange="this.form.submit()" class="border rounded p-2 w-full mb-4 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <option value="">-- Select Class --</option>
+      {% for class_stream in class_streams %}
+        <option value="{{ class_stream.id }}" {% if selected_class and class_stream.id == selected_class.id %}selected{% endif %}>
+          {{ class_stream }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if selected_class %}
+  <form id="timetableForm" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="class_stream_id" value="{{ selected_class.id }}">
+    <input type="hidden" name="timetable_json" id="timetable_json" />
+
+    <div class="table-responsive">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="bg-gray-200">
+            <th>Time Slot</th>
+            {% for weekday, label in weekdays %}
+              <th>{{ label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for slot in time_slots %}
+            <tr class="hover:bg-gray-100">
+              <td>{{ slot }}</td>
+              {% for weekday, _ in weekdays %}
+                {% with key=weekday|stringformat:"s"|add:"_"|add:slot.id|stringformat:"s" %}
+                  <td>
+                    {% get_item timetable_data weekday slot.id as cell %}
+
+                    <select name="{{ key }}_subject" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="mb-1 w-full">
+                      <option value="">-- Subject --</option>
+                      {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if cell and cell.subject.id == subject.id %}selected{% endif %}>
+                          {{ subject }}
+                        </option>
+                      {% endfor %}
+                    </select>
+
+                    <select name="{{ key }}_teacher" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="mb-1 w-full">
+                      <option value="">-- Teacher --</option>
+                      {% for teacher in teachers %}
+                        <option value="{{ teacher.id }}" {% if cell and cell.teacher.id == teacher.id %}selected{% endif %}>
+                          {{ teacher }}
+                        </option>
+                      {% endfor %}
+                    </select>
+
+                    <select name="{{ key }}_classroom" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="w-full">
+                      <option value="">-- Room (optional) --</option>
+                      {% for room in classrooms %}
+                        <option value="{{ room.id }}" {% if cell and cell.classroom and cell.classroom.id == room.id %}selected{% endif %}>
+                          {{ room }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                {% endwith %}
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-4 text-center">
+      <button type="button" class="btn-primary" onclick="submitTimetable()">Save Timetable</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+
+<script>
+function submitTimetable() {
+  const data = {};
+  document.querySelectorAll('select[data-weekday]').forEach(select => {
+    const weekday = select.getAttribute('data-weekday');
+    const timeslot = select.getAttribute('data-timeslot');
+    if (!data[weekday]) data[weekday] = {};
+    if (!data[weekday][timeslot]) data[weekday][timeslot] = {};
+    const name = select.name;
+    if (name.endsWith('_subject')) data[weekday][timeslot].subject = select.value || null;
+    else if (name.endsWith('_teacher')) data[weekday][timeslot].teacher = select.value || null;
+    else if (name.endsWith('_classroom')) data[weekday][timeslot].classroom = select.value || null;
+  });
+
+  document.getElementById('timetable_json').value = JSON.stringify(data);
+  document.getElementById('timetableForm').submit();
+}
+</script>
+
+{% endblock %}
