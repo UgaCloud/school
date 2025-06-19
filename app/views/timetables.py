@@ -1,147 +1,100 @@
-from django.shortcuts import render, get_object_or_404,redirect
-from django.views.generic import ListView, DetailView
-from app.models import AcademicClassStream, Staff, Subject
-from app.models import Timetable, Classroom, WeekDay, TimeSlot, BreakPeriod
-from django.views.decorators.http import require_POST
-from app.forms.timetables import TimeSlotForm
-from app.models.timetables import TimeSlot
+import json
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from app.models import AcademicClassStream, TimeSlot, Timetable, Subject, Staff, Classroom, WeekDay
+from django.contrib.auth.decorators import login_required
+from app.models.accounts import StaffAccount
+from app.models.classes import ClassSubjectAllocation
+
+@login_required
+def timetable_center(request):
+    class_streams = AcademicClassStream.objects.all()
+    time_slots = TimeSlot.objects.all()
+    selected_class_id = request.GET.get('class_stream_id')
+    selected_class = None
+    timetable_data = {}
+    
+    if selected_class_id:
+        selected_class = AcademicClassStream.objects.get(pk=selected_class_id)
+        timetable_entries = Timetable.objects.filter(class_stream=selected_class)
+        for entry in timetable_entries:
+            timetable_data[(entry.weekday, entry.time_slot.id)] = entry
+
+    if request.method == 'POST':
+        selected_class_id = request.POST.get('class_stream_id')
+        selected_class = AcademicClassStream.objects.get(pk=selected_class_id)
+        timetable_json = request.POST.get('timetable_json')
+
+        if timetable_json:
+            timetable_data = json.loads(timetable_json)
+            for weekday, slots in timetable_data.items():
+                for time_slot_id, entry in slots.items():
+                    subject_id = entry.get('subject')
+                    teacher_id = entry.get('teacher')
+                    classroom_id = entry.get('classroom')
+
+                    if subject_id and teacher_id:
+                        time_slot = TimeSlot.objects.get(pk=time_slot_id)
+                        Timetable.objects.update_or_create(
+                            class_stream=selected_class,
+                            weekday=weekday,
+                            time_slot=time_slot,
+                            defaults={
+                                'subject_id': subject_id,
+                                'teacher_id': teacher_id,
+                                'classroom_id': classroom_id or None,
+                            }
+                        )
+            messages.success(request, "Timetable updated successfully.")
+            return redirect(f"{request.path}?class_stream_id={selected_class_id}")
+    
+    context = {
+        "class_streams": class_streams,
+        "selected_class": selected_class,
+        "time_slots": time_slots,
+        "timetable_data": timetable_data,
+        "subjects": Subject.objects.all(),
+        "teachers": Staff.objects.all(),
+        "classrooms": Classroom.objects.all(),
+        "weekdays": WeekDay.choices,
+    }
+    return render(request, "timetable/timetable_center.html", context)
 
 
+@login_required
+def teacher_timetable_view(request):
+    user = request.user
 
-def select_class_for_timetable(request):
-    classes = AcademicClassStream.objects.all()
-    return render(request, 'timetable/select_class.html', {'classes': classes})
+    try:
+        staff_account = user.staff_account
+    except StaffAccount.DoesNotExist:
+        messages.error(request, "You are not linked to a staff account.")
+        return redirect("dashboard")  # or wherever appropriate
 
+    if staff_account.role.name != "Teacher":
+        messages.error(request, "Access denied. This page is for teachers only.")
+        return redirect("dashboard")
 
+    staff = staff_account.staff
 
-def set_timetable(request, class_stream_id):
-    class_stream = get_object_or_404(AcademicClassStream, pk=class_stream_id)
-    time_slots = TimeSlot.objects.all().order_by('start_time')
-    weekdays = list(WeekDay.choices)
+    # Get class-subject allocations for this teacher
+    assigned_classes = ClassSubjectAllocation.objects.filter(subject_teacher=staff)
 
-    # Build a lookup table for quick access
-    timetable_entries = Timetable.objects.filter(class_stream=class_stream)
-    timetable_lookup = {}
-    for entry in timetable_entries:
-        key = f"{entry.weekday}_{entry.time_slot_id}"
-        timetable_lookup[key] = entry
+    # Build a list of class_streams and subjects the teacher is assigned to
+    stream_subject_pairs = [
+        (alloc.academic_class_stream, alloc.subject) for alloc in assigned_classes
+    ]
 
-    # Prepare rows for rendering
-    table_data = []
-    for slot in time_slots:
-        row = {
-            'slot_label': f"{slot.start_time.strftime('%H:%M')} - {slot.end_time.strftime('%H:%M')}",
-            'entries': []
-        }
-        for day_code, _ in weekdays:
-            key = f"{day_code}_{slot.id}"
-            row['entries'].append(timetable_lookup.get(key))  # Could be None
-        table_data.append(row)
+    # Get timetable entries for those classes and subjects
+    timetable_entries = Timetable.objects.select_related(
+        'class_stream', 'subject', 'teacher', 'time_slot', 'classroom'
+    ).filter(
+        teacher=staff
+    ).order_by('weekday', 'time_slot__start_time')
 
     context = {
-        'class_stream': class_stream,
-        'weekdays': weekdays,
-        'table_data': table_data,
+        "timetable_entries": timetable_entries,
+        "teacher": staff,
     }
-    return render(request, 'timetable/set_timetable.html', context)
 
-
-def create_time_slots(request):
-    if request.method == 'POST':
-        form = TimeSlotForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect('time_slots_list')
-    else:
-        form = TimeSlotForm()
-
-    time_slots = TimeSlot.objects.all()
-    return render(request, 'timetable/create_time_slots.html', {
-        'form': form,
-        'time_slots': time_slots
-    })
-
-def edit_time_slot(request, pk):
-    slot = get_object_or_404(TimeSlot, pk=pk)
-    if request.method == 'POST':
-        form = TimeSlotForm(request.POST, instance=slot)
-        if form.is_valid():
-            form.save()
-            return redirect('time_slots_list')
-    else:
-        form = TimeSlotForm(instance=slot)
-    return render(request, 'timetable/edit_time_slot.html', {'form': form, 'slot': slot})
-
-@require_POST
-def delete_time_slot(request, pk):
-    slot = get_object_or_404(TimeSlot, pk=pk)
-    slot.delete()
-    return redirect('time_slots_list')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class SchoolTimetableView(ListView):
-    model = Timetable
-    template_name = 'timetable/school_timetable.html'
-    context_object_name = 'timetables'
-
-    def get_queryset(self):
-        return Timetable.objects.all().order_by('weekday', 'time_slot')
-
-
-class ClassTimetableView(ListView):
-    model = Timetable
-    template_name = 'timetable/class_timetable.html'
-    context_object_name = 'timetables'
-
-    def get_queryset(self):
-        class_id = self.kwargs.get('class_id')
-        return Timetable.objects.filter(class_stream__id=class_id).order_by('weekday', 'time_slot')
-
-
-class TeacherTimetableView(ListView):
-    model = Timetable
-    template_name = 'timetable/teacher_timetable.html'
-    context_object_name = 'timetables'
-
-    def get_queryset(self):
-        teacher_id = self.kwargs.get('teacher_id')
-        return Timetable.objects.filter(teacher__id=teacher_id).order_by('weekday', 'time_slot')
-
-
-class ClassroomListView(ListView):
-    model = Classroom
-    template_name = 'timetable/classrooms.html'
-    context_object_name = 'classrooms'
-
-
-class ClassroomDetailView(DetailView):
-    model = Classroom
-    template_name = 'timetable/classroom_detail.html'
-    context_object_name = 'classroom'
-
+    return render(request, "timetable/teacher_timetable.html", context)

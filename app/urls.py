@@ -11,13 +11,7 @@ from app.views.finance import *
 from app.views.results import *
 from app.views.accounts import *
 from app.views.timetables import *
-from app.views.timetables import (
-    SchoolTimetableView,
-    ClassTimetableView,
-    TeacherTimetableView,
-    ClassroomListView,
-    ClassroomDetailView
-)
+
 
 
 urlpatterns = [
@@ -196,19 +190,9 @@ urlpatterns = [
     path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(), name='password_reset_complete'),
 
-
-    #Timetable
-    path('timetable/timeslots/', create_time_slots, name='time_slots_list'),
-    path('timetable/timeslots/edit/<int:pk>/', edit_time_slot, name='edit_time_slot'),
-    path('timetable/timeslots/delete/<int:pk>/', delete_time_slot, name='delete_time_slot'),
-    path('timetable/select-class/', select_class_for_timetable, name='select_class_for_timetable'),
-    path('timetable/edit/<int:class_stream_id>/', set_timetable, name='edit_timetable'),
-
-    path('school/', SchoolTimetableView.as_view(), name='school_timetable'),
-    path('class/<int:class_id>/', ClassTimetableView.as_view(), name='class_timetable'),
-    path('teacher/<int:teacher_id>/', TeacherTimetableView.as_view(), name='teacher_timetable'),
-    path('classrooms/', ClassroomListView.as_view(), name='classrooms'),
-    path('classroom/<int:pk>/', ClassroomDetailView.as_view(), name='classroom_detail'),
+    # Timetables
+    path('timetable-center/', timetable_center, name='timetable_center'),
+    path('teacher/timetable/', teacher_timetable_view, name='teacher_timetable'),
 ]
 
 
