@@ -1,49 +1,64 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
-
 {% block content %}
-<div class="container mt-4">
-    <h3>Your Teaching Timetable</h3>
-
-    {% if timetable_data %}
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>Day / Time</th>
-                    {% for slot in time_slots %}
-                        <th>{{ slot.start_time|time:"H:i" }} - {{ slot.end_time|time:"H:i" }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for weekday, day_label in weekdays %}
-                    <tr>
-                        <td>{{ day_label }}</td>
-                        {% for slot in time_slots %}
-                            <td>
-                                {% with key=weekday|add:"_"|add:slot.id|stringformat:"s" %}
-                                    {% with entry_list=timetable_data|get_item:key %}
-                                        {% if entry_list %}
-                                            {% for entry in entry_list %}
-                                                <div>
-                                                    <strong>{{ entry.subject.name }}</strong><br>
-                                                    {{ entry.class_stream.name }}<br>
-                                                    Room: {{ entry.classroom.name }}
+<div class="container-fluid py-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-calendar-alt me-2"></i>
+                My Teaching Timetable
+            </h4>
+        </div>
+        
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 120px;">Day/Time</th>
+                            {% for slot in time_slots %}
+                                <th class="text-center">
+                                    {{ slot.start_time|time:"H:i" }} - {{ slot.end_time|time:"H:i" }}
+                                </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for weekday_code, weekday_name in weekdays %}
+                            <tr>
+                                <td class="fw-bold">{{ weekday_name }}</td>
+                                {% for slot in time_slots %}
+                                    <td>
+                                        {% for entry in timetable_data|dict_key:weekday_code|dict_key:slot.id %}
+                                            <div class="mb-2 p-2 border rounded bg-light">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span class="badge bg-primary">{{ entry.subject.name }}</span>
+                                                    <small class="text-muted">{{ entry.class_stream.name }}</small>
                                                 </div>
-                                            {% endfor %}
-                                        {% else %}
-                                            <em>No class</em>
-                                        {% endif %}
-                                    {% endwith %}
-                                {% endwith %}
-                            </td>
+                                                <div class="mt-1">
+                                                    <small>
+                                                        <i class="fas fa-door-open me-1"></i> {{ entry.classroom.name|default:"TBD" }}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        {% empty %}
+                                            <span class="text-muted fst-italic">Free</span>
+                                        {% endfor %}
+                                    </td>
+                                {% endfor %}
+                            </tr>
                         {% endfor %}
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>You have no scheduled classes yet.</p>
-    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card-footer text-muted">
+            <small>
+                <i class="fas fa-info-circle me-1"></i>
+                Updates automatically as new classes are scheduled.
+            </small>
+        </div>
+    </div>
 </div>
 {% endblock %}
