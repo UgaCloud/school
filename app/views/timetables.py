@@ -6,6 +6,10 @@ from django.contrib.auth.decorators import login_required
 from app.models.accounts import StaffAccount
 from app.models.classes import ClassSubjectAllocation
 from collections import defaultdict
+from django.db.models import Q
+
+
+
 @login_required
 def timetable_center(request):
     class_streams = AcademicClassStream.objects.all()
@@ -70,6 +74,8 @@ def timetable_center(request):
 def get_time_slots():
     """Utility function to get all time slots in order"""
     return TimeSlot.objects.order_by('start_time').all()
+
+
 @login_required
 def teacher_timetable_view(request):
     user = request.user
@@ -78,36 +84,53 @@ def teacher_timetable_view(request):
     except AttributeError:
         messages.error(request, "You are not linked to a staff account.")
         return redirect("dashboard")
-    if not hasattr(staff_account, 'staff'):
-        messages.error(request, "Staff profile not found.")
+
+    if not hasattr(staff_account, 'staff') or staff_account.role.name != "Teacher":
+        messages.error(request, "Access denied.")
         return redirect("dashboard")
-    if staff_account.role.name != "Teacher":
-        messages.error(request, "Access denied. This page is for teachers only.")
-        return redirect("dashboard")
+
     staff = staff_account.staff
-    
-    # Get all timetable entries for this teacher
-    timetable_entries = Timetable.objects.filter(
-        teacher=staff
-    ).select_related(
+
+    # Get allocations for this teacher
+    allocations = ClassSubjectAllocation.objects.filter(subject_teacher=staff).select_related("academic_class_stream", "subject")
+    subjects = sorted({a.subject for a in allocations}, key=lambda x: x.name)
+    class_streams = sorted({a.academic_class_stream for a in allocations}, key=lambda x: str(x))
+
+    # Filters from query params
+    selected_weekday = request.GET.get("weekday")
+    selected_subject = request.GET.get("subject")
+    selected_stream = request.GET.get("stream")
+
+    timetable_filter = Q(teacher=staff)
+    if selected_weekday:
+        timetable_filter &= Q(weekday=selected_weekday)
+    if selected_subject:
+        timetable_filter &= Q(subject_id=selected_subject)
+    if selected_stream:
+        timetable_filter &= Q(class_stream_id=selected_stream)
+
+    timetable_entries = Timetable.objects.filter(timetable_filter).select_related(
         'class_stream', 'subject', 'time_slot', 'classroom'
     ).order_by('weekday', 'time_slot__start_time')
-    # Get all possible time slots
+
     time_slots = get_time_slots()
-    
-    # Create a structure to hold all days and their slots
-    timetable_data = {}
-    for weekday in WeekDay.choices:
-        timetable_data[weekday[0]] = {}
-        for slot in time_slots:
-            timetable_data[weekday[0]][slot.id] = []
-    # Populate with actual entries
+    timetable_data = {
+        day[0]: {slot.id: [] for slot in time_slots} for day in WeekDay.choices
+    }
+
     for entry in timetable_entries:
         timetable_data[entry.weekday][entry.time_slot.id].append(entry)
+
     context = {
         "timetable_data": timetable_data,
         "time_slots": time_slots,
         "weekdays": WeekDay.choices,
         "teacher": staff,
+        "subjects": subjects,
+        "class_streams": class_streams,
+        "selected_weekday": selected_weekday,
+        "selected_subject": selected_subject,
+        "selected_stream": selected_stream,
     }
+
     return render(request, "timetable/teacher_timetable.html", context)

@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
+
 {% block content %}
 <div class="container-fluid py-4">
     <div class="card">
@@ -9,8 +10,39 @@
                 My Teaching Timetable
             </h4>
         </div>
-        
-        <div class="card-body p-0">
+
+        <div class="card-body">
+            <!-- FILTER FORM with Auto-Submit -->
+            <form method="get" class="p-3 bg-light rounded mb-3" id="filter-form">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <select name="weekday" class="form-select" onchange="document.getElementById('filter-form').submit();">
+                            <option value="">All Days</option>
+                            {% for code, name in weekdays %}
+                                <option value="{{ code }}" {% if code == selected_weekday %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="subject" class="form-select" onchange="document.getElementById('filter-form').submit();">
+                            <option value="">All Subjects</option>
+                            {% for subject in subjects %}
+                                <option value="{{ subject.id }}" {% if subject.id|stringformat:"s" == selected_subject %}selected{% endif %}>{{ subject.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="stream" class="form-select" onchange="document.getElementById('filter-form').submit();">
+                            <option value="">All Streams</option>
+                            {% for stream in class_streams %}
+                                <option value="{{ stream.id }}" {% if stream.id|stringformat:"s" == selected_stream %}selected{% endif %}>{{ stream }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </form>
+
+            <!-- TIMETABLE TABLE -->
             <div class="table-responsive">
                 <table class="table table-bordered table-hover mb-0">
                     <thead class="table-light">
@@ -33,7 +65,7 @@
                                             <div class="mb-2 p-2 border rounded bg-light">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <span class="badge bg-primary">{{ entry.subject.name }}</span>
-                                                    <small class="text-muted">{{ entry.class_stream.name }}</small>
+                                                    <small class="text-muted">{{ entry.class_stream }}</small>
                                                 </div>
                                                 <div class="mt-1">
                                                     <small>
@@ -52,7 +84,7 @@
                 </table>
             </div>
         </div>
-        
+
         <div class="card-footer text-muted">
             <small>
                 <i class="fas fa-info-circle me-1"></i>
