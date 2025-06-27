@@ -11,7 +11,6 @@ class Currency(models.Model):
     def __str__(self):
         return self.code
 
-
 class SchoolSetting(SingletonModel):
     COUNTRIES = (
         ("UG", "Uganda"),
@@ -21,6 +20,12 @@ class SchoolSetting(SingletonModel):
         ("BD", "Burundi"),
         ("SD", "South Sudan")
     )
+    
+    ASSESSMENT_METHODS = (
+        ("CUMULATIVE", "Cumulative"),
+        ("NON_CUMULATIVE", "Non-Cumulative"),
+    )
+    
     country = models.CharField(max_length=40, choices=COUNTRIES, default="Uganda")
     city = models.CharField(max_length=40, default="Kampala")
     address = models.CharField(max_length=50, default="None")
@@ -33,7 +38,8 @@ class SchoolSetting(SingletonModel):
     office_phone_number2 = models.CharField(max_length=40, blank=True, null=True)
     school_logo = models.ImageField(upload_to="logo", height_field=None, width_field=None, max_length=None)
     app_name = models.CharField(max_length=20, default="E-School")
-    
+    assessment_method = models.CharField(max_length=15, choices=ASSESSMENT_METHODS, default="CUMULATIVE")
+
    
 
 

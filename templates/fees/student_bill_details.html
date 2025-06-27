@@ -58,6 +58,48 @@
     .receipt th {
         background-color: #f2f2f2;
     }
+     /* Modern progress bar container */
+  .progress {
+    height: 16px;
+    background-color: #e0e0e0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    margin-top: 6px;
+  }
+
+  /* Base style for progress fill */
+  .progress-bar {
+    height: 100%;
+    border-radius: 12px 0 0 12px;
+    transition: width 0.6s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Specific colors with subtle gradients */
+  .progress-bar.total {
+    background: linear-gradient(90deg, #1e3a8a, #3b82f6); /* dark blue to blue */
+  }
+
+  .progress-bar.paid {
+    background: linear-gradient(90deg, #16a34a, #4ade80); /* green gradient */
+  }
+
+  .progress-bar.balance {
+    background: linear-gradient(90deg, #dc2626, #f87171); /* red gradient */
+  }
+
+  /* Text styling */
+  ul.user_data p {
+    font-weight: 600;
+    color: #1e293b; /* dark slate */
+    
+  }
+  
+     .table-scroll-wrapper {
+    overflow-x: auto;
+    max-height: 300px;
+}
 </style>
 
 <div class="x_content">
@@ -73,26 +115,29 @@
             </ul>
 
             <h4>Bill Summary</h4>
-            <ul class="list-unstyled user_data">
-                <li>
-                    <p>Total Amount - {{ student_bill.total_amount|intcomma }}/-</p>
-                    <div class="progress progress_sm">
-                        <div class="progress-bar bg-blue" role="progressbar" style="width: 100%;"></div>
-                    </div>
-                </li>
-                <li>
-                    <p>Amount Paid - {{ student_bill.amount_paid|intcomma }}/-</p>
-                    <div class="progress progress_sm">
-                        <div class="progress-bar bg-green" role="progressbar" style="width: {{ amount_paid_percentage }}%;"></div>
-                    </div>
-                </li>
-                <li>
-                    <p>Balance - {{ balance|intcomma }}/-</p>
-                    <div class="progress progress_sm">
-                        <div class="progress-bar bg-red" role="progressbar" style="width: {{ balance_percentage }}%;"></div>
-                    </div>
-                </li>
-            </ul>
+    
+
+<ul class="list-unstyled user_data">
+  <li>
+    <p>Total Amount - {{ student_bill.total_amount|intcomma }}/-</p>
+    <div class="progress" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Total Amount Progress">
+      <div class="progress-bar total" style="width: 100%;"></div>
+    </div>
+  </li>
+  <li>
+    <p>Amount Paid - {{ student_bill.amount_paid|intcomma }}/-</p>
+    <div class="progress" role="progressbar" aria-valuenow="{{ amount_paid_percentage }}" aria-valuemin="0" aria-valuemax="100" aria-label="Amount Paid Progress">
+      <div class="progress-bar paid" style="width: {{ amount_paid_percentage }}%;"></div>
+    </div>
+  </li>
+  <li>
+    <p>Balance - {{ balance|intcomma }}/-</p>
+    <div class="progress" role="progressbar" aria-valuenow="{{ balance_percentage }}" aria-valuemin="0" aria-valuemax="100" aria-label="Balance Progress">
+      <div class="progress-bar balance" style="width: {{ balance_percentage }}%;"></div>
+    </div>
+  </li>
+</ul>
+
 
             <button class="btn btn-info btn-block" onclick="printReceipt()">Print Receipt</button>
         </div>
@@ -113,26 +158,28 @@
                 {% endif %}
             </div>
 
-            <table class="data table table-striped no-margin">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Item</th>
-                        <th>Description</th>
-                        <th class="hidden-phone">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in student_bill.items.all %}
+          <div class="table-scroll-wrapper">
+                <table class="data table table-striped no-margin">
+                    <thead>
                         <tr>
-                            <td>{{ forloop.counter }}</td>
-                            <td>{{ item.bill_item }}</td>
-                            <td>{{ item.description }}</td>
-                            <td class="hidden-phone">{{ item.amount|intcomma }}/-</td>
+                            <th>#</th>
+                            <th>Item</th>
+                            <th>Description</th>
+                            <th class="hidden-phone">Amount</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for item in student_bill.items.all %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ item.bill_item }}</td>
+                                <td>{{ item.description }}</td>
+                                <td class="hidden-phone">{{ item.amount|intcomma }}/-</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
             <div role="tabpanel">
                 <ul class="nav nav-tabs bar_tabs" role="tablist">
