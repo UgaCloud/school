@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="container mt-4">
@@ -6,44 +7,9 @@
 
     <!-- Filter Form -->
     <form method="get" class="form-inline mb-4" id="filter-form">
-        <label for="class_id" class="mr-2">Select Class:</label>
-        <select name="class_id" id="class_id" class="form-control mr-2" onchange="submitForm()">
-            <option value="">All Classes</option>
-            {% for classe in classes %}
-                <option value="{{ classe.id }}" {% if classe.id|stringformat:"s" == selected_class_id %}selected{% endif %}>
-                    {{ classe.Class.name }}  <!-- This references the 'Class' model's 'name' field -->
-                </option>
-            {% empty %}
-                <option disabled>No classes available</option>
-            {% endfor %}
-        </select>
-        
-    
-        <!-- Academic Year Dropdown -->
-        <select name="academic_year_id" id="academic_year_id" class="form-control mr-2" onchange="submitForm()">
-            <option value="">All Years</option>
-            {% for academic_year in academic_years %}
-                <option value="{{ academic_year.id }}" {% if academic_year.id|stringformat:"s" == selected_academic_year_id %}selected{% endif %}>
-                    {{ academic_year.academic_year }}
-                </option>
-            {% empty %}
-                <option disabled>No academic years available</option>
-            {% endfor %}
-        </select>
-
-        <!-- Term Dropdown -->
-        <select name="term_id" id="term_id" class="form-control mr-2" onchange="submitForm()">
-            <option value="">All Terms</option>
-            {% for term in terms %}
-                <option value="{{ term.id }}" {% if term.id|stringformat:"s" == selected_term_id %}selected{% endif %}>
-                    {{ term.term }}
-                </option>
-            {% empty %}
-                <option disabled>No terms available</option>
-            {% endfor %}
-        </select>
+        ...
     </form>
-    
+
     <script>
         function submitForm() {
             document.getElementById('filter-form').submit();
@@ -59,9 +25,9 @@
                 <thead>
                     <tr>
                         <th>Subject</th>
-                        <th>BOT</th>
-                        <th>MOT</th>
-                        <th>EOT</th>
+                        {% for atype in assessment_types %}
+                            <th>{{ atype }}</th>
+                        {% endfor %}
                         <th>Final Score</th>
                         <th>Grade</th>
                         <th>Points</th>
@@ -72,29 +38,24 @@
                         {% if subject != 'total_final_score' and subject != 'total_points' and subject != 'student_id' %}
                         <tr>
                             <td>{{ subject }}</td>
-                            <td>{{ data.BOT }}</td>
-                            <td>{{ data.MOT }}</td>
-                            <td>{{ data.EOT }}</td>
+                            {% for atype in assessment_types %}
+                                <td>{{ data|get_item:atype|default:"-" }}</td>
+                            {% endfor %}
                             <td>{{ data.final_score }}</td>
                             <td>{{ data.grade }}</td>
                             <td>{{ data.points }}</td>
                         </tr>
                         {% endif %}
                     {% endfor %}
-                    <!-- Total row for Final Score and Points -->
                     <tr>
-                        <td><strong>Total</strong></td>
-                        <td></td> <!-- Empty cell for BOT -->
-                        <td></td> <!-- Empty cell for MOT -->
-                        <td></td> <!-- Empty cell for EOT -->
-                        <td><strong>{{ subjects.total_final_score }}</strong></td>
-                        <td></td> <!-- Empty cell for Grade -->
-                        <td><strong>{{ subjects.total_points }}</strong></td>
+                        <td colspan="{{ assessment_types|length|add:1 }}" class="text-right font-weight-bold">Total</td>
+                        <td>{{ subjects.total_final_score }}</td>
+                        <td></td>
+                        <td>{{ subjects.total_points }}</td>
                     </tr>
                 </tbody>
             </table>
 
-            <!-- Single "View Report Card" button -->
             <div class="text-right mt-2">
                 <a href="{% url 'report_card' student_id=subjects.student_id %}" class="btn btn-primary">
                     View Report Card

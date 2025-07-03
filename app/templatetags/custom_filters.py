@@ -6,4 +6,8 @@ register = template.Library()
 def dict_key(dictionary, key):
        """Return the value for the given key from the dictionary."""
        return dictionary.get(key, None)
-   
+
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)

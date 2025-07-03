@@ -385,6 +385,9 @@ def get_grade_and_points(score):
         return grading.grade, grading.points
     return "N/A", Decimal('0.00')
 
+def get_current_mode():
+    setting = ResultModeSetting.objects.first()
+    return setting.mode if setting else "CUMULATIVE"
 
 def get_student_results(class_id=None, student_id=None, academic_year_id=None, term_id=None):
     results = Result.objects.select_related(
@@ -405,7 +408,6 @@ def get_student_results(class_id=None, student_id=None, academic_year_id=None, t
     if term_id:
         results = results.filter(assessment__academic_class__term_id=term_id)
 
-    # Fetch all dynamic assessment types
     assessment_types = list(AssessmentType.objects.values_list('name', flat=True))
 
     student_results = {}
@@ -429,6 +431,7 @@ def get_student_results(class_id=None, student_id=None, academic_year_id=None, t
             }
 
         if assessment_type in assessment_types:
+            # Use .actual_score which dynamically respects the mode
             student_results[student_name][subject_name][assessment_type] = result.actual_score
 
     # Final calculations
@@ -438,9 +441,8 @@ def get_student_results(class_id=None, student_id=None, academic_year_id=None, t
 
         for subject_name, data in subjects.items():
             if subject_name != 'student_id':
-                # Sum up all assessment types (BOT, MOT, etc.)
                 final_score = sum(data[atype] for atype in assessment_types)
-                final_score = min(final_score, 100)  # Capping total
+                final_score = min(final_score, 100)  # Cap at 100
                 data['final_score'] = int(round(final_score))
 
                 grade, points = get_grade_and_points(data['final_score'])
@@ -448,22 +450,19 @@ def get_student_results(class_id=None, student_id=None, academic_year_id=None, t
                 data['points'] = points
 
                 total_final_score += data['final_score']
-                total_points += data['points']
+                total_points += points
 
         student_results[student_name]['total_final_score'] = total_final_score
         student_results[student_name]['total_points'] = total_points
 
     return student_results
 
+
 @login_required
 def result_list(request):
     class_id = request.GET.get('class_id')
     academic_year_id = request.GET.get('academic_year_id')
     term_id = request.GET.get('term_id')
-
-    selected_class_id = class_id
-    selected_academic_year_id = academic_year_id
-    selected_term_id = term_id
 
     classes = AcademicClass.objects.all()
     academic_years = AcademicYear.objects.all()
@@ -474,16 +473,88 @@ def result_list(request):
         academic_year_id=academic_year_id,
         term_id=term_id
     )
+    mode = get_current_mode()
 
     return render(request, 'results/results_list.html', {
         'student_results': student_results,
         'classes': classes,
         'academic_years': academic_years,
         'terms': terms,
-        'selected_class_id': selected_class_id,
-        'selected_academic_year_id': selected_academic_year_id,
-        'selected_term_id': selected_term_id,
+        'selected_class_id': class_id,
+        'selected_academic_year_id': academic_year_id,
+        'selected_term_id': term_id,
+        'mode': mode,
     })
+
+
+@login_required
+def student_report_by_type(request, student_id, assessment_type_id):
+    student = get_object_or_404(Student, id=student_id)
+    assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
+
+    
+    current_term = Term.objects.filter(is_current=True).first()
+
+    results = Result.objects.filter(
+        student=student,
+        assessment__assessment_type=assessment_type
+    ).select_related('assessment__subject')
+
+    report_data = {}
+    total_score = 0
+    total_points = 0
+
+    for result in results:
+        subject = result.assessment.subject.name
+        score = result.actual_score or 0
+
+        if subject not in report_data:
+            report_data[subject] = {'score': score}
+        else:
+            report_data[subject]['score'] += score
+
+        grade, points = get_grade_and_points(score)
+        report_data[subject]['grade'] = grade
+        report_data[subject]['points'] = points
+
+        total_score += score
+        total_points += points
+
+    school_settings = SchoolSetting.objects.first()
+    signatures = Signature.objects.filter(position__in=["HEAD TEACHER", "DIRECTOR OF STUDIES"])
+
+    return render(request, 'results/student_assessment_report.html', {
+        'student': student,
+        'assessment_type': assessment_type,
+        'report_data': report_data,
+        'total_score': total_score,
+        'total_points': total_points,
+        'current_term': current_term,
+        'school_setting': school_settings,
+        'signatures': signatures,
+    })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @login_required
@@ -491,15 +562,10 @@ def student_report_card(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     results = Result.objects.filter(student=student)
 
-    # Get the current term
     current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
+    assessment_type_names = list(AssessmentType.objects.values_list('name', flat=True))
+    mode = get_current_mode()
 
-    # Dynamic assessment types
-    assessment_type_names = list(
-        AssessmentType.objects.values_list('name', flat=True)
-    )
-
-    # Organize report data
     report_data = {}
     total_final_score = 0
     total_points = 0
@@ -528,9 +594,8 @@ def student_report_card(request, student_id):
         data['points'] = points
 
         total_final_score += data['final_score']
-        total_points += data['points']
+        total_points += points
 
-    # Fetch school settings and signatures
     school_settings = SchoolSetting.objects.first()
     signatures = Signature.objects.filter(position__in=["HEAD TEACHER", "DIRECTOR OF STUDIES"])
 
@@ -543,8 +608,8 @@ def student_report_card(request, student_id):
         'current_term': current_term,
         'school_setting': school_settings,
         'signatures': signatures,
+        'mode': mode,
     })
-
 
 @login_required
 def generate_termly_report_pdf(request, student_id):
