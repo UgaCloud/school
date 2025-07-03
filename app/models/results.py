@@ -3,21 +3,24 @@ from django.contrib.auth.models import User
 from decimal import Decimal
 from app.models.school_settings import SchoolSetting
 
+
 class GradingSystem(models.Model):
     min_score = models.DecimalField(max_digits=5, decimal_places=2)
     max_score = models.DecimalField(max_digits=5, decimal_places=2)
-    grade = models.CharField(max_length=2)  
-    points = models.DecimalField(max_digits=4, decimal_places=2)  
+    grade = models.CharField(max_length=2)
+    points = models.DecimalField(max_digits=4, decimal_places=2)
 
     def __str__(self):
         return f'{self.grade} ({self.min_score} - {self.max_score})'
 
+
 class AssessmentType(models.Model):
-    name = models.CharField(max_length=50, unique=True)  
-    weight = models.DecimalField(max_digits=4, decimal_places=2)  
-    
+    name = models.CharField(max_length=50, unique=True)
+    weight = models.DecimalField(max_digits=4, decimal_places=2)
+
     def __str__(self):
         return self.name
+
 
 class Assessment(models.Model):
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name='assessments')
@@ -26,53 +29,85 @@ class Assessment(models.Model):
     date = models.DateField()
     out_of = models.IntegerField(default=100)
     is_done = models.BooleanField(default=False)
+
     class Meta:
         unique_together = ("academic_class", "assessment_type", "subject")
 
     def __str__(self):
         return f'{self.assessment_type} - {self.subject} {self.academic_class}'
+
+
+
+class ResultModeSetting(models.Model):
+    MODE_CHOICES = [
+        ("CUMULATIVE", "Cumulative"),
+        ("NON_CUMULATIVE", "Non-Cumulative"),
+    ]
+
+    mode = models.CharField(max_length=20, choices=MODE_CHOICES, default="CUMULATIVE")
+
+    def __str__(self):
+        return f"Current Mode: {self.mode}"
+
+    @classmethod
+    def get_mode(cls):
+        setting = cls.objects.first()
+        return setting.mode if setting else "CUMULATIVE"
+
 class Result(models.Model):
     assessment = models.ForeignKey("app.Assessment", on_delete=models.CASCADE, related_name='results')
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='results')
     score = models.DecimalField(max_digits=5, decimal_places=2)
-    
+
     def __str__(self):
         return f'{self.student} - {self.assessment} - {self.score}'
-    
+
     @property
     def grade(self):
         grading = GradingSystem.objects.filter(min_score__lte=self.score, max_score__gte=self.score).first()
         return grading.grade if grading else "N/A"
+
     @property
     def points(self):
         grading = GradingSystem.objects.filter(min_score__lte=self.score, max_score__gte=self.score).first()
         return grading.points if grading else Decimal('0.00')
-    
+
     @property
     def actual_score(self):
         weight = self.assessment.assessment_type.weight
-        school_setting = SchoolSetting.get_solo()  
-        if school_setting.assessment_method == "CUMULATIVE":
+        mode = ResultModeSetting.get_mode()
+
+        if mode == "CUMULATIVE":
             if weight > 0:
                 return round((self.score / self.assessment.out_of) * weight, 0)
-        elif school_setting.assessment_method == "NON_CUMULATIVE":
-            return self.score  
+        elif mode == "NON_CUMULATIVE":
+            return self.score
+
         return self.score
+
 
 class ReportResults(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE)
     subject = models.ForeignKey("app.Subject", on_delete=models.CASCADE)
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name='report_results')
-    term = models.ForeignKey("app.Term", on_delete=models.CASCADE)  # if not yet added
+    term = models.ForeignKey("app.Term", on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.student} - {self.subject} - {self.academic_class}"
 
     def calculate_term_result(self):
+    
+
+        mode = ResultModeSetting.get_mode()
         details = self.details.all()
-        total_score = sum(d.score for d in details)
-        total_points = sum(d.points for d in details)
-        return total_score, total_points
+
+        if mode == "CUMULATIVE":
+            total_score = sum(d.score for d in details)
+            total_points = sum(d.points for d in details)
+            return total_score, total_points
+
+        elif mode == "NON_CUMULATIVE":
+            return [(d.assessment_type.name, d.score) for d in details]
 
 
 class ReportResultDetail(models.Model):
@@ -83,7 +118,6 @@ class ReportResultDetail(models.Model):
 
     def __str__(self):
         return f"{self.report.student} - {self.assessment_type.name}: {self.score}"
-
 
 class TermResult(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='term_results')

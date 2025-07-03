@@ -189,3 +189,62 @@ class TimetableAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         # Additional actions before saving the object (if any)
         super().save_model(request, obj, form, change)
+
+
+
+
+@admin.register(ResultModeSetting)
+class ResultModeSettingAdmin(admin.ModelAdmin):
+    list_display = ('mode',)
+    actions = None 
+
+    def has_add_permission(self, request):
+        
+        return not ResultModeSetting.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+
+        return False
+
+    def get_queryset(self, request):
+
+        return ResultModeSetting.objects.all()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class ReportResultDetailInline(admin.TabularInline):
+    model = ReportResultDetail
+    extra = 1 
+@admin.register(ReportResults)
+class ReportResultsAdmin(admin.ModelAdmin):
+    list_display = ('student', 'subject', 'academic_class', 'term', 'term_scores')
+    list_filter = ('academic_class', 'term')
+    search_fields = ('student__student_name', 'subject__name', 'academic_class__Class__name')
+    inlines = [ReportResultDetailInline] 
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('student', 'subject', 'academic_class', 'term')
+
+    def term_scores(self, obj):
+        total_score, total_points = obj.calculate_term_result()
+        return f"{total_score} / {total_points}"
+    
+    term_scores.short_description = "Total Scores"

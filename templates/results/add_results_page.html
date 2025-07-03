@@ -7,7 +7,12 @@
 <div class="container mt-5">
     <h2>Enter Marks for {{ assessment.subject }} ({{ assessment.assessment_type }}) - {{ assessment.academic_class }}</h2>
     <p>Date: {{ assessment.date }}</p>
-    <!-- Existing Results -->
+    <p>
+        Current Mode:
+        <span class="badge bg-info text-dark">{{ current_mode }}</span>
+    </p>
+
+    
     {% if existing_results %}
         <h4>Existing Results</h4>
         <form method="post">
@@ -17,7 +22,10 @@
                     <tr>
                         <th>Student ID</th>
                         <th>Student Name</th>
-                        <th>Score</th>
+                        <th>Raw Score</th>
+                        <th>Actual Score</th>
+                        <th>Grade</th>
+                        <th>Points</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -36,6 +44,9 @@
                                 required
                             >
                         </td>
+                        <td>{{ result.actual_score }}</td>
+                        <td>{{ result.grade }}</td>
+                        <td>{{ result.points }}</td>
                         <td>
                             <button type="submit" name="edit_result" value="{{ result.id }}" class="btn btn-sm btn-primary">Update</button>
                         </td>
@@ -67,13 +78,19 @@
                         <td>{{ student.reg_no }}</td>
                         <td>{{ student }}</td>
                         <td>
-                            <input type="number" name="score_{{ student.id }}" class="form-control form-control-sm" style="max-width: 100px;" required>
+                            <input 
+                                type="number" 
+                                name="score_{{ student.id }}" 
+                                class="form-control form-control-sm" 
+                                style="max-width: 100px;" 
+                                required
+                            >
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <button type="submit" name="add_results" class="btn btn-primary">Save Results</button>
+            <button type="submit" name="add_results" class="btn btn-success">Save Results</button>
         </form>
     {% else %}
         <p>All results have already been entered for this assessment.</p>
