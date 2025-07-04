@@ -11,3 +11,21 @@ def dict_key(dictionary, key):
 @register.filter
 def get_item(dictionary, key):
     return dictionary.get(key)
+
+
+@register.filter
+def not_reserved_key(value):
+    return value not in ['total_final_score', 'total_points', 'student_id', 'student_name']
+
+@register.filter
+def is_top_score(score, subject_scores):
+    """
+    Check if the score is the highest among all students for the given subject_scores.
+    `subject_scores` is expected to be a list of scores.
+    """
+    try:
+        score = float(score)
+        max_score = max([float(s) for s in subject_scores if s is not None])
+        return score == max_score
+    except:
+        return False
