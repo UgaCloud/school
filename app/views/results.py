@@ -20,12 +20,17 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 import tempfile
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation,ROUND_HALF_UP
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
 from django.utils import timezone
 from django.core.paginator import Paginator
+from app.selectors.results import get_grade_and_points, get_current_mode,get_performance_metrics
+from app.utils.pdf_utils import generate_student_report_pdf
+from collections import defaultdict
+import logging
+logger = logging.getLogger(__name__)
 
 
 
@@ -368,16 +373,194 @@ def delete_assesment_view(request, id):
     return redirect(assesment_type_view)
 
 
+def class_result_filter_view(request):
+    years = AcademicYear.objects.all()
+    terms = Term.objects.all()
+    academic_class_streams = AcademicClassStream.objects.select_related(
+        'academic_class', 'stream', 'academic_class__Class', 'academic_class__academic_year', 'academic_class__term'
+    ).all()
+
+    selected_year = request.GET.get('year_id')
+    selected_term = request.GET.get('term_id')
+    selected_class_stream = request.GET.get('class_stream_id')
+
+    students = Student.objects.none()
+    no_students_message = None
+
+    if selected_year and selected_term and selected_class_stream:
+        class_registers = ClassRegister.objects.filter(
+            academic_class_stream_id=selected_class_stream
+        )
+        students = Student.objects.filter(id__in=class_registers.values('student_id')).order_by('student_name')
+
+        if not students.exists():
+            no_students_message = "No students found matching your criteria."
+
+    context = {
+        'years': years,
+        'terms': terms,
+        'academic_class_streams': academic_class_streams,
+        'selected_year': selected_year,
+        'selected_term': selected_term,
+        'selected_class_stream': selected_class_stream,
+        'students': students,
+        'no_students_message': no_students_message,
+    }
+    return render(request, 'results/class_stream_filter.html', context)
+
+
+def calculate_weighted_subject_averages(assessments):
+    subject_scores = {}
+
+    for result in assessments:
+        subject = result.assessment.subject.name
+        assessment_name = result.assessment.assessment_type.name
+        weight = result.assessment.assessment_type.weight or 1
+        score = result.score
+
+        if subject not in subject_scores:
+            subject_scores[subject] = {
+                'total_score': 0,
+                'total_weight': 0,
+                'assessments': [],
+                'teacher': getattr(result.assessment.subject, 'teacher', None),
+            }
+
+        subject_scores[subject]['total_score'] += score * weight
+        subject_scores[subject]['total_weight'] += weight
+        subject_scores[subject]['assessments'].append(assessment_name)
+
+    averages = []
+    for subject, data in subject_scores.items():
+        average = data['total_score'] / data['total_weight'] if data['total_weight'] else 0
+        unique_assessments = list(set(data['assessments']))
+        averages.append({
+            'subject': subject,
+            'average': average,
+            'assessments': unique_assessments,
+            'teacher': data['teacher'],
+        })
+
+    return averages
 
 
 
-def get_grade_and_points(score):
-    grading = GradingSystem.objects.filter(min_score__lte=score, max_score__gte=score).first()
-    if grading:
-        return grading.grade, grading.points
-    return "N/A", Decimal('0.00')
+@login_required
+def student_performance_view(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    assessment_types = AssessmentType.objects.all()
+    selected_assessment = request.GET.get("assessment_type")
 
-def get_current_mode():
-    setting = ResultModeSetting.objects.first()
-    return setting.mode if setting else "CUMULATIVE"
+    assessments = Result.objects.filter(student=student).select_related(
+        'assessment__subject',
+        'assessment__assessment_type'
+    ).order_by('assessment__date')
 
+    if selected_assessment:
+        assessments = assessments.filter(assessment__assessment_type_id=selected_assessment)
+
+    academic_class = AcademicClass.objects.filter(
+        Class=student.current_class,
+        academic_year=student.academic_year,
+        term=student.term
+    ).first()
+
+    academic_class_stream = AcademicClassStream.objects.filter(
+        academic_class=academic_class,
+        stream=student.stream
+    ).first() if academic_class else None
+
+    performance_metrics = get_performance_metrics(assessments)
+    subject_averages = calculate_weighted_subject_averages(assessments)
+
+    subject_progress = {}
+    for subject in set(r.assessment.subject.name for r in assessments):
+        subject_scores = [(r.assessment.date, r.score) for r in assessments if r.assessment.subject.name == subject]
+        subject_scores.sort(key=lambda x: x[0])
+        progress = subject_scores[-1][1] - subject_scores[0][1] if len(subject_scores) > 1 else 0
+        subject_progress[subject] = {
+            'scores': subject_scores,
+            'progress': progress,
+            'trend': 'up' if progress > 0 else 'down' if progress < 0 else 'stable'
+        }
+
+    combined_subject_data = []
+    for subject_avg in subject_averages:
+        subject_name = subject_avg['subject']
+        progress_data = subject_progress.get(subject_name, {'progress': 0, 'trend': 'stable', 'scores': []})
+        combined_subject_data.append({
+            **subject_avg,
+            'progress': progress_data['progress'],
+            'trend': progress_data['trend'],
+            'scores': progress_data['scores'],
+        })
+
+    assessment_data, assessment_dates = [], []
+    grouped_assessments = {}
+    for assessment in assessments:
+        key = (assessment.assessment.date, assessment.assessment.assessment_type.name)
+        grouped_assessments.setdefault(key, []).append(assessment)
+
+    for (date, assessment_type), results in grouped_assessments.items():
+        best_subject = max(results, key=lambda x: x.score)
+        assessment_dates.append(date)
+        assessment_data.append({
+            'date': date,
+            'type': assessment_type,
+            'best_subject': {
+                'name': best_subject.assessment.subject.name,
+                'score': best_subject.score,
+            },
+            'subjects': {r.assessment.subject.name: r.score for r in results}
+        })
+
+    context = {
+        "student": {
+            "obj": student,
+            "details": {
+                "full_name": student.student_name,
+                "registration_number": student.reg_no,
+                "class_info": f"{student.current_class.name} {student.stream.stream}",
+                "academic_year": student.academic_year,
+                "birthdate": student.birthdate,
+                "gender": student.get_gender_display(),
+                "nationality": student.get_nationality_display(),
+                "religion": student.get_religion_display(),
+                "guardian": student.guardian,
+                "relationship": student.relationship,
+                "contact": student.contact,
+                "email": getattr(student, 'email', 'N/A'),
+                "address": student.address,
+                "photo_url": student.photo.url if student.photo else '/static/images/default-student.jpg'
+            }
+        },
+        "assessment_types": assessment_types,
+        "assessments": performance_metrics['ordered_assessments'],
+        "performance_data": [
+            {'score': float(performance_metrics['average']), 'label': 'Average Score', 'icon': 'calculator'},
+            {'score': float(performance_metrics['top_score']), 'label': 'Highest Score', 'icon': 'trophy'},
+            {'score': float(performance_metrics['bottom_score']), 'label': 'Lowest Score', 'icon': 'exclamation-triangle'},
+        ],
+        "subject_averages": combined_subject_data,
+        "selected_assessment": selected_assessment,
+        "assessment_data": assessment_data,
+        "subject_progress": subject_progress,
+    }
+
+    return render(request, "results/student_performance.html", context)
+
+
+
+def export_student_pdf(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    assessments = Result.objects.filter(student=student)
+
+    assessment_type = request.GET.get("assessment_type")
+    if assessment_type:
+        assessments = assessments.filter(assessment__assessment_type_id=assessment_type)
+
+    pdf_file = generate_student_report_pdf(student, assessments)
+
+    response = HttpResponse(pdf_file, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{student.student_name}_report.pdf"'
+    return response

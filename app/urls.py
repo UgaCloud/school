@@ -159,7 +159,11 @@ urlpatterns = [
     path('edit_results/<int:assessment_id>/<int:student_id>/edit_results/', edit_results_view, name='edit_results_view'),
     path('classes_assessments/',class_assessment_list_view,name='class_assessment_list'),
     path('classes_assessments/<int:class_id>/assessments/',list_assessments_view,name='list_assessments'),
+    path("class-student-filter/", class_result_filter_view, name="class_stream_filter"),
+    path("student/<int:student_id>/performance/", student_performance_view, name="student_performance"),
+    path("student/<int:student_id>/export-pdf/", export_student_pdf, name="export_student_pdf"),
     
+
 
 
 

@@ -1,0 +1,142 @@
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card border-0 shadow-lg overflow-hidden">
+            <div class="card-body px-5 py-4" style="background: linear-gradient(90deg, #f1f5f9 0%, #ffffff 100%);">
+                <div class="d-flex flex-column flex-md-row align-items-start gap-4">
+                    
+                    <!-- Avatar -->
+                    <div class="text-center text-md-start">
+                        <div class="position-relative">
+                            <img src="{{ student.details.photo_url }}" 
+                                 alt="{{ student.details.full_name }}" 
+                                 class="student-avatar mb-2">
+                            <span class="online-indicator"></span>
+                        </div>
+                    </div>
+
+                    <!-- Student Info -->
+                    <div class="flex-grow-1">
+                        <!-- Name + Class Badge -->
+                        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start mb-4 gap-3">
+                            <div>
+                                <h2 class="fw-semibold text-dark mb-3">{{ student.details.full_name }}
+                                    <span class="badge rounded-pill bg-gradient-primary ms-2 px-3 py-2">
+                                        {{ student.details.class_info }}
+                                    </span>
+                                </h2>
+
+                                <div class="d-flex flex-wrap text-muted gap-4">
+                                    <div><i class="fas fa-id-card me-2 text-primary"></i>{{ student.details.registration_number }}</div>
+                                    <div><i class="fas fa-venus-mars me-2 text-primary"></i>{{ student.details.gender }}</div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Divider -->
+                        <hr class="my-4" style="border-top: 1px dashed #cbd5e1;">
+
+                        <!-- Two Columns with More Space -->
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="info-box bg-light p-4 rounded-3 h-100">
+                                    <ul class="list-unstyled mb-0">
+                                        <li class="mb-4 d-flex align-items-start gap-3">
+                                            <i class="fas fa-calendar-alt text-primary fa-lg mt-1"></i>
+                                            <div>
+                                                <small class="text-muted">Academic Year</small><br>
+                                                <strong>{{ student.details.academic_year }}</strong>
+                                            </div>
+                                        </li>
+                                        <li class="mb-4 d-flex align-items-start gap-3">
+                                            <i class="fas fa-globe text-primary fa-lg mt-1"></i>
+                                            <div>
+                                                <small class="text-muted">Nationality</small><br>
+                                                <strong>{{ student.details.nationality }}</strong>
+                                            </div>
+                                        </li>
+                                        <li class="d-flex align-items-start gap-3">
+                                            <i class="fas fa-praying-hands text-primary fa-lg mt-1"></i>
+                                            <div>
+                                                <small class="text-muted">Religion</small><br>
+                                                <strong>{{ student.details.religion }}</strong>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="info-box bg-light p-4 rounded-3 h-100">
+                                    <ul class="list-unstyled mb-0">
+                                        <li class="mb-4 d-flex align-items-start gap-3">
+                                            <i class="fas fa-user-shield text-primary fa-lg mt-1"></i>
+                                            <div>
+                                                <small class="text-muted">Guardian</small><br>
+                                                <strong>{{ student.details.guardian }} ({{ student.details.relationship }})</strong>
+                                            </div>
+                                        </li>
+                                        <li class="mb-4 d-flex align-items-start gap-3">
+                                            <i class="fas fa-phone text-primary fa-lg mt-1"></i>
+                                            <div>
+                                                <small class="text-muted">Contact</small><br>
+                                                <strong>{{ student.details.contact }}</strong>
+                                            </div>
+                                        </li>
+                                        <li class="d-flex align-items-start gap-3">
+                                            <i class="fas fa-envelope text-primary fa-lg mt-1"></i>
+                                            <div>
+                                                <small class="text-muted">Email</small><br>
+                                                <strong>{{ student.details.email }}</strong>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div> <!-- /row -->
+                    </div> <!-- /Student Info -->
+                </div> <!-- /Flex Row -->
+            </div> <!-- /Card Body -->
+        </div> <!-- /Card -->
+    </div>
+</div>
+
+<style>
+    .student-avatar {
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 4px solid #ffffff;
+        box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .online-indicator {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        width: 16px;
+        height: 16px;
+        background-color: #28a745;
+        border: 2px solid #fff;
+        border-radius: 50%;
+    }
+
+    .bg-gradient-primary {
+        background: linear-gradient(to right, #3b82f6, #1d4ed8);
+        color: #fff;
+    }
+
+    .info-box {
+        background-color: #f1f5f9;
+        transition: 0.3s ease;
+    }
+
+    .info-box:hover {
+        background-color: #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .gap-3 { gap: 1rem !important; }
+    .gap-4 { gap: 1.5rem !important; }
+</style>

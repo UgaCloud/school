@@ -1,0 +1,39 @@
+<!-- Performance Overview -->
+<div class="card mb-3">
+    <div class="card-header bg-white" id="headingOverview">
+        <h5 class="mb-0">
+            <button class="btn btn-link text-dark font-weight-bold" data-toggle="collapse" data-target="#collapseOverview" aria-expanded="true" aria-controls="collapseOverview">
+                <i class="fas fa-chart-bar mr-2"></i> Performance Overview
+            </button>
+        </h5>
+    </div>
+    <div id="collapseOverview" class="collapse show" aria-labelledby="headingOverview" data-parent="#accordion">
+        <div class="card-body">
+            <form method="get" class="form-inline mb-3">
+                <select name="assessment_type" class="form-control form-control-sm mr-2" onchange="this.form.submit()">
+                    <option value="">All Assessment Types</option>
+                    {% for type in assessment_types %}
+                    <option value="{{ type.id }}" {% if selected_assessment == type.id|stringformat:"s" %}selected{% endif %}>{{ type.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            <div class="row">
+                {% for metric in performance_data %}
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="mb-3">
+                                <div class="icon-circle bg-{% cycle 'primary' 'success' 'warning' %} text-white">
+                                    <i class="fas fa-{{ metric.icon }}"></i>
+                                </div>
+                            </div>
+                            <h3 class="h2 mb-1">{{ metric.score|floatformat:1 }}%</h3>
+                            <p class="text-muted mb-0">{{ metric.label }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,71 @@
+<!-- Subject Performance Summary -->
+<div class="card mb-3">
+    <div class="card-header bg-white" id="headingSubject">
+        <h5 class="mb-0">
+            <button class="btn btn-link text-dark font-weight-bold collapsed" data-toggle="collapse" data-target="#collapseSubject" aria-expanded="false" aria-controls="collapseSubject">
+                <i class="fas fa-table mr-2"></i> Subject Performance Summary
+            </button>
+        </h5>
+    </div>
+    <div id="collapseSubject" class="collapse" aria-labelledby="headingSubject" data-parent="#accordion">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Subject</th>
+                            <th class="text-right">Average</th>
+                            <th class="text-right">Assessments</th>
+                            <th class="text-right">Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subject in subject_averages %}
+                        <tr class="{% if subject.average >= 80 %}table-success{% elif subject.average >= 60 %}table-info{% elif subject.average >= 40 %}table-warning{% else %}table-danger{% endif %}">
+                            <td>
+                                <strong>{{ subject.subject }}</strong>
+                                {% if subject.teacher %}
+                                <small class="text-muted d-block">Teacher: {{ subject.teacher.get_full_name }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-right align-middle">
+                                <span class="badge badge-{% if subject.average >= 80 %}success{% elif subject.average >= 60 %}info{% elif subject.average >= 40 %}warning{% else %}danger{% endif %}">
+                                    {{ subject.average|floatformat:1 }}%
+                                </span>
+                            </td>
+                            <td class="text-right align-middle">
+                                {% for assessment in subject.assessments %}
+                                <span class="badge badge-info">{{ assessment }}</span>
+                                {% empty %}
+                                <span class="text-muted">No assessments</span>
+                                {% endfor %}
+                            </td>
+                            <td class="text-right align-middle">
+                                {% if subject.trend == 'up' %}
+                                <span class="text-success"><i class="fas fa-arrow-up"></i> Improving</span>
+                                {% elif subject.trend == 'down' %}
+                                <span class="text-danger"><i class="fas fa-arrow-down"></i> Declining</span>
+                                {% else %}
+                                <span class="text-muted"><i class="fas fa-arrows-alt-h"></i> Stable</span>
+                                {% endif %}
+                                <details class="small text-muted mt-1">
+                                    <summary>Scores</summary>
+                                    <ul class="mb-0 pl-3 small">
+                                        {% for date, score in subject.scores %}
+                                        <li>{{ date|date:"d M Y" }} — {{ score }}%</li>
+                                        {% endfor %}
+                                    </ul>
+                                </details>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">No assessment data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
