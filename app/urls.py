@@ -161,7 +161,10 @@ urlpatterns = [
     path('classes_assessments/<int:class_id>/assessments/',list_assessments_view,name='list_assessments'),
     path("class-student-filter/", class_result_filter_view, name="class_stream_filter"),
     path("student/<int:student_id>/performance/", student_performance_view, name="student_performance"),
-    path("student/<int:student_id>/export-pdf/", export_student_pdf, name="export_student_pdf"),
+    # Mini Report per Assessment Type
+    path('student/<int:student_id>/report/<int:assessment_type_id>/', student_assessment_type_report, name='student_mini_report'),
+    # Consolidated Term Report
+    path('student/<int:student_id>/term-report/', student_term_report, name='student_term_report'),
     
 
 

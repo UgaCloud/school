@@ -2,6 +2,14 @@
     <div class="col-12">
         <div class="card border-0 shadow-lg overflow-hidden">
             <div class="card-body px-5 py-4" style="background: linear-gradient(90deg, #f1f5f9 0%, #ffffff 100%);">
+
+                <!-- Print Full Report Button -->
+                <div class="d-flex justify-content-end mb-3">
+                    <a href="{% url 'student_term_report' student.obj.id %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-print me-1"></i> Print Full Term Report
+                    </a>
+                </div>
+
                 <div class="d-flex flex-column flex-md-row align-items-start gap-4">
                     
                     <!-- Avatar -->
@@ -28,7 +36,6 @@
                                 <div class="d-flex flex-wrap text-muted gap-4">
                                     <div><i class="fas fa-id-card me-2 text-primary"></i>{{ student.details.registration_number }}</div>
                                     <div><i class="fas fa-venus-mars me-2 text-primary"></i>{{ student.details.gender }}</div>
-                                    
                                 </div>
                             </div>
                         </div>
@@ -101,6 +108,7 @@
     </div>
 </div>
 
+<!-- STYLES -->
 <style>
     .student-avatar {
         width: 130px;

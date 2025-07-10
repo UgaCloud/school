@@ -15,8 +15,8 @@
                         <tr>
                             <th>Subject</th>
                             <th class="text-right">Average</th>
-                            <th class="text-center">Grade</th> <!-- New column -->
-                            <th class="text-center">Points</th> <!-- New column -->
+                            <th class="text-center">Grade</th>
+                            <th class="text-center">Points</th>
                             <th class="text-right">Assessments</th>
                             <th class="text-right">Trend</th>
                         </tr>
@@ -43,7 +43,9 @@
                             </td>
                             <td class="text-right align-middle">
                                 {% for assessment in subject.assessments %}
-                                <span class="badge badge-info">{{ assessment }}</span>
+                                <a href="{% url 'student_mini_report' student.obj.id assessment.id %}" class="badge badge-info text-decoration-none" title="View Mini Report">
+                                    {{ assessment.name }}
+                                </a>
                                 {% empty %}
                                 <span class="text-muted">No assessments</span>
                                 {% endfor %}

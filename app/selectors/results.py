@@ -26,3 +26,7 @@ def get_performance_metrics(assessments):
         'bottom_score': bottom_score.score if bottom_score else Decimal('0.00'),
         'ordered_assessments': ordered_assessments
     }
+
+def get_grade_from_average(score):
+    grading = GradingSystem.objects.filter(min_score__lte=score, max_score__gte=score).first()
+    return grading.grade if grading else "N/A"

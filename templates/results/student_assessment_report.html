@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-file-alt mr-2"></i> {{ student.student_name }} - {{ assessment_type.name }} Report
+            </h5>
+            <small>{{ student.current_class.name }} {{ student.stream.stream }} | {{ student.academic_year }}</small>
+        </div>
+        <div class="card-body">
+            {% if summary %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Subject</th>
+                            <th>Average Score</th>
+                            <th>Grade</th>
+                            <th>Points</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in summary %}
+                        <tr>
+                            <td>{{ row.subject }}</td>
+                            <td>{{ row.average|floatformat:1 }}%</td>
+                            <td>{{ row.grade }}</td>
+                            <td>{{ row.points }}</td>
+                            <td>
+                                <ul class="list-unstyled mb-0">
+                                    {% for r in row.details %}
+                                    <li>{{ r.assessment.date|date:"d M Y" }} - {{ r.score }}%</li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-warning text-center">No results available for this assessment type.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

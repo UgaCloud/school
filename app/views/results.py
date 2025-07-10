@@ -26,7 +26,7 @@ from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
 from django.utils import timezone
 from django.core.paginator import Paginator
-from app.selectors.results import get_grade_and_points, get_current_mode,get_performance_metrics
+from app.selectors.results import get_grade_and_points, get_current_mode,get_performance_metrics, get_grade_from_average
 from app.utils.pdf_utils import generate_student_report_pdf
 from collections import defaultdict
 import logging
@@ -407,66 +407,54 @@ def class_result_filter_view(request):
         'no_students_message': no_students_message,
     }
     return render(request, 'results/class_stream_filter.html', context)
-
-
 def calculate_weighted_subject_averages(assessments):
-    mode = ResultModeSetting.get_mode()
-
     subject_scores = {}
 
     for result in assessments:
         subject = result.assessment.subject.name
-        assessment_name = result.assessment.assessment_type.name
-        weight = result.assessment.assessment_type.weight or Decimal('1')
-        if not isinstance(weight, Decimal):
-            weight = Decimal(str(weight))
-        raw_score = result.score
-        if not isinstance(raw_score, Decimal):
-            raw_score = Decimal(str(raw_score))
+        assessment_type = result.assessment.assessment_type
+        weight = result.assessment.assessment_type.weight or 1
+        raw_score = float(result.score)
 
         if subject not in subject_scores:
             subject_scores[subject] = {
-                'total_score': Decimal('0'),
-                'total_weight': Decimal('0'),
-                'count': 0,
+                'total_score': 0,
+                'total_weight': 0,
                 'assessments': [],
                 'teacher': getattr(result.assessment.subject, 'teacher', None),
+                'points_total': 0,
+                'count': 0,
             }
 
-        subject_scores[subject]['assessments'].append(assessment_name)
+        subject_scores[subject]['total_score'] += raw_score * float(weight)
+        subject_scores[subject]['total_weight'] += float(weight)
+        subject_scores[subject]['points_total'] += float(result.points)
+        subject_scores[subject]['count'] += 1
 
-        if mode == "CUMULATIVE":
-            subject_scores[subject]['total_score'] += raw_score * weight
-            subject_scores[subject]['total_weight'] += weight
-        else:  # NON_CUMULATIVE
-            subject_scores[subject]['total_score'] += raw_score
-            subject_scores[subject]['count'] += 1
+        subject_scores[subject]['assessments'].append({
+            'id': assessment_type.id,
+            'name': assessment_type.name
+        })
 
     averages = []
     for subject, data in subject_scores.items():
-        if mode == "CUMULATIVE":
-            divisor = data['total_weight'] if data['total_weight'] != Decimal('0') else Decimal('1')
-        else:
-            divisor = Decimal(data['count']) if data['count'] != 0 else Decimal('1')
+        average = data['total_score'] / data['total_weight'] if data['total_weight'] else 0
+        average_points = data['points_total'] / data['count'] if data['count'] else 0
+        average_grade = get_grade_from_average(average)  # NEW: Add grade string from average
 
-        average = data['total_score'] / divisor
-        avg_float = float(round(average, 1))
-
-        
-        grading = GradingSystem.objects.filter(min_score__lte=avg_float, max_score__gte=avg_float).first()
-        grade = grading.grade if grading else "N/A"
-        points = grading.points if grading else Decimal('0.00')
+        unique_assessments = {a['id']: a for a in data['assessments']}.values()
 
         averages.append({
             'subject': subject,
-            'average': avg_float,
-            'assessments': list(set(data['assessments'])),
+            'average': average,
+            'points': round(average_points, 2),
+            'grade': average_grade,
+            'assessments': list(unique_assessments),
             'teacher': data['teacher'],
-            'grade': grade,
-            'points': points,
         })
 
     return averages
+
 
 
 
@@ -599,16 +587,94 @@ def student_performance_view(request, student_id):
     return render(request, "results/student_performance.html", context)
 
 
-def export_student_pdf(request, student_id):
+
+@login_required
+def student_assessment_type_report(request, student_id, assessment_type_id):
     student = get_object_or_404(Student, id=student_id)
-    assessments = Result.objects.filter(student=student)
+    assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
 
-    assessment_type = request.GET.get("assessment_type")
-    if assessment_type:
-        assessments = assessments.filter(assessment__assessment_type_id=assessment_type)
+    results = Result.objects.filter(
+        student=student,
+        assessment__assessment_type=assessment_type
+    ).select_related('assessment__subject')
 
-    pdf_file = generate_student_report_pdf(student, assessments)
+    subject_scores = {}
+    for result in results:
+        subject = result.assessment.subject
+        if subject.name not in subject_scores:
+            subject_scores[subject.name] = {
+                'scores': [],
+                'total': 0,
+                'count': 0
+            }
+        subject_scores[subject.name]['scores'].append(result)
+        subject_scores[subject.name]['total'] += result.score
+        subject_scores[subject.name]['count'] += 1
 
-    response = HttpResponse(pdf_file, content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="{student.student_name}_report.pdf"'
-    return response
+    # Calculate averages and grades
+    summary = []
+    for subject, data in subject_scores.items():
+        avg = data['total'] / data['count']
+        grade = result.grade  
+        points = result.points
+        summary.append({
+            'subject': subject,
+            'average': avg,
+            'grade': grade,
+            'points': points,
+            'details': data['scores']
+        })
+
+    context = {
+        'student': student,
+        'assessment_type': assessment_type,
+        'summary': summary,
+    }
+
+    return render(request, 'results/student_assessment_report.html', context)
+
+
+
+
+@login_required
+def student_term_report(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    results = Result.objects.filter(student=student).select_related(
+        'assessment__subject', 'assessment__assessment_type'
+    )
+
+    subject_summary = {}
+
+    for result in results:
+        subject = result.assessment.subject.name
+        if subject not in subject_summary:
+            subject_summary[subject] = {
+                'total': 0,
+                'count': 0,
+                'assessments': []
+            }
+        subject_summary[subject]['total'] += result.actual_score 
+        subject_summary[subject]['count'] += 1
+        subject_summary[subject]['assessments'].append(result)
+
+    report_data = []
+    for subject, data in subject_summary.items():
+        avg = data['total'] / data['count'] if data['count'] else 0
+        grade = data['assessments'][0].grade if data['assessments'] else "N/A"
+        points = data['assessments'][0].points if data['assessments'] else 0
+        report_data.append({
+            'subject': subject,
+            'average': avg,
+            'grade': grade,
+            'points': points,
+            'details': data['assessments']
+        })
+
+    context = {
+        'student': student,
+        'report_data': report_data,
+        'term': student.term,
+        'academic_year': student.academic_year
+    }
+
+    return render(request, 'results/student_term_report.html', context)
