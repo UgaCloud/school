@@ -410,35 +410,60 @@ def class_result_filter_view(request):
 
 
 def calculate_weighted_subject_averages(assessments):
+    mode = ResultModeSetting.get_mode()
+
     subject_scores = {}
 
     for result in assessments:
         subject = result.assessment.subject.name
         assessment_name = result.assessment.assessment_type.name
-        weight = result.assessment.assessment_type.weight or 1
-        score = result.score
+        weight = result.assessment.assessment_type.weight or Decimal('1')
+        if not isinstance(weight, Decimal):
+            weight = Decimal(str(weight))
+        raw_score = result.score
+        if not isinstance(raw_score, Decimal):
+            raw_score = Decimal(str(raw_score))
 
         if subject not in subject_scores:
             subject_scores[subject] = {
-                'total_score': 0,
-                'total_weight': 0,
+                'total_score': Decimal('0'),
+                'total_weight': Decimal('0'),
+                'count': 0,
                 'assessments': [],
                 'teacher': getattr(result.assessment.subject, 'teacher', None),
             }
 
-        subject_scores[subject]['total_score'] += score * weight
-        subject_scores[subject]['total_weight'] += weight
         subject_scores[subject]['assessments'].append(assessment_name)
+
+        if mode == "CUMULATIVE":
+            subject_scores[subject]['total_score'] += raw_score * weight
+            subject_scores[subject]['total_weight'] += weight
+        else:  # NON_CUMULATIVE
+            subject_scores[subject]['total_score'] += raw_score
+            subject_scores[subject]['count'] += 1
 
     averages = []
     for subject, data in subject_scores.items():
-        average = data['total_score'] / data['total_weight'] if data['total_weight'] else 0
-        unique_assessments = list(set(data['assessments']))
+        if mode == "CUMULATIVE":
+            divisor = data['total_weight'] if data['total_weight'] != Decimal('0') else Decimal('1')
+        else:
+            divisor = Decimal(data['count']) if data['count'] != 0 else Decimal('1')
+
+        average = data['total_score'] / divisor
+        avg_float = float(round(average, 1))
+
+        
+        grading = GradingSystem.objects.filter(min_score__lte=avg_float, max_score__gte=avg_float).first()
+        grade = grading.grade if grading else "N/A"
+        points = grading.points if grading else Decimal('0.00')
+
         averages.append({
             'subject': subject,
-            'average': average,
-            'assessments': unique_assessments,
+            'average': avg_float,
+            'assessments': list(set(data['assessments'])),
             'teacher': data['teacher'],
+            'grade': grade,
+            'points': points,
         })
 
     return averages
@@ -495,6 +520,34 @@ def student_performance_view(request, student_id):
             'scores': progress_data['scores'],
         })
 
+    # Highest and Lowest Performing Subjects by average
+    highest_subject = max(combined_subject_data, key=lambda s: s['average'], default=None)
+    lowest_subject = min(combined_subject_data, key=lambda s: s['average'], default=None)
+
+    performance_data = [
+        {
+            'score': float(performance_metrics['average']),
+            'label': 'Overall Average Score',
+            'icon': 'calculator',
+            'type': 'avg',
+            'subject': None
+        },
+        {
+            'score': float(highest_subject['average']) if highest_subject else 0,
+            'label': 'Best Performing Subject',
+            'icon': 'trophy',
+            'type': 'high',
+            'subject': highest_subject['subject'] if highest_subject else 'N/A'
+        },
+        {
+            'score': float(lowest_subject['average']) if lowest_subject else 0,
+            'label': 'Lowest Performing Subject',
+            'icon': 'exclamation-triangle',
+            'type': 'low',
+            'subject': lowest_subject['subject'] if lowest_subject else 'N/A'
+        },
+    ]
+
     assessment_data, assessment_dates = [], []
     grouped_assessments = {}
     for assessment in assessments:
@@ -536,11 +589,7 @@ def student_performance_view(request, student_id):
         },
         "assessment_types": assessment_types,
         "assessments": performance_metrics['ordered_assessments'],
-        "performance_data": [
-            {'score': float(performance_metrics['average']), 'label': 'Average Score', 'icon': 'calculator'},
-            {'score': float(performance_metrics['top_score']), 'label': 'Highest Score', 'icon': 'trophy'},
-            {'score': float(performance_metrics['bottom_score']), 'label': 'Lowest Score', 'icon': 'exclamation-triangle'},
-        ],
+        "performance_data": performance_data,
         "subject_averages": combined_subject_data,
         "selected_assessment": selected_assessment,
         "assessment_data": assessment_data,
@@ -548,7 +597,6 @@ def student_performance_view(request, student_id):
     }
 
     return render(request, "results/student_performance.html", context)
-
 
 
 def export_student_pdf(request, student_id):

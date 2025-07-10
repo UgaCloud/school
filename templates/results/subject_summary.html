@@ -15,6 +15,8 @@
                         <tr>
                             <th>Subject</th>
                             <th class="text-right">Average</th>
+                            <th class="text-center">Grade</th> <!-- New column -->
+                            <th class="text-center">Points</th> <!-- New column -->
                             <th class="text-right">Assessments</th>
                             <th class="text-right">Trend</th>
                         </tr>
@@ -32,6 +34,12 @@
                                 <span class="badge badge-{% if subject.average >= 80 %}success{% elif subject.average >= 60 %}info{% elif subject.average >= 40 %}warning{% else %}danger{% endif %}">
                                     {{ subject.average|floatformat:1 }}%
                                 </span>
+                            </td>
+                            <td class="text-center align-middle">
+                                <strong>{{ subject.grade }}</strong>
+                            </td>
+                            <td class="text-center align-middle">
+                                {{ subject.points }}
                             </td>
                             <td class="text-right align-middle">
                                 {% for assessment in subject.assessments %}
@@ -60,7 +68,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-4">No assessment data available</td>
+                            <td colspan="6" class="text-center text-muted py-4">No assessment data available</td>
                         </tr>
                         {% endfor %}
                     </tbody>
