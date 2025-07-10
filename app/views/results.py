@@ -635,15 +635,18 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
 
 
 
-
 @login_required
 def student_term_report(request, student_id):
     student = get_object_or_404(Student, id=student_id)
+    school = SchoolSetting.load() 
+
+    # Get all results for this student
     results = Result.objects.filter(student=student).select_related(
         'assessment__subject', 'assessment__assessment_type'
     )
 
     subject_summary = {}
+    total_marks = 0
 
     for result in results:
         subject = result.assessment.subject.name
@@ -653,28 +656,40 @@ def student_term_report(request, student_id):
                 'count': 0,
                 'assessments': []
             }
-        subject_summary[subject]['total'] += result.actual_score 
+        subject_summary[subject]['total'] += result.actual_score
         subject_summary[subject]['count'] += 1
         subject_summary[subject]['assessments'].append(result)
+        total_marks += result.actual_score
 
     report_data = []
     for subject, data in subject_summary.items():
         avg = data['total'] / data['count'] if data['count'] else 0
-        grade = data['assessments'][0].grade if data['assessments'] else "N/A"
-        points = data['assessments'][0].points if data['assessments'] else 0
+        first_result = data['assessments'][0] if data['assessments'] else None
+        grade = first_result.grade if first_result else "N/A"
+        points = first_result.points if first_result else 0
         report_data.append({
             'subject': subject,
-            'average': avg,
+            'average': round(avg, 1),
             'grade': grade,
             'points': points,
             'details': data['assessments']
         })
 
+    
+    number_of_students = 25  # FOR testing purposes, replace with actual logic to get number of students in the class
+    number_of_juzus = student.number_of_juzus if hasattr(student, 'number_of_juzus') else "-"
+    academic_year = student.academic_year if hasattr(student, 'academic_year') else "-"
+    term = student.term if hasattr(student, 'term') else "-"
+
     context = {
+        'school': school,
         'student': student,
         'report_data': report_data,
-        'term': student.term,
-        'academic_year': student.academic_year
+        'term': term,
+        'academic_year': academic_year,
+        'total_marks': round(total_marks, 1),
+        'number_of_students': number_of_students,
+        
     }
 
     return render(request, 'results/student_term_report.html', context)
