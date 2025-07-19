@@ -26,7 +26,7 @@ from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
 from django.utils import timezone
 from django.core.paginator import Paginator
-from app.selectors.results import get_grade_and_points, get_current_mode,get_performance_metrics, get_grade_from_average
+from app.selectors.results import get_grade_and_points, get_current_mode,get_performance_metrics, get_grade_from_average, calculate_weighted_subject_averages
 from app.utils.pdf_utils import generate_student_report_pdf
 from collections import defaultdict
 import logging
@@ -407,55 +407,6 @@ def class_result_filter_view(request):
         'no_students_message': no_students_message,
     }
     return render(request, 'results/class_stream_filter.html', context)
-def calculate_weighted_subject_averages(assessments):
-    subject_scores = {}
-
-    for result in assessments:
-        subject = result.assessment.subject.name
-        assessment_type = result.assessment.assessment_type
-        weight = result.assessment.assessment_type.weight or 1
-        raw_score = float(result.score)
-
-        if subject not in subject_scores:
-            subject_scores[subject] = {
-                'total_score': 0,
-                'total_weight': 0,
-                'assessments': [],
-                'teacher': getattr(result.assessment.subject, 'teacher', None),
-                'points_total': 0,
-                'count': 0,
-            }
-
-        subject_scores[subject]['total_score'] += raw_score * float(weight)
-        subject_scores[subject]['total_weight'] += float(weight)
-        subject_scores[subject]['points_total'] += float(result.points)
-        subject_scores[subject]['count'] += 1
-
-        subject_scores[subject]['assessments'].append({
-            'id': assessment_type.id,
-            'name': assessment_type.name
-        })
-
-    averages = []
-    for subject, data in subject_scores.items():
-        average = data['total_score'] / data['total_weight'] if data['total_weight'] else 0
-        average_points = data['points_total'] / data['count'] if data['count'] else 0
-        average_grade = get_grade_from_average(average)  # NEW: Add grade string from average
-
-        unique_assessments = {a['id']: a for a in data['assessments']}.values()
-
-        averages.append({
-            'subject': subject,
-            'average': average,
-            'points': round(average_points, 2),
-            'grade': average_grade,
-            'assessments': list(unique_assessments),
-            'teacher': data['teacher'],
-        })
-
-    return averages
-
-
 
 
 @login_required
@@ -463,29 +414,28 @@ def student_performance_view(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     assessment_types = AssessmentType.objects.all()
     selected_assessment = request.GET.get("assessment_type")
-
     assessments = Result.objects.filter(student=student).select_related(
         'assessment__subject',
         'assessment__assessment_type'
     ).order_by('assessment__date')
-
+    
     if selected_assessment:
         assessments = assessments.filter(assessment__assessment_type_id=selected_assessment)
-
+    
     academic_class = AcademicClass.objects.filter(
         Class=student.current_class,
         academic_year=student.academic_year,
         term=student.term
     ).first()
-
+    
     academic_class_stream = AcademicClassStream.objects.filter(
         academic_class=academic_class,
         stream=student.stream
     ).first() if academic_class else None
-
+    
     performance_metrics = get_performance_metrics(assessments)
     subject_averages = calculate_weighted_subject_averages(assessments)
-
+    
     subject_progress = {}
     for subject in set(r.assessment.subject.name for r in assessments):
         subject_scores = [(r.assessment.date, r.score) for r in assessments if r.assessment.subject.name == subject]
@@ -496,7 +446,7 @@ def student_performance_view(request, student_id):
             'progress': progress,
             'trend': 'up' if progress > 0 else 'down' if progress < 0 else 'stable'
         }
-
+    
     combined_subject_data = []
     for subject_avg in subject_averages:
         subject_name = subject_avg['subject']
@@ -507,11 +457,10 @@ def student_performance_view(request, student_id):
             'trend': progress_data['trend'],
             'scores': progress_data['scores'],
         })
-
-    # Highest and Lowest Performing Subjects by average
+    
     highest_subject = max(combined_subject_data, key=lambda s: s['average'], default=None)
     lowest_subject = min(combined_subject_data, key=lambda s: s['average'], default=None)
-
+    
     performance_data = [
         {
             'score': float(performance_metrics['average']),
@@ -535,13 +484,13 @@ def student_performance_view(request, student_id):
             'subject': lowest_subject['subject'] if lowest_subject else 'N/A'
         },
     ]
-
+    
     assessment_data, assessment_dates = [], []
     grouped_assessments = {}
     for assessment in assessments:
         key = (assessment.assessment.date, assessment.assessment.assessment_type.name)
         grouped_assessments.setdefault(key, []).append(assessment)
-
+    
     for (date, assessment_type), results in grouped_assessments.items():
         best_subject = max(results, key=lambda x: x.score)
         assessment_dates.append(date)
@@ -554,7 +503,7 @@ def student_performance_view(request, student_id):
             },
             'subjects': {r.assessment.subject.name: r.score for r in results}
         })
-
+    
     context = {
         "student": {
             "obj": student,
@@ -583,113 +532,99 @@ def student_performance_view(request, student_id):
         "assessment_data": assessment_data,
         "subject_progress": subject_progress,
     }
-
+    
     return render(request, "results/student_performance.html", context)
-
-
 
 @login_required
 def student_assessment_type_report(request, student_id, assessment_type_id):
     student = get_object_or_404(Student, id=student_id)
     assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
-
     results = Result.objects.filter(
         student=student,
         assessment__assessment_type=assessment_type
     ).select_related('assessment__subject')
-
+    
     subject_scores = {}
     for result in results:
-        subject = result.assessment.subject
-        if subject.name not in subject_scores:
-            subject_scores[subject.name] = {
+        subject = result.assessment.subject.name
+        if subject not in subject_scores:
+            subject_scores[subject] = {
                 'scores': [],
-                'total': 0,
+                'total': Decimal('0.0'),
                 'count': 0
             }
-        subject_scores[subject.name]['scores'].append(result)
-        subject_scores[subject.name]['total'] += result.score
-        subject_scores[subject.name]['count'] += 1
-
-    # Calculate averages and grades
+        subject_scores[subject]['scores'].append(result)
+        subject_scores[subject]['total'] += Decimal(str(result.score))
+        subject_scores[subject]['count'] += 1
+    
     summary = []
     for subject, data in subject_scores.items():
-        avg = data['total'] / data['count']
-        grade = result.grade  
-        points = result.points
+        avg = (data['total'] / data['count']).quantize(Decimal('0.01')) if data['count'] else Decimal('0.00')
+        grade, points = get_grade_and_points(avg)
         summary.append({
             'subject': subject,
-            'average': avg,
+            'average': float(avg),
             'grade': grade,
             'points': points,
             'details': data['scores']
         })
-
+    
     context = {
         'student': student,
         'assessment_type': assessment_type,
         'summary': summary,
     }
-
+    
     return render(request, 'results/student_assessment_report.html', context)
-
-
 
 @login_required
 def student_term_report(request, student_id):
     student = get_object_or_404(Student, id=student_id)
-    school = SchoolSetting.load() 
-
-    # Get all results for this student
+    school = SchoolSetting.load()
     results = Result.objects.filter(student=student).select_related(
         'assessment__subject', 'assessment__assessment_type'
     )
-
+    
     subject_summary = {}
-    total_marks = 0
-
+    total_marks = Decimal('0.0')
     for result in results:
         subject = result.assessment.subject.name
         if subject not in subject_summary:
             subject_summary[subject] = {
-                'total': 0,
+                'total': Decimal('0.0'),
                 'count': 0,
                 'assessments': []
             }
-        subject_summary[subject]['total'] += result.actual_score
+        subject_summary[subject]['total'] += Decimal(str(result.score))
         subject_summary[subject]['count'] += 1
         subject_summary[subject]['assessments'].append(result)
-        total_marks += result.actual_score
-
+        total_marks += Decimal(str(result.score))
+    
     report_data = []
     for subject, data in subject_summary.items():
-        avg = data['total'] / data['count'] if data['count'] else 0
-        first_result = data['assessments'][0] if data['assessments'] else None
-        grade = first_result.grade if first_result else "N/A"
-        points = first_result.points if first_result else 0
+        avg = (data['total'] / data['count']).quantize(Decimal('0.01')) if data['count'] else Decimal('0.00')
+        grade, points = get_grade_and_points(avg)
         report_data.append({
             'subject': subject,
-            'average': round(avg, 1),
+            'average': float(avg),
             'grade': grade,
             'points': points,
             'details': data['assessments']
         })
-
     
-    number_of_students = 25  # FOR testing purposes, replace with actual logic to get number of students in the class
+    number_of_students = 25  # Replace with actual logic to get number of students
     number_of_juzus = student.number_of_juzus if hasattr(student, 'number_of_juzus') else "-"
     academic_year = student.academic_year if hasattr(student, 'academic_year') else "-"
     term = student.term if hasattr(student, 'term') else "-"
-
+    
     context = {
         'school': school,
         'student': student,
         'report_data': report_data,
         'term': term,
         'academic_year': academic_year,
-        'total_marks': round(total_marks, 1),
+        'total_marks': float(total_marks),
         'number_of_students': number_of_students,
-        
     }
-
+    
     return render(request, 'results/student_term_report.html', context)
