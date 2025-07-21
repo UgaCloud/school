@@ -1,10 +1,12 @@
+{% load static custom_tags %}
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Termly Report</title>
+    <title>Termly Report - {{ student.student_name }}</title>
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
     <style>
         /* A4 size and page layout control */
@@ -23,6 +25,14 @@
             }
             .report-table tbody tr:hover {
                 background-color: transparent !important;
+            }
+            .term-filter {
+                display: none; /* Hide dropdown in print */
+            }
+            .term-filter .selected-term {
+                display: inline-block; /* Show selected term in print */
+                font-size: 0.9rem;
+                color: #333;
             }
         }
 
@@ -104,17 +114,52 @@
             margin-left: 0.5rem;
         }
 
+        .term-filter {
+            margin-bottom: 1cm;
+            display: flex;
+            align-items: center;
+            gap: 0.5cm;
+            font-size: 0.9rem;
+            color: #2c3e50;
+        }
+
+        .term-filter label {
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .term-filter select {
+            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+            font-size: 0.85rem;
+            padding: 0.2cm 0.4cm;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            background: #f8f9fa;
+            color: #333;
+            max-width: 8cm;
+        }
+
+        .term-filter select:focus {
+            outline: none;
+            border-color: #2c3e50;
+            background: #ffffff;
+        }
+
+        .term-filter .selected-term {
+            display: none;
+        }
+
         table.report-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 1.5rem;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         table.report-table th,
         table.report-table td {
             border: 1px solid #d0d0d0;
-            padding: 0.75rem;
+            padding: 0.5rem;
             text-align: center;
         }
 
@@ -190,8 +235,19 @@
             .term-title {
                 font-size: 1rem;
             }
+            .term-filter {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .term-filter select {
+                font-size: 0.8rem;
+                max-width: 100%;
+            }
             .signature-grid {
                 grid-template-columns: 1fr;
+            }
+            table.report-table {
+                font-size: 0.75rem;
             }
         }
     </style>
@@ -200,7 +256,6 @@
     <div class="report-box">
         <!-- School Header -->
         <header class="school-header">
-            <!-- Left: Student Photo -->
             <div>
                 {% if student.photo %}
                     <img src="{{ student.photo.url }}" alt="Student Photo" aria-label="Student Photo">
@@ -208,19 +263,15 @@
                     <img src="{% static 'images/default_student.png' %}" alt="Default Student Photo" aria-label="Default Student Photo">
                 {% endif %}
             </div>
-
-            <!-- Center: School Info -->
             <div class="school-info">
                 <h4>{{ school.school_name|default:"SCHOOL NAME" }}</h4>
                 <div class="details">
                     Tel: {{ school.office_phone_number1 }} / {{ school.office_phone_number2 }}<br>
-                    Website: {{ school.website }} | Email: info@example.com<br>
-                    {{ school.address }}, {{ school.city }}
+                    Website: {{ school.website|default:"www.example.com" }} | Email: {{ school.email|default:"info@example.com" }}<br>
+                    {{ school.address|default:"P.O. Box 123" }}, {{ school.city|default:"City" }}
                 </div>
-                <div class="term-title">Termly Report</div>
+                <div class="term-title">Termly Report - {{ term }}</div>
             </div>
-
-            <!-- Right: School Logo -->
             <div>
                 {% if school.school_logo %}
                     <img src="{{ school.school_logo.url }}" alt="School Logo" aria-label="School Logo">
@@ -230,28 +281,45 @@
             </div>
         </header>
 
+        <!-- Term Filter -->
+        <form class="term-filter" method="get" aria-labelledby="term-filter-label">
+            <label id="term-filter-label" for="term-id">Select Term:</label>
+            <select name="term_id" id="term-id" onchange="this.form.submit()" aria-describedby="term-filter-label">
+                <option value="" {% if not selected_term_id %}selected{% endif %}>Select Term</option>
+                {% for term in terms %}
+                <option value="{{ term.id }}" {% if selected_term_id == term.id|stringformat:"s" %}selected{% endif %}>{{ term.term }}</option>
+                {% endfor %}
+            </select>
+            <span class="selected-term">{{ term }}</span>
+        </form>
+
         <!-- Student Info -->
         <section class="student-info">
             <div class="info-line">
                 <div>Name: <span>{{ student.student_name|default:"John Doe" }}</span></div>
-                <div>Class: <span>{{ student.current_class.name|default:"S.2 Red" }}</span></div>
+                <div>Class: <span>{{ student.current_class.name|default:"N/A" }} {{ student.stream.stream|default:"" }}</span></div>
             </div>
             <div class="info-line">
-                <div>Academic Year: <span>{{ academic_year|default:"2024/2025" }}</span></div>
-                <div>Term: <span>{{ term|default:"Term II" }}</span></div>
+                <div>Academic Year: <span>{{ academic_year|default:"N/A" }}</span></div>
+                <div>Term: <span>{{ term|default:"N/A" }}</span></div>
             </div>
             <div class="info-line">
                 <div>Number of Students: <span>{{ number_of_students|default:"-" }}</span></div>
+             
             </div>
         </section>
 
         <!-- Performance Table -->
-        <table class="report-table" aria-label="Student Performance Table">
+        <table class="report-table" aria-label="Student Termly Performance Report">
             <thead>
                 <tr>
                     <th scope="col">No.</th>
                     <th scope="col">Subject</th>
-                    <th scope="col">Total Marks (100%)</th>
+                    {% for assessment_type in assessment_types %}
+                    <th scope="col">{{ assessment_type.name }} Score</th>
+                    <th scope="col">{{ assessment_type.name }} Grade</th>
+                    {% endfor %}
+                    <th scope="col">Average Score</th>
                     <th scope="col">Grade</th>
                 </tr>
             </thead>
@@ -260,14 +328,22 @@
                 <tr>
                     <td>{{ forloop.counter }}</td>
                     <td>{{ item.subject }}</td>
-                    <td>{{ item.average|default:"-" }}</td>
+                    {% for assessment_type in assessment_types %}
+                    <td>{{ item.assessments|lookup:assessment_type.name|lookup:"score"|default:"-" }}</td>
+                    <td>{{ item.assessments|lookup:assessment_type.name|lookup:"grade"|default:"-" }}</td>
+                    {% endfor %}
+                    <td>{{ item.average|floatformat:1|default:"-" }}</td>
                     <td>{{ item.grade|default:"-" }}</td>
                 </tr>
                 {% endfor %}
                 <tr>
                     <td colspan="2"><strong>Total</strong></td>
-                    <td><strong>{{ total_marks|default:"-" }}</strong></td>
+                    {% for assessment_type in assessment_types %}
                     <td></td>
+                    <td></td>
+                    {% endfor %}
+                    <td><strong>{{ overall_average|floatformat:1|default:"-" }}</strong></td>
+                    <td><strong>{{ overall_grade|default:"-" }}</strong></td>
                 </tr>
             </tbody>
         </table>
