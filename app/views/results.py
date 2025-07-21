@@ -372,24 +372,26 @@ def delete_assesment_view(request, id):
     
     return redirect(assesment_type_view)
 
-
 def class_result_filter_view(request):
+    # Fetch all AcademicYear and AcademicClassStream objects
     years = AcademicYear.objects.all()
-    terms = Term.objects.all()
     academic_class_streams = AcademicClassStream.objects.select_related(
-        'academic_class', 'stream', 'academic_class__Class', 'academic_class__academic_year', 'academic_class__term'
+        'academic_class', 'stream', 'academic_class__Class', 'academic_class__academic_year'
     ).all()
 
+    # Get selected parameters from GET request
     selected_year = request.GET.get('year_id')
-    selected_term = request.GET.get('term_id')
     selected_class_stream = request.GET.get('class_stream_id')
 
+    # Initialize students queryset as empty
     students = Student.objects.none()
     no_students_message = None
 
-    if selected_year and selected_term and selected_class_stream:
+    # Filter students if both year and class stream are selected
+    if selected_year and selected_class_stream:
         class_registers = ClassRegister.objects.filter(
-            academic_class_stream_id=selected_class_stream
+            academic_class_stream_id=selected_class_stream,
+            academic_class_stream__academic_class__academic_year_id=selected_year
         )
         students = Student.objects.filter(id__in=class_registers.values('student_id')).order_by('student_name')
 
@@ -398,10 +400,8 @@ def class_result_filter_view(request):
 
     context = {
         'years': years,
-        'terms': terms,
         'academic_class_streams': academic_class_streams,
         'selected_year': selected_year,
-        'selected_term': selected_term,
         'selected_class_stream': selected_class_stream,
         'students': students,
         'no_students_message': no_students_message,
@@ -409,16 +409,25 @@ def class_result_filter_view(request):
     return render(request, 'results/class_stream_filter.html', context)
 
 
+
+
 @login_required
 def student_performance_view(request, student_id):
     student = get_object_or_404(Student, id=student_id)
-    assessment_types = AssessmentType.objects.all()
+    terms = Term.objects.filter(academic_year=student.academic_year)  
+    assessment_types = AssessmentType.objects.all()  
+    selected_term = request.GET.get("term_id")
     selected_assessment = request.GET.get("assessment_type")
+    
+    # Filter assessments by term and assessment type if selected
     assessments = Result.objects.filter(student=student).select_related(
         'assessment__subject',
-        'assessment__assessment_type'
+        'assessment__assessment_type',
+        'assessment__academic_class__term'
     ).order_by('assessment__date')
     
+    if selected_term:
+        assessments = assessments.filter(assessment__academic_class__term_id=selected_term)
     if selected_assessment:
         assessments = assessments.filter(assessment__assessment_type_id=selected_assessment)
     
@@ -440,7 +449,7 @@ def student_performance_view(request, student_id):
     for subject in set(r.assessment.subject.name for r in assessments):
         subject_scores = [(r.assessment.date, r.score) for r in assessments if r.assessment.subject.name == subject]
         subject_scores.sort(key=lambda x: x[0])
-        progress = subject_scores[-1][1] - subject_scores[0][1] if len(subject_scores) > 1 else 0
+        progress = subject_scores[-1][1] - subject_scores[0][1] if len(subject_scores) > 1 else 0  # Fixed typo
         subject_progress[subject] = {
             'scores': subject_scores,
             'progress': progress,
@@ -504,6 +513,10 @@ def student_performance_view(request, student_id):
             'subjects': {r.assessment.subject.name: r.score for r in results}
         })
     
+    # Get selected term and assessment type names for print view
+    selected_term_name = Term.objects.filter(id=selected_term).first().term if selected_term else "All Terms"
+    selected_assessment_name = AssessmentType.objects.filter(id=selected_assessment).first().name if selected_assessment else "All Assessment Types"
+    
     context = {
         "student": {
             "obj": student,
@@ -524,16 +537,21 @@ def student_performance_view(request, student_id):
                 "photo_url": student.photo.url if student.photo else '/static/images/default-student.jpg'
             }
         },
+        "terms": terms,
         "assessment_types": assessment_types,
         "assessments": performance_metrics['ordered_assessments'],
         "performance_data": performance_data,
         "subject_averages": combined_subject_data,
+        "selected_term": selected_term,
+        "selected_term_name": selected_term_name,
         "selected_assessment": selected_assessment,
+        "selected_assessment_name": selected_assessment_name,
         "assessment_data": assessment_data,
         "subject_progress": subject_progress,
     }
     
     return render(request, "results/student_performance.html", context)
+
 
 @login_required
 def student_assessment_type_report(request, student_id, assessment_type_id):

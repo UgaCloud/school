@@ -1,33 +1,38 @@
 <style>
     /* Subject Performance Summary Section */
     .subject-performance-section {
-        margin-top: 1.5cm;
-        padding-top: 0.8cm;
-        border-top: 1px solid #e0e0e0;
+        margin: 2rem 0;
+        padding-top: 1rem;
+        border-top: 2px solid #e5e7eb;
         break-inside: avoid;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     .subject-performance-header {
-        display: inline-block;
-        padding: 0.3cm 0.8cm;
-        font-size: 0.9rem;
-        font-weight: 600;
-        background: #2c3e50;
-        color: #fff;
-        border-radius: 3px;
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #2c3e50 0%, #2c3e50 100%);
+        color: #ffffff;
+        border-radius: 6px;
         text-transform: uppercase;
-        margin-bottom: 0.8cm;
+        letter-spacing: 0.05em;
+        margin-bottom: 1rem;
         cursor: pointer;
-        transition: background 0.2s;
+        transition: background 0.3s ease, transform 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .subject-performance-header:hover {
-        background: #34495e;
+        background: linear-gradient(135deg, #2c3e50 0%, #2c3e50 100%);
+        transform: translateY(-2px);
     }
 
     .subject-performance-header i {
-        margin-right: 0.3cm;
-        transition: transform 0.3s;
+        margin-right: 0.5rem;
+        transition: transform 0.3s ease;
     }
 
     .subject-performance-header.collapsed i {
@@ -36,90 +41,124 @@
 
     .subject-performance-content {
         break-inside: avoid;
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     .subject-performance-table {
         width: 100%;
-        border-collapse: collapse;
-        font-size: 0.75rem;
-        break-inside: avoid;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.875rem;
+        background: #ffffff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     }
 
     .subject-performance-table th,
     .subject-performance-table td {
-        border: 1px solid #d0d0d0;
-        padding: 0.3cm;
+        border: 1px solid #e5e7eb;
+        padding: 0.75rem;
         text-align: left;
     }
 
     .subject-performance-table th {
-        background: #2c3e50;
-        color: #fff;
+        background:#2c3e50;
+        color: #ffffff;
         font-weight: 600;
         text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
     }
 
     .subject-performance-table td {
         vertical-align: middle;
+        color: #1f2937;
+    }
+
+    .subject-performance-table tbody tr {
+        transition: background 0.2s ease;
     }
 
     .subject-performance-table tbody tr:nth-child(even) {
-        background: #f8f9fa;
+        background: #f9fafb;
     }
 
     .subject-performance-table tbody tr:hover {
-        background: #e9ecef;
-        transition: background 0.2s;
+        background: #eff6ff;
     }
 
     .subject-performance-table .badge {
-        font-size: 0.7rem;
-        padding: 0.2cm 0.4cm;
-        border-radius: 3px;
+        display: inline-flex;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 4px;
+        background: #e5e7eb;
+        color: #1f2937;
     }
 
     .subject-performance-table .score-badge {
-        background: #e9ecef;
+        background: #dbeafe;
+        color: #1e40af;
     }
 
     .subject-performance-table .trend-up {
-        color: #28a745;
+        color: #16a34a;
+        font-weight: 500;
     }
 
     .subject-performance-table .trend-down {
-        color: #dc3545;
+        color: #dc2626;
+        font-weight: 500;
     }
 
     .subject-performance-table .trend-stable {
-        color: #6c757d;
+        color: #6b7280;
+        font-weight: 500;
     }
 
     .subject-performance-table .scores-list {
-        margin: 0;
-        padding-left: 0.5cm;
-        font-size: 0.7rem;
-        color: #555;
+        margin: 0.5rem 0 0 0;
+        padding-left: 1rem;
+        font-size: 0.75rem;
+        color: #6b7280;
+        list-style-type: disc;
     }
 
     .no-data {
         text-align: center;
-        padding: 1cm;
-        color: #555;
-        font-size: 0.8rem;
-        background: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        border-radius: 3px;
+        padding: 1.5rem;
+        color: #6b7280;
+        font-size: 0.875rem;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }
+
+    .no-data i {
+        color: #9ca3af;
     }
 
     @media print {
         .subject-performance-section {
+            margin: 1rem 0;
             border-top: none;
         }
         .subject-performance-header {
+            background: #1e3a8a;
             cursor: default;
+            box-shadow: none;
+            transform: none;
         }
         .subject-performance-header:hover {
-            background: #2c3e50;
+            background: #032b44;
         }
         .subject-performance-header i {
             display: none;
@@ -127,15 +166,20 @@
         .subject-performance-content {
             display: block !important;
         }
+        .subject-performance-table {
+            box-shadow: none;
+            border: 1px solid #d1d5db;
+        }
         .subject-performance-table tbody tr:hover {
-            background: inherit !important;
+            background: inherit;
         }
         .subject-performance-table a {
             text-decoration: none;
-            color: #333;
+            color: #1f2937;
         }
         .subject-performance-table .badge {
-            background: #e9ecef !important;
+            background: #e5e7eb;
+            color: #1f2937;
         }
         .no-data i {
             display: none;
@@ -144,32 +188,41 @@
 
     @media screen and (max-width: 768px) {
         .subject-performance-section {
-            margin-top: 1cm;
-            padding-top: 0.5cm;
+            margin: 1rem 0;
+            padding-top: 0.75rem;
         }
         .subject-performance-header {
-            font-size: 0.8rem;
-            padding: 0.2cm 0.6cm;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
         }
         .subject-performance-table {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
         .subject-performance-table th,
         .subject-performance-table td {
-            padding: 0.2cm;
+            padding: 0.5rem;
+            min-width: 100px;
         }
         .subject-performance-table .badge {
-            font-size: 0.6rem;
+            font-size: 0.65rem;
+            padding: 0.2rem 0.4rem;
         }
         .subject-performance-table .scores-list {
-            font-size: 0.6rem;
+            font-size: 0.65rem;
+        }
+        .no-data {
+            font-size: 0.75rem;
+            padding: 1rem;
         }
     }
 </style>
 
 <section class="subject-performance-section" aria-labelledby="subject-performance-heading">
     <h3 class="subject-performance-header collapsed" id="subject-performance-heading" data-toggle="collapse" data-target="#subject-performance-content" aria-expanded="false" aria-controls="subject-performance-content">
-        <i class="fas fa-chevron-down mr-2"></i>Subject Performance 
+        <i class="fas fa-chevron-down"></i> Subject Performance
     </h3>
     <div id="subject-performance-content" class="subject-performance-content collapse" aria-labelledby="subject-performance-heading">
         {% if subject_averages %}

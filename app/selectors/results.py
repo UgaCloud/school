@@ -20,6 +20,13 @@ def get_current_mode():
     return setting.mode if setting else "CUMULATIVE"
 
 def get_performance_metrics(assessments):
+    if not assessments.exists():
+        return {
+            'average': Decimal('0.00'),
+            'top_score': Decimal('0.00'),
+            'bottom_score': Decimal('0.00'),
+            'ordered_assessments': []
+        }
     total_score = assessments.aggregate(total=Sum('score'))['total'] or Decimal('0.00')
     count = assessments.count()
     average = (total_score / count).quantize(Decimal('0.01')) if count > 0 else Decimal('0.00')
