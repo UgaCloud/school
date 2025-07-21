@@ -557,11 +557,25 @@ def student_performance_view(request, student_id):
 def student_assessment_type_report(request, student_id, assessment_type_id):
     student = get_object_or_404(Student, id=student_id)
     assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
+    school = SchoolSetting.load()
+    
+    # Optional: Filter by term (default to student's current term)
+    selected_term_id = request.GET.get('term_id', student.term.id if student.term else None)
+    terms = Term.objects.filter(academic_year=student.academic_year) if student.academic_year else Term.objects.none()
+    
+    # Filter results by assessment type and optional term
     results = Result.objects.filter(
         student=student,
         assessment__assessment_type=assessment_type
-    ).select_related('assessment__subject')
+    ).select_related(
+        'assessment__subject',
+        'assessment__assessment_type',
+        'assessment__academic_class__term'
+    )
+    if selected_term_id:
+        results = results.filter(assessment__academic_class__term_id=selected_term_id)
     
+    # Organize results by subject
     subject_scores = {}
     for result in results:
         subject = result.assessment.subject.name
@@ -575,6 +589,7 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
         subject_scores[subject]['total'] += Decimal(str(result.score))
         subject_scores[subject]['count'] += 1
     
+    # Prepare summary data
     summary = []
     for subject, data in subject_scores.items():
         avg = (data['total'] / data['count']).quantize(Decimal('0.01')) if data['count'] else Decimal('0.00')
@@ -587,10 +602,33 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
             'details': data['scores']
         })
     
+    # Calculate total marks and overall average
+    total_marks = sum(Decimal(str(result.score)) for result in results)
+    overall_average = (total_marks / len(results)).quantize(Decimal('0.01')) if results else Decimal('0.00')
+    overall_grade, overall_points = get_grade_and_points(overall_average)
+    
+    # Student and report details
+    number_of_students = ClassRegister.objects.filter(
+        academic_class_stream__academic_class__term_id=selected_term_id,
+        academic_class_stream__stream=student.stream
+    ).count() or 25 if selected_term_id else 25
+    academic_year = student.academic_year.academic_year if student.academic_year else "-"
+    term = Term.objects.filter(id=selected_term_id).first().term if selected_term_id else "-"
+    
     context = {
+        'school': school,
         'student': student,
         'assessment_type': assessment_type,
         'summary': summary,
+        'term': term,
+        'academic_year': academic_year,
+        'total_marks': float(total_marks),
+        'overall_average': float(overall_average),
+        'overall_grade': overall_grade,
+        'overall_points': overall_points,
+        'number_of_students': number_of_students,
+        'selected_term_id': selected_term_id,
+        'terms': terms,
     }
     
     return render(request, 'results/student_assessment_report.html', context)

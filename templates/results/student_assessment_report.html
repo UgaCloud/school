@@ -1,51 +1,368 @@
-{% extends 'base.html' %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ student.student_name }} - {{ assessment_type.name }} Report</title>
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+    <style>
+        /* A4 size and page layout control */
+        @page {
+            size: A4 portrait;
+            margin: 2cm;
+        }
 
-{% block content %}
-<div class="container my-4">
-    <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-                <i class="fas fa-file-alt mr-2"></i> {{ student.student_name }} - {{ assessment_type.name }} Report
-            </h5>
-            <small>{{ student.current_class.name }} {{ student.stream.stream }} | {{ student.academic_year }}</small>
-        </div>
-        <div class="card-body">
-            {% if summary %}
-            <div class="table-responsive">
-                <table class="table table-bordered table-striped">
-                    <thead class="thead-light">
-                        <tr>
-                            <th>Subject</th>
-                            <th>Average Score</th>
-                            <th>Grade</th>
-                            <th>Points</th>
-                            <th>Details</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in summary %}
-                        <tr>
-                            <td>{{ row.subject }}</td>
-                            <td>{{ row.average|floatformat:1 }}%</td>
-                            <td>{{ row.grade }}</td>
-                            <td>{{ row.points }}</td>
-                            <td>
-                                <ul class="list-unstyled mb-0">
-                                    {% for r in row.details %}
-                                    <li>{{ r.assessment.date|date:"d M Y" }} - {{ r.score }}%</li>
-                                    {% endfor %}
-                                </ul>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            .report-box {
+                box-shadow: none !important;
+            }
+            .report-table tbody tr:hover {
+                background-color: transparent !important;
+            }
+            .term-filter {
+                display: none; /* Hide dropdown in print */
+            }
+            .term-filter .selected-term {
+                display: inline-block; /* Show selected term in print */
+                font-size: 0.9rem;
+                color: #333;
+            }
+        }
+
+        body {
+            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+            background: #f9f9f9;
+            margin: 0 auto;
+            max-width: 21cm;
+            color: #1a1a1a;
+            line-height: 1.5;
+        }
+
+        .report-box {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 2.5cm;
+            margin: 1cm auto;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .school-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2cm;
+            padding-bottom: 1cm;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .school-header img {
+            height: 80px;
+            width: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .school-info {
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        .school-info h4 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .school-info .details {
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .report-title {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: #2c3e50;
+            color: #fff;
+            border-radius: 5px;
+            margin-top: 1rem;
+            text-transform: uppercase;
+        }
+
+        .info-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+            color: #333;
+        }
+
+        .info-line span {
+            border-bottom: 1px dotted #888;
+            flex: 1;
+            margin-left: 0.5rem;
+        }
+
+        .term-filter {
+            margin-bottom: 1cm;
+            display: flex;
+            align-items: center;
+            gap: 0.5cm;
+            font-size: 0.9rem;
+            color: #2c3e50;
+        }
+
+        .term-filter label {
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .term-filter select {
+            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+            font-size: 0.85rem;
+            padding: 0.2cm 0.4cm;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            background: #f8f9fa;
+            color: #333;
+            max-width: 8cm;
+        }
+
+        .term-filter select:focus {
+            outline: none;
+            border-color: #2c3e50;
+            background: #ffffff;
+        }
+
+        .term-filter .selected-term {
+            display: none;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+            font-size: 0.85rem;
+        }
+
+        .report-table th,
+        .report-table td {
+            border: 1px solid #d0d0d0;
+            padding: 0.5rem;
+            text-align: center;
+        }
+
+        .report-table th {
+            background: #2c3e50;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .report-table tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .report-table tbody tr:hover {
+            background: #e9ecef;
+            transition: background 0.2s;
+        }
+
+        .report-table tbody tr:last-child td {
+            font-weight: 600;
+            background: #e9ecef;
+        }
+
+        .signature-section {
+            margin-top: 3rem;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .signature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            justify-items: center;
+            margin-top: 2rem;
+        }
+
+        .signature-line {
+            border-top: 1px solid #888;
+            width: 200px;
+            margin: 1rem 0 0.5rem;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .stamp-line {
+            border-bottom: 1px dotted #888;
+            display: inline-block;
+            width: 250px;
+            margin-top: 2rem;
+        }
+
+        @media screen and (max-width: 768px) {
+            .report-box {
+                padding: 1.5rem;
+            }
+            .school-header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .school-header img {
+                height: 60px;
+                width: 60px;
+            }
+            .school-info h4 {
+                font-size: 1.2rem;
+            }
+            .school-info .details {
+                font-size: 0.8rem;
+            }
+            .report-title {
+                font-size: 1rem;
+            }
+            .term-filter {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .term-filter select {
+                font-size: 0.8rem;
+                max-width: 100%;
+            }
+            .signature-grid {
+                grid-template-columns: 1fr;
+            }
+            .report-table {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-box">
+        <!-- School Header -->
+        <header class="school-header">
+            <div>
+                {% if student.photo %}
+                    <img src="{{ student.photo.url }}" alt="Student Photo" aria-label="Student Photo">
+                {% else %}
+                    <img src="{% static 'images/default_student.png' %}" alt="Default Student Photo" aria-label="Default Student Photo">
+                {% endif %}
             </div>
-            {% else %}
-            <div class="alert alert-warning text-center">No results available for this assessment type.</div>
-            {% endif %}
-        </div>
+            <div class="school-info">
+                <h4>{{ school.school_name|default:"SCHOOL NAME" }}</h4>
+                <div class="details">
+                    Tel: {{ school.office_phone_number1 }} / {{ school.office_phone_number2 }}<br>
+                    Website: {{ school.website|default:"www.example.com" }} | Email: {{ school.email|default:"info@example.com" }}<br>
+                    {{ school.address|default:"P.O. Box 123" }}, {{ school.city|default:"City" }}
+                </div>
+                <div class="report-title">{{ assessment_type.name }} Report - {{ term }}</div>
+            </div>
+            <div>
+                {% if school.school_logo %}
+                    <img src="{{ school.school_logo.url }}" alt="School Logo" aria-label="School Logo">
+                {% else %}
+                    <img src="{% static 'images/default_logo.png' %}" alt="Default School Logo" aria-label="Default School Logo">
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- Term Filter -->
+        <form class="term-filter" method="get" aria-labelledby="term-filter-label">
+            <label id="term-filter-label" for="term-id">Select Term:</label>
+            <select name="term_id" id="term-id" onchange="this.form.submit()" aria-describedby="term-filter-label">
+                <option value="" {% if not selected_term_id %}selected{% endif %}>Select Term</option>
+                {% for term in terms %}
+                <option value="{{ term.id }}" {% if selected_term_id == term.id|stringformat:"s" %}selected{% endif %}>{{ term.term }}</option>
+                {% endfor %}
+            </select>
+            <span class="selected-term">{{ term }}</span>
+        </form>
+
+        <!-- Student Info -->
+        <section class="student-info">
+            <div class="info-line">
+                <div>Name: <span>{{ student.student_name|default:"John Doe" }}</span></div>
+                <div>Class: <span>{{ student.current_class.name|default:"N/A" }} {{ student.stream.stream|default:"" }}</span></div>
+            </div>
+            <div class="info-line">
+                <div>Academic Year: <span>{{ academic_year|default:"N/A" }}</span></div>
+                <div>Term: <span>{{ term|default:"N/A" }}</span></div>
+            </div>
+            <div class="info-line">
+                <div>Number of Students: <span>{{ number_of_students|default:"-" }}</span></div>
+            </div>
+        </section>
+
+        <!-- Performance Table -->
+        <table class="report-table" aria-label="{{ assessment_type.name }} Performance Report">
+            <thead>
+                <tr>
+                    <th scope="col">No.</th>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Score (%)</th>
+                    <th scope="col">Grade</th>
+                    <th scope="col">Points</th>
+                    <th scope="col">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in summary %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ row.subject }}</td>
+                    <td>{{ row.average|floatformat:1|default:"-" }}</td>
+                    <td>{{ row.grade|default:"-" }}</td>
+                    <td>{{ row.points|default:"-" }}</td>
+                    <td>
+                        <ul class="list-unstyled mb-0">
+                            {% for r in row.details %}
+                            <li>{{ r.score }}%</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr>
+                    <td colspan="2"><strong>Total</strong></td>
+                    <td><strong>{{ overall_average|floatformat:1|default:"-" }}</strong></td>
+                    <td><strong>{{ overall_grade|default:"-" }}</strong></td>
+                    <td><strong>{{ overall_points|default:"-" }}</strong></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Footer Notes & Signatures -->
+        <footer class="signature-section">
+            <p>Next Term Begins On: ............................................................</p>
+            <p>Discipline: ............................................................................................</p>
+
+            <div class="signature-grid">
+                <div>
+                    <div class="signature-line"></div>
+                    <p>Class Teacher Signature</p>
+                </div>
+                <div>
+                    <div class="signature-line"></div>
+                    <p>School Director Signature</p>
+                </div>
+            </div>
+
+            <p class="text-center">School Stamp: <span class="stamp-line"></span></p>
+        </footer>
     </div>
-</div>
-{% endblock %}
+</body>
+</html>
