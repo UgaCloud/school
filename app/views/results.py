@@ -20,117 +20,124 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 import tempfile
+from decimal import Decimal, InvalidOperation,ROUND_HALF_UP
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+from reportlab.lib.pagesizes import A4
+from django.utils import timezone
+from django.core.paginator import Paginator
+from app.selectors.results import get_grade_and_points, get_current_mode,get_performance_metrics, get_grade_from_average, calculate_weighted_subject_averages
+from app.utils.pdf_utils import generate_student_report_pdf
+from collections import defaultdict
+import logging
+logger = logging.getLogger(__name__)
 
 
 
-# Add Results View
 @login_required
 def add_results_view(request, assessment_id=None):
-    if assessment_id is None:
+    if not assessment_id:
         return redirect('class_assessment_list')
 
     assessment = get_object_or_404(Assessment, id=assessment_id)
     academic_class = assessment.academic_class
+
     class_registers = ClassRegister.objects.filter(academic_class_stream__academic_class=academic_class)
     students = [register.student for register in class_registers]
 
     existing_results = Result.objects.filter(assessment=assessment)
     existing_students = {result.student_id for result in existing_results}
-
-    # Prepare a list of students without results for this assessment
     students_without_results = [student for student in students if student.id not in existing_students]
+
+    current_mode = ResultModeSetting.get_mode()
 
     if request.method == "POST":
         if "edit_result" in request.POST:
-            # Handle editing an existing result
             result_id = request.POST.get("edit_result")
             result = get_object_or_404(Result, id=result_id, assessment=assessment)
             score = request.POST.get(f'score_{result.student.id}')
-            if score:
-                try:
-                    result.score = int(score)
-                    result.save()
-                    messages.success(request, f"Result for {result.student} updated successfully!")
-                except ValueError:
-                    messages.error(request, "Invalid score entered.")
-            return redirect(add_results_view, assessment_id=assessment.id)
+            try:
+                result.score = Decimal(score)
+                result.save()
+                messages.success(request, f"Result for {result.student} updated successfully!")
+            except (ValueError, TypeError, InvalidOperation):
+                messages.error(request, f"Invalid score entered for {result.student}.")
+            return redirect('add_results', assessment_id=assessment.id)
 
         elif "add_results" in request.POST:
-            # Handle adding new results
             with transaction.atomic():
                 bulk_results = []
                 for student in students_without_results:
                     score = request.POST.get(f'score_{student.id}')
-                    if score is not None:
+                    if score:
                         try:
-                            score = int(score)
-                        except ValueError:
-                            messages.error(request, f"Invalid score for student {student}.")
-                            return redirect(add_results_view, assessment_id=assessment.id)
+                            score = Decimal(score)
+                            bulk_results.append(Result(
+                                assessment=assessment,
+                                student=student,
+                                score=score
+                            ))
+                        except (ValueError, TypeError, InvalidOperation):
+                            messages.error(request, f"Invalid score for {student}.")
+                            return redirect('add_results', assessment_id=assessment.id)
 
-                        bulk_results.append(Result(
-                            assessment=assessment,
-                            student=student,
-                            score=score
-                        ))
-
-                # Bulk create results
                 Result.objects.bulk_create(bulk_results)
                 messages.success(request, "New results added successfully!")
-                return redirect(add_results_view, assessment_id=assessment.id)
+            return redirect('add_results', assessment_id=assessment.id)
 
     context = {
         'assessment': assessment,
         'students_without_results': students_without_results,
         'existing_results': existing_results,
+        'current_mode': current_mode,
     }
     return render(request, 'results/add_results_page.html', context)
 
 
-
-#Edit Results view
 @login_required
 def edit_results_view(request, assessment_id=None, student_id=None):
-    if assessment_id is None:
-        return redirect(list_assessments_view)
-    assessment = Assessment.objects.get(id=assessment_id)
+    if not assessment_id:
+        return redirect('class_assessment_list')
+
+    assessment = get_object_or_404(Assessment, id=assessment_id)
     academic_class = assessment.academic_class
     class_registers = ClassRegister.objects.filter(academic_class_stream__academic_class=academic_class)
-    students = [class_register.student for class_register in class_registers]
+    all_students = [register.student for register in class_registers]
 
-    if student_id is not None:
+    if student_id:
         student = get_object_or_404(Student, id=student_id)
         results = Result.objects.filter(assessment=assessment, student=student)
+        form_students = [student]
     else:
         results = Result.objects.filter(assessment=assessment)
+        form_students = all_students
 
     ResultFormSet = modelformset_factory(Result, form=ResultForm, extra=0)
 
     if request.method == "POST":
-        with transaction.atomic():
-            formset = ResultFormSet(request.POST)
-            if formset.is_valid():
+        formset = ResultFormSet(request.POST, queryset=results)
+        if formset.is_valid():
+            with transaction.atomic():
                 for form in formset:
                     form.instance.assessment = assessment
-                    if student_id is not None:
+                    if student_id:
                         form.instance.student = student
                 formset.save()
-                messages.success(request, SUCCESS_EDIT_MESSAGE)
-                return redirect('add_results', assessment_id=assessment_id) 
-            else:
-                messages.error(request, FAILURE_MESSAGE)
+                messages.success(request, "Results updated successfully!")
+                return redirect('add_results', assessment_id=assessment_id)
+        else:
+            messages.error(request, "There was a problem with your input. Please check the form.")
     else:
         formset = ResultFormSet(queryset=results)
 
-    if student_id is not None:
-        zipped_forms = list(zip(formset.forms, [student]))
-    else:
-        zipped_forms = list(zip(formset.forms, students))
+    zipped_forms = zip(formset.forms, form_students)
+    current_mode = ResultModeSetting.get_mode()
 
     context = {
         'assessment': assessment,
         'formset': formset,
         'zipped_forms': zipped_forms,
+        'current_mode': current_mode,
     }
     return render(request, 'results/edit_results_page.html', context)
 
@@ -163,7 +170,6 @@ def class_assessment_list_view(request):
             classes = Class.objects.none()
 
     return render(request, 'results/class_assessments.html', {'classes': classes})
-
 
 
 #List of Assessments basing on specific academic_class
@@ -201,7 +207,6 @@ def list_assessments_view(request, class_id):
 
 
 
-
 #Grading System
 @login_required
 def grading_system_view(request):
@@ -224,7 +229,6 @@ def grading_system_view(request):
     }
 
     return render(request, 'results/grading_system.html', context)
-
 
 #Edit grading system
 @login_required
@@ -317,10 +321,6 @@ def delete_assessment_view(request,id):
 
 
 
-
-
-
-
 @login_required
 def assesment_type_view(request):
     if request.method == "POST":
@@ -372,245 +372,321 @@ def delete_assesment_view(request, id):
     
     return redirect(assesment_type_view)
 
+def class_result_filter_view(request):
+    # Fetch all AcademicYear and AcademicClassStream objects
+    years = AcademicYear.objects.all()
+    academic_class_streams = AcademicClassStream.objects.select_related(
+        'academic_class', 'stream', 'academic_class__Class', 'academic_class__academic_year'
+    ).all()
+
+    # Get selected parameters from GET request
+    selected_year = request.GET.get('year_id')
+    selected_class_stream = request.GET.get('class_stream_id')
+
+    # Initialize students queryset as empty
+    students = Student.objects.none()
+    no_students_message = None
+
+    # Filter students if both year and class stream are selected
+    if selected_year and selected_class_stream:
+        class_registers = ClassRegister.objects.filter(
+            academic_class_stream_id=selected_class_stream,
+            academic_class_stream__academic_class__academic_year_id=selected_year
+        )
+        students = Student.objects.filter(id__in=class_registers.values('student_id')).order_by('student_name')
+
+        if not students.exists():
+            no_students_message = "No students found matching your criteria."
+
+    context = {
+        'years': years,
+        'academic_class_streams': academic_class_streams,
+        'selected_year': selected_year,
+        'selected_class_stream': selected_class_stream,
+        'students': students,
+        'no_students_message': no_students_message,
+    }
+    return render(request, 'results/class_stream_filter.html', context)
 
 
-def get_grade_and_points(final_score):
-    grading_system = GradingSystem.objects.all()
+
+
+@login_required
+def student_performance_view(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    terms = Term.objects.filter(academic_year=student.academic_year)  
+    assessment_types = AssessmentType.objects.all()  
+    selected_term = request.GET.get("term_id")
+    selected_assessment = request.GET.get("assessment_type")
     
-    for grade in grading_system:
-        if grade.min_score <= final_score <= grade.max_score:
-            return grade.grade, grade.points
+    # Filter assessments by term and assessment type if selected
+    assessments = Result.objects.filter(student=student).select_related(
+        'assessment__subject',
+        'assessment__assessment_type',
+        'assessment__academic_class__term'
+    ).order_by('assessment__date')
     
-    return "F9", 9
-
-
-
-def get_student_results(class_id=None, student_id=None,academic_year_id=None,term_id=None):
-    results = Result.objects.select_related(
-        'assessment', 'student', 'assessment__assessment_type', 'assessment__subject','assessment__academic_class','assessment__academic_class__term'
-    )
+    if selected_term:
+        assessments = assessments.filter(assessment__academic_class__term_id=selected_term)
+    if selected_assessment:
+        assessments = assessments.filter(assessment__assessment_type_id=selected_assessment)
     
+    academic_class = AcademicClass.objects.filter(
+        Class=student.current_class,
+        academic_year=student.academic_year,
+        term=student.term
+    ).first()
     
-    if class_id:
-        results = results.filter(student__current_class__academicclass__id=class_id)
+    academic_class_stream = AcademicClassStream.objects.filter(
+        academic_class=academic_class,
+        stream=student.stream
+    ).first() if academic_class else None
     
+    performance_metrics = get_performance_metrics(assessments)
+    subject_averages = calculate_weighted_subject_averages(assessments)
     
-    if student_id:
-        results = results.filter(student_id=student_id)
+    subject_progress = {}
+    for subject in set(r.assessment.subject.name for r in assessments):
+        subject_scores = [(r.assessment.date, r.score) for r in assessments if r.assessment.subject.name == subject]
+        subject_scores.sort(key=lambda x: x[0])
+        progress = subject_scores[-1][1] - subject_scores[0][1] if len(subject_scores) > 1 else 0  # Fixed typo
+        subject_progress[subject] = {
+            'scores': subject_scores,
+            'progress': progress,
+            'trend': 'up' if progress > 0 else 'down' if progress < 0 else 'stable'
+        }
     
-    if academic_year_id:
-        results = results.filter(assessment__academic_class__academic_year_id=academic_year_id)
-
-    if term_id:
-        results = results.filter(assessment__academic_class__term_id=term_id)
-
-    student_results = {}
-
-    for result in results:
-        student_name = result.student.student_name
-        student_id = result.student.id  # Capture the student ID
-        subject_name = result.assessment.subject.name
-        assessment_type = result.assessment.assessment_type.name
-
-        if student_name not in student_results:
-            student_results[student_name] = {'student_id': student_id}
-
-        if subject_name not in student_results[student_name]:
-            student_results[student_name][subject_name] = {
-                'BOT': 0,
-                'MOT': 0,
-                'EOT': 0,
-                'final_score': 0,
-                'grade': None,
-                'points': 0
+    combined_subject_data = []
+    for subject_avg in subject_averages:
+        subject_name = subject_avg['subject']
+        progress_data = subject_progress.get(subject_name, {'progress': 0, 'trend': 'stable', 'scores': []})
+        combined_subject_data.append({
+            **subject_avg,
+            'progress': progress_data['progress'],
+            'trend': progress_data['trend'],
+            'scores': progress_data['scores'],
+        })
+    
+    highest_subject = max(combined_subject_data, key=lambda s: s['average'], default=None)
+    lowest_subject = min(combined_subject_data, key=lambda s: s['average'], default=None)
+    
+    performance_data = [
+        {
+            'score': float(performance_metrics['average']),
+            'label': 'Overall Average Score',
+            'icon': 'calculator',
+            'type': 'avg',
+            'subject': None
+        },
+        {
+            'score': float(highest_subject['average']) if highest_subject else 0,
+            'label': 'Best Performing Subject',
+            'icon': 'trophy',
+            'type': 'high',
+            'subject': highest_subject['subject'] if highest_subject else 'N/A'
+        },
+        {
+            'score': float(lowest_subject['average']) if lowest_subject else 0,
+            'label': 'Lowest Performing Subject',
+            'icon': 'exclamation-triangle',
+            'type': 'low',
+            'subject': lowest_subject['subject'] if lowest_subject else 'N/A'
+        },
+    ]
+    
+    assessment_data, assessment_dates = [], []
+    grouped_assessments = {}
+    for assessment in assessments:
+        key = (assessment.assessment.date, assessment.assessment.assessment_type.name)
+        grouped_assessments.setdefault(key, []).append(assessment)
+    
+    for (date, assessment_type), results in grouped_assessments.items():
+        best_subject = max(results, key=lambda x: x.score)
+        assessment_dates.append(date)
+        assessment_data.append({
+            'date': date,
+            'type': assessment_type,
+            'best_subject': {
+                'name': best_subject.assessment.subject.name,
+                'score': best_subject.score,
+            },
+            'subjects': {r.assessment.subject.name: r.score for r in results}
+        })
+    
+    # Get selected term and assessment type names for print view
+    selected_term_name = Term.objects.filter(id=selected_term).first().term if selected_term else "All Terms"
+    selected_assessment_name = AssessmentType.objects.filter(id=selected_assessment).first().name if selected_assessment else "All Assessment Types"
+    
+    context = {
+        "student": {
+            "obj": student,
+            "details": {
+                "full_name": student.student_name,
+                "registration_number": student.reg_no,
+                "class_info": f"{student.current_class.name} {student.stream.stream}",
+                "academic_year": student.academic_year,
+                "birthdate": student.birthdate,
+                "gender": student.get_gender_display(),
+                "nationality": student.get_nationality_display(),
+                "religion": student.get_religion_display(),
+                "guardian": student.guardian,
+                "relationship": student.relationship,
+                "contact": student.contact,
+                "email": getattr(student, 'email', 'N/A'),
+                "address": student.address,
+                "photo_url": student.photo.url if student.photo else '/static/images/default-student.jpg'
             }
-
-        if assessment_type == 'BOT':
-            student_results[student_name][subject_name]['BOT'] = result.actual_score
-        elif assessment_type == 'MOT':
-            student_results[student_name][subject_name]['MOT'] = result.actual_score
-        elif assessment_type == 'EOT':
-            student_results[student_name][subject_name]['EOT'] = result.actual_score
-
-    # Calculate grades and totals
-    for student_name, subjects in student_results.items():
-        total_final_score = 0
-        total_points = 0
-
-        for subject_name, data in subjects.items():
-            if subject_name != 'student_id':
-                final_score = data['BOT'] + data['MOT'] + data['EOT']
-                final_score = min(final_score, 100)
-                data['final_score'] = int(round(final_score))
-
-                grade, points = get_grade_and_points(data['final_score'])
-                data['grade'] = grade
-                data['points'] = points
-
-                total_final_score += data['final_score']
-                total_points += data['points']
-
-        student_results[student_name]['total_final_score'] = total_final_score
-        student_results[student_name]['total_points'] = total_points
-
-    return student_results
-
-@login_required
-def result_list(request):
-    class_id = request.GET.get('class_id')
-    academic_year_id = request.GET.get('academic_year_id')
-    term_id = request.GET.get('term_id')
-
-    selected_class_id = class_id
-    selected_academic_year_id = academic_year_id
-    selected_term_id = term_id
-
-    classes = AcademicClass.objects.all()
-    academic_years = AcademicYear.objects.all()
-    terms = Term.objects.all()
-
-    student_results = get_student_results(
-        class_id=class_id,
-        academic_year_id=academic_year_id,
-        term_id=term_id
-    )
-
-    return render(request, 'results/results_list.html', {
-        'student_results': student_results,
-        'classes': classes,
-        'academic_years': academic_years,
-        'terms': terms,
-        'selected_class_id': selected_class_id,
-        'selected_academic_year_id': selected_academic_year_id,
-        'selected_term_id': selected_term_id,
-    })
-
-@login_required
-def student_report_card(request, student_id):
-    student = get_object_or_404(Student, id=student_id)
-    results = Result.objects.filter(student=student)
-
-    # Get the current term
-    current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
-
-    # Fetch assessment types with weights
-    assessment_types = AssessmentType.objects.values('name', 'weight')
-
-    # Organize report data
-    report_data = {}
-    total_final_score = 0
-    total_points = 0
-
-    for result in results:
-        assessment = result.assessment
-        assessment_type = assessment.assessment_type.name
-        subject_name = assessment.subject.name
-
-        # Initialize subject if not already present in report_data
-        if subject_name not in report_data:
-            report_data[subject_name] = {'BOT': 0, 'MOT': 0, 'EOT': 0, 'final_score': 0, 'grade': None, 'points': 0}
-
-        # Assign scores to the correct assessment type
-        if assessment_type == 'BOT':
-            report_data[subject_name]['BOT'] = result.actual_score
-        elif assessment_type == 'MOT':
-            report_data[subject_name]['MOT'] = result.actual_score
-        elif assessment_type == 'EOT':
-            report_data[subject_name]['EOT'] = result.actual_score
-
-    # Calculate grades and totals after all data is collected
-    for subject_name, data in report_data.items():
-        final_score = data['BOT'] + data['MOT'] + data['EOT']
-        final_score = min(final_score, 100)  # Ensure final score does not exceed 100
-        grade, points = get_grade_and_points(final_score)
-
-        data['final_score'] = int(round(final_score))
-        data['grade'] = grade
-        data['points'] = points
-
-        # Accumulate totals
-        total_final_score += data['final_score']
-        total_points += data['points']
-
-    # Fetch school settings
-    school_settings = SchoolSetting.objects.first()
-    signatures = Signature.objects.filter(position__in=["HEAD TEACHER", "DIRECTOR OF STUDIES"])
+        },
+        "terms": terms,
+        "assessment_types": assessment_types,
+        "assessments": performance_metrics['ordered_assessments'],
+        "performance_data": performance_data,
+        "subject_averages": combined_subject_data,
+        "selected_term": selected_term,
+        "selected_term_name": selected_term_name,
+        "selected_assessment": selected_assessment,
+        "selected_assessment_name": selected_assessment_name,
+        "assessment_data": assessment_data,
+        "subject_progress": subject_progress,
+    }
     
+    return render(request, "results/student_performance.html", context)
 
-    return render(request, 'results/student_report_card.html', {
-        'student': student,
-        'report_data': report_data,
-        'total_final_score': total_final_score,
-        'total_points': total_points,
-        'assessment_types': assessment_types,
-        'current_term': current_term,
-        'school_setting': school_settings,
-        'signatures': signatures,
-
-    })
 
 @login_required
-def generate_termly_report_pdf(request, student_id):
+def student_assessment_type_report(request, student_id, assessment_type_id):
     student = get_object_or_404(Student, id=student_id)
-    results = Result.objects.filter(student=student)
-
-    # Get the current term
-    current_term = Term.objects.filter(is_current=True).select_related('academic_year').first()
-
-    # Organize report data
-    report_data = {}
-    total_final_score = 0
-    total_points = 0
-
+    assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
+    results = Result.objects.filter(
+        student=student,
+        assessment__assessment_type=assessment_type
+    ).select_related('assessment__subject')
+    
+    subject_scores = {}
     for result in results:
-        assessment = result.assessment
-        assessment_type = assessment.assessment_type.name
-        subject_name = assessment.subject.name
+        subject = result.assessment.subject.name
+        if subject not in subject_scores:
+            subject_scores[subject] = {
+                'scores': [],
+                'total': Decimal('0.0'),
+                'count': 0
+            }
+        subject_scores[subject]['scores'].append(result)
+        subject_scores[subject]['total'] += Decimal(str(result.score))
+        subject_scores[subject]['count'] += 1
+    
+    summary = []
+    for subject, data in subject_scores.items():
+        avg = (data['total'] / data['count']).quantize(Decimal('0.01')) if data['count'] else Decimal('0.00')
+        grade, points = get_grade_and_points(avg)
+        summary.append({
+            'subject': subject,
+            'average': float(avg),
+            'grade': grade,
+            'points': points,
+            'details': data['scores']
+        })
+    
+    context = {
+        'student': student,
+        'assessment_type': assessment_type,
+        'summary': summary,
+    }
+    
+    return render(request, 'results/student_assessment_report.html', context)
 
-        # Initialize subject if not already present in report_data
-        if subject_name not in report_data:
-            report_data[subject_name] = {'BOT': 0, 'MOT': 0, 'EOT': 0, 'final_score': 0, 'grade': None, 'points': 0}
 
-        # Assign scores to the correct assessment type
-        if assessment_type == 'BOT':
-            report_data[subject_name]['BOT'] = result.actual_score
-        elif assessment_type == 'MOT':
-            report_data[subject_name]['MOT'] = result.actual_score
-        elif assessment_type == 'EOT':
-            report_data[subject_name]['EOT'] = result.actual_score
-
-    # Calculate grades and totals after all data is collected
-    for subject_name, data in report_data.items():
-        final_score = data['BOT'] + data['MOT'] + data['EOT']
-        final_score = min(final_score, 100)  # Ensure final score does not exceed 100
-        grade, points = get_grade_and_points(final_score)
-
-        data['final_score'] = int(round(final_score))
-        data['grade'] = grade
-        data['points'] = points
-
-        # Accumulate totals
-        total_final_score += data['final_score']
-        total_points += data['points']
-
-    # Render the HTML content
-    html_string = render_to_string('results/student_report_card.html', {
+@login_required
+def student_term_report(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    school = SchoolSetting.load()
+    
+    # Get selected term (default to student's current term)
+    selected_term_id = request.GET.get('term_id', student.term.id if student.term else None)
+    terms = Term.objects.filter(academic_year=student.academic_year)  # Terms for student's academic year
+    
+    # Filter results by term
+    results = Result.objects.filter(
+        student=student,
+        assessment__academic_class__term_id=selected_term_id
+    ).select_related(
+        'assessment__subject',
+        'assessment__assessment_type',
+        'assessment__academic_class__term'
+    ).order_by('assessment__subject__name', 'assessment__assessment_type__name')
+    
+    # Get all assessment types for the table
+    assessment_types = AssessmentType.objects.all().order_by('name')
+    
+    # Organize results by subject and assessment type
+    subject_summary = {}
+    total_marks = Decimal('0.0')
+    total_weight = Decimal('0.0')
+    
+    for result in results:
+        subject = result.assessment.subject.name
+        assessment_type = result.assessment.assessment_type.name
+        weight = Decimal(str(result.assessment.assessment_type.weight or 1))
+        score = Decimal(str(result.score))
+        
+        if subject not in subject_summary:
+            subject_summary[subject] = {
+                'assessments': {},
+                'total_score': Decimal('0.0'),
+                'total_weight': Decimal('0.0')
+            }
+        
+        # Store score and grade for each assessment type
+        grade, points = get_grade_and_points(score)
+        subject_summary[subject]['assessments'][assessment_type] = {
+            'score': float(score),
+            'grade': grade,
+            'points': points
+        }
+        subject_summary[subject]['total_score'] += score * weight
+        subject_summary[subject]['total_weight'] += weight
+        total_marks += score * weight
+        total_weight += weight
+    
+    # Prepare report data with averages and grades
+    report_data = []
+    for subject, data in subject_summary.items():
+        avg = (data['total_score'] / data['total_weight']).quantize(Decimal('0.01')) if data['total_weight'] else Decimal('0.00')
+        grade, points = get_grade_and_points(avg)
+        report_data.append({
+            'subject': subject,
+            'average': float(avg),
+            'grade': grade,
+            'points': points,
+            'assessments': {at.name: data['assessments'].get(at.name, {'score': '-', 'grade': '-', 'points': '-'}) for at in assessment_types}
+        })
+    
+    # Calculate overall average and grade
+    overall_average = (total_marks / total_weight).quantize(Decimal('0.01')) if total_weight else Decimal('0.00')
+    overall_grade, overall_points = get_grade_and_points(overall_average)
+    
+    # Student and report details
+    number_of_students = ClassRegister.objects.filter(
+        academic_class_stream__academic_class__term_id=selected_term_id,
+        academic_class_stream__stream=student.stream
+    ).count() or 25  # Fallback to 25 if no data
+    academic_year = student.academic_year.academic_year if student.academic_year else "-"
+    term = Term.objects.filter(id=selected_term_id).first().term if selected_term_id else "-"
+    
+    context = {
+        'school': school,
         'student': student,
         'report_data': report_data,
-        'total_final_score': total_final_score,
-        'total_points': total_points,
-        'current_term': current_term,
-    })
-
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="{student.student_name}_Termly_Report.pdf"'
-
-    pdf_output = BytesIO()
-    pisa_status = pisa.CreatePDF(html_string, dest=pdf_output)
-
-    if pisa_status.err:
-        return HttpResponse('We had some errors while generating your PDF', status=400)
-
-    pdf_output.seek(0)
-    response.write(pdf_output.read())
-    return response
+        'assessment_types': assessment_types,
+        'term': term,
+        'academic_year': academic_year,
+        'total_marks': float(total_marks),
+        'overall_average': float(overall_average),
+        'overall_grade': overall_grade,
+        'overall_points': overall_points,
+        'number_of_students': number_of_students,
+        'selected_term_id': selected_term_id,
+        'terms': terms,
+    }
+    
+    return render(request, 'results/student_term_report.html', context)

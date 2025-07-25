@@ -15,7 +15,7 @@
     <link href="{% static 'vendors/bootstrap/dist/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-
+   <link href="{% static 'css/custom_overrides.css' %}" rel="stylesheet">
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -383,9 +383,8 @@
 
     <!-- Custom Theme Scripts -->
     <script src="{% static 'build/js/custom.min.js' %}"></script>
-
-    <!-- Datatables -->
-    <!-- Datatables -->
+<!-- At the end of base.html, before </body> -->
+<!-- DataTables and Dependencies -->
 <script src="{% static 'vendors/datatables.net/js/jquery.dataTables.min.js' %}"></script>
 <script src="{% static 'vendors/datatables.net-bs/js/dataTables.bootstrap.min.js' %}"></script>
 <script src="{% static 'vendors/datatables.net-buttons/js/dataTables.buttons.min.js' %}"></script>
@@ -401,34 +400,152 @@
 <script src="{% static 'vendors/jszip/dist/jszip.min.js' %}"></script>
 <script src="{% static 'vendors/pdfmake/build/pdfmake.min.js' %}"></script>
 <script src="{% static 'vendors/pdfmake/build/vfs_fonts.js' %}"></script>
-<script>
-  $(document).ready(function() {
-    $('.datatable').DataTable({
-      responsive: true,
-      paging: true,
-      searching: true,
-      ordering: true,
-      fixedHeader: true,
-      language: {
-        search: "_INPUT_",
-        searchPlaceholder: "Search...",
-        lengthMenu: "Show _MENU_ entries per page"
-      },
-      columnDefs: [
-        { orderable: false, targets: -1 } // disables sorting on last column (e.g., Action column)
-      ]
-    });
-  });
-</script>
 
 <style>
-  .table {
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 0 15px rgba(39, 41, 93, 0.1);
-  }
-  </style>
-  
+    /* Unified Table Styling */
+    .table {
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 0 15px rgba(39, 41, 93, 0.1);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #ffffff;
+    }
 
-  </body>
+    .table th,
+    .table td {
+        border: 1px solid #e5e7eb;
+        padding: 0.75rem;
+        text-align: left;
+        vertical-align: middle;
+    }
+
+    .table th {
+        background: #2c3e50;
+        color: #ffffff;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        text-align: center;
+    }
+
+    .table tbody tr:nth-child(even) {
+        background: #f9fafb;
+    }
+
+    .table tbody tr:hover {
+        background: #eff6ff;
+        transition: background 0.2s ease;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+        border-radius: 4px;
+        margin: 0 2px;
+        padding: 0.25rem 0.5rem;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color:  #2c3e50;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+        background: #2c3e50;
+        color: #ffffff;
+        border: 1px solid  #2c3e50;
+    }
+
+    .dataTables_wrapper .dataTables_filter input {
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        padding: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .dataTables_wrapper .dataTables_length select {
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        padding: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    .dt-buttons .btn {
+        border-radius: 4px;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        margin-right: 0.5rem;
+    }
+
+    @media print {
+        .table {
+            box-shadow: none;
+            border: 1px solid #d1d5db;
+        }
+        .table tbody tr:hover {
+            background: inherit;
+        }
+        .dataTables_wrapper .dataTables_paginate,
+        .dataTables_wrapper .dataTables_filter,
+        .dataTables_wrapper .dataTables_length,
+        .dt-buttons {
+            display: none;
+        }
+    }
+
+    @media screen and (max-width: 768px) {
+        .table {
+            font-size: 0.75rem;
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .table th,
+        .table td {
+            padding: 0.5rem;
+            min-width: 100px;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.65rem;
+        }
+        .dataTables_wrapper .dataTables_filter input,
+        .dataTables_wrapper .dataTables_length select {
+            font-size: 0.75rem;
+        }
+    }
+</style>
+
+<script>
+$(document).ready(function() {
+    // Initialize DataTables only for tables with .datatable class that aren't already initialized
+    $('.datatable').each(function() {
+        if (!$.fn.dataTable.isDataTable(this)) {
+            $(this).DataTable({
+                responsive: true,
+                paging: true,
+                searching: true,
+                ordering: true,
+                fixedHeader: true,
+                buttons: [
+                    { extend: 'csv', text: 'Export CSV', className: 'btn btn-outline-primary' },
+                    { extend: 'pdf', text: 'Export PDF', className: 'btn btn-outline-primary' },
+                    { extend: 'print', text: 'Print', className: 'btn btn-outline-primary' }
+                ],
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search...",
+                    lengthMenu: "Show _MENU_ entries per page"
+                },
+                columnDefs: [
+                    { orderable: false, targets: -1 } // Disable sorting on last column (e.g., Action)
+                ],
+                dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                     '<"row"<"col-sm-12"B>>' +
+                     '<"row"<"col-sm-12"tr>>' +
+                     '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>'
+            });
+        }
+    });
+});
+</script>
+
+</body>
 </html>

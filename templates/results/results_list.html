@@ -1,111 +1,95 @@
 {% extends 'base.html' %}
-
+{% load static %}
 {% block content %}
-<div class="container mt-4">
-    <h2>Student Results</h2>
+<div class="container my-4">
 
-    <!-- Filter Form -->
-    <form method="get" class="form-inline mb-4" id="filter-form">
-        <label for="class_id" class="mr-2">Select Class:</label>
-        <select name="class_id" id="class_id" class="form-control mr-2" onchange="submitForm()">
-            <option value="">All Classes</option>
-            {% for classe in classes %}
-                <option value="{{ classe.id }}" {% if classe.id|stringformat:"s" == selected_class_id %}selected{% endif %}>
-                    {{ classe.Class.name }}  <!-- This references the 'Class' model's 'name' field -->
-                </option>
-            {% empty %}
-                <option disabled>No classes available</option>
-            {% endfor %}
-        </select>
-        
-    
-        <!-- Academic Year Dropdown -->
-        <select name="academic_year_id" id="academic_year_id" class="form-control mr-2" onchange="submitForm()">
-            <option value="">All Years</option>
-            {% for academic_year in academic_years %}
-                <option value="{{ academic_year.id }}" {% if academic_year.id|stringformat:"s" == selected_academic_year_id %}selected{% endif %}>
-                    {{ academic_year.academic_year }}
-                </option>
-            {% empty %}
-                <option disabled>No academic years available</option>
-            {% endfor %}
-        </select>
+  <h2 class="mb-4">Results Center</h2>
 
-        <!-- Term Dropdown -->
-        <select name="term_id" id="term_id" class="form-control mr-2" onchange="submitForm()">
-            <option value="">All Terms</option>
-            {% for term in terms %}
-                <option value="{{ term.id }}" {% if term.id|stringformat:"s" == selected_term_id %}selected{% endif %}>
-                    {{ term.term }}
-                </option>
-            {% empty %}
-                <option disabled>No terms available</option>
-            {% endfor %}
-        </select>
-    </form>
-    
-    <script>
-        function submitForm() {
-            document.getElementById('filter-form').submit();
-        }
-    </script>
-
-    <!-- Display Student Results -->
-    {% if student_results %}
-        {% for student, subjects in student_results.items %}
-        <div class="student-section mb-5">
-            <h4><strong>{{ student }}</strong></h4>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Subject</th>
-                        <th>BOT</th>
-                        <th>MOT</th>
-                        <th>EOT</th>
-                        <th>Final Score</th>
-                        <th>Grade</th>
-                        <th>Points</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for subject, data in subjects.items %}
-                        {% if subject != 'total_final_score' and subject != 'total_points' and subject != 'student_id' %}
-                        <tr>
-                            <td>{{ subject }}</td>
-                            <td>{{ data.BOT }}</td>
-                            <td>{{ data.MOT }}</td>
-                            <td>{{ data.EOT }}</td>
-                            <td>{{ data.final_score }}</td>
-                            <td>{{ data.grade }}</td>
-                            <td>{{ data.points }}</td>
-                        </tr>
-                        {% endif %}
-                    {% endfor %}
-                    <!-- Total row for Final Score and Points -->
-                    <tr>
-                        <td><strong>Total</strong></td>
-                        <td></td> <!-- Empty cell for BOT -->
-                        <td></td> <!-- Empty cell for MOT -->
-                        <td></td> <!-- Empty cell for EOT -->
-                        <td><strong>{{ subjects.total_final_score }}</strong></td>
-                        <td></td> <!-- Empty cell for Grade -->
-                        <td><strong>{{ subjects.total_points }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <!-- Single "View Report Card" button -->
-            <div class="text-right mt-2">
-                <a href="{% url 'report_card' student_id=subjects.student_id %}" class="btn btn-primary">
-                    View Report Card
-                </a>
-            </div>
-        </div>
+  <!-- Filter Form -->
+  <form method="get" class="row g-3 mb-4">
+    <div class="col-md-3">
+      <label class="form-label">Class</label>
+      <select name="class_id" class="form-control" required>
+        <option value="">-- Select Class --</option>
+        {% for cls in classes %}
+        <option value="{{ cls.id }}" {% if cls.id|stringformat:"s" == selected_class_id %}selected{% endif %}>{{ cls.name }}</option>
         {% endfor %}
-    {% else %}
-        <div class="alert alert-warning" role="alert">
-            No results available 
-        </div>
-    {% endif %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Term</label>
+      <select name="term_id" class="form-control" required>
+        <option value="">-- Select Term --</option>
+        {% for term in terms %}
+        <option value="{{ term.id }}" {% if term.id|stringformat:"s" == selected_term_id %}selected{% endif %}>{{ term.term }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Academic Year</label>
+      <select name="academic_year_id" class="form-control" required>
+        <option value="">-- Select Year --</option>
+        {% for year in academic_years %}
+        <option value="{{ year.id }}" {% if year.id|stringformat:"s" == selected_academic_year_id %}selected{% endif %}>{{ year.academic_year }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 align-self-end">
+      <button type="submit" class="btn btn-primary w-100">Filter</button>
+    </div>
+  </form>
+
+  {% if student_results_page %}
+  <!-- Results Table -->
+  <div class="table-responsive">
+    <table class="table table-striped table-bordered">
+      <thead class="table-dark">
+        <tr>
+          <th>#</th>
+          <th>Student Name</th>
+          <th>Total Score</th>
+          <th>Total Points</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for student_name, result_data in student_results_page %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ student_name }}</td>
+          <td>{{ result_data.total_final_score }}</td>
+          <td>{{ result_data.total_points }}</td>
+          <td>
+            <a href="{% url 'student_performance_detail' result_data.student_id %}?term_id={{ selected_term_id }}&academic_year_id={{ selected_academic_year_id }}" class="btn btn-sm btn-info">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <nav aria-label="Page navigation">
+    <ul class="pagination">
+      {% if student_results_page.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ student_results_page.previous_page_number }}&class_id={{ selected_class_id }}&term_id={{ selected_term_id }}&academic_year_id={{ selected_academic_year_id }}">Previous</a>
+        </li>
+      {% endif %}
+      <li class="page-item active"><span class="page-link">{{ student_results_page.number }}</span></li>
+      {% if student_results_page.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ student_results_page.next_page_number }}&class_id={{ selected_class_id }}&term_id={{ selected_term_id }}&academic_year_id={{ selected_academic_year_id }}">Next</a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+
+  {% else %}
+  <div class="alert alert-info">
+    Please select class, term, and academic year to view results.
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}

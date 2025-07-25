@@ -1,10 +1,12 @@
 import json
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from app.models import AcademicClassStream, TimeSlot, Timetable, Subject, Staff, Classroom, WeekDay
+from app.models.timetables import  TimeSlot, Timetable, Classroom, WeekDay
 from django.contrib.auth.decorators import login_required
 from app.models.accounts import StaffAccount
-from app.models.classes import ClassSubjectAllocation
+from app.models.subjects import Subject
+from app.models.staffs import Staff
+from app.models.classes import ClassSubjectAllocation,AcademicClassStream
 from collections import defaultdict
 from django.db.models import Q
 
