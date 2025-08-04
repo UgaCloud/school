@@ -15,3 +15,13 @@ def lookup(dictionary, key):
     Returns None if the key doesn't exist.
     """
     return dictionary.get(key)
+
+
+
+
+@register.filter
+def lookup(d, key):
+    if not isinstance(d, dict):
+        return None
+    return d.get(key, None)
+

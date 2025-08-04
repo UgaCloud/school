@@ -165,6 +165,7 @@ urlpatterns = [
     path('student/<int:student_id>/report/<int:assessment_type_id>/', student_assessment_type_report, name='student_mini_report'),
     # Consolidated Term Report
     path('student/<int:student_id>/term-report/', student_term_report, name='student_term_report'),
+    path('class-performance-summary/', class_performance_summary, name='class_performance_summary'),
     
 
 

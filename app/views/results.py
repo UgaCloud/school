@@ -33,24 +33,42 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
 @login_required
 def add_results_view(request, assessment_id=None):
     if not assessment_id:
         return redirect('class_assessment_list')
 
+    # Load the assessment and associated class
     assessment = get_object_or_404(Assessment, id=assessment_id)
     academic_class = assessment.academic_class
 
-    class_registers = ClassRegister.objects.filter(academic_class_stream__academic_class=academic_class)
-    students = [register.student for register in class_registers]
+    # Get all registers for the class
+    class_registers = ClassRegister.objects.filter(
+        academic_class_stream__academic_class=academic_class
+    ).select_related('student')  # Preload students to avoid extra DB hits
 
+    students = []
+    broken_registers = []
+
+    # Safely collect only valid students
+    for register in class_registers:
+        try:
+            students.append(register.student)
+        except Student.DoesNotExist:
+            broken_registers.append(register.id)
+            continue
+
+    if broken_registers:
+        messages.warning(request, f"Some class register entries are broken (missing student data). Contact admin.")
+
+    # Find existing results and determine who doesn't have one yet
     existing_results = Result.objects.filter(assessment=assessment)
-    existing_students = {result.student_id for result in existing_results}
-    students_without_results = [student for student in students if student.id not in existing_students]
+    existing_student_ids = {result.student_id for result in existing_results}
+    students_without_results = [s for s in students if s.id not in existing_student_ids]
 
     current_mode = ResultModeSetting.get_mode()
 
+    # Handle form submission
     if request.method == "POST":
         if "edit_result" in request.POST:
             result_id = request.POST.get("edit_result")
@@ -85,6 +103,7 @@ def add_results_view(request, assessment_id=None):
                 messages.success(request, "New results added successfully!")
             return redirect('add_results', assessment_id=assessment.id)
 
+    # Render the results form
     context = {
         'assessment': assessment,
         'students_without_results': students_without_results,
@@ -92,7 +111,6 @@ def add_results_view(request, assessment_id=None):
         'current_mode': current_mode,
     }
     return render(request, 'results/add_results_page.html', context)
-
 
 @login_required
 def edit_results_view(request, assessment_id=None, student_id=None):
@@ -410,7 +428,6 @@ def class_result_filter_view(request):
 
 
 
-
 @login_required
 def student_performance_view(request, student_id):
     student = get_object_or_404(Student, id=student_id)
@@ -447,9 +464,10 @@ def student_performance_view(request, student_id):
     
     subject_progress = {}
     for subject in set(r.assessment.subject.name for r in assessments):
-        subject_scores = [(r.assessment.date, r.score) for r in assessments if r.assessment.subject.name == subject]
-        subject_scores.sort(key=lambda x: x[0])
-        progress = subject_scores[-1][1] - subject_scores[0][1] if len(subject_scores) > 1 else 0  # Fixed typo
+        # Changed to use assessment_type.name instead of date
+        subject_scores = [(r.assessment.assessment_type.name, r.score) for r in assessments if r.assessment.subject.name == subject]
+        subject_scores.sort(key=lambda x: x[0])  # Sort by assessment_type name (alphabetically)
+        progress = subject_scores[-1][1] - subject_scores[0][1] if len(subject_scores) > 1 else 0
         subject_progress[subject] = {
             'scores': subject_scores,
             'progress': progress,
@@ -559,11 +577,11 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
     school = SchoolSetting.load()
     
-    # Optional: Filter by term (default to student's current term)
+    
     selected_term_id = request.GET.get('term_id', student.term.id if student.term else None)
     terms = Term.objects.filter(academic_year=student.academic_year) if student.academic_year else Term.objects.none()
     
-    # Filter results by assessment type and optional term
+    
     results = Result.objects.filter(
         student=student,
         assessment__assessment_type=assessment_type
@@ -633,17 +651,24 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     
     return render(request, 'results/student_assessment_report.html', context)
 
-
 @login_required
 def student_term_report(request, student_id):
     student = get_object_or_404(Student, id=student_id)
     school = SchoolSetting.load()
     
-    # Get selected term (default to student's current term)
-    selected_term_id = request.GET.get('term_id', student.term.id if student.term else None)
-    terms = Term.objects.filter(academic_year=student.academic_year)  # Terms for student's academic year
+    # Get all terms in the student's academic year
+    terms = Term.objects.filter(academic_year=student.academic_year).order_by('id')
     
-    # Filter results by term
+    # Get selected term_id from query param or default to student's current term
+    selected_term_id = request.GET.get('term_id')
+    if not selected_term_id:
+        selected_term_id = student.term.id if student.term else (terms.first().id if terms.exists() else None)
+    
+    # Defensive fallback if no terms
+    if not selected_term_id:
+        return render(request, 'results/no_terms.html', {'student': student})
+    
+    # Filter results for student and selected term
     results = Result.objects.filter(
         student=student,
         assessment__academic_class__term_id=selected_term_id
@@ -653,10 +678,9 @@ def student_term_report(request, student_id):
         'assessment__academic_class__term'
     ).order_by('assessment__subject__name', 'assessment__assessment_type__name')
     
-    # Get all assessment types for the table
     assessment_types = AssessmentType.objects.all().order_by('name')
     
-    # Organize results by subject and assessment type
+    # Prepare subject-wise summaries
     subject_summary = {}
     total_marks = Decimal('0.0')
     total_weight = Decimal('0.0')
@@ -674,7 +698,6 @@ def student_term_report(request, student_id):
                 'total_weight': Decimal('0.0')
             }
         
-        # Store score and grade for each assessment type
         grade, points = get_grade_and_points(score)
         subject_summary[subject]['assessments'][assessment_type] = {
             'score': float(score),
@@ -686,7 +709,6 @@ def student_term_report(request, student_id):
         total_marks += score * weight
         total_weight += weight
     
-    # Prepare report data with averages and grades
     report_data = []
     for subject, data in subject_summary.items():
         avg = (data['total_score'] / data['total_weight']).quantize(Decimal('0.01')) if data['total_weight'] else Decimal('0.00')
@@ -699,32 +721,173 @@ def student_term_report(request, student_id):
             'assessments': {at.name: data['assessments'].get(at.name, {'score': '-', 'grade': '-', 'points': '-'}) for at in assessment_types}
         })
     
-    # Calculate overall average and grade
     overall_average = (total_marks / total_weight).quantize(Decimal('0.01')) if total_weight else Decimal('0.00')
     overall_grade, overall_points = get_grade_and_points(overall_average)
     
-    # Student and report details
+    # Count students in the same stream and term
     number_of_students = ClassRegister.objects.filter(
         academic_class_stream__academic_class__term_id=selected_term_id,
         academic_class_stream__stream=student.stream
-    ).count() or 25  # Fallback to 25 if no data
+    ).count()
+    
     academic_year = student.academic_year.academic_year if student.academic_year else "-"
-    term = Term.objects.filter(id=selected_term_id).first().term if selected_term_id else "-"
+    term_obj = Term.objects.filter(id=selected_term_id).first()
+    term_name = term_obj.term if term_obj else "-"
+    
+    colspan = 2 + len(assessment_types) + 1
     
     context = {
         'school': school,
         'student': student,
         'report_data': report_data,
         'assessment_types': assessment_types,
-        'term': term,
+        'term': term_name,
         'academic_year': academic_year,
         'total_marks': float(total_marks),
         'overall_average': float(overall_average),
         'overall_grade': overall_grade,
         'overall_points': overall_points,
         'number_of_students': number_of_students,
-        'selected_term_id': selected_term_id,
+        'selected_term_id': str(selected_term_id),
         'terms': terms,
+        'colspan': colspan,
     }
     
     return render(request, 'results/student_term_report.html', context)
+
+
+
+
+@login_required
+def class_performance_summary(request):
+    school = SchoolSetting.load()
+    academic_years = AcademicYear.objects.all()
+    terms = Term.objects.all()
+    
+    # Get filters
+    selected_academic_year_id = request.GET.get('academic_year_id')
+    selected_term_id = request.GET.get('term_id')
+    
+    # Filter classes and results
+    classes = AcademicClass.objects.select_related('Class', 'academic_year', 'term').all()
+    if selected_academic_year_id:
+        classes = classes.filter(academic_year_id=selected_academic_year_id)
+    if selected_term_id:
+        classes = classes.filter(term_id=selected_term_id)
+    
+    # 1. Best Performing Student per Class
+    best_students = []
+    for academic_class in classes:
+        class_streams = AcademicClassStream.objects.filter(academic_class=academic_class).select_related('stream')
+        for class_stream in class_streams:
+            class_students = ClassRegister.objects.filter(
+                academic_class_stream=class_stream
+            ).values('student_id')
+            student_averages = []
+            for student in Student.objects.filter(id__in=class_students).select_related('academic_year', 'current_class', 'stream', 'term'):
+                results = Result.objects.filter(
+                    student=student,
+                    assessment__academic_class=academic_class
+                ).select_related('assessment__assessment_type', 'assessment__subject')
+                if selected_term_id:
+                    results = results.filter(assessment__academic_class__term_id=selected_term_id)
+                total_score = sum(Decimal(str(r.score)) * Decimal(str(r.assessment.assessment_type.weight or 1)) for r in results)
+                total_weight = sum(Decimal(str(r.assessment.assessment_type.weight or 1)) for r in results)
+                avg = (total_score / total_weight).quantize(Decimal('0.01')) if total_weight else Decimal('0.00')
+                grade, points = get_grade_and_points(avg)
+                student_averages.append({
+                    'student': student,
+                    'average': float(avg),
+                    'grade': grade,
+                    'points': points
+                })
+            if student_averages:
+                best_student = max(student_averages, key=lambda x: x['average'])
+                best_students.append({
+                    'class_name': f"{academic_class.Class.name} {class_stream.stream.stream if class_stream.stream else ''}",
+                    'student_name': best_student['student'].student_name,
+                    'photo_url': best_student['student'].photo.url if best_student['student'].photo else '/static/images/default-student.jpg',
+                    'average': best_student['average'],
+                    'grade': best_student['grade'],
+                    'points': best_student['points']
+                })
+    
+    # 2. Best Performing Subject Overall
+    subject_averages = []
+    subjects = Result.objects.filter(
+        assessment__academic_class__in=classes
+    ).values('assessment__subject__name').distinct()
+    for subject in subjects:
+        subject_name = subject['assessment__subject__name']
+        subject_results = Result.objects.filter(
+            assessment__subject__name=subject_name,
+            assessment__academic_class__in=classes
+        ).select_related('assessment__assessment_type')
+        if selected_term_id:
+            subject_results = subject_results.filter(assessment__academic_class__term_id=selected_term_id)
+        avg_score = subject_results.aggregate(Avg('score'))['score__avg'] or 0
+        avg_score = Decimal(str(avg_score)).quantize(Decimal('0.01'))
+        grade, points = get_grade_and_points(avg_score)
+        subject_averages.append({
+            'subject': subject_name,
+            'average': float(avg_score),
+            'grade': grade,
+            'points': points
+        })
+    best_subject = max(subject_averages, key=lambda x: x['average'], default=None)
+    
+    # 3. Best Performing Student per Assessment Type
+    assessment_types = AssessmentType.objects.all()
+    best_per_assessment = []
+    for assessment_type in assessment_types:
+        for academic_class in classes:
+            class_streams = AcademicClassStream.objects.filter(academic_class=academic_class).select_related('stream')
+            for class_stream in class_streams:
+                class_students = ClassRegister.objects.filter(
+                    academic_class_stream=class_stream
+                ).values('student_id')
+                student_scores = []
+                for student in Student.objects.filter(id__in=class_students).select_related('academic_year', 'current_class', 'stream', 'term'):
+                    results = Result.objects.filter(
+                        student=student,
+                        assessment__academic_class=academic_class,
+                        assessment__assessment_type=assessment_type
+                    ).select_related('assessment__assessment_type', 'assessment__subject')
+                    if selected_term_id:
+                        results = results.filter(assessment__academic_class__term_id=selected_term_id)
+                    if results:
+                        max_result = max(results, key=lambda x: x.score)
+                        student_scores.append({
+                            'student': student,
+                            'score': float(max_result.score),
+                            'grade': get_grade_and_points(max_result.score)[0]
+                        })
+                if student_scores:
+                    best_student = max(student_scores, key=lambda x: x['score'])
+                    best_per_assessment.append({
+                        'assessment_type': assessment_type.name,
+                        'class_name': f"{academic_class.Class.name} {class_stream.stream.stream if class_stream.stream else ''}",
+                        'student_name': best_student['student'].student_name,
+                        'photo_url': best_student['student'].photo.url if best_student['student'].photo else '/static/images/default-student.jpg',
+                        'score': best_student['score'],
+                        'grade': best_student['grade']
+                    })
+    
+    # Context for template
+    selected_academic_year = AcademicYear.objects.filter(id=selected_academic_year_id).first()
+    selected_term = Term.objects.filter(id=selected_term_id).first()
+    
+    context = {
+        'school': school,
+        'academic_years': academic_years,
+        'terms': terms,
+        'selected_academic_year_id': selected_academic_year_id,
+        'selected_term_id': selected_term_id,
+        'selected_academic_year_name': selected_academic_year.academic_year if selected_academic_year else 'All Academic Years',
+        'selected_term_name': selected_term.term if selected_term else 'All Terms',
+        'best_students': best_students,
+        'best_subject': best_subject,
+        'best_per_assessment': best_per_assessment,
+    }
+    
+    return render(request, 'results/class_performance_summary.html', context)
