@@ -8,19 +8,20 @@
     <meta name="author" content="{{ school.school_name }}">
     <title>Term Report - {{ student.student_name }} | {{ school.school_name }}</title>
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         /* === CSS Variables for Consistency === */
         :root {
-            --primary-color: #002a5c; /* Deep navy for headers */
-            --secondary-color: #f7f8fa; /* Light gray for backgrounds */
+            --primary-color: #004aad; /* Softer blue */
+            --secondary-color: #f8fafc; /* Soft white for backgrounds */
             --border-color: #d4d7db; /* Subtle gray for borders */
             --text-color: #1a202c; /* Dark gray for text */
-            --accent-color: #059669; /* Green for top/bottom borders */
-            --highlight-color: #ed64a6; /* Pink for side borders */
-            --font-family: 'Times New Roman', Georgia, serif;
-            --font-size-base: 10pt;
-            --page-width: 18cm; /* A4 width (21cm) - 1.5cm left - 1.5cm right */
-            --page-height: 26.7cm; /* A4 height (29.7cm) - 1.5cm top - 1.5cm bottom */
+            --accent-color: #2aa198; /* Softer teal for borders */
+            --highlight-color: #d4a017; /* Gold for side borders */
+            --font-family: 'Roboto', Helvetica, Arial, 'Times New Roman', sans-serif;
+            --font-size-base: 10pt; /* Compact for one-page fit */
+            --page-width: 18cm; /* A4 width - margins */
+            --page-height: 26.7cm; /* A4 height - margins */
         }
 
         /* === Global Styles === */
@@ -30,10 +31,12 @@
             @top-center {
                 content: "{{ school.school_name|default:'School' }} - Term Report";
                 font-family: var(--font-family);
-                font-size: 9pt;
+                font-size: 8pt;
                 color: var(--text-color);
+                font-weight: 400;
             }
         }
+        
         body {
             font-family: var(--font-family);
             background: #ffffff;
@@ -41,75 +44,100 @@
             font-size: var(--font-size-base);
             line-height: 1.5;
             width: var(--page-width);
-            min-height: var(--page-height);
+            height: var(--page-height);
             margin: 0 auto;
             padding: 0;
             box-sizing: border-box;
-            border-left: 3px solid var(--highlight-color);
-            border-right: 3px solid var(--highlight-color);
-            border-top: 3px solid var(--accent-color);
-            border-bottom: 3px solid var(--accent-color);
+            position: relative;
+            border-left: 4px solid var(--highlight-color);
+            border-right: 4px solid var(--highlight-color);
+            border-top: 4px solid var(--accent-color);
+            border-bottom: 4px solid var(--accent-color);
+        }
+        /* Watermark */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 80%;
+            background: url('{% static "images/watermark.png" %}') no-repeat center;
+            background-size: contain;
+            opacity: 0.05;
+            z-index: -1;
         }
 
         /* === Header Section === */
         .report-card-header {
             text-align: center;
-            margin-bottom: 1cm;
-            padding-bottom: 0.5cm;
-            border-bottom: 1.5px solid var(--primary-color);
+            margin-bottom: 0.6cm;
+            padding: 0.5cm 0;
+            background: #ffffff; /* White background */
+            border-bottom: 2px solid var(--primary-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         .school-branding {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.75cm;
+            gap: 0.8cm;
             margin-bottom: 0.3cm;
         }
         .school-logo {
             width: 70px;
             height: 70px;
             object-fit: contain;
-            border-radius: 3px;
+            border-radius: 5px;
             border: 1px solid var(--border-color);
+            background: #ffffff;
         }
         .school-name {
             font-size: 16pt;
-            font-weight: bold;
+            font-weight: 700;
             margin: 0;
+            text-transform: uppercase;
             color: var(--primary-color);
         }
         .contact-info {
             font-size: 9pt;
-            line-height: 1.6;
-            color: var(--text-color);
+            line-height: 1.5;
             margin: 0.3cm 0;
+            color: var(--text-color);
         }
         .contact-info p {
             margin: 0.1cm 0;
         }
         .contact-info a {
             color: var(--primary-color);
-            text-decoration: none;
+            text-decoration: underline;
+            transition: color 0.3s;
+        }
+        .contact-info a:hover {
+            color: var(--highlight-color);
         }
         .report-title {
             font-size: 12pt;
-            font-weight: 600;
+            font-weight: 500;
             margin: 0.3cm 0 0;
             color: var(--primary-color);
         }
 
         /* === Term Selection Form === */
         .term-select {
-            margin-bottom: 0.8cm;
+            margin: 0 auto 0.6cm;
+            width: fit-content;
             display: flex;
             align-items: center;
             gap: 0.5cm;
             padding: 0.3cm;
             background: var(--secondary-color);
-            border-radius: 4px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
         }
         .term-select label {
-            font-weight: 600;
+            font-weight: 500;
             font-size: 9pt;
             color: var(--text-color);
         }
@@ -121,24 +149,29 @@
             background: #ffffff;
             color: var(--text-color);
             width: 120px;
+            transition: border-color 0.3s;
+        }
+        .term-select select:focus {
+            border-color: var(--accent-color);
+            outline: none;
         }
 
         /* === Student Information === */
         .student-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75cm;
-            margin-bottom: 0.8cm;
-            padding: 0.5cm;
+            display: grid;
+            grid-template-columns: 90px 1fr;
+            gap: 0.8cm;
+            margin-bottom: 0.6cm;
+            padding: 0.4cm;
             background: var(--secondary-color);
-            border-radius: 4px;
+            border-radius: 5px;
             border: 1px solid var(--border-color);
         }
         .student-photo {
             width: 80px;
             height: 100px;
             border: 1px solid var(--border-color);
-            border-radius: 3px;
+            border-radius: 5px;
             object-fit: cover;
             background: #ffffff;
         }
@@ -151,39 +184,40 @@
         }
         .student-details strong {
             color: var(--primary-color);
+            font-weight: 500;
         }
 
         /* === Summary Information === */
         .summary-info {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 0.5cm;
-            margin-bottom: 0.8cm;
+            margin-bottom: 0.6cm;
             padding: 0.4cm;
             background: var(--secondary-color);
-            border-radius: 4px;
+            border-radius: 5px;
             border: 1px solid var(--border-color);
             font-size: 9pt;
-            color: var(--text-color);
         }
         .summary-info strong {
             color: var(--primary-color);
+            font-weight: 500;
         }
 
         /* === Report Table === */
         .report-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 0.8cm 0;
+            margin: 0.6cm 0;
             background: #ffffff;
             border: 1px solid var(--border-color);
-            border-radius: 4px;
+            border-radius: 5px;
             overflow: hidden;
         }
         .report-table th,
         .report-table td {
             border: 1px solid var(--border-color);
-            padding: 6px;
+            padding: 5px;
             text-align: center;
             font-size: 9pt;
             color: var(--text-color);
@@ -191,35 +225,38 @@
         .report-table th {
             background: var(--primary-color);
             color: #ffffff;
-            font-weight: 700;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.03em;
+            letter-spacing: 0.05em;
+            border-bottom: 1.5px solid var(--border-color);
         }
         .report-table tbody tr:nth-child(even) {
-            background: #f9fafb;
+            background: #f1f5f9;
         }
-        .report-table .overall-row td,
         .report-table .aggregates-row td {
-            font-weight: bold;
+            font-weight: 600;
             background: var(--secondary-color);
             color: var(--primary-color);
+            border-top: 1.5px solid var(--border-color);
         }
 
         /* === Remarks Section === */
         .remarks {
-            margin: 0.8cm 0;
+            margin: 0.6cm 0;
             font-size: 9pt;
             color: var(--text-color);
         }
         .remarks div {
-            margin-bottom: 0.6cm;
+            margin-bottom: 0.5cm;
             padding: 0.4cm;
-            border-left: 2px solid var(--primary-color);
+            border-left: 2px solid var(--accent-color);
             background: var(--secondary-color);
-            border-radius: 3px;
+            border-radius: 5px;
+            min-height: 1.5cm;
         }
         .remarks strong {
             color: var(--primary-color);
+            font-weight: 500;
         }
 
         /* === Signature Section === */
@@ -227,65 +264,96 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.5cm;
-            margin-top: 1.5cm;
+            margin-top: 0.8cm;
             font-size: 9pt;
             color: var(--text-color);
         }
         .signature div {
-            border-top: 1.5px solid var(--primary-color);
+            border-top: 1.5px solid var(--accent-color);
             text-align: center;
             padding-top: 0.4cm;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         /* === Grading Scale === */
         .grading-scale {
-            margin-top: 0.8cm;
+            margin-top: 0.5cm;
             font-size: 9pt;
-            border-top: 1px solid var(--border-color);
-            padding-top: 0.5cm;
             color: var(--text-color);
+            border-top: 1.5px solid var(--border-color);
+            padding-top: 0.4cm;
         }
         .grading-scale strong {
             color: var(--primary-color);
+            font-weight: 500;
+            display: block;
+            margin-bottom: 0.2cm;
         }
-        .grading-scale p {
-            margin: 0.3cm 0;
+        .grading-table {
+            width: 40%;
+            margin: 0 auto;
+            border-collapse: collapse;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        .grading-table th,
+        .grading-table td {
+            border: 1px solid var(--border-color);
+            padding: 4px;
+            text-align: center;
+            font-size: 8pt;
+        }
+        .grading-table th {
+            background: var(--primary-color);
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .grading-table tbody tr:nth-child(even) {
+            background: #f1f5f9;
         }
 
         /* === Print Styles === */
         @media print {
             body {
                 width: 21cm;
-                min-height: 29.7cm;
+                height: 29.7cm;
                 margin: 0;
                 padding: 0;
                 box-shadow: none;
-                border-left: 3px solid var(--highlight-color) !important;
-                border-right: 3px solid var(--highlight-color) !important;
-                border-top: 3px solid var(--accent-color) !important;
-                border-bottom: 3px solid var(--accent-color) !important;
+                border-left: 4px solid var(--highlight-color) !important;
+                border-right: 4px solid var(--highlight-color) !important;
+                border-top: 4px solid var(--accent-color) !important;
+                border-bottom: 4px solid var(--accent-color) !important;
                 color: var(--text-color) !important;
+                background: none !important;
+                max-height: 29.7cm;
+                overflow: hidden;
+            }
+            body::before {
+                display: none;
             }
             .term-select {
                 display: none;
             }
             .report-card-header {
-                border-bottom-color: var(--primary-color) !important;
+                background: #ffffff !important;
+                border-bottom: 2px solid var(--primary-color) !important;
+                color: var(--text-color) !important;
             }
-            .report-table {
-                width: 100%;
-                box-shadow: none;
+            .report-table, .grading-table {
+                box-shadow: none !important;
             }
             .report-table th,
-            .report-table td {
+            .report-table td,
+            .grading-table th,
+            .grading-table td {
                 border-color: var(--border-color) !important;
                 color: var(--text-color) !important;
             }
-            .report-table th {
+            .report-table th,
+            .grading-table th {
                 background: var(--primary-color) !important;
                 color: #ffffff !important;
-                border: 1.5px solid var(--border-color) !important;
             }
             .student-info,
             .summary-info,
@@ -309,7 +377,7 @@
             body {
                 font-size: 9pt;
                 width: 100%;
-                border-width: 2px;
+                border-width: 3px;
             }
             .school-logo,
             .student-photo {
@@ -323,14 +391,20 @@
                 font-size: 11pt;
             }
             .report-table th,
-            .report-table td {
+            .report-table td,
+            .grading-table th,
+            .grading-table td {
                 padding: 4px;
                 font-size: 8pt;
             }
+            .student-info,
             .summary-info,
             .signature {
                 grid-template-columns: 1fr;
                 gap: 0.3cm;
+            }
+            .grading-table {
+                width: 100%;
             }
         }
     </style>
@@ -379,13 +453,14 @@
         <div class="student-details">
             <div><strong>Name:</strong> {{ student.student_name|default:"N/A" }}</div>
             <div><strong>Class:</strong> {{ student.current_class.name|default:"N/A" }} {{ student.stream.stream|default:"" }}</div>
-        </div>
-    </section>
+            <div><strong>Admission No:</strong> {{ student.admission_number|default:"N/A" }}</div>
+        </section>
 
     <!-- Summary Information -->
     <section class="summary-info" aria-label="Academic summary">
         <div><strong>Academic Year:</strong> {{ academic_year|default:"N/A" }}</div>
-        <div><strong>Admission No:</strong> {{ student.admission_number|default:"N/A" }}</div>
+        <div><strong>Term:</strong> {{ term|default:"N/A" }}</div>
+        <div><strong>Number of Students:</strong> {{ number_of_students|default:"N/A" }}</div>
     </section>
 
     <!-- Report Table -->
@@ -406,7 +481,7 @@
                     <td>{{ forloop.counter }}</td>
                     <td>{{ item.subject|default:"N/A" }}</td>
                     {% for at in assessment_types %}
-                        <td>{{ item.assessments|lookup:at.name|lookup:'score'|default:"-" }}</td>
+                        <td>{{ item.assessments|lookup:at.name|lookup:'score'|floatformat:1|default:"-" }}</td>
                     {% endfor %}
                     <td>{{ item.average|floatformat:1|default:"-" }}</td>
                 </tr>
@@ -414,14 +489,10 @@
                 <tr><td colspan="{{ assessment_types|length|add:3 }}">No results available for this term.</td></tr>
             {% endfor %}
             <tr class="aggregates-row">
-                <td colspan="2"><strong>Total Aggregates:</strong></td>
+                <td colspan="2"><strong>Total Points:</strong></td>
                 {% for at in assessment_types %}
                     <td><strong>{{ report_data|aggregate_points:at.name|floatformat:1|default:"-" }}</strong></td>
                 {% endfor %}
-                <td></td>
-            </tr>
-            <tr class="overall-row">
-                <td colspan="{{ assessment_types|length|add:2 }}"><strong>Overall Average:</strong></td>
                 <td><strong>{{ overall_average|floatformat:1|default:"-" }}</strong></td>
             </tr>
         </tbody>
@@ -438,11 +509,6 @@
         <div>Class Teacher</div>
         <div>Head Teacher</div>
     </section>
-
-    <!-- Grading Scale -->
-    <section class="grading-scale" aria-label="Grading scale">
-        <strong>Grading Information:</strong>
-        <p>Scores are out of 100. Higher scores indicate better performance.</p>
-    </section>
+    
 </body>
 </html>
