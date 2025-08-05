@@ -140,8 +140,6 @@ def add_student_payment_view(request, id):
 
     
 
-
-
 @login_required
 def student_fees_status_view(request):
     students = Student.objects.all()
