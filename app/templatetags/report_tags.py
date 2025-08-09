@@ -23,3 +23,13 @@ def lookup(dictionary, key):
     
 
     return dictionary.get(key, '-') if isinstance(dictionary, dict) else '-'
+
+
+
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(str(key), {})
+
+
+

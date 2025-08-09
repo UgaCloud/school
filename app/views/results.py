@@ -26,11 +26,15 @@ from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
 from django.utils import timezone
 from django.core.paginator import Paginator
-from app.selectors.results import get_grade_and_points, get_current_mode,get_performance_metrics, get_grade_from_average, calculate_weighted_subject_averages
+from app.selectors.results import get_grade_and_points, get_current_mode,get_performance_metrics, get_grade_from_average, calculate_weighted_subject_averages,get_division
 from app.utils.pdf_utils import generate_student_report_pdf
 from collections import defaultdict
 import logging
 logger = logging.getLogger(__name__)
+from reportlab.lib.units import cm
+from reportlab.lib import colors
+from django.db.models import Case, When, Value, IntegerField
+
 
 
 @login_required
@@ -649,6 +653,7 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     return render(request, 'results/student_assessment_report.html', context)
 
 
+
 @login_required
 def student_term_report(request, student_id):
     student = get_object_or_404(Student, id=student_id)
@@ -667,11 +672,32 @@ def student_term_report(request, student_id):
             else (terms.first().id if terms.exists() else None)
         )
 
-    # Defensive fallback if no terms exist
     if not selected_term_id:
         return render(request, 'results/no_terms.html', {'student': student})
 
-    # Filter results for student & selected term
+    # ---- Custom order definition for assessment types ----
+    assessment_order = Case(
+        When(name__iexact="Beginning of Term", then=Value(1)),
+        When(name__iexact="Mid of Term", then=Value(2)),
+        When(name__iexact="Internal Exam", then=Value(3)),
+        When(name__iexact="End of Term External", then=Value(4)),
+        default=Value(5),
+        output_field=IntegerField()
+    )
+
+    results_order = Case(
+        When(assessment__assessment_type__name__iexact="Beginning of Term", then=Value(1)),
+        When(assessment__assessment_type__name__iexact="Mid of Term", then=Value(2)),
+        When(assessment__assessment_type__name__iexact="Internal Exam", then=Value(3)),
+        When(assessment__assessment_type__name__iexact="End of Term External", then=Value(4)),
+        default=Value(5),
+        output_field=IntegerField()
+    )
+
+    # Fetch assessment types in the desired order for table headers
+    assessment_types = AssessmentType.objects.all().order_by(assessment_order, 'name')
+
+    # Fetch results ordered by subject and custom assessment order
     results = Result.objects.filter(
         student=student,
         assessment__academic_class__term_id=selected_term_id
@@ -681,15 +707,17 @@ def student_term_report(request, student_id):
         'assessment__academic_class__term'
     ).order_by(
         'assessment__subject__name',
-        'assessment__assessment_type__name'
+        results_order
     )
 
-    assessment_types = AssessmentType.objects.all().order_by('name')
-
-    # Prepare subject summaries
+    # Prepare subject summaries and totals
     subject_summary = {}
     total_marks = Decimal('0.0')
     total_weight = Decimal('0.0')
+    assessment_totals = {
+        at.name: {'marks': Decimal('0.0'), 'points': Decimal('0.0'), 'count': 0}
+        for at in assessment_types
+    }
 
     for result in results:
         subject = result.assessment.subject.name
@@ -715,6 +743,12 @@ def student_term_report(request, student_id):
         total_marks += score * weight
         total_weight += weight
 
+        if assessment_type in assessment_totals:
+            assessment_totals[assessment_type]['marks'] += score
+            assessment_totals[assessment_type]['points'] += Decimal(str(points))
+            assessment_totals[assessment_type]['count'] += 1
+
+    # Build report data per subject
     report_data = []
     for subject, data in subject_summary.items():
         avg = (
@@ -735,16 +769,41 @@ def student_term_report(request, student_id):
             }
         })
 
+    # Overall stats
     overall_average = (
         total_marks / total_weight
     ).quantize(Decimal('0.01')) if total_weight else Decimal('0.00')
     overall_grade, overall_points = get_grade_and_points(overall_average)
 
+    # Calculate total aggregates per assessment type & get division for each
+    assessment_divisions = {}
+    for at in assessment_types:
+        total_points = int(assessment_totals[at.name]['points'])
+        count = assessment_totals[at.name]['count']
+        if count > 0:
+            assessment_divisions[at.name] = get_division(total_points)
+        else:
+            assessment_divisions[at.name] = "-"
 
+    total_aggregates = sum(
+        assessment_totals[at.name]['points'] for at in assessment_types
+        if assessment_totals[at.name]['count'] > 0
+    )
 
     academic_year = student.academic_year.academic_year if student.academic_year else "-"
     term_obj = Term.objects.filter(id=selected_term_id).first()
     term_name = term_obj.term if term_obj else "-"
+
+    # --- Find next term based on start_date ---
+    next_term = None
+    if term_obj and student.academic_year:
+        next_term = Term.objects.filter(
+            academic_year=student.academic_year,
+            start_date__gt=term_obj.start_date
+        ).order_by('start_date').first()
+
+    next_term_start_date = next_term.start_date if next_term else None
+    next_term_name = next_term.term if next_term else None
 
     colspan = 2 + len(assessment_types) + 1
 
@@ -762,11 +821,14 @@ def student_term_report(request, student_id):
         'selected_term_id': str(selected_term_id),
         'terms': terms,
         'colspan': colspan,
+        'assessment_totals': assessment_totals,
+        'total_aggregates': int(total_aggregates),
+        'assessment_divisions': assessment_divisions,
+        'next_term_start_date': next_term_start_date,
+        'next_term_name': next_term_name,
     }
 
     return render(request, 'results/student_term_report.html', context)
-
-
 
 
 @login_required
@@ -847,43 +909,67 @@ def class_performance_summary(request):
         })
     best_subject = max(subject_averages, key=lambda x: x['average'], default=None)
     
-    # 3. Best Performing Student per Assessment Type
-    assessment_types = AssessmentType.objects.all()
-    best_per_assessment = []
-    for assessment_type in assessment_types:
-        for academic_class in classes:
-            class_streams = AcademicClassStream.objects.filter(academic_class=academic_class).select_related('stream')
-            for class_stream in class_streams:
-                class_students = ClassRegister.objects.filter(
-                    academic_class_stream=class_stream
-                ).values('student_id')
-                student_scores = []
-                for student in Student.objects.filter(id__in=class_students).select_related('academic_year', 'current_class', 'stream', 'term'):
-                    results = Result.objects.filter(
-                        student=student,
-                        assessment__academic_class=academic_class,
-                        assessment__assessment_type=assessment_type
-                    ).select_related('assessment__assessment_type', 'assessment__subject')
-                    if selected_term_id:
-                        results = results.filter(assessment__academic_class__term_id=selected_term_id)
-                    if results:
-                        max_result = max(results, key=lambda x: x.score)
-                        student_scores.append({
-                            'student': student,
-                            'score': float(max_result.score),
-                            'grade': get_grade_and_points(max_result.score)[0]
-                        })
-                if student_scores:
-                    best_student = max(student_scores, key=lambda x: x['score'])
-                    best_per_assessment.append({
-                        'assessment_type': assessment_type.name,
-                        'class_name': f"{academic_class.Class.name} {class_stream.stream.stream if class_stream.stream else ''}",
-                        'student_name': best_student['student'].student_name,
-                        'photo_url': best_student['student'].photo.url if best_student['student'].photo else '/static/images/default-student.jpg',
-                        'score': best_student['score'],
-                        'grade': best_student['grade']
-                    })
-    
+    # PDF Export
+    if request.GET.get("download_pdf"):
+        buffer = BytesIO()
+        p = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        left_margin = 2 * cm
+        top_margin = height - 2 * cm
+        bottom_margin = 2 * cm
+        row_height = 1 * cm
+
+        p.setFont("Helvetica-Bold", 16)
+        title = "Class Performance Summary"
+        title_width = p.stringWidth(title, "Helvetica-Bold", 16)
+        p.drawString((width - title_width) / 2, top_margin, title)
+        y = top_margin - 1.5 * cm
+
+        headers = ["Class", "Student", "Average Score", "Grade"]
+        col_widths = [4 * cm, 5 * cm, 3 * cm, 3 * cm]
+
+        def draw_table_row(values, y_pos, is_header=False, shade=False):
+            x = left_margin
+            p.setStrokeColor(colors.black)
+            if shade:
+                p.setFillColor(colors.lightgrey)
+                p.rect(left_margin, y_pos - row_height + 0.2 * cm, sum(col_widths), row_height, fill=1, stroke=0)
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica-Bold", 10 if is_header else 9)
+            for i, value in enumerate(values):
+                p.drawString(x + 0.2 * cm, y_pos, str(value))
+                x += col_widths[i]
+            p.line(left_margin, y_pos + 0.2 * cm, left_margin + sum(col_widths), y_pos + 0.2 * cm)
+            p.line(left_margin, y_pos - row_height + 0.2 * cm, left_margin + sum(col_widths), y_pos - row_height + 0.2 * cm)
+            x = left_margin
+            for w in col_widths:
+                p.line(x, y_pos + 0.2 * cm, x, y_pos - row_height + 0.2 * cm)
+                x += w
+            p.line(x, y_pos + 0.2 * cm, x, y_pos - row_height + 0.2 * cm)
+
+        draw_table_row(headers, y, is_header=True)
+        y -= row_height
+        for idx, row in enumerate(best_students):
+            if y < bottom_margin + row_height:
+                p.showPage()
+                y = top_margin
+                p.drawString((width - title_width) / 2, y, title)
+                y -= 1.5 * cm
+                draw_table_row(headers, y, is_header=True)
+                y -= row_height
+            values = [
+                row["class_name"],
+                row["student_name"],
+                f"{row['average']:.2f}",
+                row["grade"],
+            ]
+            draw_table_row(values, y, shade=(idx % 2 == 0))
+            y -= row_height
+
+        p.save()
+        buffer.seek(0)
+        return HttpResponse(buffer, content_type="application/pdf")
+
     # Context for template
     selected_academic_year = AcademicYear.objects.filter(id=selected_academic_year_id).first()
     selected_term = Term.objects.filter(id=selected_term_id).first()
@@ -898,7 +984,6 @@ def class_performance_summary(request):
         'selected_term_name': selected_term.term if selected_term else 'All Terms',
         'best_students': best_students,
         'best_subject': best_subject,
-        'best_per_assessment': best_per_assessment,
     }
     
     return render(request, 'results/class_performance_summary.html', context)
