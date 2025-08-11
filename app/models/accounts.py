@@ -4,7 +4,6 @@ from app.models.staffs import *
 
 
 
-
 class StaffAccount(models.Model):
     staff = models.ForeignKey(Staff, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_account')

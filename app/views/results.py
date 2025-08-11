@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from django.db.models import Case, When, Value, IntegerField
+from django.db.models import Avg, Max
+
 
 
 
@@ -833,157 +835,70 @@ def student_term_report(request, student_id):
 
 @login_required
 def class_performance_summary(request):
-    school = SchoolSetting.load()
+    academic_year_id = request.GET.get('academic_year_id')
+    term_id = request.GET.get('term_id')
+    class_id = request.GET.get('class_id')
+    assessment_type_id = request.GET.get('assessment_type_id')
+
+    def to_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    academic_year_id = to_int(academic_year_id)
+    term_id = to_int(term_id)
+    class_id = to_int(class_id)
+    assessment_type_id = to_int(assessment_type_id)
+
     academic_years = AcademicYear.objects.all()
     terms = Term.objects.all()
-    
-    # Get filters
-    selected_academic_year_id = request.GET.get('academic_year_id')
-    selected_term_id = request.GET.get('term_id')
-    
-    # Filter classes and results
-    classes = AcademicClass.objects.select_related('Class', 'academic_year', 'term').all()
-    if selected_academic_year_id:
-        classes = classes.filter(academic_year_id=selected_academic_year_id)
-    if selected_term_id:
-        classes = classes.filter(term_id=selected_term_id)
-    
-    # 1. Best Performing Student per Class
+    classes = Class.objects.all()
+    assessment_types = AssessmentType.objects.all()
+
     best_students = []
-    for academic_class in classes:
-        class_streams = AcademicClassStream.objects.filter(academic_class=academic_class).select_related('stream')
-        for class_stream in class_streams:
-            class_students = ClassRegister.objects.filter(
-                academic_class_stream=class_stream
-            ).values('student_id')
-            student_averages = []
-            for student in Student.objects.filter(id__in=class_students).select_related('academic_year', 'current_class', 'stream', 'term'):
-                results = Result.objects.filter(
-                    student=student,
-                    assessment__academic_class=academic_class
-                ).select_related('assessment__assessment_type', 'assessment__subject')
-                if selected_term_id:
-                    results = results.filter(assessment__academic_class__term_id=selected_term_id)
-                total_score = sum(Decimal(str(r.score)) * Decimal(str(r.assessment.assessment_type.weight or 1)) for r in results)
-                total_weight = sum(Decimal(str(r.assessment.assessment_type.weight or 1)) for r in results)
-                avg = (total_score / total_weight).quantize(Decimal('0.01')) if total_weight else Decimal('0.00')
-                grade, points = get_grade_and_points(avg)
-                student_averages.append({
-                    'student': student,
-                    'average': float(avg),
-                    'grade': grade,
-                    'points': points
-                })
-            if student_averages:
-                best_student = max(student_averages, key=lambda x: x['average'])
-                best_students.append({
-                    'class_name': f"{academic_class.Class.name} {class_stream.stream.stream if class_stream.stream else ''}",
-                    'student_name': best_student['student'].student_name,
-                    'photo_url': best_student['student'].photo.url if best_student['student'].photo else '/static/images/default-student.jpg',
-                    'average': best_student['average'],
-                    'grade': best_student['grade'],
-                    'points': best_student['points']
-                })
-    
-    # 2. Best Performing Subject Overall
     subject_averages = []
-    subjects = Result.objects.filter(
-        assessment__academic_class__in=classes
-    ).values('assessment__subject__name').distinct()
-    for subject in subjects:
-        subject_name = subject['assessment__subject__name']
-        subject_results = Result.objects.filter(
-            assessment__subject__name=subject_name,
-            assessment__academic_class__in=classes
-        ).select_related('assessment__assessment_type')
-        if selected_term_id:
-            subject_results = subject_results.filter(assessment__academic_class__term_id=selected_term_id)
-        avg_score = subject_results.aggregate(Avg('score'))['score__avg'] or 0
-        avg_score = Decimal(str(avg_score)).quantize(Decimal('0.01'))
-        grade, points = get_grade_and_points(avg_score)
-        subject_averages.append({
-            'subject': subject_name,
-            'average': float(avg_score),
-            'grade': grade,
-            'points': points
-        })
-    best_subject = max(subject_averages, key=lambda x: x['average'], default=None)
-    
-    # PDF Export
-    if request.GET.get("download_pdf"):
-        buffer = BytesIO()
-        p = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-        left_margin = 2 * cm
-        top_margin = height - 2 * cm
-        bottom_margin = 2 * cm
-        row_height = 1 * cm
 
-        p.setFont("Helvetica-Bold", 16)
-        title = "Class Performance Summary"
-        title_width = p.stringWidth(title, "Helvetica-Bold", 16)
-        p.drawString((width - title_width) / 2, top_margin, title)
-        y = top_margin - 1.5 * cm
+    if academic_year_id and term_id and class_id:
+        try:
+            academic_class = AcademicClass.objects.get(
+                Class_id=class_id,
+                academic_year_id=academic_year_id,
+                term_id=term_id
+            )
+        except AcademicClass.DoesNotExist:
+            academic_class = None
 
-        headers = ["Class", "Student", "Average Score", "Grade"]
-        col_widths = [4 * cm, 5 * cm, 3 * cm, 3 * cm]
+        if academic_class:
+            results_qs = Result.objects.filter(assessment__academic_class=academic_class)
+            if assessment_type_id:
+                results_qs = results_qs.filter(assessment__assessment_type_id=assessment_type_id)
 
-        def draw_table_row(values, y_pos, is_header=False, shade=False):
-            x = left_margin
-            p.setStrokeColor(colors.black)
-            if shade:
-                p.setFillColor(colors.lightgrey)
-                p.rect(left_margin, y_pos - row_height + 0.2 * cm, sum(col_widths), row_height, fill=1, stroke=0)
-            p.setFillColor(colors.black)
-            p.setFont("Helvetica-Bold", 10 if is_header else 9)
-            for i, value in enumerate(values):
-                p.drawString(x + 0.2 * cm, y_pos, str(value))
-                x += col_widths[i]
-            p.line(left_margin, y_pos + 0.2 * cm, left_margin + sum(col_widths), y_pos + 0.2 * cm)
-            p.line(left_margin, y_pos - row_height + 0.2 * cm, left_margin + sum(col_widths), y_pos - row_height + 0.2 * cm)
-            x = left_margin
-            for w in col_widths:
-                p.line(x, y_pos + 0.2 * cm, x, y_pos - row_height + 0.2 * cm)
-                x += w
-            p.line(x, y_pos + 0.2 * cm, x, y_pos - row_height + 0.2 * cm)
+            best_students = (
+                results_qs
+                .values('student__student_name', 'student__current_class__name')
+                .annotate(average=Avg('score'))
+                .order_by('-average')[:5]
+            )
 
-        draw_table_row(headers, y, is_header=True)
-        y -= row_height
-        for idx, row in enumerate(best_students):
-            if y < bottom_margin + row_height:
-                p.showPage()
-                y = top_margin
-                p.drawString((width - title_width) / 2, y, title)
-                y -= 1.5 * cm
-                draw_table_row(headers, y, is_header=True)
-                y -= row_height
-            values = [
-                row["class_name"],
-                row["student_name"],
-                f"{row['average']:.2f}",
-                row["grade"],
-            ]
-            draw_table_row(values, y, shade=(idx % 2 == 0))
-            y -= row_height
+            subject_averages = (
+                results_qs
+                .values('assessment__subject__name')
+                .annotate(avg_score=Avg('score'), best_score=Max('score'))
+                .order_by('-avg_score')
+            )
 
-        p.save()
-        buffer.seek(0)
-        return HttpResponse(buffer, content_type="application/pdf")
-
-    # Context for template
-    selected_academic_year = AcademicYear.objects.filter(id=selected_academic_year_id).first()
-    selected_term = Term.objects.filter(id=selected_term_id).first()
-    
     context = {
-        'school': school,
         'academic_years': academic_years,
         'terms': terms,
-        'selected_academic_year_id': selected_academic_year_id,
-        'selected_term_id': selected_term_id,
-        'selected_academic_year_name': selected_academic_year.academic_year if selected_academic_year else 'All Academic Years',
-        'selected_term_name': selected_term.term if selected_term else 'All Terms',
+        'classes': classes,
+        'assessment_types': assessment_types,
         'best_students': best_students,
-        'best_subject': best_subject,
+        'subject_averages': subject_averages,
+        'selected_academic_year': str(academic_year_id) if academic_year_id else '',
+        'selected_term': str(term_id) if term_id else '',
+        'selected_class': str(class_id) if class_id else '',
+        'selected_assessment_type': str(assessment_type_id) if assessment_type_id else '',
     }
-    
+
     return render(request, 'results/class_performance_summary.html', context)
