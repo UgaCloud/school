@@ -64,6 +64,9 @@
             margin: 2px 0;
             font-size: 11pt;
         }
+        .school-name {
+            font-size: 30px !important;
+}
 
         .title {
             text-align: center;
@@ -233,6 +236,7 @@
                 margin: 1cm auto;
             }
         }
+        
     </style>
 </head>
 <body>
@@ -240,7 +244,7 @@
         <div class="header">
             <img src="{{ school.school_logo.url }}" alt="School Logo" />
             <div class="school-details">
-                <p><strong>{{ school.school_name }}</strong></p>
+               <p class="school-name"><strong>{{ school.school_name }}</strong></p>
                 <p>{{ school.address }}</p>
                 <p>Email: {{ school.email }}</p>
                 <p>Phone: {{ school.office_phone_number1 }}</p>
