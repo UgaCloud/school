@@ -655,7 +655,6 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     return render(request, 'results/student_assessment_report.html', context)
 
 
-
 @login_required
 def student_term_report(request, student_id):
     student = get_object_or_404(Student, id=student_id)
@@ -742,13 +741,18 @@ def student_term_report(request, student_id):
         }
         subject_summary[subject]['total_score'] += score * weight
         subject_summary[subject]['total_weight'] += weight
-        total_marks += score * weight
-        total_weight += weight
 
-        if assessment_type in assessment_totals:
+        # Exclude Religious Education / Reading from overall totals
+        if subject not in ['RELIGIOUS EDUCATION', 'READING']:
+            total_marks += score * weight
+
+        if subject not in ['RELIGIOUS EDUCATION', 'READING'] and assessment_type in assessment_totals:
             assessment_totals[assessment_type]['marks'] += score
             assessment_totals[assessment_type]['points'] += Decimal(str(points))
             assessment_totals[assessment_type]['count'] += 1
+
+        if subject not in ['RELIGIOUS EDUCATION', 'READING']:
+            total_weight += weight
 
     # Build report data per subject
     report_data = []
@@ -831,6 +835,7 @@ def student_term_report(request, student_id):
     }
 
     return render(request, 'results/student_term_report.html', context)
+
 
 
 @login_required
