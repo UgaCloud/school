@@ -46,17 +46,15 @@
             padding: 8px;
         }
 
-        /* Increased badge (logo) size */
         .header img {
-            width: 100px; /* was 60px */
+            width: 100px;
             height: 100px;
             margin-right: 15px;
         }
 
-        /* Centered & larger school details */
         .header .school-details {
             flex: 1;
-            text-align: center; 
+            text-align: center;
             font-size: 12pt;
         }
 
@@ -64,9 +62,10 @@
             margin: 2px 0;
             font-size: 11pt;
         }
+
         .school-name {
             font-size: 30px !important;
-}
+        }
 
         .title {
             text-align: center;
@@ -85,7 +84,6 @@
             flex-wrap: wrap;
         }
 
-        /* Increased student photo size */
         .info-photo {
             flex: 0 0 120px;
             text-align: center;
@@ -93,7 +91,7 @@
         }
 
         .info-photo img {
-            width: 120px; 
+            width: 120px;
             height: 120px;
             object-fit: cover;
             border-radius: 6px;
@@ -187,7 +185,6 @@
             white-space: nowrap;
         }
 
-        /* Make editable cells look like plain text */
         [contenteditable="true"] {
             outline: none;
         }
@@ -206,37 +203,29 @@
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-
             .term-filter-form,
             .print-btn {
                 display: none;
             }
-
             .content-wrapper {
                 border: 3px solid var(--border-color);
                 padding: 1cm;
                 margin: 0;
                 max-width: 18cm;
             }
-
             th {
                 background-color: var(--primary-color) !important;
                 color: white !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
             }
-
             tr:nth-child(even) {
                 background-color: var(--secondary-color) !important;
             }
-
             table {
                 width: 95%;
                 max-width: 16.5cm;
                 margin: 1cm auto;
             }
         }
-        
     </style>
 </head>
 <body>
@@ -307,7 +296,15 @@
                 <td>{{ data.points|floatformat:0|default:"-" }}</td>
                 {% endwith %}
                 {% endfor %}
-                <td contenteditable="true"></td>
+                <td>
+                    {% if item.average <= 49 %}Improve
+                    {% elif item.average <= 59 %}Promising
+                    {% elif item.average <= 69 %}Fair
+                    {% elif item.average <= 79 %}Good
+                    {% elif item.average <= 89 %}Well Done
+                    {% elif item.average <= 99 %}Bravo
+                    {% else %}-{% endif %}
+                </td>
             </tr>
             {% endfor %}
             <tr>
@@ -316,42 +313,37 @@
                 <td>{{ assessment_totals|get_item:at.name|get_item:"marks"|floatformat:0|default:"-" }}</td>
                 <td>{{ assessment_totals|get_item:at.name|get_item:"points"|floatformat:0|default:"-" }}</td>
                 {% endfor %}
-                <td contenteditable="true"></td>
+                <td></td>
             </tr>
             <tr>
                 <td><strong>DIVISION</strong></td>
                 {% for at in assessment_types %}
                 <td colspan="2">{{ assessment_divisions|get_item:at.name }}</td>
                 {% endfor %}
-                <td contenteditable="true"></td>
+                <td></td>
             </tr>
         </table>
+
         <div class="conduct-section">
             <table>
                 <tr>
                     <td class="label">Class Teacher's Remarks:</td>
                     <td contenteditable="true"></td>
-                </tr>
-                <tr>
-                    <td class="label">Class Teacher's Name:</td>
-                    <td contenteditable="true"></td>
+                    <td class="label">Signature:</td>
+                    <td style="border-bottom: 1px solid #000;" contenteditable="true"></td>
                 </tr>
                 <tr>
                     <td class="label">Head Teacher's Remarks:</td>
                     <td contenteditable="true"></td>
-                </tr>
-                <tr>
-                    <td class="label">Head Teacher's Name:</td>
-                    <td style="border-bottom: 1px solid #000;" contenteditable="true"></td>
                     <td class="label">Signature:</td>
                     <td style="border-bottom: 1px solid #000;" contenteditable="true"></td>
                 </tr>
             </table>
         </div>
+
         <div class="next-term">
             Next Term Begins On: {{ next_term_start_date|date:"jS F Y" }}
         </div>
     </div>
-    
 </body>
 </html>
