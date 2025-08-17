@@ -29,3 +29,7 @@ def is_top_score(score, subject_scores):
         return score == max_score
     except:
         return False
+    
+@register.filter
+def get_score(student, subject):
+    return student.get(subject, 0)

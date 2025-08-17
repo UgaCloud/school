@@ -166,6 +166,8 @@ urlpatterns = [
     # Consolidated Term Report
     path('student/<int:student_id>/term-report/', student_term_report, name='student_term_report'),
     path('class-performance-summary/', class_performance_summary, name='class_performance_summary'),
+    path('assessment-sheet/', assessment_sheet_view, name='assessment_sheet'),
+
     
 
 

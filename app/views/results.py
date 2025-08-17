@@ -35,6 +35,12 @@ from reportlab.lib.units import cm
 from reportlab.lib import colors
 from django.db.models import Case, When, Value, IntegerField
 from django.db.models import Avg, Max
+from app.selectors.school_settings import get_current_academic_year
+from app.selectors.classes import get_current_term
+from openpyxl import Workbook
+from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
+import io
 
 
 
@@ -396,22 +402,40 @@ def delete_assesment_view(request, id):
     
     return redirect(assesment_type_view)
 
+@login_required
 def class_result_filter_view(request):
-    # Fetch all AcademicYear and AcademicClassStream objects
     years = AcademicYear.objects.all()
-    academic_class_streams = AcademicClassStream.objects.select_related(
-        'academic_class', 'stream', 'academic_class__Class', 'academic_class__academic_year'
-    ).all()
+    academic_class_streams = AcademicClassStream.objects.none()
+
+    # Ensure user has a staff account
+    staff_account = getattr(request.user, "staff_account", None)
+
+    if staff_account:
+        role_name = staff_account.role.name
+
+        if role_name in ["Admin", "Head master", "Director of Studies"]:
+            # Full access
+            academic_class_streams = AcademicClassStream.objects.select_related(
+                'academic_class', 'stream', 'academic_class__academic_year'
+            ).all()
+        
+        elif role_name == "Class Teacher":
+            # Restricted to streams assigned to them
+            academic_class_streams = AcademicClassStream.objects.select_related(
+                'academic_class', 'stream', 'academic_class__academic_year'
+            ).filter(class_teacher=staff_account.staff)
+
+        else:
+            # e.g. Bursar, Support Staff → No class streams
+            academic_class_streams = AcademicClassStream.objects.none()
 
     # Get selected parameters from GET request
     selected_year = request.GET.get('year_id')
     selected_class_stream = request.GET.get('class_stream_id')
 
-    # Initialize students queryset as empty
     students = Student.objects.none()
     no_students_message = None
 
-    # Filter students if both year and class stream are selected
     if selected_year and selected_class_stream:
         class_registers = ClassRegister.objects.filter(
             academic_class_stream_id=selected_class_stream,
@@ -431,6 +455,7 @@ def class_result_filter_view(request):
         'no_students_message': no_students_message,
     }
     return render(request, 'results/class_stream_filter.html', context)
+
 
 
 
@@ -654,7 +679,6 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     
     return render(request, 'results/student_assessment_report.html', context)
 
-
 @login_required
 def student_term_report(request, student_id):
     student = get_object_or_404(Student, id=student_id)
@@ -674,23 +698,25 @@ def student_term_report(request, student_id):
         )
 
     if not selected_term_id:
-        return render(request, 'results/no_terms.html', {'student': student})
+        # Show error message and redirect to student_performance_view
+        messages.error(request, "No terms available for this student.")
+        return redirect('student_performance_view', student_id=student_id)
 
     # ---- Custom order definition for assessment types ----
     assessment_order = Case(
-        When(name__iexact="Beginning of Term", then=Value(1)),
-        When(name__iexact="Mid of Term", then=Value(2)),
-        When(name__iexact="Internal Exam", then=Value(3)),
-        When(name__iexact="End of Term External", then=Value(4)),
+        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
+        When(name__iexact="MID OF TERM", then=Value(2)),
+        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
+        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
         default=Value(5),
         output_field=IntegerField()
     )
 
     results_order = Case(
-        When(assessment__assessment_type__name__iexact="Beginning of Term", then=Value(1)),
-        When(assessment__assessment_type__name__iexact="Mid of Term", then=Value(2)),
-        When(assessment__assessment_type__name__iexact="Internal Exam", then=Value(3)),
-        When(assessment__assessment_type__name__iexact="End of Term External", then=Value(4)),
+        When(assessment__assessment_type__name__iexact="BEGINNING OF TERM", then=Value(1)),
+        When(assessment__assessment_type__name__iexact="MID OF TERM", then=Value(2)),
+        When(assessment__assessment_type__name__iexact="END OF TERM INTERNAL", then=Value(3)),
+        When(assessment__assessment_type__name__iexact="END OF TERM EXTERNAL", then=Value(4)),
         default=Value(5),
         output_field=IntegerField()
     )
@@ -721,38 +747,43 @@ def student_term_report(request, student_id):
     }
 
     for result in results:
-        subject = result.assessment.subject.name
+        subject_name = result.assessment.subject.name or ''
+        subject_desc = result.assessment.subject.description or ''
+        subject_clean = (subject_name + " " + subject_desc).upper().replace(" ", "")
+        exclude_from_totals = (
+            subject_clean.find('RELIGIOUSEDUCATION') != -1 or
+            subject_clean.find('READING') != -1
+        )
+
         assessment_type = result.assessment.assessment_type.name
         weight = Decimal(str(result.assessment.assessment_type.weight or 1))
         score = Decimal(str(result.score))
 
-        if subject not in subject_summary:
-            subject_summary[subject] = {
+        if subject_name not in subject_summary:
+            subject_summary[subject_name] = {
                 'assessments': {},
                 'total_score': Decimal('0.0'),
                 'total_weight': Decimal('0.0')
             }
 
         grade, points = get_grade_and_points(score)
-        subject_summary[subject]['assessments'][assessment_type] = {
+        subject_summary[subject_name]['assessments'][assessment_type] = {
             'score': float(score),
             'grade': grade,
             'points': points
         }
-        subject_summary[subject]['total_score'] += score * weight
-        subject_summary[subject]['total_weight'] += weight
+        subject_summary[subject_name]['total_score'] += score * weight
+        subject_summary[subject_name]['total_weight'] += weight
 
-        # Exclude Religious Education / Reading from overall totals
-        if subject not in ['RELIGIOUS EDUCATION', 'READING']:
+        # Update totals only for non-excluded subjects
+        if not exclude_from_totals:
             total_marks += score * weight
-
-        if subject not in ['RELIGIOUS EDUCATION', 'READING'] and assessment_type in assessment_totals:
-            assessment_totals[assessment_type]['marks'] += score
-            assessment_totals[assessment_type]['points'] += Decimal(str(points))
-            assessment_totals[assessment_type]['count'] += 1
-
-        if subject not in ['RELIGIOUS EDUCATION', 'READING']:
             total_weight += weight
+
+            if assessment_type in assessment_totals:
+                assessment_totals[assessment_type]['marks'] += score
+                assessment_totals[assessment_type]['points'] += Decimal(str(points))
+                assessment_totals[assessment_type]['count'] += 1
 
     # Build report data per subject
     report_data = []
@@ -836,8 +867,6 @@ def student_term_report(request, student_id):
 
     return render(request, 'results/student_term_report.html', context)
 
-
-
 @login_required
 def class_performance_summary(request):
     academic_year_id = request.GET.get('academic_year_id')
@@ -863,6 +892,8 @@ def class_performance_summary(request):
 
     best_students = []
     subject_averages = []
+    students_data = []
+    subjects = []
 
     if academic_year_id and term_id and class_id:
         try:
@@ -879,19 +910,46 @@ def class_performance_summary(request):
             if assessment_type_id:
                 results_qs = results_qs.filter(assessment__assessment_type_id=assessment_type_id)
 
+            # --- keep your best students + subject averages ---
             best_students = (
                 results_qs
                 .values('student__student_name', 'student__current_class__name')
                 .annotate(average=Avg('score'))
                 .order_by('-average')[:5]
             )
-
             subject_averages = (
                 results_qs
                 .values('assessment__subject__name')
                 .annotate(avg_score=Avg('score'), best_score=Max('score'))
                 .order_by('-avg_score')
             )
+
+            # --- build assessment sheet ---
+            subjects = Subject.objects.all().order_by('id')  # adjust order manually if needed
+            students = Student.objects.filter(current_class_id=class_id)
+
+            for student in students:
+                results = {}
+                total_marks = 0
+                total_agg = 0
+
+                for subject in subjects:
+                    res = results_qs.filter(student=student, assessment__subject=subject).first()
+                    if res:
+                        results[subject.id] = {
+                            'marks': res.score,
+                            'agg': res.aggregate if hasattr(res, 'aggregate') else '-',  
+                        }
+                        total_marks += res.score
+                        total_agg += getattr(res, 'aggregate', 0)
+
+                students_data.append({
+                    'student': student,
+                    'results': results,
+                    'total_marks': total_marks,
+                    'total_agg': total_agg,
+                    'division': get_division(total_agg) if total_agg else '-'
+                })
 
     context = {
         'academic_years': academic_years,
@@ -900,6 +958,8 @@ def class_performance_summary(request):
         'assessment_types': assessment_types,
         'best_students': best_students,
         'subject_averages': subject_averages,
+        'students_data': students_data,
+        'subjects': subjects,
         'selected_academic_year': str(academic_year_id) if academic_year_id else '',
         'selected_term': str(term_id) if term_id else '',
         'selected_class': str(class_id) if class_id else '',
@@ -907,3 +967,262 @@ def class_performance_summary(request):
     }
 
     return render(request, 'results/class_performance_summary.html', context)
+
+
+
+
+@login_required
+def assessment_sheet_view(request):
+    def q2(val, places="0.01"):
+        return val.quantize(Decimal(places), rounding=ROUND_HALF_UP)
+
+    def is_excluded_subject(name: str, desc: str = "") -> bool:
+        text = f"{(name or '')} {(desc or '')}".upper().replace(" ", "")
+        return "READING" in text or "RELIGIOUSEDUCATION" in text
+
+    # Grades
+    unique_grades = Class.objects.values_list("name", flat=True).distinct()
+    selected_grade = request.GET.get("grade")
+    if not selected_grade or selected_grade not in unique_grades:
+        selected_grade = unique_grades.first() if unique_grades else None
+
+    # Current year
+    current_academic_year = AcademicYear.objects.filter(is_current=True).first()
+    if not current_academic_year:
+        messages.error(request, "No current academic year configured.")
+        return redirect("student_performance_view")
+
+    # Academic classes for the grade
+    academic_classes = (
+        AcademicClass.objects.filter(
+            Class__name=selected_grade, academic_year=current_academic_year
+        ).distinct()
+        if selected_grade
+        else AcademicClass.objects.none()
+    )
+    class_ids = academic_classes.values_list("id", flat=True)
+
+    # Terms
+    terms = Term.objects.filter(academic_year=current_academic_year).order_by("start_date")
+    selected_term_id = request.GET.get("term_id")
+    selected_assessment_type_id = request.GET.get("assessment_type_id")
+
+    if not selected_term_id:
+        selected_term = Term.objects.filter(
+            academic_year=current_academic_year, is_current=True
+        ).first()
+        selected_term_id = (
+            selected_term.id if selected_term else (terms.first().id if terms.exists() else None)
+        )
+
+    if not selected_term_id or not selected_grade:
+        messages.error(request, "No valid grade or term available.")
+        return redirect("student_performance_view")
+
+    term_obj = get_object_or_404(Term, id=selected_term_id)
+    assessment_type = (
+        get_object_or_404(AssessmentType, id=selected_assessment_type_id)
+        if selected_assessment_type_id
+        else None
+    )
+
+    # Order assessment types
+    assessment_order = Case(
+        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
+        When(name__iexact="MID OF TERM", then=Value(2)),
+        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
+        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
+        default=Value(5),
+        output_field=IntegerField(),
+    )
+    assessment_types = AssessmentType.objects.all().order_by(assessment_order, "name")
+
+    # Registers
+    class_registers = (
+        ClassRegister.objects.filter(
+            academic_class_stream__academic_class__id__in=class_ids,
+            academic_class_stream__academic_class__term_id=selected_term_id,
+        )
+        .select_related("student", "academic_class_stream__academic_class")
+        .order_by("student__student_name")
+    )
+
+    # Class teacher
+    class_teacher = "Tr. [Teacher Name]"
+    if academic_classes.exists():
+        first_class_stream = AcademicClassStream.objects.filter(
+            academic_class__id__in=class_ids,
+            academic_class__term_id=selected_term_id,
+        ).select_related("class_teacher").first()
+        if first_class_stream and first_class_stream.class_teacher:
+            class_teacher = f"{first_class_stream.class_teacher.first_name} {first_class_stream.class_teacher.last_name}"
+
+    unique_subjects = []
+    seen_subjects = set()
+    students_data = []
+
+    for register in class_registers:
+        student = register.student
+        results = Result.objects.filter(
+            student=student,
+            assessment__academic_class__term_id=selected_term_id,
+        ).select_related("assessment__subject", "assessment__assessment_type")
+
+        if assessment_type:
+            results = results.filter(assessment__assessment_type=assessment_type)
+
+        subj_stats = {}
+        for r in results:
+            subj_name = r.assessment.subject.name or ""
+            subj_desc = r.assessment.subject.description or ""
+            if subj_name not in seen_subjects:
+                unique_subjects.append(subj_name)
+                seen_subjects.add(subj_name)
+
+            try:
+                score = Decimal(str(r.score or 0))
+            except Exception:
+                score = Decimal("0")
+            w = Decimal(str(r.assessment.assessment_type.weight or 1))
+
+            if subj_name not in subj_stats:
+                subj_stats[subj_name] = {"sum": Decimal("0"), "w": Decimal("0"), "desc": subj_desc}
+            subj_stats[subj_name]["sum"] += score * w
+            subj_stats[subj_name]["w"] += w
+
+        subjects_payload = {}
+        total_marks_sum = Decimal("0")
+        total_aggregates_sum = 0
+
+        for subj_name, stat in subj_stats.items():
+            if stat["w"] > 0:
+                avg = stat["sum"] / stat["w"]
+            else:
+                avg = Decimal("0")
+
+            avg = q2(avg)
+            grade, points = get_grade_and_points(float(avg))
+
+            subjects_payload[subj_name] = {
+                "score": int(avg),
+                "agg": int(points),
+            }
+
+            if not is_excluded_subject(subj_name, stat["desc"]):
+                total_marks_sum += avg
+                total_aggregates_sum += int(points)
+
+        student_record = {
+            "name": student.student_name,
+            "subjects": subjects_payload,
+            "total_marks": int(q2(total_marks_sum)),
+            "total_aggregates": total_aggregates_sum,
+            "division": get_division(total_aggregates_sum) if total_aggregates_sum else "-",
+        }
+        students_data.append(student_record)
+
+    # Handle Excel export
+    if request.GET.get('export') == 'excel':
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"{term_obj.term} Assessment"
+
+        # Define styles
+        bold_font = Font(name='Calibri', size=11, bold=True)
+        regular_font = Font(name='Calibri', size=11)
+        border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+        header_fill = PatternFill(start_color='F3F4F6', end_color='F3F4F6', fill_type='solid')
+        center_align = Alignment(horizontal='center', vertical='center')
+        left_align = Alignment(horizontal='left', vertical='center')
+
+        # Metadata
+        metadata = [
+            ['School:', request.session.get('school_name', 'School Name')],
+            ['Term:', term_obj.term],
+            ['Grade:', selected_grade or 'N/A'],
+            ['Class Teacher:', class_teacher],
+            ['Assessment Type:', assessment_type.name if assessment_type else 'All Assessments'],
+            [],
+        ]
+        for row_idx, (key, value) in enumerate(metadata, 1):
+            ws.cell(row=row_idx, column=1).value = key
+            ws.cell(row=row_idx, column=2).value = value
+            ws.cell(row=row_idx, column=1).font = bold_font
+            ws.cell(row=row_idx, column=2).font = regular_font
+            ws.cell(row=row_idx, column=1).alignment = left_align
+            ws.cell(row=row_idx, column=2).alignment = left_align
+
+        # Headers
+        header_row = len(metadata) + 1
+        headers = ['No', 'Student Name'] + [f'{subj}' for subj in unique_subjects] + \
+                  [f'{subj} AGG' for subj in unique_subjects] + ['Total Marks', 'Division']
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=header_row, column=col_idx)
+            cell.value = header
+            cell.font = bold_font
+            cell.fill = header_fill
+            cell.border = border
+            cell.alignment = center_align
+
+        # Data
+        for row_idx, student in enumerate(students_data, header_row + 1):
+            ws.cell(row=row_idx, column=1).value = row_idx - header_row
+            ws.cell(row=row_idx, column=2).value = student['name'].title()
+            col_idx = 3
+            for subject in unique_subjects:
+                ws.cell(row=row_idx, column=col_idx).value = student['subjects'].get(subject, {}).get('score', '-')
+                ws.cell(row=row_idx, column=col_idx + 1).value = student['subjects'].get(subject, {}).get('agg', '-')
+                col_idx += 2
+            ws.cell(row=row_idx, column=col_idx).value = student['total_marks']
+            ws.cell(row=row_idx, column=col_idx + 1).value = student['division']
+
+            # Apply styles to data cells
+            for c in range(1, len(headers) + 1):
+                ws.cell(row=row_idx, column=c).font = regular_font
+                ws.cell(row=row_idx, column=c).border = border
+                ws.cell(row=row_idx, column=c).alignment = center_align
+
+        # Adjust column widths
+        ws.column_dimensions['A'].width = 10  # No
+        ws.column_dimensions['B'].width = 30  # Student Name
+        for col_idx, header in enumerate(headers[2:], 3):
+            ws.column_dimensions[get_column_letter(col_idx)].width = 15
+
+        # Set row heights
+        for r in range(1, len(metadata)):
+            ws.row_dimensions[r].height = 20
+        ws.row_dimensions[header_row].height = 25
+        for r in range(header_row + 1, ws.max_row + 1):
+            ws.row_dimensions[r].height = 20
+
+        # Save to buffer
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        # Create response
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{request.session.get("school_name", "School")}_{term_obj.term}_{selected_grade}_Assessment.xlsx"'
+        response.write(buffer.getvalue())
+        return response
+
+    context = {
+        "school_name": request.session.get('school_name', 'Bayan Learning Center'),
+        "term": term_obj.term,
+        "grade": selected_grade,
+        "class_teacher": class_teacher,
+        "students_data": students_data,
+        "subjects": unique_subjects,
+        "terms": terms,
+        "selected_term_id": str(selected_term_id),
+        "grades": unique_grades,
+        "selected_grade": selected_grade,
+        "assessment_types": assessment_types,
+        "selected_assessment_type_id": selected_assessment_type_id,
+    }
+    return render(request, "results/assessment_sheet.html", context)

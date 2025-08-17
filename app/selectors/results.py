@@ -15,6 +15,11 @@ def get_grade_and_points(score):
     except (ValueError, TypeError):
         return "N/A", 0
 
+
+
+
+
+
 def get_current_mode():
     setting = ResultModeSetting.objects.first()
     return setting.mode if setting else "CUMULATIVE"
