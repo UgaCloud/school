@@ -100,3 +100,4 @@ def get_division(total_aggregates):
         return "Division 4"
     else:
         return "U"  
+

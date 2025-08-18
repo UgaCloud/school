@@ -678,18 +678,16 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     }
     
     return render(request, 'results/student_assessment_report.html', context)
-
 @login_required
 def student_term_report(request, student_id):
     student = get_object_or_404(Student, id=student_id)
-    school = SchoolSetting.load()
 
     # Get all terms in the student's academic year
     terms = Term.objects.filter(
         academic_year=student.academic_year
     ).order_by('id')
 
-    # Get selected term_id from query param or default to student's current term
+    # Get selected term_id from query param or default
     selected_term_id = request.GET.get('term_id')
     if not selected_term_id:
         selected_term_id = (
@@ -698,9 +696,22 @@ def student_term_report(request, student_id):
         )
 
     if not selected_term_id:
-        # Show error message and redirect to student_performance_view
         messages.error(request, "No terms available for this student.")
         return redirect('student_performance_view', student_id=student_id)
+
+    context = build_student_report_context(student, selected_term_id)
+
+    
+    context['terms'] = terms
+    context['selected_term_id'] = str(selected_term_id)
+
+    return render(request, 'results/student_term_report.html', context)
+
+
+def build_student_report_context(student, term_id):
+    school = SchoolSetting.load()
+    academic_year = student.academic_year
+    term = get_object_or_404(Term, id=term_id, academic_year=academic_year)
 
     # ---- Custom order definition for assessment types ----
     assessment_order = Case(
@@ -727,7 +738,7 @@ def student_term_report(request, student_id):
     # Fetch results ordered by subject and custom assessment order
     results = Result.objects.filter(
         student=student,
-        assessment__academic_class__term_id=selected_term_id
+        assessment__academic_class__term_id=term_id
     ).select_related(
         'assessment__subject',
         'assessment__assessment_type',
@@ -751,8 +762,8 @@ def student_term_report(request, student_id):
         subject_desc = result.assessment.subject.description or ''
         subject_clean = (subject_name + " " + subject_desc).upper().replace(" ", "")
         exclude_from_totals = (
-            subject_clean.find('RELIGIOUSEDUCATION') != -1 or
-            subject_clean.find('READING') != -1
+            'RELIGIOUSEDUCATION' in subject_clean or
+            'READING' in subject_clean
         )
 
         assessment_type = result.assessment.assessment_type.name
@@ -775,7 +786,6 @@ def student_term_report(request, student_id):
         subject_summary[subject_name]['total_score'] += score * weight
         subject_summary[subject_name]['total_weight'] += weight
 
-        # Update totals only for non-excluded subjects
         if not exclude_from_totals:
             total_marks += score * weight
             total_weight += weight
@@ -812,31 +822,29 @@ def student_term_report(request, student_id):
     ).quantize(Decimal('0.01')) if total_weight else Decimal('0.00')
     overall_grade, overall_points = get_grade_and_points(overall_average)
 
-    # Calculate total aggregates per assessment type & get division for each
+    # Calculate assessment divisions
     assessment_divisions = {}
     for at in assessment_types:
         total_points = int(assessment_totals[at.name]['points'])
         count = assessment_totals[at.name]['count']
-        if count > 0:
-            assessment_divisions[at.name] = get_division(total_points)
-        else:
-            assessment_divisions[at.name] = "-"
+        assessment_divisions[at.name] = (
+            get_division(total_points) if count > 0 else "-"
+        )
 
     total_aggregates = sum(
         assessment_totals[at.name]['points'] for at in assessment_types
         if assessment_totals[at.name]['count'] > 0
     )
 
-    academic_year = student.academic_year.academic_year if student.academic_year else "-"
-    term_obj = Term.objects.filter(id=selected_term_id).first()
-    term_name = term_obj.term if term_obj else "-"
+    academic_year_str = student.academic_year.academic_year if student.academic_year else "-"
+    term_name = term.term if term else "-"
 
-    # --- Find next term based on start_date ---
+    # --- Find next term ---
     next_term = None
-    if term_obj and student.academic_year:
+    if term and student.academic_year:
         next_term = Term.objects.filter(
             academic_year=student.academic_year,
-            start_date__gt=term_obj.start_date
+            start_date__gt=term.start_date
         ).order_by('start_date').first()
 
     next_term_start_date = next_term.start_date if next_term else None
@@ -844,19 +852,17 @@ def student_term_report(request, student_id):
 
     colspan = 2 + len(assessment_types) + 1
 
-    context = {
+    return {
         'school': school,
         'student': student,
         'report_data': report_data,
         'assessment_types': assessment_types,
         'term': term_name,
-        'academic_year': academic_year,
+        'academic_year': academic_year_str,
         'total_marks': float(total_marks),
         'overall_average': float(overall_average),
         'overall_grade': overall_grade,
         'overall_points': overall_points,
-        'selected_term_id': str(selected_term_id),
-        'terms': terms,
         'colspan': colspan,
         'assessment_totals': assessment_totals,
         'total_aggregates': int(total_aggregates),
@@ -865,7 +871,35 @@ def student_term_report(request, student_id):
         'next_term_name': next_term_name,
     }
 
-    return render(request, 'results/student_term_report.html', context)
+
+@login_required
+def class_bulk_reports(request):
+    academic_year_id = request.GET.get('academic_year_id')
+    term_id = request.GET.get('term_id')
+    class_id = request.GET.get('class_id')
+
+    if not (academic_year_id and term_id and class_id):
+        messages.error(request, "Please select Academic Year, Term, and Class first.")
+        return redirect('class_performance_summary')
+
+    academic_class = get_object_or_404(
+        AcademicClass,
+        academic_year_id=academic_year_id,
+        term_id=term_id,
+        Class_id=class_id
+    )
+
+    students = Student.objects.filter(current_class_id=class_id).order_by('student_name')
+    school = SchoolSetting.load()
+
+    reports = [build_student_report_context(student, term_id) for student in students]
+
+    context = {
+        'school': school,
+        'reports': reports,
+        'class_obj': academic_class,
+    }
+    return render(request, 'results/class_bulk_reports.html', context)
 
 @login_required
 def class_performance_summary(request):
@@ -895,6 +929,9 @@ def class_performance_summary(request):
     students_data = []
     subjects = []
 
+    academic_class = None
+    academic_class_exists = False
+
     if academic_year_id and term_id and class_id:
         try:
             academic_class = AcademicClass.objects.get(
@@ -902,8 +939,12 @@ def class_performance_summary(request):
                 academic_year_id=academic_year_id,
                 term_id=term_id
             )
+            academic_class_exists = True
         except AcademicClass.DoesNotExist:
+            
+            messages.warning(request, "No records found for the selected Academic Year, Term, and Class.")
             academic_class = None
+            academic_class_exists = False
 
         if academic_class:
             results_qs = Result.objects.filter(assessment__academic_class=academic_class)
@@ -938,7 +979,7 @@ def class_performance_summary(request):
                     if res:
                         results[subject.id] = {
                             'marks': res.score,
-                            'agg': res.aggregate if hasattr(res, 'aggregate') else '-',  
+                            'agg': getattr(res, 'aggregate', '-'),
                         }
                         total_marks += res.score
                         total_agg += getattr(res, 'aggregate', 0)
@@ -964,6 +1005,7 @@ def class_performance_summary(request):
         'selected_term': str(term_id) if term_id else '',
         'selected_class': str(class_id) if class_id else '',
         'selected_assessment_type': str(assessment_type_id) if assessment_type_id else '',
+        'academic_class_exists': academic_class_exists,  # <-- flag for template
     }
 
     return render(request, 'results/class_performance_summary.html', context)
