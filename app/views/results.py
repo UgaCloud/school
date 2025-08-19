@@ -678,6 +678,8 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     }
     
     return render(request, 'results/student_assessment_report.html', context)
+
+    
 @login_required
 def student_term_report(request, student_id):
     student = get_object_or_404(Student, id=student_id)
@@ -851,7 +853,7 @@ def build_student_report_context(student, term_id):
     next_term_name = next_term.term if next_term else None
 
     colspan = 2 + len(assessment_types) + 1
-
+    head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
     return {
         'school': school,
         'student': student,
@@ -869,6 +871,7 @@ def build_student_report_context(student, term_id):
         'assessment_divisions': assessment_divisions,
         'next_term_start_date': next_term_start_date,
         'next_term_name': next_term_name,
+        'head_teacher_signature': head_teacher_signature,
     }
 
 
@@ -966,7 +969,7 @@ def class_performance_summary(request):
             )
 
             # --- build assessment sheet ---
-            subjects = Subject.objects.all().order_by('id')  # adjust order manually if needed
+            subjects = Subject.objects.all().order_by('id')  
             students = Student.objects.filter(current_class_id=class_id)
 
             for student in students:
