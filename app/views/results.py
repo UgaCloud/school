@@ -855,13 +855,11 @@ def build_student_report_context(student, term_id):
 
     # ---- Signatures ----
     head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
-    
-    # Get class teacher signature from AcademicClassStream model
     class_teacher_signature = None
     try:
         class_stream = AcademicClassStream.objects.get(
             academic_class=student.academic_class,
-            stream=student.stream  # ⚠️ student must have a .stream
+            stream=student.stream  
         )
         class_teacher_signature = class_stream.class_teacher_signature
     except (AcademicClassStream.DoesNotExist, AttributeError):
