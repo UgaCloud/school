@@ -709,7 +709,6 @@ def student_term_report(request, student_id):
 
     return render(request, 'results/student_term_report.html', context)
 
-
 def build_student_report_context(student, term_id):
     school = SchoolSetting.load()
     academic_year = student.academic_year
@@ -734,7 +733,7 @@ def build_student_report_context(student, term_id):
         output_field=IntegerField()
     )
 
-    # Fetch assessment types in the desired order for table headers
+    # Fetch assessment types in the desired order
     assessment_types = AssessmentType.objects.all().order_by(assessment_order, 'name')
 
     # Fetch results ordered by subject and custom assessment order
@@ -853,7 +852,21 @@ def build_student_report_context(student, term_id):
     next_term_name = next_term.term if next_term else None
 
     colspan = 2 + len(assessment_types) + 1
+
+    # ---- Signatures ----
     head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
+    
+    # Get class teacher signature from AcademicClassStream model
+    class_teacher_signature = None
+    try:
+        class_stream = AcademicClassStream.objects.get(
+            academic_class=student.academic_class,
+            stream=student.stream  # ⚠️ student must have a .stream
+        )
+        class_teacher_signature = class_stream.class_teacher_signature
+    except (AcademicClassStream.DoesNotExist, AttributeError):
+        class_teacher_signature = None
+
     return {
         'school': school,
         'student': student,
@@ -872,6 +885,7 @@ def build_student_report_context(student, term_id):
         'next_term_start_date': next_term_start_date,
         'next_term_name': next_term_name,
         'head_teacher_signature': head_teacher_signature,
+        'class_teacher_signature': class_teacher_signature,  
     }
 
 
@@ -894,13 +908,16 @@ def class_bulk_reports(request):
 
     students = Student.objects.filter(current_class_id=class_id).order_by('student_name')
     school = SchoolSetting.load()
+   
 
     reports = [build_student_report_context(student, term_id) for student in students]
+    head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
 
     context = {
         'school': school,
         'reports': reports,
         'class_obj': academic_class,
+        'head_teacher_signature': head_teacher_signature,
     }
     return render(request, 'results/class_bulk_reports.html', context)
 
