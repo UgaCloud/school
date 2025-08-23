@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %} - Assessment Sheet{% endblock %}
+
+{% block content %}
+<style>
+.table-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    overflow-x: auto;
+}
+
+.filter-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+}
+
+.filter-container label {
+    font-weight: 600;
+    color: #374151;
+    margin-right: 0.5rem;
+}
+
+.filter-container select {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 0.9rem;
+    min-width: 150px;
+}
+
+.filter-container select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.assessment-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.assessment-table th,
+.assessment-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.assessment-table th {
+    background: #f3f4f6;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+.assessment-table td {
+    color: #4b5563;
+}
+
+.assessment-table tr:hover {
+    background: #f9fafb;
+}
+
+.assessment-table th:nth-child(1),
+.assessment-table td:nth-child(1) {
+    width: 60px;
+}
+
+.assessment-table th:nth-child(2),
+.assessment-table td:nth-child(2) {
+    width: 200px;
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.export-btn, .filter-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+}
+
+.export-btn {
+    background: #2563eb;
+    color: white;
+}
+
+.export-btn:hover {
+    background: #1d4ed8;
+}
+
+.filter-btn {
+    background: #10b981;
+    color: white;
+}
+
+.filter-btn:hover {
+    background: #059669;
+}
+
+@media (max-width: 768px) {
+    .assessment-table th,
+    .assessment-table td {
+        padding: 8px;
+        font-size: 0.85rem;
+    }
+    
+    .assessment-table th:nth-child(2),
+    .assessment-table td:nth-child(2) {
+        width: 150px;
+    }
+
+    .filter-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-container select {
+        width: 100%;
+    }
+}
+
+.export-btn:disabled, .filter-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+.header-info {
+    margin-bottom: 1rem;
+    color: #374151;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+</style>
+
+<div class="table-container">
+    <div class="header-info">
+        <h2>TERM:{{ term|default:"Term" }} Assessment Sheet</h2>
+        <p>Grade: {{ grade|default:"N/A" }} | Class Teacher: {{ class_teacher|default:"N/A" }}</p>
+    </div>
+
+    <form class="filter-container" method="GET" action="">
+        <div>
+            <label for="grade">Class:</label>
+            <select name="grade" id="grade" onchange="this.form.submit()">
+                {% for grade in grades %}
+                    <option value="{{ grade }}" {% if grade == selected_grade %}selected{% endif %}>
+                        {{ grade }}
+                    </option>
+                {% empty %}
+                    <option value="">No grades available</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="term_id">Term:</label>
+            <select name="term_id" id="term_id" onchange="this.form.submit()">
+                {% for term in terms %}
+                    <option value="{{ term.id }}" {% if term.id|stringformat:"s" == selected_term_id %}selected{% endif %}>
+                        {{ term.term }}
+                    </option>
+                {% empty %}
+                    <option value="">No terms available</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="assessment_type_id">Assessment Type:</label>
+            <select name="assessment_type_id" id="assessment_type_id" onchange="this.form.submit()">
+                <option value="">All Assessments</option>
+                {% for assessment_type in assessment_types %}
+                    <option value="{{ assessment_type.id }}" {% if assessment_type.id|stringformat:"s" == selected_assessment_type_id %}selected{% endif %}>
+                        {{ assessment_type.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="filter-btn">Apply Filters</button>
+    </form>
+
+    <div class="button-group">
+        <form method="GET" action ="">
+            <input type="hidden" name="grade" value="{{ selected_grade }}">
+            <input type="hidden" name="term_id" value="{{ selected_term_id }}">
+            <input type="hidden" name="assessment_type_id" value="{{ selected_assessment_type_id }}">
+            <input type="hidden" name="export" value="excel">
+            <button type="submit" class="export-btn">Export to Excel</button>
+        </form>
+    </div>
+
+    <table class="assessment-table" id="assessmentTable">
+        <thead>
+            <tr>
+                <th>No</th>
+                <th>Student Name</th>
+                {% for subject in subjects %}
+                    <th>{{ subject }}</th>
+                    <th>{{ subject }} AGG</th>
+                {% endfor %}
+                <th>Total Marks</th>
+                <th>Division</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students_data %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ student.name|title|default:"-" }}</td>
+                {% for subject in subjects %}
+                    <td>{{ student.subjects|get_item:subject|get_item:"score"|default:"-" }}</td>
+                    <td>{{ student.subjects|get_item:subject|get_item:"agg"|default:"-" }}</td>
+                {% endfor %}
+                <td>{{ student.total_marks|default:"-" }}</td>
+                <td>{{ student.division|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="{% widthratio subjects|length 2 1|add:4 %}">
+                    No student data available for the selected filters.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

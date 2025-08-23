@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Class Performance Summary{% endblock %}
+
+{% block content %}
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+
+<div class="page-title">
+    <div class="title_left">
+        <h3><i class="fa fa-line-chart"></i> Class Performance Summary</h3>
+    </div>
+</div>
+
+<div class="clearfix"></div>
+
+<div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+
+        <!-- Filter Form -->
+        <div class="x_panel">
+            <div class="x_title">
+                <h2>Filter Performance Data</h2>
+                <div class="clearfix"></div>
+            </div>
+
+            <div class="x_content">
+                <form method="get" id="filter-form" class="form-inline">
+
+                    <div class="form-group mb-2">
+                        <label for="academic_year_id" class="sr-only">Academic Year</label>
+                        <select name="academic_year_id" id="academic_year_id" class="form-control" required>
+                            <option value="">-- Select Academic Year --</option>
+                            {% for year in academic_years %}
+                                <option value="{{ year.id }}" {% if year.id|stringformat:"s" == selected_academic_year %}selected{% endif %}>
+                                    {{ year.academic_year }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-2 ml-3">
+                        <label for="term_id" class="sr-only">Term</label>
+                        <select name="term_id" id="term_id" class="form-control" required>
+                            <option value="">-- Select Term --</option>
+                            {% for term in terms %}
+                                <option value="{{ term.id }}" {% if term.id|stringformat:"s" == selected_term %}selected{% endif %}>
+                                    {{ term.term }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-2 ml-3">
+                        <label for="class_id" class="sr-only">Class</label>
+                        <select name="class_id" id="class_id" class="form-control" required>
+                            <option value="">-- Select Class --</option>
+                            {% for c in classes %}
+                                <option value="{{ c.id }}" {% if c.id|stringformat:"s" == selected_class %}selected{% endif %}>
+                                    {{ c.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-2 ml-3">
+                        <label for="assessment_type_id" class="sr-only">Assessment Type</label>
+                        <select name="assessment_type_id" id="assessment_type_id" class="form-control">
+                            <option value="">-- Select Assessment Type --</option>
+                            {% for atype in assessment_types %}
+                                <option value="{{ atype.id }}" {% if atype.id|stringformat:"s" == selected_assessment_type %}selected{% endif %}>
+                                    {{ atype.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary mb-2 ml-3">Filter</button>
+
+                   {% if academic_class_exists %}
+                    <a href="{% url 'class_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}" 
+                       class="btn btn-success ml-3" target="_blank">
+                       Print Bulk Reports
+                  </a>
+                   {% else %}
+                      <button class="btn btn-secondary ml-3" disabled title="No data for selected combination">
+                       Print Bulk Reports (Unavailable)
+                     </button>
+                   {% endif %}
+
+                </form>
+            </div>
+        </div>
+
+        <!-- Performance Summary -->
+        {% if best_students or subject_averages %}
+        <div class="row">
+            <div class="col-md-4 col-sm-4 col-xs-12">
+                <div class="x_panel tile">
+                    <div class="x_title">
+                        <h2>Best Students</h2>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="x_content text-center">
+                        <h3>{{ best_students|length }}</h3>
+                        <p>Students performing best in class</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 col-sm-4 col-xs-12">
+                <div class="x_panel tile">
+                    <div class="x_title">
+                        <h2>Subjects</h2>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="x_content text-center">
+                        <h3>{{ subject_averages|length }}</h3>
+                        <p>Subjects evaluated</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 col-sm-4 col-xs-12">
+                <div class="x_panel tile">
+                    <div class="x_title">
+                        <h2>Total Classes</h2>
+                        <div class="clearfix"></div>
+                    </div>
+                    <div class="x_content text-center">
+                        <h3>{{ classes|length }}</h3>
+                        <p>Classes in system</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Best Students per Class -->
+        <div class="x_panel">
+            <div class="x_title">
+                <h2>Best Performing Students per Class</h2>
+                <div class="clearfix"></div>
+            </div>
+            <div class="x_content table-responsive">
+                <table class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Class</th>
+                            <th>Average Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if best_students %}
+                            {% for s in best_students %}
+                                <tr>
+                                    <td>{{ s.student__student_name }}</td>
+                                    <td>{{ s.student__current_class__name }}</td>
+                                    <td>{{ s.average|floatformat:2 }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center">No data available</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Subject Averages -->
+        <div class="x_panel">
+            <div class="x_title">
+                <h2>Subject Averages</h2>
+                <div class="clearfix"></div>
+            </div>
+            <div class="x_content table-responsive">
+                <table class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Average Score</th>
+                            <th>Best Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if subject_averages %}
+                            {% for subject in subject_averages %}
+                                <tr>
+                                    <td>{{ subject.assessment__subject__name }}</td>
+                                    <td>{{ subject.avg_score|floatformat:2 }}</td>
+                                    <td>{{ subject.best_score|floatformat:2 }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center">No data available</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% else %}
+            <p class="text-center text-muted">
+                Please select Academic Year, Term, and Class to see performance data.
+            </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

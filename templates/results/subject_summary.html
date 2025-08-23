@@ -1,3 +1,4 @@
+{% load static %}
 <style>
     /* Subject Performance Summary Section */
     .subject-performance-section {
@@ -68,7 +69,7 @@
     }
 
     .subject-performance-table th {
-        background:#2c3e50;
+        background: #2c3e50;
         color: #ffffff;
         font-weight: 600;
         text-align: center;
@@ -272,8 +273,8 @@
                         {% endif %}
                         {% if subject.scores %}
                         <ul class="scores-list">
-                            {% for date, score in subject.scores %}
-                            <li>{{ date|date:"d M Y" }} — {{ score }}%</li>
+                            {% for assessment_type, score in subject.scores %}
+                            <li>{{ assessment_type }} — {{ score }}%</li>
                             {% endfor %}
                         </ul>
                         {% endif %}

@@ -98,7 +98,7 @@ class TermAdmin(admin.ModelAdmin):
     list_display = ('term', 'academic_year', 'start_date', 'end_date', 'is_current')
     list_filter = ('academic_year', 'term', 'is_current')
     search_fields = ('term', 'academic_year__name')  
-    readonly_fields = ('start_date', 'end_date')
+    # readonly_fields = ('start_date', 'end_date')
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)

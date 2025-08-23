@@ -8,8 +8,8 @@
 </li>
 <li><a><i class="fa fa-institution"></i> Administration <span class="fa fa-chevron-down"></span></a>
   <ul class="nav child_menu">
-    <li><a href="{% url 'user_list' %}">Manage Users</a></li>
     <li><a href="{% url 'settings_page' %}">School Profile</a></li>
+    <li><a href="{% url 'user_list' %}">Manage Users</a></li>
     
   </ul>
 </li>
@@ -80,6 +80,8 @@
         <li><a href="{% url 'assessment_create' %}">Assessment</a></li>
         <li><a href="{% url 'add_results_page' %}">Results</a></li>
         <li><a href="{% url 'class_stream_filter' %}">View Results</a></li>
+        <li><a href="{% url 'class_performance_summary' %}">Class Performance Analytics</a></li>
+        <li><a href="{% url 'assessment_sheet' %}">Assessment Sheet</a></li>
       </ul>
     </li>
   </ul>

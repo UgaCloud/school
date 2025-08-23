@@ -15,6 +15,11 @@ def get_grade_and_points(score):
     except (ValueError, TypeError):
         return "N/A", 0
 
+
+
+
+
+
 def get_current_mode():
     setting = ResultModeSetting.objects.first()
     return setting.mode if setting else "CUMULATIVE"
@@ -82,3 +87,17 @@ def calculate_weighted_subject_averages(assessments):
             'teacher': data['teacher'],
         })
     return averages
+
+
+def get_division(total_aggregates):
+    if 4 <= total_aggregates <= 12:
+        return "Division 1"
+    elif 13 <= total_aggregates <= 23:
+        return "Division 2"
+    elif 24 <= total_aggregates <= 29:
+        return "Division 3"
+    elif 30 <= total_aggregates <= 34:
+        return "Division 4"
+    else:
+        return "U"  
+
