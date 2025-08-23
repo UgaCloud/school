@@ -71,7 +71,7 @@ def add_results_view(request, assessment_id=None):
             continue
 
     if broken_registers:
-        messages.warning(request, f"Some class register entries are broken (missing student data). Contact admin.")
+        messages.warning(request, f"Some class register entries are (missing student data). Contact admin.")
 
     # Find existing results and determine who doesn't have one yet
     existing_results = Result.objects.filter(assessment=assessment)
