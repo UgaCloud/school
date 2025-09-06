@@ -3,6 +3,7 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.urls import reverse
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from app.selectors.model_selectors import *
 from app.constants import *
 from app.selectors.fees_selectors import * 
@@ -78,12 +79,89 @@ def delete_bill_item_view(request, id):
     return HttpResponseRedirect(reverse(manage_bill_items_view))
 
 
+
 @login_required
-def  manage_student_bills_view(request):
-    student_bills = get_student_bills()
-    
+def manage_student_bills_view(request):
+    # Get filter parameters
+    academic_year_id = request.GET.get('academic_year')
+    term_id = request.GET.get('term')
+    class_id = request.GET.get('class')
+    search_query = request.GET.get('search', '').strip()
+
+    # Convert 'None' strings to None
+    if academic_year_id == 'None' or academic_year_id == '':
+        academic_year_id = None
+    if term_id == 'None' or term_id == '':
+        term_id = None
+    if class_id == 'None' or class_id == '':
+        class_id = None
+
+    # Get all filter options
+    academic_years = AcademicYear.objects.all()
+    terms = Term.objects.all()
+    classes = Class.objects.all()
+
+    # Start with all student bills
+    student_bills = StudentBill.objects.select_related(
+        'student', 'academic_class', 'academic_class__academic_year',
+        'academic_class__term', 'academic_class__Class'
+    ).order_by('-bill_date')
+
+    # Apply filters
+    if academic_year_id:
+        student_bills = student_bills.filter(academic_class__academic_year_id=academic_year_id)
+
+    if term_id:
+        student_bills = student_bills.filter(academic_class__term_id=term_id)
+
+    if class_id:
+        student_bills = student_bills.filter(academic_class__Class_id=class_id)
+
+    if search_query:
+        student_bills = student_bills.filter(
+            student__student_name__icontains=search_query
+        )
+
+    # Calculate summary statistics before pagination
+    all_bills = student_bills  # Keep reference for statistics
+    total_bills = all_bills.count()
+    total_amount = sum(bill.total_amount for bill in all_bills)
+    total_paid = sum(bill.amount_paid for bill in all_bills)
+    total_outstanding = total_amount - total_paid
+
+    # Status breakdown
+    paid_bills = all_bills.filter(status='Paid').count()
+    unpaid_bills = all_bills.filter(status='Unpaid').count()
+    overdue_bills = all_bills.filter(status='Overdue').count()
+
+    # Pagination
+    page = request.GET.get('page', 1)
+    paginator = Paginator(student_bills, 25)  # 25 bills per page
+
+    try:
+        student_bills = paginator.page(page)
+    except PageNotAnInteger:
+        student_bills = paginator.page(1)
+    except EmptyPage:
+        student_bills = paginator.page(paginator.num_pages)
+
     context = {
         "student_bills": student_bills,
+        "academic_years": academic_years,
+        "terms": terms,
+        "classes": classes,
+        "selected_academic_year": str(academic_year_id) if academic_year_id else '',
+        "selected_term": str(term_id) if term_id else '',
+        "selected_class": str(class_id) if class_id else '',
+        "search_query": search_query,
+        # Summary statistics
+        "total_bills": total_bills,
+        "total_amount": total_amount,
+        "total_paid": total_paid,
+        "total_outstanding": total_outstanding,
+        "paid_bills": paid_bills,
+        "unpaid_bills": unpaid_bills,
+        "overdue_bills": overdue_bills,
     }
     return render(request, "fees/student_bills.html", context)
 

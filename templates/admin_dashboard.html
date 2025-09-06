@@ -56,6 +56,7 @@
         <li><a href="{% url 'bill_item_page' %}">Bill Items</a></li>
         <li><a href="{% url 'student_bill_page' %}">Student Bill</a></li>
         <li><a href="{% url 'class_bill_list' %}">Class Bill</a></li>
+         <li><a href="{% url 'bulk_create_class_bills' %}">Bulk Create Bills</a></li>
         <li><a href="{% url 'fees_status' %}">Fees Status</a></li>
       </ul>
     </li>
@@ -63,7 +64,7 @@
     <!-- Finance -->
     <li><a><i class="fa fa-money"></i> Finance <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
-      <li><a href="#">Chart of Accounts</a></li>
+      <li><a href="{% url 'financial_summary_report' %}">Financial Summary Report</a></li>
       <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
         <li><a href="{% url 'expense_page' %}">Expenses</a></li>
         <li><a href="{% url 'budget_page' %}">Budget</a></li>

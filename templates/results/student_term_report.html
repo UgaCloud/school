@@ -324,22 +324,53 @@
             </tr>
         </table>
 
-        <div class="conduct-section">
-            <table>
-                <tr>
-                    <td class="label">Class Teacher's Remarks:</td>
-                    <td contenteditable="true"></td>
-                    <td class="label">Signature:</td>
-                    <td style="border-bottom: 1px solid #000;" contenteditable="true"></td>
-                </tr>
-                <tr>
-                    <td class="label">Head Teacher's Remarks:</td>
-                    <td contenteditable="true"></td>
-                    <td class="label">Signature:</td>
-                    <td style="border-bottom: 1px solid #000;" contenteditable="true"></td>
-                </tr>
-            </table>
-        </div>
+        <!-- report_template.html -->
+<div class="conduct-section">
+    <table style="width:100%; border-collapse:collapse;">
+        <!-- Header row for "Signature" -->
+        <tr>
+            <td colspan="2"></td>
+            <td style="text-align:center; font-weight:bold;">Signature</td>
+        </tr>
+
+        <tr>
+            <!-- Class Teacher Remarks -->
+            <td class="label" style="width:20%;">Class Teacher's Remarks:</td>
+            <td contenteditable="true" style="width:40%; border-bottom: 1px solid #000;"></td>
+
+            <!-- Class Teacher Signature -->
+            <td style="width:40%; text-align:right; border-bottom: 1px solid #000;">
+                {% if class_teacher_signature %}
+                    <img src="{{ class_teacher_signature.url }}" 
+                         alt="Class Teacher Signature" 
+                         style="height:30px; object-fit:contain;" />
+                {% else %}
+            
+                {% endif %}
+            </td>
+        </tr>
+
+        <tr>
+            <!-- Head Teacher Remarks -->
+            <td class="label">Head Teacher's Remarks:</td>
+            <td contenteditable="true" style="border-bottom: 1px solid #000;"></td>
+
+            <!-- Head Teacher Signature -->
+            <td style="text-align:right; border-bottom: 1px solid #000;">
+                {% if head_teacher_signature and head_teacher_signature.signature %}
+
+                     <img src="{{ head_teacher_signature.signature.url }}" 
+                         alt="Head Teacher Signature" 
+                         style="height:30px; object-fit:contain;" />
+                {% else %}
+                    .
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+</div>
+
+
 
         <div class="next-term">
             Next Term Begins On: {{ next_term_start_date|date:"jS F Y" }}

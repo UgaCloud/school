@@ -31,3 +31,13 @@ class GradingSystemForm(ModelForm):
     class Meta:
         model = GradingSystem
         fields =("__all__")
+
+
+class ReportRemarkForm(forms.ModelForm):
+    class Meta:
+        model = ReportRemark
+        fields = ['class_teacher_remark', 'head_teacher_remark']
+        widgets = {
+            'class_teacher_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'head_teacher_remark': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+        }
