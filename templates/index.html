@@ -1,224 +1,496 @@
 {% extends "./base.html" %}
+{% load static %}
+{% load humanize %}
 
-{% block page_title %}Dashboard{% endblock page_title %}
+{% block page_title %}School Management Dashboard{% endblock %}
 
 {% block content %}
-    <!-- top tiles -->
-    <div class="row" style="display: inline-block;" >
-        <div class="row">
-            {% comment %} Card Template Start {% endcomment %}
-            <div class="col-md-6 col-lg-2 mb-4">
-              <div class="card stat-card shadow-sm border-0 text-center">
-                <div class="card-body">
-                  <div class="icon-circle bg-primary mb-3 mx-auto">
-                    <i class="fa fa-user fa-2x text-white"></i>
-                  </div>
-                  <h3 class="count" data-count="{{ total_staff }}">0</h3>
-                  <p class="text-muted">Total Staff Members</p>
-                  <small class="text-success">100% of Staff</small>
-                </div>
-              </div>
-            </div>
-          
-            <div class="col-md-6 col-lg-2 mb-4">
-              <div class="card stat-card shadow-sm border-0 text-center">
-                <div class="card-body">
-                  <div class="icon-circle bg-info mb-3 mx-auto">
-                    <i class="fa fa-male fa-2x text-white"></i>
-                  </div>
-                  <h3 class="count" data-count="{{ total_males }}">0</h3>
-                  <p class="text-muted">Total Male Staff</p>
-                  <small class="text-success"><i class="fa fa-arrow-up"></i> {{ male_percentage }}%</small>
-                </div>
-              </div>
-            </div>
-          
-            <div class="col-md-6 col-lg-2 mb-4">
-              <div class="card stat-card shadow-sm border-0 text-center">
-                <div class="card-body">
-                  <div class="icon-circle bg-danger mb-3 mx-auto">
-                    <i class="fa fa-female fa-2x text-white"></i>
-                  </div>
-                  <h3 class="count" data-count="{{ total_females }}">0</h3>
-                  <p class="text-muted">Total Female Staff</p>
-                  <small class="text-success"><i class="fa fa-arrow-up"></i> {{ female_percentage }}%</small>
-                </div>
-              </div>
-            </div>
-          
-            <div class="col-md-6 col-lg-2 mb-4">
-              <div class="card stat-card shadow-sm border-0 text-center">
-                <div class="card-body">
-                  <div class="icon-circle bg-success mb-3 mx-auto">
-                    <i class="fa fa-users fa-2x text-white"></i>
-                  </div>
-                  <h3 class="count" data-count="{{ total_students }}">0</h3>
-                  <p class="text-muted">Student Population</p>
-                  <small class="text-success">100% of Students</small>
-                </div>
-              </div>
-            </div>
-          
-            <div class="col-md-6 col-lg-2 mb-4">
-              <div class="card stat-card shadow-sm border-0 text-center">
-                <div class="card-body">
-                  <div class="icon-circle bg-pink mb-3 mx-auto">
-                    <i class="fa fa-female fa-2x text-white"></i>
-                  </div>
-                  <h3 class="count" data-count="{{ total_female_students }}">0</h3>
-                  <p class="text-muted">Female Students</p>
-                  <small class="text-success"><i class="fa fa-arrow-up"></i> {{ female_students_percentage }}%</small>
-                </div>
-              </div>
-            </div>
-          
-            <div class="col-md-6 col-lg-2 mb-4">
-              <div class="card stat-card shadow-sm border-0 text-center">
-                <div class="card-body">
-                  <div class="icon-circle bg-warning mb-3 mx-auto">
-                    <i class="fa fa-male fa-2x text-white"></i>
-                  </div>
-                  <h3 class="count" data-count="{{ total_male_students }}">0</h3>
-                  <p class="text-muted">Male Students</p>
-                  <small class="text-success"><i class="fa fa-arrow-up"></i> {{ male_students_percentage }}%</small>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          
-          
-        
-    </div>
-    <!-- /top tiles -->
+<div class="clearfix"></div>
 
-    <div class="row">
-        <div class="col-md-12 col-sm-12 ">
-            <div class="dashboard_graph">
-                <div class="row x_title">
-                    <div class="col-md-6">
-                        <h3>School Performance Overview <small>Academic Year Progress</small></h3>
-                    </div>
-                    <div class="col-md-6">
-                        <div id="reportrange" class="pull-right" style="background: #fff; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc">
-                            <i class="glyphicon glyphicon-calendar fa fa-calendar"></i>
-                            <span>January 1, 2024 - December 31, 2024</span> <b class="caret"></b>
-                        </div>
-                    </div>
-                </div>
-            
-                <div class="col-md-9 col-sm-9">
-                    <div id="chart_plot_01" class="demo-placeholder"></div> 
-                </div>
-            
-                <div class="col-md-3 col-sm-3 bg-white">
-                    <div class="x_title">
-                        <h2>Key Performance Indicators</h2>
-                        <div class="clearfix"></div>
-                    </div>
-            
-                    <div class="col-md-12 col-sm-12">
-                        <div>
-                            <p>Student Enrollment Progress</p>
-                            <div class="">
-                                <div class="progress progress_sm" style="width: 100%;">
-                                    <div class="progress-bar bg-green" role="progressbar" data-transitiongoal="{{ enrollment_percentage }}"></div>
-                                </div>
-                            </div>
-                        </div>
-            
-                        <div>
-                            <p>Fee Collection Status</p>
-                            <div class="">
-                                <div class="progress progress_sm" style="width: 100%;">
-                                    <div class="progress-bar bg-blue" role="progressbar" data-transitiongoal="{{ fee_collection_percentage }}"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-            
-                    <div class="col-md-12 col-sm-12">
-                        <div>
-                            <p>Library Book Borrowing</p>
-                            <div class="">
-                                <div class="progress progress_sm" style="width: 100%;">
-                                    <div class="progress-bar bg-orange" role="progressbar" data-transitiongoal="{{ library_usage_percentage }}"></div>
-                                </div>
-                            </div>
-                        </div>
-            
-                        <div>
-                            <p>Teacher Attendance Rate</p>
-                            <div class="">
-                                <div class="progress progress_sm" style="width: 100%;">
-                                    <div class="progress-bar bg-purple" role="progressbar" data-transitiongoal="{{ teacher_attendance_percentage }}"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            
-               
+<!-- Header Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-1"><i class="fa fa-tachometer-alt text-primary"></i> Dashboard Overview</h2>
+                <p class="text-muted mb-0">Welcome back, <strong>{{ user.get_full_name|default:user.username }}</strong>
+                    {% if current_year and current_term %}
+                        <span class="badge badge-info">Term:{{ current_term.term }} {{ current_year.academic_year }}</span>
+                    {% endif %}
+                </p>
             </div>
-            
+            <div>
+                <div class="btn-group">
+                    {% if is_academic %}
+                    <a href="{% url 'add_student' %}" class="btn btn-primary">
+                        <i class="fa fa-user-plus"></i> Add Student
+                    </a>
+                    {% endif %}
+                    {% if is_admin %}
+                    <a href="{% url 'add_staff' %}" class="btn btn-success">
+                        <i class="fa fa-user-tie"></i> Add Staff
+                    </a>
+                    {% endif %}
+                    {% if is_finance %}
+                    <a href="{% url 'bill_item_page' %}" class="btn btn-warning">
+                        <i class="fa fa-money-bill"></i> Create Bill
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
         </div>
+    </div>
+</div>
 
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    {% if not is_support %}
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+        <div class="card border-left-primary shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-primary mb-1"><i class="fa fa-users"></i> Total Staff</h6>
+                        <h3 class="mb-0 font-weight-bold">{{ total_staff }}</h3>
+                        <small class="text-muted">Active members</small>
+                    </div>
+                    <div class="text-primary">
+                        <i class="fa fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if is_academic %}
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+        <div class="card border-left-success shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-success mb-1"><i class="fa fa-graduation-cap"></i> Total Students</h6>
+                        <h3 class="mb-0 font-weight-bold">{{ total_students }}</h3>
+                        <small class="text-muted">Enrolled students</small>
+                    </div>
+                    <div class="text-success">
+                        <i class="fa fa-graduation-cap fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if is_academic %}
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+        <div class="card border-left-info shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-info mb-1"><i class="fa fa-school"></i> Active Classes</h6>
+                        <h3 class="mb-0 font-weight-bold">{{ active_classes }}</h3>
+                        <small class="text-muted">Running classes</small>
+                    </div>
+                    <div class="text-info">
+                        <i class="fa fa-school fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if is_finance %}
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+        <div class="card border-left-warning shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-warning mb-1"><i class="fa fa-exclamation-triangle"></i> Pending Tasks</h6>
+                        <h3 class="mb-0 font-weight-bold">{{ pending_tasks }}</h3>
+                        <small class="text-muted">Requires attention</small>
+                    </div>
+                    <div class="text-warning">
+                        <i class="fa fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Performance Metrics -->
+{% if is_academic or is_finance %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fa fa-bar-chart text-primary"></i> Performance Metrics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if is_academic %}
+                    <div class="col-xl-4 col-lg-6 mb-4">
+                        <div class="card border-left-primary h-100">
+                            <div class="card-body text-center">
+                                <div class="mb-3">
+                                    <i class="fa fa-clipboard-check fa-3x text-primary"></i>
+                                </div>
+                                <h4 class="font-weight-bold">Assessment Completion</h4>
+                                <h2 class="text-primary font-weight-bold mb-3">{{ assessment_completion_rate }}%</h2>
+                                <div class="progress">
+                                    <div class="progress-bar bg-primary" style="width: {{ assessment_completion_rate }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if is_finance %}
+                    <div class="col-xl-4 col-lg-6 mb-4">
+                        <div class="card border-left-success h-100">
+                            <div class="card-body text-center">
+                                <div class="mb-3">
+                                    <i class="fa fa-money-bill-wave fa-3x text-success"></i>
+                                </div>
+                                <h4 class="font-weight-bold">Fee Collection Rate</h4>
+                                <h2 class="text-success font-weight-bold mb-3">{{ fee_collection_rate }}%</h2>
+                                <div class="progress">
+                                    <div class="progress-bar bg-success" style="width: {{ fee_collection_rate }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if is_academic %}
+                    <div class="col-xl-4 col-lg-6 mb-4">
+                        <div class="card border-left-info h-100">
+                            <div class="card-body text-center">
+                                <div class="mb-3">
+                                    <i class="fa fa-book fa-3x text-info"></i>
+                                </div>
+                                <h4 class="font-weight-bold">Total Subjects</h4>
+                                <h2 class="text-info font-weight-bold mb-3">{{ total_subjects }}</h2>
+                                <small class="text-muted">Active curriculum subjects</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Financial Overview -->
+{% if is_finance %}
+<div class="row mb-4">
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fa fa-money-bill-wave"></i> Financial Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 text-center mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-success font-weight-bold mb-1">UGX {{ total_fees_collected|intcomma }}</h4>
+                            <small class="text-muted">Fees Collected</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-center mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <h4 class="text-danger font-weight-bold mb-1">UGX {{ total_fees_outstanding|intcomma }}</h4>
+                            <small class="text-muted">Outstanding</small>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <span class="badge badge-success badge-pill p-2">{{ paid_bills }}</span>
+                        <p class="text-muted small mt-1">Paid</p>
+                    </div>
+                    <div class="col-4">
+                        <span class="badge badge-warning badge-pill p-2">{{ unpaid_bills }}</span>
+                        <p class="text-muted small mt-1">Pending</p>
+                    </div>
+                    <div class="col-4">
+                        <span class="badge badge-danger badge-pill p-2">{{ overdue_bills }}</span>
+                        <p class="text-muted small mt-1">Overdue</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    
-    <style>
-        .icon-circle {
-          width: 60px;
-          height: 60px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .bg-pink {
-          background: #e83e8c;
-        }
-        
-        .stat-card {
-          transition: all 0.3s ease;
-          border-radius: 1rem;
-        }
-        
-        .stat-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-        }
-        
-        .count {
-          font-size: 2rem;
-          font-weight: bold;
-        }
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fa fa-chart-pie"></i> Budget Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h4 class="text-primary font-weight-bold">UGX {{ budget_allocated|intcomma }}</h4>
+                    <small class="text-muted">Total Budget</small>
+                </div>
+                <div class="progress mb-3">
+                    <div class="progress-bar bg-success" style="width: {% widthratio budget_spent budget_allocated 100 %}%">
+                        {% widthratio budget_spent budget_allocated 100 %}%
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 text-center">
+                        <div class="p-3 bg-light rounded">
+                            <h5 class="text-success font-weight-bold mb-1">UGX {{ budget_spent|intcomma }}</h5>
+                            <small class="text-muted">Spent</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <div class="p-3 bg-light rounded">
+                            <h5 class="text-info font-weight-bold mb-1">UGX {{ budget_remaining|intcomma }}</h5>
+                            <small class="text-muted">Remaining</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
-        
-        </style>
-        <script>
-            document.addEventListener("DOMContentLoaded", function() {
-              const counters = document.querySelectorAll('.count');
-              counters.forEach(counter => {
-                counter.innerText = '0';
-                const updateCounter = () => {
-                  const target = +counter.getAttribute('data-count');
-                  const current = +counter.innerText;
-                  const increment = target / 200;
-            
-                  if(current < target) {
-                    counter.innerText = `${Math.ceil(current + increment)}`;
-                    setTimeout(updateCounter, 10);
-                  } else {
-                    counter.innerText = target;
-                  }
-                };
-                updateCounter();
-              });
-            });
-            </script>
-            
-        
-          
-{% endblock content %}
+<!-- Quick Actions & Recent Activities -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fa fa-tasks"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if is_academic %}
+                    <a href="{% url 'add_student' %}" class="btn btn-outline-primary btn-lg">
+                        <i class="fa fa-user-plus"></i> Add Student
+                    </a>
+                    {% endif %}
+                    {% if is_admin %}
+                    <a href="{% url 'add_staff' %}" class="btn btn-outline-success btn-lg">
+                        <i class="fa fa-user-tie"></i> Add Staff
+                    </a>
+                    {% endif %}
+                    {% if is_finance %}
+                    <a href="{% url 'bill_item_page' %}" class="btn btn-outline-warning btn-lg">
+                        <i class="fa fa-money-bill"></i> Create Bill
+                    </a>
+                    {% endif %}
+                    {% if is_academic %}
+                    <a href="{% url 'student_page' %}" class="btn btn-outline-info btn-lg">
+                        <i class="fa fa-search"></i> Search Students
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fa fa-clock"></i> Recent Activities</h5>
+            </div>
+            <div class="card-body">
+                {% if is_finance and recent_payments %}
+                <div class="list-group list-group-flush">
+                    {% for payment in recent_payments %}
+                    <div class="list-group-item px-0">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="bg-success rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <i class="fa fa-money-bill-wave text-white"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ payment.bill.student.student_name }}</h6>
+                                <small class="text-muted">UGX {{ payment.amount|intcomma }} • {{ payment.payment_date|date:"M d, Y" }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% elif is_academic and recent_registrations %}
+                <div class="list-group list-group-flush">
+                    {% for student in recent_registrations %}
+                    <div class="list-group-item px-0">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <i class="fa fa-user text-white"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ student.student_name }}</h6>
+                                <small class="text-muted">{{ student.current_class.name }} • Reg: {{ student.reg_no }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fa fa-inbox fa-3x text-muted mb-3"></i>
+                    <h6 class="text-muted">No Recent Activities</h6>
+                    <small class="text-muted">Recent activities will appear here</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Class Distribution -->
+{% if is_academic and class_distribution %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fa fa-bar-chart"></i> Class Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for class_data in class_distribution %}
+                    <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 mb-3">
+                        <div class="card border-left-info shadow-sm h-100">
+                            <div class="card-body text-center">
+                                <h5 class="text-info font-weight-bold mb-2">{{ class_data.current_class__name }}</h5>
+                                <h3 class="font-weight-bold text-gray-800 mb-1">{{ class_data.count }}</h3>
+                                <small class="text-muted">Students</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+<!-- Custom Dashboard Styles -->
+<style>
+/* Card hover effects */
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border-radius: 8px;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+}
+
+/* Border left colors for cards */
+.border-left-primary {
+    border-left: 4px solid #007bff !important;
+}
+
+.border-left-success {
+    border-left: 4px solid #28a745 !important;
+}
+
+.border-left-info {
+    border-left: 4px solid #17a2b8 !important;
+}
+
+.border-left-warning {
+    border-left: 4px solid #ffc107 !important;
+}
+
+/* Button styling */
+.btn {
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.btn-group .btn {
+    margin-right: 0.5rem;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+/* Progress bars */
+.progress {
+    height: 8px;
+    border-radius: 4px;
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    border-radius: 4px;
+}
+
+/* Badge styling */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.5rem;
+}
+
+/* List group items */
+.list-group-item {
+    border: none;
+    padding: 0.75rem 0;
+    background: transparent;
+}
+
+.list-group-item:first-child {
+    padding-top: 0;
+}
+
+.list-group-item:last-child {
+    padding-bottom: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .d-flex.justify-content-between.align-items-center {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .btn-group {
+        width: 100%;
+    }
+
+    .btn-group .btn {
+        flex: 1;
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+}
+
+/* Animation for cards */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: fadeInUp 0.5s ease-out;
+}
+</style>
