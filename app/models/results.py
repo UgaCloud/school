@@ -118,6 +118,22 @@ class ReportResultDetail(models.Model):
 
     def __str__(self):
         return f"{self.report.student} - {self.assessment_type.name}: {self.score}"
+    
+
+class ReportRemark(models.Model):
+    student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='remarks')
+    term = models.ForeignKey("app.Term", on_delete=models.CASCADE, related_name='remarks')
+    class_teacher_remark = models.TextField(blank=True, null=True)
+    head_teacher_remark = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('student', 'term')
+
+    def __str__(self):
+        return f"Remarks for {self.student.student_name} - {self.term.term}"
 
 class TermResult(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='term_results')

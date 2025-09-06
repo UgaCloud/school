@@ -4,14 +4,15 @@ register = template.Library()
 
 @register.filter
 def dict_key(dictionary, key):
-       """Return the value for the given key from the dictionary."""
-       return dictionary.get(key, None)
-
+    """Return the value for the given key from the dictionary."""
+    return dictionary.get(key, None)
 
 @register.filter
 def get_item(dictionary, key):
-    return dictionary.get(key)
-
+    """Safely return the value for the given key from a dictionary."""
+    if not isinstance(dictionary, dict):
+        return None  # Return None if the input is not a dictionary
+    return dictionary.get(str(key), None)  # Safely get the value or None
 
 @register.filter
 def not_reserved_key(value):
@@ -29,7 +30,7 @@ def is_top_score(score, subject_scores):
         return score == max_score
     except:
         return False
-    
+
 @register.filter
 def get_score(student, subject):
-    return student.get(subject, 0)
+    return student.get(subject, 0)  # Note: This assumes student is a dict
