@@ -148,29 +148,90 @@ def academic_class_view(request):
     staff_account = getattr(request.user, "staff_account", None)
     role_name = staff_account.role.name if staff_account and staff_account.role else None
 
+    # Get base queryset based on user role
     if role_name == "Admin":
-        academic_classes = AcademicClass.objects.all()
+        base_queryset = AcademicClass.objects.all()
     elif role_name == "Teacher":
         if staff_account.staff:
-            academic_classes = AcademicClass.objects.filter(
+            base_queryset = AcademicClass.objects.filter(
                 id__in=ClassSubjectAllocation.objects.filter(
                     subject_teacher=staff_account.staff
                 ).values_list("academic_class_stream__academic_class_id", flat=True)
             ).distinct()
         else:
-            academic_classes = AcademicClass.objects.none()
+            base_queryset = AcademicClass.objects.none()
     else:
-        academic_classes = AcademicClass.objects.none()
+        base_queryset = AcademicClass.objects.none()
+
+    # Apply filters from GET parameters
+    academic_year_filter = request.GET.get('academic_year')
+    term_filter = request.GET.get('term')
+    class_filter = request.GET.get('class')
+    section_filter = request.GET.get('section')
+
+    academic_classes = base_queryset.select_related('Class', 'academic_year', 'term')
+
+    # Apply filters
+    if academic_year_filter and academic_year_filter != '':
+        academic_classes = academic_classes.filter(academic_year_id=academic_year_filter)
+
+    if term_filter and term_filter != '':
+        academic_classes = academic_classes.filter(term_id=term_filter)
+
+    if class_filter and class_filter != '':
+        academic_classes = academic_classes.filter(Class_id=class_filter)
+
+    if section_filter and section_filter != '':
+        academic_classes = academic_classes.filter(section=section_filter)
+
+    # Calculate statistics for filtered results
+    total_classes = academic_classes.count()
+    distinct_terms = academic_classes.values_list('term', flat=True).distinct().count() if academic_classes.exists() else 0
+    distinct_sections = academic_classes.values_list('section', flat=True).distinct().count() if academic_classes.exists() else 0
+    academic_years_count = school_settings_selectors.get_academic_years().count()
+
+    # Get distinct sections for filter dropdown (from filtered results)
+    sections_list = []
+    if academic_classes.exists():
+        section_ids = academic_classes.values_list('section', flat=True).distinct()
+        sections_list = Section.objects.filter(id__in=section_ids)
+
+    # Get all available options for filters (not filtered)
+    all_academic_years = school_settings_selectors.get_academic_years()
+    all_classes = class_selectors.get_classes()
+    all_terms = []  # We'll populate this from the academic years
+
+    # Get terms for the selected academic year or all terms
+    if academic_year_filter and academic_year_filter != '':
+        try:
+            selected_year = all_academic_years.get(id=academic_year_filter)
+            all_terms = selected_year.term_set.all()
+        except:
+            all_terms = []
+    else:
+        # Get all terms from all years
+        all_terms = Term.objects.all()
 
     context = {
         "form": academic_class_form,
-        "academic_years": school_settings_selectors.get_academic_years(),
+        "academic_years": all_academic_years,
         "academic_classes": academic_classes,
-        "classes": class_selectors.get_classes()
+        "classes": all_classes,
+        "all_terms": all_terms,
+        # Statistics
+        "total_classes": total_classes,
+        "distinct_terms": distinct_terms,
+        "distinct_sections": distinct_sections,
+        "academic_years_count": academic_years_count,
+        "sections_list": sections_list,
+        # Current filter values
+        "current_academic_year": academic_year_filter,
+        "current_term": term_filter,
+        "current_class": class_filter,
+        "current_section": section_filter,
     }
 
     return render(request, "classes/academic_class.html", context)
-
 
 
 
@@ -307,12 +368,20 @@ def class_bill_list_view(request):
     term_filter = request.GET.get('term')
     status_filter = request.GET.get('status', 'all')
 
+    # Convert 'all' to None for proper filtering
+    if class_filter == 'all':
+        class_filter = None
+    if academic_year_filter == 'all':
+        academic_year_filter = None
+    if term_filter == 'all':
+        term_filter = None
+
     # Apply filters
-    if class_filter and class_filter != 'all':
+    if class_filter:
         academic_classes = academic_classes.filter(Class__id=class_filter)
-    if academic_year_filter and academic_year_filter != 'all':
+    if academic_year_filter:
         academic_classes = academic_classes.filter(academic_year__id=academic_year_filter)
-    if term_filter and term_filter != 'all':
+    if term_filter:
         academic_classes = academic_classes.filter(term__id=term_filter)
 
     # Get filter options
@@ -405,9 +474,9 @@ def class_bill_list_view(request):
         "class_options": class_options,
         "academic_year_options": academic_year_options,
         "term_options": term_options,
-        "class_filter": class_filter or 'all',
-        "academic_year_filter": academic_year_filter or 'all',
-        "term_filter": term_filter or 'all',
+        "class_filter": class_filter if class_filter else 'all',
+        "academic_year_filter": academic_year_filter if academic_year_filter else 'all',
+        "term_filter": term_filter if term_filter else 'all',
         "status_filter": status_filter,
         # Summary statistics
         "total_classes": len(academic_classes_with_stats),
@@ -426,6 +495,7 @@ def class_bill_list_view(request):
     }
 
     return render(request, "fees/class_bill_list.html", context)
+
 
 
 @login_required
