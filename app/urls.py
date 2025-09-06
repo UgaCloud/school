@@ -149,6 +149,10 @@ urlpatterns = [
     path('add_budget_item/', add_budget_item, name="add_budget_item_page"),
     path('edit_budget_item/<int:id>/', edit_budget_items, name="edit_budget_item"),
     path('delete_budget_item/<int:id>/', delete_budget_item, name="delete_budget_item"),
+
+
+    #Financial Summary Report
+    path('financial-summary/', financial_summary_report, name="financial_summary_report"),
     
     #Results
     path('add_grading_system/', grading_system_view, name='add_grading_system_page'),
