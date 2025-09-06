@@ -147,17 +147,48 @@ def logout_view(request):
 
 class UserListView(ListView):
     model = User
-    template_name = 'accounts/user_list.html'  
-    context_object_name = 'users'     
-    paginate_by = 150                  
+    template_name = 'accounts/user_list.html'
+    context_object_name = 'users'
+    paginate_by = 12  # Better pagination for card layout
 
     def get_queryset(self):
-        # Optionally, add filters (e.g., only active users)
-        queryset = User.objects.all().order_by('username')
-        search_query = self.request.GET.get('search', '')
+        queryset = User.objects.all().order_by('-date_joined')  # Most recent first
+        search_query = self.request.GET.get('search', '').strip()
+
         if search_query:
-            queryset = queryset.filter(username__icontains=search_query)
+            queryset = queryset.filter(
+                models.Q(username__icontains=search_query) |
+                models.Q(first_name__icontains=search_query) |
+                models.Q(last_name__icontains=search_query) |
+                models.Q(email__icontains=search_query)
+            )
+
+        # Select related staff account and staff for better performance
+        queryset = queryset.select_related('staff_account__staff')
+
         return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Add search query to context
+        context['search_query'] = self.request.GET.get('search', '')
+
+        # Add statistics
+        all_users = User.objects.all()
+        context['total_users'] = all_users.count()
+        context['active_users'] = all_users.filter(is_active=True).count()
+        context['inactive_users'] = all_users.filter(is_active=False).count()
+        context['staff_users'] = all_users.filter(is_staff=True).count()
+        context['superuser_count'] = all_users.filter(is_superuser=True).count()
+
+        # Recent logins (last 30 days)
+        from datetime import timedelta
+        from django.utils import timezone
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        context['recent_logins'] = all_users.filter(last_login__gte=thirty_days_ago).count()
+
+        return context
 
 
 class UserDetailView(LoginRequiredMixin, DetailView):
@@ -165,20 +196,39 @@ class UserDetailView(LoginRequiredMixin, DetailView):
     template_name = 'accounts/user_detail.html'
     context_object_name = 'viewed_user'
 
+    def get_queryset(self):
+        return super().get_queryset().select_related('staff_account__staff')
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
         viewed_user = self.object
-        staff_account = StaffAccount.objects.filter(user=viewed_user).first()
+        staff_account = viewed_user.staff_account if hasattr(viewed_user, 'staff_account') else None
         staff = staff_account.staff if staff_account else None
 
-        # Get teaching assignments for staff
-        teaching_assignments = ClassSubjectAllocation.objects.filter(subject_teacher=staff) if staff else None
+        # Get teaching assignments for staff with optimized queries
+        if staff:
+            teaching_assignments = ClassSubjectAllocation.objects.filter(
+                subject_teacher=staff
+            ).select_related(
+                'academic_class_stream__academic_class__Class',
+                'academic_class_stream__stream',
+                'subject'
+            ).order_by('academic_class_stream__academic_class__Class__name')
+        else:
+            teaching_assignments = None
 
-        context['staff'] = staff
-        context['role'] = staff_account.role if staff_account else None
-        context['last_login'] = viewed_user.last_login
-        context['teaching_assignments'] = teaching_assignments
+        # Additional context data
+        context.update({
+            'staff': staff,
+            'role': staff_account.role if staff_account else None,
+            'last_login': viewed_user.last_login,
+            'teaching_assignments': teaching_assignments,
+            'is_admin': self.request.user.is_authenticated and
+                       hasattr(self.request.user, 'staff_account') and
+                       self.request.user.staff_account.role.name == "Admin",
+            'account_age': viewed_user.date_joined,
+        })
 
         return context
 
