@@ -7,6 +7,7 @@ from app.constants import *
 from app.models.students  import Student
 from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream,ClassSubjectAllocation
 from app.forms.classes import ClassForm, AcademicClassForm, StreamForm, AcademicClassStreamForm,ClassSubjectAllocationForm
+from app.models.students import ClassRegister
 from app.forms.fees_payment import StudentBillItemForm,ClassBillForm
 from app.selectors.model_selectors import *
 import app.selectors.classes as class_selectors
@@ -272,14 +273,36 @@ def delete_academic_class_view(request, id):
 def academic_class_details_view(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
     academic_class_streams = class_selectors.get_academic_class_streams(academic_class)
-    
+
     class_register = class_selectors.get_academic_class_register(academic_class)
 
-    
+
     class_teachers = AcademicClassStream.objects.filter(academic_class=academic_class).select_related('class_teacher')
 
     class_stream_form = AcademicClassStreamForm(initial={"academic_class": academic_class})
     bill_item_form = StudentBillItemForm()
+
+    # Calculate student statistics
+    total_students = 0
+    male_students = 0
+    female_students = 0
+
+    # Get all students in this academic class through class register
+    for stream in academic_class_streams:
+        stream_students = ClassRegister.objects.filter(academic_class_stream=stream).select_related('student')
+        for class_reg in stream_students:
+            total_students += 1
+            if hasattr(class_reg.student, 'gender') and class_reg.student.gender:
+                gender_value = str(class_reg.student.gender).strip()
+                if gender_value.lower() in ['male', 'm']:
+                    male_students += 1
+                elif gender_value.lower() in ['female', 'f']:
+                    female_students += 1
+
+    # Calculate percentages
+    male_percentage = (male_students / total_students * 100) if total_students > 0 else 0
+    female_percentage = (female_students / total_students * 100) if total_students > 0 else 0
+
 
     context = {
         "academic_class": academic_class,
@@ -287,9 +310,16 @@ def academic_class_details_view(request, id):
         "class_stream_form": class_stream_form,
         "class_register": class_register,
         "bill_item_form": bill_item_form,
-        "class_teachers": class_teachers,  
+        "class_teachers": class_teachers,
+        # Student statistics
+        "total_students": total_students,
+        "male_students": male_students,
+        "female_students": female_students,
+        "male_percentage": round(male_percentage, 1),
+        "female_percentage": round(female_percentage, 1),
+        # Class metrics removed as requested
     }
-    
+
     return render(request, "classes/academic_class_details.html", context)
 
 
