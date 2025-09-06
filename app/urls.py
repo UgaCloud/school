@@ -104,6 +104,7 @@ urlpatterns = [
     path("class-bills/", class_bill_list_view, name="class_bill_list"),
     path('class/bill-item/<int:id>/edit/', edit_class_bill_item_view, name="edit_class_bill_item"),
     path('delete_class_bill_item/<int:id>/', delete_class_bill_item_view, name='delete_class_bill_item'),
+    path('bulk-create-bills/', bulk_create_class_bills, name='bulk_create_class_bills'),
     path('fees-status/', student_fees_status_view, name='fees_status'),
 
     
