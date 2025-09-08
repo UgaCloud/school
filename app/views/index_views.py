@@ -60,7 +60,7 @@ def index_view(request):
         # Class distribution
         class_distribution = Student.objects.values('current_class__name').annotate(
             count=Count('id')
-        ).order_by('-count')[:5]
+        ).order_by('-count')[:15]
     else:
         class_distribution = []
 
