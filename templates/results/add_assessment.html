@@ -1,74 +1,201 @@
 {% extends "../base.html" %}
 {% load crispy_forms_tags %}
 
-{% block page_title %}{% endblock page_title %}
+{% block page_title %}Assessments{% endblock page_title %}
 
 {% block content %}
-<div class="container mt-5">
-    <h2>Assessments</h2>
-    
-    <!-- Button to trigger modal -->
-    <button type="button" class="btn btn-primary mb-3" data-toggle="modal" data-target="#createAssessmentModal">
-        Create New Assessment
-    </button>
-    
-    <!-- Assessments Table -->
-    <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
-        <thead>
+<div class="row">
+  <div class="col-md-12 col-sm-12 col-xs-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2>Assessments</h2>
+        <ul class="nav navbar-right panel_toolbox">
+          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+        </ul>
+        <div class="clearfix"></div>
+        <div class="pull-right" style="margin-top:-32px;">
+          <button type="button" class="btn btn-success" data-toggle="modal" data-target="#createAssessmentModal">
+            <i class="fa fa-plus"></i> Create Assessment
+          </button>
+        </div>
+      </div>
+      <div class="x_content">
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+
+        <form method="get" class="form-horizontal form-label-left">
+          <div class="form-group">
+            <label class="control-label col-md-2 col-sm-2" for="year_id">Academic Year</label>
+            <div class="col-md-3 col-sm-3">
+              <select id="year_id" name="year_id" class="form-control">
+                <option value="">All Years</option>
+                {% for y in academic_years %}
+                  <option value="{{ y.id }}" {% if selected_year_id == y.id|stringformat:"s" %}selected{% endif %}>
+                    {{ y.academic_year }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <label class="control-label col-md-2 col-sm-2" for="term_id">Term</label>
+            <div class="col-md-3 col-sm-3">
+              <select id="term_id" name="term_id" class="form-control">
+                <option value="">All Terms</option>
+                {% for t in terms %}
+                  <option value="{{ t.id }}" {% if selected_term_id == t.id|stringformat:"s" %}selected{% endif %}>
+                    {{ t.get_term_display }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-2 col-sm-2">
+              <button type="submit" class="btn btn-primary btn-block"><i class="fa fa-filter"></i> Filter</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="control-label col-md-2 col-sm-2" for="class_id">Class</label>
+            <div class="col-md-3 col-sm-3">
+              <select id="class_id" name="class_id" class="form-control">
+                <option value="">All Classes</option>
+                {% for c in classes %}
+                  <option value="{{ c.id }}" {% if selected_class_id == c.id|stringformat:"s" %}selected{% endif %}>
+                    {{ c.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <label class="control-label col-md-2 col-sm-2" for="subject_id">Subject</label>
+            <div class="col-md-3 col-sm-3">
+              <select id="subject_id" name="subject_id" class="form-control">
+                <option value="">All Subjects</option>
+                {% for s in subjects %}
+                  <option value="{{ s.id }}" {% if selected_subject_id == s.id|stringformat:"s" %}selected{% endif %}>
+                    {{ s.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-2 col-sm-2">
+              <a href="?" class="btn btn-default btn-block"><i class="fa fa-refresh"></i> Reset</a>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="control-label col-md-2 col-sm-2" for="assessment_type_id">Assessment Type</label>
+            <div class="col-md-3 col-sm-3">
+              <select id="assessment_type_id" name="assessment_type_id" class="form-control">
+                <option value="">All Types</option>
+                {% for at in assessment_types %}
+                  <option value="{{ at.id }}" {% if selected_assessment_type_id == at.id|stringformat:"s" %}selected{% endif %}>
+                    {{ at.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <label class="control-label col-md-2 col-sm-2" for="is_done">Done</label>
+            <div class="col-md-3 col-sm-3">
+              <select id="is_done" name="is_done" class="form-control">
+                <option value="" {% if selected_is_done == "" %}selected{% endif %}>All</option>
+                <option value="yes" {% if selected_is_done == "yes" %}selected{% endif %}>Yes</option>
+                <option value="no" {% if selected_is_done == "no" %}selected{% endif %}>No</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="control-label col-md-2 col-sm-2" for="date_from">Date From</label>
+            <div class="col-md-3 col-sm-3">
+              <input type="date" id="date_from" name="date_from" value="{{ date_from }}" class="form-control" />
+            </div>
+
+            <label class="control-label col-md-2 col-sm-2" for="date_to">Date To</label>
+            <div class="col-md-3 col-sm-3">
+              <input type="date" id="date_to" name="date_to" value="{{ date_to }}" class="form-control" />
+            </div>
+          </div>
+        </form>
+
+        <div class="ln_solid"></div>
+
+        <table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
+          <thead>
             <tr>
-                <th>Class</th>
-                <th>Type</th>
-                <th>Subject</th>
-                <th>Date</th>
-                <th>Done</th>
-                <th>Actions</th>
+              <th>Class</th>
+              <th>Type</th>
+              <th>Subject</th>
+              <th>Date</th>
+              <th>Out Of</th>
+              <th>Done</th>
+              <th>Actions</th>
             </tr>
-        </thead>
-        <tbody>
+          </thead>
+          <tbody>
             {% for assessment in assessments %}
-            <tr>
+              <tr>
                 <td>{{ assessment.academic_class }}</td>
                 <td>{{ assessment.assessment_type }}</td>
                 <td>{{ assessment.subject }}</td>
                 <td>{{ assessment.date }}</td>
-                <td>{% if assessment.is_done %}Yes{% else %}No{% endif %}</td>
+                <td>{{ assessment.out_of }}</td>
                 <td>
-                    <!-- Links to view, update, and delete -->
-                    <!-- <a href="" class="btn btn-info btn-sm">View</a> -->
-                    <a href="{% url 'edit_assessment_page' assessment.id %}" class="btn btn-primary btn-sm"><i class="fa fa-edit"></i></a>
-                    <a href="{% url 'delete_assessment' assessment.id %}" class="btn btn-danger btn-sm" 
-                       onclick="return confirm('Are you sure you want to delete this assessment?');"><i class="fa fa-trash-o"></i></a>
+                  {% if assessment.is_done %}
+                    <span class="label label-success">Yes</span>
+                  {% else %}
+                    <span class="label label-warning">No</span>
+                  {% endif %}
                 </td>
-            </tr>
+                <td>
+                  <a href="{% url 'edit_assessment_page' assessment.id %}" class="btn btn-warning btn-xs" title="Edit"><i class="fa fa-edit"></i></a>
+                  <a href="{% url 'delete_assessment' assessment.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Delete this assessment?');" title="Delete"><i class="fa fa-trash-o"></i></a>
+                </td>
+              </tr>
             {% empty %}
-            <tr>
-                <td colspan="6">No assessments available.</td>
-            </tr>
+              <tr>
+                <td colspan="7" class="text-center">No assessments found. Adjust filters above.</td>
+              </tr>
             {% endfor %}
-        </tbody>
-    </table>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Create Assessment Modal -->
 <div class="modal fade" id="createAssessmentModal" tabindex="-1" role="dialog" aria-labelledby="createAssessmentModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createAssessmentModalLabel">Create New Assessment</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="createAssessmentModalLabel">Create New Assessment</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" class="form-horizontal form-label-left" action="{% url 'assessment_create' %}">
+          {% csrf_token %}
+          {{ form|crispy }}
+          <div class="ln_solid"></div>
+          <div class="form-group">
+            <div class="col-md-6 col-sm-6 col-xs-12 col-md-offset-3">
+              <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-success">Save</button>
             </div>
-            <div class="modal-body">
-                <!-- Form to create a new assessment -->
-                <form method="post" action="{% url 'assessment_create' %}">
-                    {% csrf_token %}
-                    {{ form|crispy }}
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </form>
-            </div>
-        </div>
+          </div>
+        </form>
+      </div>
     </div>
+  </div>
 </div>
-
 {% endblock content %}

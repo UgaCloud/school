@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, HttpResponseRedirect, get_object_
 from django.contrib import messages
 from django.urls import reverse
 from django.forms import modelformset_factory
-from django.db import transaction
+from django.db import transaction,IntegrityError
 from django.db.models import (
     Avg, Sum, F, Q, Count, Max, Case, When, Value, IntegerField
 )
@@ -189,10 +189,8 @@ def class_assessment_list_view(request):
     selected_year_id = request.GET.get('year_id')
     selected_term_id = request.GET.get('term_id')
 
-    # Load filter options
     academic_years = AcademicYear.objects.all().order_by('-id')
 
-    # Default selections: current academic year and current term (if not provided)
     if not selected_year_id:
         current_year = AcademicYear.objects.filter(is_current=True).first()
         if current_year:
@@ -203,11 +201,10 @@ def class_assessment_list_view(request):
         if current_term:
             selected_term_id = str(current_term.id)
 
-    # Terms list should always show for the currently selected year (or current year by default)
     if selected_year_id:
         terms = Term.objects.filter(academic_year_id=selected_year_id).order_by('start_date')
     else:
-        # Fallback: show all terms if no year context found
+
         terms = Term.objects.all().order_by('academic_year__id', 'start_date')
 
     if request.user.is_superuser:
@@ -220,7 +217,7 @@ def class_assessment_list_view(request):
         try:
             staff_account = StaffAccount.objects.get(user=request.user)
 
-            # Subject-teacher allocations (primary visibility)
+            # Subject-teacher allocations 
             teacher_allocations = ClassSubjectAllocation.objects.filter(
                 subject_teacher=staff_account.staff
             )
@@ -231,7 +228,7 @@ def class_assessment_list_view(request):
                 id__in=allocated_streams.values_list('academic_class', flat=True)
             )
 
-            # Class-teacher assignments (fallback visibility for new terms)
+            # Class-teacher assignments 
             class_teacher_streams = AcademicClassStream.objects.filter(
                 class_teacher=staff_account.staff
             )
@@ -239,7 +236,7 @@ def class_assessment_list_view(request):
                 id__in=class_teacher_streams.values_list('academic_class', flat=True)
             )
 
-            # Apply filters (year/term) if provided/defaulted
+            
             if selected_year_id:
                 allocated_academic_classes = allocated_academic_classes.filter(academic_year_id=selected_year_id)
                 class_teacher_academic_classes = class_teacher_academic_classes.filter(academic_year_id=selected_year_id)
@@ -247,7 +244,6 @@ def class_assessment_list_view(request):
                 allocated_academic_classes = allocated_academic_classes.filter(term_id=selected_term_id)
                 class_teacher_academic_classes = class_teacher_academic_classes.filter(term_id=selected_term_id)
 
-            # Union of academic classes from allocations and class-teacher roles
             academic_classes = (allocated_academic_classes | class_teacher_academic_classes).distinct().order_by(
                 'academic_year__id', 'term__start_date', 'Class__name'
             )
@@ -274,28 +270,27 @@ def class_assessment_list_view(request):
     return render(request, 'results/class_assessments.html', context)
 
 
-#List of Assessments basing on specific academic_class
+
 @login_required
 def list_assessments_view(request, class_id):
    
     academic_class = get_object_or_404(AcademicClass, id=class_id)
     staff_account = StaffAccount.objects.filter(user=request.user).first()
 
-    # Base queryset by authorization
     if request.user.is_superuser:
         base_qs = Assessment.objects.filter(academic_class=academic_class)
         role_name = "Admin"
     else:
         role_name = staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None
         if staff_account:
-            # Subject allocations for this class/term
+        
             teacher_allocations = ClassSubjectAllocation.objects.filter(
                 subject_teacher=staff_account.staff,
                 academic_class_stream__academic_class=academic_class
             )
             subject_ids = list(teacher_allocations.values_list('subject', flat=True))
 
-            # Fallback: class teacher for any stream in this academic class (new-term support)
+
             is_class_teacher_for_class = AcademicClassStream.objects.filter(
                 academic_class=academic_class,
                 class_teacher=staff_account.staff
@@ -322,7 +317,6 @@ def list_assessments_view(request, class_id):
         else:
             base_qs = Assessment.objects.none()
 
-    # --- Robust filters ---
     def to_int(val):
         try:
             return int(val)
@@ -444,22 +438,108 @@ def assessment_list_view(request):
 
 @login_required
 def add_assessment_view(request):
+    # ---- Helpers ----
+    def to_int(val):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return None
+
+    def parse_date(value):
+        if not value:
+            return None
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+            try:
+                return datetime.strptime(value.strip(), fmt).date()
+            except (ValueError, TypeError):
+                continue
+        return None
+
+    # ---- Read filters from GET ----
+    selected_year_id = to_int(request.GET.get('year_id'))
+    selected_term_id = to_int(request.GET.get('term_id'))
+    selected_class_id = to_int(request.GET.get('class_id'))
+    subject_id = to_int(request.GET.get('subject_id'))
+    assessment_type_id = to_int(request.GET.get('assessment_type_id'))
+    date_from_raw = request.GET.get('date_from')
+    date_to_raw = request.GET.get('date_to')
+    is_done_raw = request.GET.get('is_done')  # 'yes' | 'no' | None
+
+    # ---- Options for selects (Gentellella filter bar) ----
+    academic_years = AcademicYear.objects.all().order_by('-id')
+    if selected_year_id:
+        terms = Term.objects.filter(academic_year_id=selected_year_id).order_by('start_date')
+    else:
+        terms = Term.objects.all().order_by('academic_year__id', 'start_date')
+    classes = Class.objects.all().order_by('name')
+    subjects = Subject.objects.all().order_by('name')
+    assessment_types = AssessmentType.objects.all().order_by('name')
+
+    # ---- Base queryset + filters ----
+    assessments = (
+        Assessment.objects
+        .select_related('academic_class', 'assessment_type', 'subject')
+        .all()
+    )
+
+    if selected_year_id:
+        assessments = assessments.filter(academic_class__academic_year_id=selected_year_id)
+    if selected_term_id:
+        assessments = assessments.filter(academic_class__term_id=selected_term_id)
+    if selected_class_id:
+        assessments = assessments.filter(academic_class__Class_id=selected_class_id)
+    if subject_id:
+        assessments = assessments.filter(subject_id=subject_id)
+    if assessment_type_id:
+        assessments = assessments.filter(assessment_type_id=assessment_type_id)
+
+    df = parse_date(date_from_raw)
+    dt = parse_date(date_to_raw)
+    if df:
+        assessments = assessments.filter(date__gte=df)
+    if dt:
+        assessments = assessments.filter(date__lte=dt)
+
+    if is_done_raw in ('yes', 'no'):
+        assessments = assessments.filter(is_done=(is_done_raw == 'yes'))
+
+    assessments = assessments.order_by('-date', 'assessment_type__name', 'subject__name', '-id')
+
+    # ---- Create assessment (modal submit) ----
     if request.method == "POST":
         form = AssessmentForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request,SUCCESS_ADD_MESSAGE)
-            
-              
-    
-    form = AssessmentForm()
-    assessment = Assessment.objects.all()
-    
+            try:
+                form.save()
+                messages.success(request, SUCCESS_ADD_MESSAGE)
+                return redirect('assessment_create')
+            except IntegrityError:
+                form.add_error(None, "An assessment for this Class, Type and Subject already exists.")
+                messages.error(request, "Duplicate assessment for this Class, Type and Subject.")
+        else:
+            messages.error(request, FAILURE_MESSAGE)
+    else:
+        form = AssessmentForm()
+
     context = {
         'form': form,
-        'assessments':assessment,
+        'assessments': assessments,
+        # Filter options and selections
+        'academic_years': academic_years,
+        'terms': terms,
+        'classes': classes,
+        'subjects': subjects,
+        'assessment_types': assessment_types,
+        'selected_year_id': str(selected_year_id or ''),
+        'selected_term_id': str(selected_term_id or ''),
+        'selected_class_id': str(selected_class_id or ''),
+        'selected_subject_id': str(subject_id or ''),
+        'selected_assessment_type_id': str(assessment_type_id or ''),
+        'date_from': date_from_raw or '',
+        'date_to': date_to_raw or '',
+        'selected_is_done': is_done_raw or '',
     }
-    return render(request,'results/add_assessment.html',context)
+    return render(request, 'results/add_assessment.html', context)
 
 @login_required
 def edit_assessment(request, id):
