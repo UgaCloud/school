@@ -1,157 +1,581 @@
 {% extends "../base.html" %}
 {% load crispy_forms_tags %}
+{% load humanize %}
 
-{% block page_title %}User Accounts{% endblock page_title %}
+{% block page_title %}User Accounts Management{% endblock %}
 
 {% block content %}
-<button id="openModalBtn" class="btn btn-primary">Create Staff Account</button>
+<div class="clearfix"></div>
 
-<!-- Optional search form -->
-<form method="get" action="{% url 'user_list' %}">
-    
-</form>
+<!-- Page Header -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-1"><i class="fa fa-users text-primary"></i> User Accounts Management</h2>
+                <p class="text-muted mb-0">Manage system users and their access permissions</p>
+            </div>
+            <div>
+                <button id="openModalBtn" class="btn btn-success btn-lg shadow-sm">
+                    <i class="fa fa-plus-circle"></i> Create Staff Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<table id="datatable-checkbox" class="table table-striped table-bordered bulk_action" style="width:100%">
-    <thead>
-        <tr>
-            <th>Id</th>
-            <th>Username</th>
-            <th>First Name</th>
-            <th>Last Name</th>
-            <th>Email</th>
-            <th>Action</th> <!-- New Action column -->
-        </tr>
-    </thead>
-    <tbody>
-        {% for user in users %}
-        <tr>
-            <td>{{ user.id }}</td>
-            <td>{{ user.username }}</td>
-            <td>{{ user.first_name }}</td>
-            <td>{{ user.last_name }}</td>
-            <td>{{ user.email }}</td>
-            <td>
-                
-                <a href="{% url 'user_detail' user.id %}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-eye"></i>
-                </a>
-                
-
-                
-                <form action="{% url 'delete_user' user.id %}" method="post" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this user?');">
-                        <i class="fa fa-trash-o"></i> 
-                    </button>
-                </form>
-                
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="6">No users found.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-  
-    <!-- Modal Structure -->
-    <div id="createAccountModal" class="modal" style="display:none;">
-        <div class="modal-content">
-            <span id="closeModalBtn" class="close">&times;</span>
-            <h2>Create Staff Account</h2>
-            
-            <!-- AJAX-loaded form will go here -->
-            <div id="modalFormContent"></div>
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+        <div class="card border-left-primary shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-primary mb-1"><i class="fa fa-users"></i> Total Users</h6>
+                        <h3 class="mb-0 font-weight-bold">{{ total_users }}</h3>
+                        <small class="text-muted">Registered accounts</small>
+                    </div>
+                    <div class="text-primary">
+                        <i class="fa fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Table for user list (existing code) -->
-    <!-- ... existing table code ... -->
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+        <div class="card border-left-success shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-success mb-1"><i class="fa fa-user-check"></i> Active Users</h6>
+                        <h3 class="mb-0 font-weight-bold">{{ active_users }}</h3>
+                        <small class="text-muted">Enabled accounts</small>
+                    </div>
+                    <div class="text-success">
+                        <i class="fa fa-user-check fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <!-- CSS for modal styling -->
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+        <div class="card border-left-info shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-info mb-1"><i class="fa fa-user-shield"></i> Staff Accounts</h6>
+                        <h3 class="mb-0 font-weight-bold">{{ staff_users }}</h3>
+                        <small class="text-muted">With staff privileges</small>
+                    </div>
+                    <div class="text-info">
+                        <i class="fa fa-user-shield fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+        <div class="card border-left-warning shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-warning mb-1"><i class="fa fa-clock"></i> Recent Activity</h6>
+                        <h3 class="mb-0 font-weight-bold">{{ recent_logins }}</h3>
+                        <small class="text-muted">Active in last 30 days</small>
+                    </div>
+                    <div class="text-warning">
+                        <i class="fa fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filters -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fa fa-search"></i> Search & Filter Users</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" action="{% url 'user_list' %}" class="row g-3">
+                    <div class="col-md-8">
+                        <label for="search" class="form-label">Search Users</label>
+                        <div class="input-group">
+                            <input type="text" name="search" id="search" class="form-control"
+                                       placeholder="Search by username, first name, last name, or email..."
+                                       value="{{ search_query }}">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            {% if request.GET.search %}
+                            <a href="{% url 'user_list' %}" class="btn btn-outline-secondary">
+                                <i class="fa fa-times"></i> Clear Search
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Users Grid/List -->
+<div class="row">
+    {% for user in users %}
+    <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
+        <div class="card shadow-sm h-100 user-card">
+            <div class="card-header bg-gradient-primary text-white d-flex align-items-center">
+                <div class="d-flex align-items-center">
+                    {% if user.staff_account and user.staff_account.staff.staff_photo %}
+                        <img src="{{ user.staff_account.staff.staff_photo.url }}" alt="Profile Photo"
+                             class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover; border: 2px solid white;">
+                    {% else %}
+                        <div class="bg-light text-primary rounded-circle d-flex align-items-center justify-content-center me-3"
+                             style="width: 40px; height: 40px; border: 2px solid white; font-size: 18px; font-weight: bold;">
+                            {{ user.first_name|first|default:user.username|first|upper }}
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h6 class="mb-0">{{ user.get_full_name|default:user.username }}</h6>
+                        <small class="text-white-50">@{{ user.username }}</small>
+                    </div>
+                </div>
+                <span class="badge bg-light text-dark ms-auto">{{ user.id }}</span>
+            </div>
+
+            <div class="card-body">
+                <!-- User Info -->
+                <div class="mb-3">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <small class="text-muted d-block">Username</small>
+                                <strong class="text-primary">{{ user.username }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Status</small>
+                            {% if user.is_active %}
+                                <span class="text-success fw-bold">Active</span>
+                            {% else %}
+                                <span class="text-danger fw-bold">Inactive</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Info -->
+                <div class="mb-3">
+                    <small class="text-muted d-block">
+                        <i class="fa fa-envelope me-1"></i> {{ user.email|default:"No email" }}
+                    </small>
+                    {% if user.last_login %}
+                    <small class="text-muted d-block">
+                        <i class="fa fa-clock me-1"></i> Last login: {{ user.last_login|date:"M d, Y H:i" }}
+                    </small>
+                    {% else %}
+                    <small class="text-muted d-block">
+                        <i class="fa fa-clock me-1"></i> Never logged in
+                    </small>
+                    {% endif %}
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-grid gap-2">
+                    <a href="{% url 'user_detail' user.id %}" class="btn btn-primary btn-sm">
+                        <i class="fa fa-eye me-1"></i> View Details
+                    </a>
+                    <form action="{% url 'delete_user' user.id %}" method="post" style="display:inline;" onsubmit="return confirmDelete('{{ user.username }}')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            <i class="fa fa-trash me-1"></i> 
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Card Footer with Status -->
+            <div class="card-footer bg-light">
+                {% if user.is_superuser %}
+                    <span class="text-danger fw-bold">Superuser</span>
+                {% elif user.is_staff %}
+                    <span class="text-info fw-bold">Staff</span>
+                {% else %}
+                    <span class="text-secondary fw-bold">Regular User</span>
+                {% endif %}
+                {% if user.date_joined %}
+                <small class="text-muted float-end">Joined {{ user.date_joined|date:"M Y" }}</small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="fa fa-users fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No Users Found</h4>
+                <p class="text-muted mb-4">
+                    {% if request.GET.search %}
+                        No users match your search criteria: "{{ request.GET.search }}"
+                    {% else %}
+                        No users are currently registered in the system.
+                    {% endif %}
+                </p>
+                {% if request.GET.search %}
+                <a href="{% url 'user_list' %}" class="btn btn-outline-primary">
+                    <i class="fa fa-times"></i> Clear Search
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="d-flex justify-content-center mt-4">
+    <nav aria-label="User list pagination">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">
+                        <i class="fa fa-angle-double-left"></i> First
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                        <i class="fa fa-angle-left"></i> Previous
+                    </a>
+                </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                        Next <i class="fa fa-angle-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                        Last <i class="fa fa-angle-double-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+<div class="text-center mt-3">
+    <small class="text-muted">
+        Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ paginator.count }} users
+        (Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }})
+    </small>
+</div>
+{% endif %}
+  
+    <!-- Create Account Modal -->
+    <div id="createAccountModal" class="modal fade" tabindex="-1" aria-labelledby="createAccountModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="createAccountModalLabel">
+                        <i class="fa fa-plus-circle me-2"></i>Create Staff Account
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modalFormContent">
+                    <!-- AJAX-loaded form will go here -->
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading form...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Custom Styles -->
     <style>
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #337ab7 0%, #4e73df 100%);
+    }
+    
+    .border-left-primary {
+        border-left: 4px solid #337ab7 !important;
+    }
+
+    .border-left-success {
+        border-left: 4px solid #5cb85c !important;
+    }
+
+    .border-left-info {
+        border-left: 4px solid #5bc0de !important;
+    }
+
+    .border-left-warning {
+        border-left: 4px solid #f0ad4e !important;
+    }
+    
+    .card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border-radius: 10px;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+    }
+    
+    .user-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    
+    .user-card:hover {
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .btn {
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .badge {
+        font-size: 0.75em;
+        padding: 0.375em 0.75em;
+        border-radius: 20px;
+    }
+    
+    .input-group .form-control:focus {
+        border-color: #337ab7;
+        box-shadow: 0 0 0 0.2rem rgba(51, 122, 183, 0.25);
+    }
+
+    .pagination .page-link {
+        border-radius: 6px !important;
+        margin: 0 2px;
+        border: 1px solid #dee2e6;
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #337ab7;
+        border-color: #337ab7;
+    }
+    
+    @media (max-width: 768px) {
+        .card-body {
+            padding: 1rem;
         }
-        .modal-content {
-            background-color: white;
-            margin: 10% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 60%;
-            max-width: 500px;
-            border-radius: 8px;
+    
+        .btn-group {
+            flex-direction: column;
+            gap: 0.25rem;
         }
-        .close {
-            color: #aaa;
-            font-size: 24px;
-            font-weight: bold;
-            position: absolute;
-            right: 15px;
-            top: 10px;
-            cursor: pointer;
+    
+        .btn-group .btn {
+            border-radius: 4px !important;
         }
+    }
+    
+    /* Loading animation */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .user-card {
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    /* Search input enhancement */
+    .input-group .btn {
+        border-radius: 0 6px 6px 0;
+    }
+    
+    /* Status indicators */
+    .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .status-active {
+        background-color: #28a745;
+    }
+    
+    .status-inactive {
+        background-color: #dc3545;
+    }
     </style>
-
-    <!-- JavaScript for modal functionality and AJAX form submission -->
+    
+    <!-- JavaScript -->
     <script>
-        document.getElementById('openModalBtn').onclick = function() {
-            // Open the modal and load the form content
-            document.getElementById('createAccountModal').style.display = 'block';
-
-            // AJAX request to load the form
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('User list page loaded successfully');
+    
+        // Modal functionality
+        const createModal = new bootstrap.Modal(document.getElementById('createAccountModal'));
+    
+        document.getElementById('openModalBtn').addEventListener('click', function() {
+            createModal.show();
+    
+            // Load form content
             fetch("{% url 'create_account' %}")
                 .then(response => response.text())
                 .then(html => {
                     document.getElementById('modalFormContent').innerHTML = html;
-
+    
                     // Attach submit event to the loaded form
                     const form = document.querySelector("#modalFormContent form");
                     if (form) {
-                        form.onsubmit = function(event) {
-                            event.preventDefault();  // Prevent the default form submission
-
+                        form.addEventListener('submit', function(event) {
+                            event.preventDefault();
+    
                             const formData = new FormData(form);
-
+                            const submitBtn = form.querySelector('button[type="submit"]');
+                            const originalText = submitBtn.innerHTML;
+    
+                            // Show loading state
+                            submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Creating...';
+                            submitBtn.disabled = true;
+    
                             fetch("{% url 'create_account' %}", {
                                 method: 'POST',
-                                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+                                },
                                 body: formData
                             })
-                            .then(response => response.json())  // Assuming server returns JSON
+                            .then(response => response.json())
                             .then(data => {
                                 if (data.success) {
-                                    // Close the modal and optionally refresh or update the user list
-                                    document.getElementById('createAccountModal').style.display = 'none';
-                                    // Optionally reload or update user list here
-                                    location.reload(); // or update user list dynamically
+                                    createModal.hide();
+                                    // Show success message
+                                    showToast('Account created successfully!', 'success');
+                                    // Reload page after short delay
+                                    setTimeout(() => location.reload(), 1000);
                                 } else {
-                                    // Handle form errors returned by the server
-                                    document.getElementById('modalFormContent').innerHTML = data.form_html;
+                                    // Handle form errors
+                                    if (data.form_html) {
+                                        document.getElementById('modalFormContent').innerHTML = data.form_html;
+                                    } else {
+                                        showToast('Error creating account. Please try again.', 'error');
+                                    }
                                 }
                             })
-                            .catch(error => console.error('Error:', error));
-                        };
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showToast('Network error. Please try again.', 'error');
+                            })
+                            .finally(() => {
+                                // Reset button state
+                                submitBtn.innerHTML = originalText;
+                                submitBtn.disabled = false;
+                            });
+                        });
                     }
+                })
+                .catch(error => {
+                    console.error('Error loading form:', error);
+                    document.getElementById('modalFormContent').innerHTML =
+                        '<div class="alert alert-danger">Error loading form. Please try again.</div>';
                 });
+        });
+    
+        // Enhanced search with debouncing
+        const searchInput = document.getElementById('search');
+        let searchTimeout;
+    
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() {
+                    if (searchInput.value.length >= 2 || searchInput.value.length === 0) {
+                        searchInput.form.submit();
+                    }
+                }, 500);
+            });
+    
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(searchTimeout);
+                    searchInput.form.submit();
+                }
+            });
         }
-
-        document.getElementById('closeModalBtn').onclick = function() {
-            document.getElementById('createAccountModal').style.display = 'none';
-        }
-
-        window.onclick = function(event) {
-            if (event.target == document.getElementById('createAccountModal')) {
-                document.getElementById('createAccountModal').style.display = 'none';
+    });
+    
+    // Utility functions
+    function confirmDelete(username) {
+        return confirm(`Are you sure you want to delete the user "${username}"?\n\nThis action cannot be undone.`);
+    }
+    
+    // Password reset function removed
+    
+    function showToast(message, type = 'info') {
+        // Simple toast implementation
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type === 'error' ? 'danger' : type} position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        toast.innerHTML = `
+            <i class="fa fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close float-end" onclick="this.parentElement.remove()"></button>
+        `;
+    
+        document.body.appendChild(toast);
+    
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.remove();
             }
-        }
+        }, 5000);
+    }
+    
+    // Add loading animation to cards
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.user-card');
+        cards.forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+        });
+    });
     </script>
 {% endblock %}

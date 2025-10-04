@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, HttpResponseRedirect, get_object_
 from django.contrib import messages
 from django.urls import reverse
 from django.forms import modelformset_factory
-from django.db import transaction
+from django.db import transaction,IntegrityError
 from django.db.models import (
     Avg, Sum, F, Q, Count, Max, Case, When, Value, IntegerField
 )
@@ -45,6 +45,7 @@ from reportlab.lib.pagesizes import A4, letter, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+from datetime import datetime
 
 from django.utils import timezone
 
@@ -183,69 +184,192 @@ def edit_results_view(request, assessment_id=None, student_id=None):
     return render(request, 'results/edit_results_page.html', context)
 
 
-
 @login_required
 def class_assessment_list_view(request):
+    selected_year_id = request.GET.get('year_id')
+    selected_term_id = request.GET.get('term_id')
+
+    academic_years = AcademicYear.objects.all().order_by('-id')
+
+    if not selected_year_id:
+        current_year = AcademicYear.objects.filter(is_current=True).first()
+        if current_year:
+            selected_year_id = str(current_year.id)
+
+    if selected_year_id and not selected_term_id:
+        current_term = Term.objects.filter(academic_year_id=selected_year_id, is_current=True).first()
+        if current_term:
+            selected_term_id = str(current_term.id)
+
+    if selected_year_id:
+        terms = Term.objects.filter(academic_year_id=selected_year_id).order_by('start_date')
+    else:
+
+        terms = Term.objects.all().order_by('academic_year__id', 'start_date')
+
     if request.user.is_superuser:
-        # Admin sees all classes
-        classes = Class.objects.all()
+        academic_classes = AcademicClass.objects.all()
+        if selected_year_id:
+            academic_classes = academic_classes.filter(academic_year_id=selected_year_id)
+        if selected_term_id:
+            academic_classes = academic_classes.filter(term_id=selected_term_id)
     else:
         try:
-            # Get the staff account for the logged-in user
             staff_account = StaffAccount.objects.get(user=request.user)
 
-            # Get the AcademicClassStream objects allocated to the teacher
-            teacher_allocations = ClassSubjectAllocation.objects.filter(subject_teacher=staff_account.staff)
+            # Subject-teacher allocations 
+            teacher_allocations = ClassSubjectAllocation.objects.filter(
+                subject_teacher=staff_account.staff
+            )
             allocated_streams = AcademicClassStream.objects.filter(
                 id__in=teacher_allocations.values_list('academic_class_stream', flat=True)
             )
-
-            # Get the academic classes from these streams
-            allocated_classes = AcademicClass.objects.filter(
+            allocated_academic_classes = AcademicClass.objects.filter(
                 id__in=allocated_streams.values_list('academic_class', flat=True)
             )
-            classes = Class.objects.filter(
-                id__in=allocated_classes.values_list('Class', flat=True)
-            ).distinct()
+
+            # Class-teacher assignments 
+            class_teacher_streams = AcademicClassStream.objects.filter(
+                class_teacher=staff_account.staff
+            )
+            class_teacher_academic_classes = AcademicClass.objects.filter(
+                id__in=class_teacher_streams.values_list('academic_class', flat=True)
+            )
+
+            
+            if selected_year_id:
+                allocated_academic_classes = allocated_academic_classes.filter(academic_year_id=selected_year_id)
+                class_teacher_academic_classes = class_teacher_academic_classes.filter(academic_year_id=selected_year_id)
+            if selected_term_id:
+                allocated_academic_classes = allocated_academic_classes.filter(term_id=selected_term_id)
+                class_teacher_academic_classes = class_teacher_academic_classes.filter(term_id=selected_term_id)
+
+            academic_classes = (allocated_academic_classes | class_teacher_academic_classes).distinct().order_by(
+                'academic_year__id', 'term__start_date', 'Class__name'
+            )
+
+            if not academic_classes.exists():
+                messages.info(
+                    request,
+                    "No subject allocations found for the current term. Please contact Admin to allocate your subjects."
+                )
         except StaffAccount.DoesNotExist:
-            classes = Class.objects.none()
+            academic_classes = AcademicClass.objects.none()
+            messages.info(
+                request,
+                "No staff account found. Please contact Admin to set up your profile and allocations."
+            )
 
-    return render(request, 'results/class_assessments.html', {'classes': classes})
+    context = {
+        'academic_classes': academic_classes,
+        'academic_years': academic_years,
+        'terms': terms,
+        'selected_year_id': str(selected_year_id or ''),
+        'selected_term_id': str(selected_term_id or ''),
+    }
+    return render(request, 'results/class_assessments.html', context)
 
 
-#List of Assessments basing on specific academic_class
+
 @login_required
 def list_assessments_view(request, class_id):
+   
     academic_class = get_object_or_404(AcademicClass, id=class_id)
-    # Get the staff account for the logged-in user
     staff_account = StaffAccount.objects.filter(user=request.user).first()
+
     if request.user.is_superuser:
-        assessments = Assessment.objects.filter(academic_class=academic_class)
+        base_qs = Assessment.objects.filter(academic_class=academic_class)
+        role_name = "Admin"
     else:
+        role_name = staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None
         if staff_account:
-            # Get the class subject allocations for the logged-in teacher for the specific class
+        
             teacher_allocations = ClassSubjectAllocation.objects.filter(
                 subject_teacher=staff_account.staff,
                 academic_class_stream__academic_class=academic_class
             )
+            subject_ids = list(teacher_allocations.values_list('subject', flat=True))
 
-            # If the teacher is assigned to any subject in this class, fetch the corresponding assessments
-            if teacher_allocations.exists():
-                subject_ids = teacher_allocations.values_list('subject', flat=True)
-                assessments = Assessment.objects.filter(
+
+            is_class_teacher_for_class = AcademicClassStream.objects.filter(
+                academic_class=academic_class,
+                class_teacher=staff_account.staff
+            ).exists()
+
+            if is_class_teacher_for_class:
+                base_qs = Assessment.objects.filter(academic_class=academic_class)
+                if not teacher_allocations.exists():
+                    messages.info(
+                        request,
+                        "You are viewing assessments as the Class Teacher. Please ask Admin to allocate your subjects for this term."
+                    )
+            elif subject_ids:
+                base_qs = Assessment.objects.filter(
                     academic_class=academic_class,
                     subject__in=subject_ids
                 )
             else:
-                assessments = []
+                base_qs = Assessment.objects.none()
+                messages.info(
+                    request,
+                    "No subject allocations found for this class in the current term. Please contact Admin to allocate your subjects."
+                )
         else:
-            assessments = []
+            base_qs = Assessment.objects.none()
+
+    def to_int(val):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return None
+
+    subject_id = to_int(request.GET.get('subject_id'))
+    assessment_type_id = to_int(request.GET.get('assessment_type_id'))
+    date_from_raw = request.GET.get('date_from')
+    date_to_raw = request.GET.get('date_to')
+
+    def parse_date(value):
+        if not value:
+            return None
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+            try:
+                return datetime.strptime(value.strip(), fmt).date()
+            except (ValueError, TypeError):
+                continue
+        return None
+
+    assessments = base_qs
+    if subject_id:
+        assessments = assessments.filter(subject_id=subject_id)
+    if assessment_type_id:
+        assessments = assessments.filter(assessment_type_id=assessment_type_id)
+
+    df = parse_date(date_from_raw)
+    dt = parse_date(date_to_raw)
+    if df:
+        assessments = assessments.filter(date__gte=df)
+    if dt:
+        assessments = assessments.filter(date__lte=dt)
+
+    
+    subjects = Subject.objects.filter(assessments__academic_class=academic_class).distinct().order_by('name')
+    assessment_types = AssessmentType.objects.filter(assessments__academic_class=academic_class).distinct().order_by('name')
+
+    
+    allowed_roles = {"Teacher", "Class Teacher", "Head master", "Director of Studies", "Admin"}
+    can_add_results = request.user.is_superuser or (role_name in allowed_roles)
 
     return render(request, 'results/list_assessments.html', {
-        'assessments': assessments, 
-        'academic_class': academic_class
+        'assessments': assessments.order_by('-date', 'assessment_type__name', 'subject__name'),
+        'academic_class': academic_class,
+        'subjects': subjects,
+        'assessment_types': assessment_types,
+        'selected_subject_id': str(subject_id or ''),
+        'selected_assessment_type_id': str(assessment_type_id or ''),
+        'date_from': date_from_raw or '',
+        'date_to': date_to_raw or '',
+        'can_add_results': can_add_results,
     })
-
 
 
 #Grading System
@@ -314,22 +438,108 @@ def assessment_list_view(request):
 
 @login_required
 def add_assessment_view(request):
+    # ---- Helpers ----
+    def to_int(val):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return None
+
+    def parse_date(value):
+        if not value:
+            return None
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+            try:
+                return datetime.strptime(value.strip(), fmt).date()
+            except (ValueError, TypeError):
+                continue
+        return None
+
+    # ---- Read filters from GET ----
+    selected_year_id = to_int(request.GET.get('year_id'))
+    selected_term_id = to_int(request.GET.get('term_id'))
+    selected_class_id = to_int(request.GET.get('class_id'))
+    subject_id = to_int(request.GET.get('subject_id'))
+    assessment_type_id = to_int(request.GET.get('assessment_type_id'))
+    date_from_raw = request.GET.get('date_from')
+    date_to_raw = request.GET.get('date_to')
+    is_done_raw = request.GET.get('is_done')  # 'yes' | 'no' | None
+
+    # ---- Options for selects (Gentellella filter bar) ----
+    academic_years = AcademicYear.objects.all().order_by('-id')
+    if selected_year_id:
+        terms = Term.objects.filter(academic_year_id=selected_year_id).order_by('start_date')
+    else:
+        terms = Term.objects.all().order_by('academic_year__id', 'start_date')
+    classes = Class.objects.all().order_by('name')
+    subjects = Subject.objects.all().order_by('name')
+    assessment_types = AssessmentType.objects.all().order_by('name')
+
+    # ---- Base queryset + filters ----
+    assessments = (
+        Assessment.objects
+        .select_related('academic_class', 'assessment_type', 'subject')
+        .all()
+    )
+
+    if selected_year_id:
+        assessments = assessments.filter(academic_class__academic_year_id=selected_year_id)
+    if selected_term_id:
+        assessments = assessments.filter(academic_class__term_id=selected_term_id)
+    if selected_class_id:
+        assessments = assessments.filter(academic_class__Class_id=selected_class_id)
+    if subject_id:
+        assessments = assessments.filter(subject_id=subject_id)
+    if assessment_type_id:
+        assessments = assessments.filter(assessment_type_id=assessment_type_id)
+
+    df = parse_date(date_from_raw)
+    dt = parse_date(date_to_raw)
+    if df:
+        assessments = assessments.filter(date__gte=df)
+    if dt:
+        assessments = assessments.filter(date__lte=dt)
+
+    if is_done_raw in ('yes', 'no'):
+        assessments = assessments.filter(is_done=(is_done_raw == 'yes'))
+
+    assessments = assessments.order_by('-date', 'assessment_type__name', 'subject__name', '-id')
+
+    # ---- Create assessment (modal submit) ----
     if request.method == "POST":
         form = AssessmentForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request,SUCCESS_ADD_MESSAGE)
-            
-              
-    
-    form = AssessmentForm()
-    assessment = Assessment.objects.all()
-    
+            try:
+                form.save()
+                messages.success(request, SUCCESS_ADD_MESSAGE)
+                return redirect('assessment_create')
+            except IntegrityError:
+                form.add_error(None, "An assessment for this Class, Type and Subject already exists.")
+                messages.error(request, "Duplicate assessment for this Class, Type and Subject.")
+        else:
+            messages.error(request, FAILURE_MESSAGE)
+    else:
+        form = AssessmentForm()
+
     context = {
         'form': form,
-        'assessments':assessment,
+        'assessments': assessments,
+        # Filter options and selections
+        'academic_years': academic_years,
+        'terms': terms,
+        'classes': classes,
+        'subjects': subjects,
+        'assessment_types': assessment_types,
+        'selected_year_id': str(selected_year_id or ''),
+        'selected_term_id': str(selected_term_id or ''),
+        'selected_class_id': str(selected_class_id or ''),
+        'selected_subject_id': str(subject_id or ''),
+        'selected_assessment_type_id': str(assessment_type_id or ''),
+        'date_from': date_from_raw or '',
+        'date_to': date_to_raw or '',
+        'selected_is_done': is_done_raw or '',
     }
-    return render(request,'results/add_assessment.html',context)
+    return render(request, 'results/add_assessment.html', context)
 
 @login_required
 def edit_assessment(request, id):

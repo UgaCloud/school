@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.db import transaction
 from app.models.classes import Term
 from app.models.students import Student,ClassRegister
-from app.models.fees_payment import StudentBill, StudentBillItem,BillItem,BillItem,ClassBill, Payment,StudentCredit
+from app.models.fees_payment import StudentBill, StudentBillItem,BillItem,BillItem,ClassBill, Payment, StudentCredit
 from app.models.classes import AcademicClass,AcademicClassStream, Class, Stream, Term
 from app.models.staffs import Staff
 from app.models.school_settings import AcademicYear
@@ -123,12 +123,10 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
     Enhanced to handle edge cases and provide better logging.
     """
     if instance.is_current and not created:
-        
 
         # Ensure only one term is marked as current
         other_current_terms = Term.objects.filter(is_current=True).exclude(id=instance.id)
         if other_current_terms.exists():
-    
             other_current_terms.update(is_current=False)
 
         # Get the previous term that was marked as current
@@ -138,13 +136,11 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
         ).order_by('-end_date').first()
 
         if previous_term:
-            
 
             # Get all students from the previous term
             students = Student.objects.filter(term=previous_term).select_related('current_class', 'stream')
 
             if students.exists():
-                print(f"👥 Found {students.count()} students to move")
 
                 moved_count = 0
                 registered_count = 0
@@ -154,14 +150,11 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                 with transaction.atomic():
                     for student in students:
                         try:
-                            print(f"   ↳ Processing student: {student.student_name} (Class: {student.current_class}, Stream: {student.stream})")
-
                             # Move student to new term
                             old_term = student.term
                             student.term = instance
                             student.save()
                             moved_count += 1
-                            print(f"   ✅ Moved {student.student_name} to Term {instance.term}")
 
                             # Get the correct AcademicClass for the new term
                             academic_class = get_current_academic_class(
@@ -171,8 +164,6 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                             )
 
                             if academic_class:
-                                print(f"   📚 Found AcademicClass: {academic_class}")
-
                                 # Get the student's stream
                                 stream = student.stream
 
@@ -183,8 +174,6 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                 ).first()
 
                                 if class_stream:
-                                    print(f"   🏫 Found ClassStream: {class_stream}")
-
                                     # Register student in the new class stream
                                     class_register, created = ClassRegister.objects.get_or_create(
                                         academic_class_stream=class_stream,
@@ -193,17 +182,12 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
 
                                     if created:
                                         registered_count += 1
-                                        print(f"   📝 Registered {student.student_name} in {class_stream}")
-                                    else:
-                                        print(f"   ℹ️  {student.student_name} already registered in {class_stream}")
 
                                     # Create new student bills for the new term
                                     # Get all class bills for this academic class
                                     class_bills = ClassBill.objects.filter(academic_class=academic_class)
 
                                     if class_bills.exists():
-                                        print(f"   💰 Processing {class_bills.count()} class bills for {student.student_name}")
-
                                         for class_bill in class_bills:
                                             # Check if student bill already exists for this bill item
                                             existing_student_bill = StudentBillItem.objects.filter(
@@ -232,9 +216,6 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
 
                                                 if bill_created or item_created:
                                                     bills_created_count += 1
-                                                    print(f"   🧾 Created bill item: {class_bill.bill_item.item_name} for {student.student_name}")
-                                            else:
-                                                print(f"   ℹ️  Bill item {class_bill.bill_item.item_name} already exists for {student.student_name}")
 
                                         # Carry forward unused credits from previous term
                                         # Get all previous bills for this student in the current academic year
@@ -243,8 +224,6 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                             academic_class__academic_year=instance.academic_year
                                         ).exclude(academic_class__term=instance)  # Exclude current term bills
 
-                                        print(f"   🔍 Found {previous_term_bills.count()} previous bills for {student.student_name}")
-
                                         for prev_bill in previous_term_bills:
                                             # Get unused credits from previous bills
                                             unused_credits = StudentCredit.objects.filter(
@@ -252,8 +231,6 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                                 original_bill=prev_bill,
                                                 is_applied=False
                                             )
-
-                                            print(f"   💰 Found {unused_credits.count()} unused credits for bill #{prev_bill.id}")
 
                                             for credit in unused_credits:
                                                 # Check if this credit was already carried forward
@@ -274,13 +251,7 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                                         applied_to_bill=None,  # Not applied yet
                                                         is_applied=False
                                                     )
-                                                    print(f"   ✅ Carried forward UGX {credit.amount} credit for {student.student_name}")
-                                                else:
-                                                    print(f"   ℹ️  Credit already carried forward for {student.student_name}")
-                                    else:
-                                        print(f"   ⚠️  No class bills found for AcademicClass {academic_class}")
                                 else:
-                                    print(f"   ❌ No ClassStream found for AcademicClass {academic_class} and Stream {stream}")
                                     # Try to create the class stream if it doesn't exist
                                     try:
                                         class_stream = AcademicClassStream.objects.create(
@@ -288,7 +259,6 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                             stream=stream,
                                             class_teacher=None  # Will be assigned later
                                         )
-                                        print(f"   🆕 Created missing ClassStream: {class_stream}")
 
                                         # Now register the student
                                         class_register, created = ClassRegister.objects.get_or_create(
@@ -297,21 +267,27 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                         )
                                         if created:
                                             registered_count += 1
-                                            print(f"   📝 Registered {student.student_name} in newly created {class_stream}")
                                     except Exception as e:
-                                        print(f"   ❌ Failed to create ClassStream: {str(e)}")
+                                        pass
                             else:
-                                print(f"   ❌ No AcademicClass found for Year {instance.academic_year}, Class {student.current_class}, Term {instance}")
                                 # Try to create the academic class if it doesn't exist
                                 try:
+                                    # Get fees amount from previous term's class
+                                    previous_academic_class = AcademicClass.objects.filter(
+                                        academic_year=instance.academic_year,
+                                        Class=student.current_class,
+                                        term=previous_term
+                                    ).first()
+
+                                    fees_amount = previous_academic_class.fees_amount if previous_academic_class else 0
+
                                     academic_class = AcademicClass.objects.create(
                                         academic_year=instance.academic_year,
                                         Class=student.current_class,
                                         term=instance,
                                         section=student.current_class.section,
-                                        fees_amount=0  # Default, can be updated later
+                                        fees_amount=fees_amount
                                     )
-                                    print(f"   🆕 Created missing AcademicClass: {academic_class}")
 
                                     # Now create the class stream
                                     class_stream = AcademicClassStream.objects.create(
@@ -319,7 +295,6 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                         stream=student.stream,
                                         class_teacher=None
                                     )
-                                    print(f"   🆕 Created ClassStream: {class_stream}")
 
                                     # Register the student
                                     class_register, created = ClassRegister.objects.get_or_create(
@@ -328,29 +303,20 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                     )
                                     if created:
                                         registered_count += 1
-                                        print(f"   📝 Registered {student.student_name} in {class_stream}")
                                 except Exception as e:
-                                    print(f"   ❌ Failed to create AcademicClass: {str(e)}")
+                                    pass
 
                         except Exception as e:
                             # Log error but continue with other students
-                            print(f"   ❌ Error moving student {student.student_name}: {str(e)}")
                             errors_count += 1
                             continue
 
                 # Summary message
-                print(f"\n✅ Term Transition Complete:")
-                print(f"   • Moved {moved_count} students from Term {previous_term.term} to Term {instance.term}")
-                print(f"   • Registered {registered_count} students in new class streams")
-                print(f"   • Created {bills_created_count} new student bills")
-                if errors_count > 0:
-                    print(f"   • Errors encountered: {errors_count}")
+                pass
             else:
-                print(f"ℹ️  No students found in Term {previous_term.term} to move.")
+                pass
         else:
-            print("ℹ️  No previous term found to move students from.")
-            # If this is the first term or no previous terms exist, just log it
-            print(f"ℹ️  This appears to be the first term (Term {instance.term}) in the academic year.")
+            pass
 
 
 @receiver(post_save, sender=Term)
@@ -363,6 +329,11 @@ def auto_create_academic_classes(sender, instance, created, **kwargs):
         classes = Class.objects.all()
         academic_year = instance.academic_year
 
+        # Get the previous term to copy fees from
+        previous_term = Term.objects.filter(
+            academic_year=academic_year
+        ).exclude(id=instance.id).order_by('-end_date').first()
+
         for class_obj in classes:
             # Check if AcademicClass already exists
             if not AcademicClass.objects.filter(
@@ -370,13 +341,24 @@ def auto_create_academic_classes(sender, instance, created, **kwargs):
                 Class=class_obj,
                 term=instance
             ).exists():
-                # Create AcademicClass with default fee amount
+                # Get fees amount from previous term's class
+                fees_amount = 0
+                if previous_term:
+                    previous_academic_class = AcademicClass.objects.filter(
+                        academic_year=academic_year,
+                        Class=class_obj,
+                        term=previous_term
+                    ).first()
+                    if previous_academic_class:
+                        fees_amount = previous_academic_class.fees_amount
+
+                # Create AcademicClass with copied fee amount
                 AcademicClass.objects.create(
                     academic_year=academic_year,
                     Class=class_obj,
                     term=instance,
                     section=class_obj.section,
-                    fees_amount=0  # Default, can be updated later
+                    fees_amount=fees_amount
                 )
 
 
@@ -473,13 +455,11 @@ def handle_overpayment_credit(sender, instance, **kwargs):
                 original_bill=bill,
                 is_applied=False
             )
-            print(f"💰 Created overpayment credit of UGX {overpayment_amount} for {bill.student.student_name}")
         else:
             # Update existing credit if amount changed
             if existing_credit.amount != overpayment_amount:
                 existing_credit.amount = overpayment_amount
                 existing_credit.save()
-                print(f"💰 Updated overpayment credit to UGX {overpayment_amount} for {bill.student.student_name}")
 
 
 @receiver(post_save, sender=StudentBill)
@@ -496,8 +476,6 @@ def apply_available_credits(sender, instance, created, **kwargs):
             credit_applied = instance.apply_credit(instance.balance)
 
             if credit_applied > 0:
-                print(f"💳 Applied UGX {credit_applied} credit to bill #{instance.id} for {instance.student.student_name}")
-
                 # Update bill status after applying credit
                 instance.refresh_from_db()
                 if instance.balance <= 0:
@@ -523,5 +501,4 @@ def update_bill_after_payment(sender, instance, created, **kwargs):
             bill.status = 'Unpaid'
 
         bill.save(update_fields=['status'])
-        print(f"💰 Payment processed for bill #{bill.id}, balance: UGX {bill.balance}")
 
