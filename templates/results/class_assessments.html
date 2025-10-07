@@ -58,7 +58,6 @@
                 <th>Class</th>
                 <th>Academic Year</th>
                 <th>Term</th>
-                <th>Streams</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -69,17 +68,6 @@
                 <td>{{ ac.Class.name }}</td>
                 <td>{{ ac.academic_year.academic_year }}</td>
                 <td>{{ ac.term.get_term_display }}</td>
-                <td>
-                  {% with streams=ac.class_streams.all %}
-                    {% if streams %}
-                      {% for cs in streams %}
-                        <span class="label label-default" style="margin-right:4px;">{{ cs.stream.stream }}</span>
-                      {% endfor %}
-                    {% else %}
-                      <span class="text-muted">—</span>
-                    {% endif %}
-                  {% endwith %}
-                </td>
                 <td>
                   <a href="{% url 'list_assessments' ac.id %}" class="btn btn-primary btn-sm">View Assessments</a>
                 </td>

@@ -184,13 +184,16 @@ def edit_results_view(request, assessment_id=None, student_id=None):
     return render(request, 'results/edit_results_page.html', context)
 
 
+
 @login_required
 def class_assessment_list_view(request):
     selected_year_id = request.GET.get('year_id')
     selected_term_id = request.GET.get('term_id')
 
+    # Load filter options
     academic_years = AcademicYear.objects.all().order_by('-id')
 
+    # Default selections: current academic year and current term (if not provided)
     if not selected_year_id:
         current_year = AcademicYear.objects.filter(is_current=True).first()
         if current_year:
@@ -201,13 +204,15 @@ def class_assessment_list_view(request):
         if current_term:
             selected_term_id = str(current_term.id)
 
+    # Terms list should always show for the currently selected year (or current year by default)
     if selected_year_id:
         terms = Term.objects.filter(academic_year_id=selected_year_id).order_by('start_date')
     else:
-
+        # Fallback: show all terms if no year context found
         terms = Term.objects.all().order_by('academic_year__id', 'start_date')
 
-    if request.user.is_superuser:
+    # If the current role is Teacher/Class Teacher, enforce restricted view even if the user is superuser
+    if request.user.is_superuser and not StaffAccount.objects.filter(user=request.user, role__name__in=["Teacher","Class Teacher"]).exists():
         academic_classes = AcademicClass.objects.all()
         if selected_year_id:
             academic_classes = academic_classes.filter(academic_year_id=selected_year_id)
@@ -216,43 +221,66 @@ def class_assessment_list_view(request):
     else:
         try:
             staff_account = StaffAccount.objects.get(user=request.user)
+            role_name = staff_account.role.name if getattr(staff_account, "role", None) else None
 
-            # Subject-teacher allocations 
-            teacher_allocations = ClassSubjectAllocation.objects.filter(
-                subject_teacher=staff_account.staff
-            )
-            allocated_streams = AcademicClassStream.objects.filter(
-                id__in=teacher_allocations.values_list('academic_class_stream', flat=True)
-            )
+            # Subject-teacher allocations: classes allocated in any term
+            allocated_classes = Class.objects.filter(
+                academicclass__class_streams__subjects__subject_teacher=staff_account.staff
+            ).distinct()
             allocated_academic_classes = AcademicClass.objects.filter(
-                id__in=allocated_streams.values_list('academic_class', flat=True)
+                Class__in=allocated_classes
             )
-
-            # Class-teacher assignments 
-            class_teacher_streams = AcademicClassStream.objects.filter(
-                class_teacher=staff_account.staff
-            )
-            class_teacher_academic_classes = AcademicClass.objects.filter(
-                id__in=class_teacher_streams.values_list('academic_class', flat=True)
-            )
-
-            
             if selected_year_id:
-                allocated_academic_classes = allocated_academic_classes.filter(academic_year_id=selected_year_id)
-                class_teacher_academic_classes = class_teacher_academic_classes.filter(academic_year_id=selected_year_id)
-            if selected_term_id:
-                allocated_academic_classes = allocated_academic_classes.filter(term_id=selected_term_id)
-                class_teacher_academic_classes = class_teacher_academic_classes.filter(term_id=selected_term_id)
-
-            academic_classes = (allocated_academic_classes | class_teacher_academic_classes).distinct().order_by(
-                'academic_year__id', 'term__start_date', 'Class__name'
-            )
-
-            if not academic_classes.exists():
-                messages.info(
-                    request,
-                    "No subject allocations found for the current term. Please contact Admin to allocate your subjects."
+                allocated_academic_classes = allocated_academic_classes.filter(
+                    academic_year_id=selected_year_id
                 )
+            if selected_term_id:
+                allocated_academic_classes = allocated_academic_classes.filter(
+                    term_id=selected_term_id
+                )
+            allocated_academic_classes = allocated_academic_classes.distinct()
+
+            # Class-teacher assignments: classes where class teacher in any term
+            class_teacher_classes = Class.objects.filter(
+                academicclass__class_streams__class_teacher=staff_account.staff
+            ).distinct()
+            class_teacher_academic_classes = AcademicClass.objects.filter(
+                Class__in=class_teacher_classes
+            )
+            if selected_year_id:
+                class_teacher_academic_classes = class_teacher_academic_classes.filter(
+                    academic_year_id=selected_year_id
+                )
+            if selected_term_id:
+                class_teacher_academic_classes = class_teacher_academic_classes.filter(
+                    term_id=selected_term_id
+                )
+            class_teacher_academic_classes = class_teacher_academic_classes.distinct()
+
+            # Visibility by role
+            if role_name == "Teacher":
+                # Only classes where this staff is a subject teacher
+                academic_classes = allocated_academic_classes.distinct().order_by(
+                    'academic_year__id', 'term__start_date', 'Class__name'
+                )
+                if not academic_classes.exists():
+                    messages.info(
+                        request,
+                        "No subject allocations found for the current term. Please contact Admin to allocate your subjects."
+                    )
+            elif role_name == "Class Teacher":
+                # Only classes where this staff is a class teacher
+                academic_classes = class_teacher_academic_classes.distinct().order_by(
+                    'academic_year__id', 'term__start_date', 'Class__name'
+                )
+                if not academic_classes.exists():
+                    messages.info(
+                        request,
+                        "No class teacher assignments found for the current term."
+                    )
+            else:
+                # Other roles (e.g., Bursar) see none here; broaden as needed
+                academic_classes = AcademicClass.objects.none()
         except StaffAccount.DoesNotExist:
             academic_classes = AcademicClass.objects.none()
             messages.info(
@@ -269,41 +297,38 @@ def class_assessment_list_view(request):
     }
     return render(request, 'results/class_assessments.html', context)
 
-
-
+#List of Assessments basing on specific academic_class
 @login_required
 def list_assessments_view(request, class_id):
-   
+  
     academic_class = get_object_or_404(AcademicClass, id=class_id)
     staff_account = StaffAccount.objects.filter(user=request.user).first()
 
-    if request.user.is_superuser:
+    # Base queryset by authorization
+    # If the current role is Teacher/Class Teacher, enforce restricted view even if the user is superuser
+    if request.user.is_superuser and not StaffAccount.objects.filter(user=request.user, role__name__in=["Teacher","Class Teacher"]).exists():
         base_qs = Assessment.objects.filter(academic_class=academic_class)
         role_name = "Admin"
     else:
         role_name = staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None
         if staff_account:
-        
+            # Subject allocations for this class in any term
             teacher_allocations = ClassSubjectAllocation.objects.filter(
                 subject_teacher=staff_account.staff,
-                academic_class_stream__academic_class=academic_class
+                academic_class_stream__academic_class__Class=academic_class.Class
             )
             subject_ids = list(teacher_allocations.values_list('subject', flat=True))
 
-
+            # Class teacher for this class in any term
             is_class_teacher_for_class = AcademicClassStream.objects.filter(
-                academic_class=academic_class,
+                academic_class__Class=academic_class.Class,
                 class_teacher=staff_account.staff
             ).exists()
 
-            if is_class_teacher_for_class:
+            if role_name == "Class Teacher" and is_class_teacher_for_class:
                 base_qs = Assessment.objects.filter(academic_class=academic_class)
-                if not teacher_allocations.exists():
-                    messages.info(
-                        request,
-                        "You are viewing assessments as the Class Teacher. Please ask Admin to allocate your subjects for this term."
-                    )
             elif subject_ids:
+                # Teacher role: only their subject allocations (from any term for this class)
                 base_qs = Assessment.objects.filter(
                     academic_class=academic_class,
                     subject__in=subject_ids
@@ -312,11 +337,12 @@ def list_assessments_view(request, class_id):
                 base_qs = Assessment.objects.none()
                 messages.info(
                     request,
-                    "No subject allocations found for this class in the current term. Please contact Admin to allocate your subjects."
+                    "No subject allocations found for this class. Please contact Admin to allocate your subjects."
                 )
         else:
             base_qs = Assessment.objects.none()
 
+    # --- Robust filters ---
     def to_int(val):
         try:
             return int(val)
@@ -370,6 +396,9 @@ def list_assessments_view(request, class_id):
         'date_to': date_to_raw or '',
         'can_add_results': can_add_results,
     })
+
+
+
 
 
 #Grading System
