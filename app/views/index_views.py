@@ -194,7 +194,11 @@ def index_view(request):
 
     # Calculate role-aware metrics
     if user_role in academic_roles and current_year:
-        active_classes = AcademicClass.objects.filter(academic_year=current_year).count()
+        # Count only classes in the current term to avoid double-counting across terms
+        active_classes = AcademicClass.objects.filter(
+            academic_year=current_year,
+            term=current_term
+        ).count()
     else:
         active_classes = 0
 
