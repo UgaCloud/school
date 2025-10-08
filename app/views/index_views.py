@@ -113,12 +113,15 @@ def index_view(request):
 
     # Performance metrics - visible to academic and admin roles
     if user_role in academic_roles and current_year:
+        # Scope assessment metrics to the current term
         total_assessments = Assessment.objects.filter(
-            academic_class__academic_year=current_year
+            academic_class__academic_year=current_year,
+            academic_class__term=current_term
         ).count()
 
         completed_assessments = Result.objects.filter(
-            assessment__academic_class__academic_year=current_year
+            assessment__academic_class__academic_year=current_year,
+            assessment__academic_class__term=current_term
         ).values('assessment').distinct().count()
 
         assessment_completion_rate = (completed_assessments / total_assessments * 100) if total_assessments > 0 else 0

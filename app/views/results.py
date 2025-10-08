@@ -851,7 +851,6 @@ def student_performance_view(request, student_id):
     
     return render(request, "results/student_performance.html", context)
 
-
 @login_required
 def student_assessment_type_report(request, student_id, assessment_type_id):
     student = get_object_or_404(Student, id=student_id)
@@ -873,7 +872,48 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     )
     if selected_term_id:
         results = results.filter(assessment__academic_class__term_id=selected_term_id)
+
+    # If no results for the selected/current term, fallback to latest term with data
+    no_results_message = None
+    if not results.exists():
+        term_ids_with_results = (
+            Result.objects
+            .filter(student=student, assessment__assessment_type=assessment_type)
+            .values_list('assessment__academic_class__term_id', flat=True)
+            .distinct()
+        )
+        fallback_term = (
+            Term.objects.filter(id__in=term_ids_with_results)
+            .order_by('start_date')
+            .last()
+        )
+        if fallback_term:
+            selected_term_id = str(fallback_term.id)
+            results = Result.objects.filter(
+                student=student,
+                assessment__assessment_type=assessment_type,
+                assessment__academic_class__term_id=fallback_term.id
+            ).select_related(
+                'assessment__subject',
+                'assessment__assessment_type',
+                'assessment__academic_class__term'
+            )
+            term = fallback_term.term
+            no_results_message = "No results in selected term. Showing latest term with data."
+        else:
+            no_results_message = "No results available for this assessment type."
     
+    # Order assessment types like term report
+    assessment_order = Case(
+        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
+        When(name__iexact="MID OF TERM", then=Value(2)),
+        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
+        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
+        default=Value(5),
+        output_field=IntegerField()
+    )
+    assessment_types = AssessmentType.objects.all().order_by(assessment_order, 'name')
+
     # Group scores by subject
     subject_scores = {}
     for result in results:
@@ -906,11 +946,45 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     total_aggregates = sum(item['points'] for item in summary)           # Sum of points across subjects
     overall_average = (total_marks / len(results)).quantize(Decimal('0.01')) if results else Decimal('0.00')
     overall_grade, overall_points = get_grade_and_points(overall_average)
+    selected_division = get_division(int(total_aggregates)) if total_aggregates else "-"
     
     
     academic_year = student.academic_year.academic_year if student.academic_year else "-"
     term = Term.objects.filter(id=selected_term_id).first().term if selected_term_id else "-"
     
+    # Signatures similar to term report
+    head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
+    class_teacher_signature = None
+    try:
+        # Determine student's academic class in the selected term
+        academic_class = AcademicClass.objects.filter(
+            Class=student.current_class,
+            academic_year=student.academic_year,
+            term_id=selected_term_id
+        ).first() if selected_term_id else None
+
+        if academic_class:
+            class_stream = AcademicClassStream.objects.filter(
+                academic_class=academic_class,
+                stream=student.stream
+            ).first()
+            class_teacher_signature = class_stream.class_teacher_signature if class_stream else None
+    except Exception:
+        class_teacher_signature = None
+
+    # Avoid duplicating the same image for both signatures
+    try:
+        if (
+            class_teacher_signature 
+            and head_teacher_signature 
+            and getattr(head_teacher_signature, 'signature', None)
+            and getattr(class_teacher_signature, 'name', None)
+            and class_teacher_signature.name == head_teacher_signature.signature.name
+        ):
+            class_teacher_signature = None
+    except Exception:
+        pass
+
     context = {
         'school': school,
         'student': student,
@@ -925,6 +999,11 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
         'overall_points': overall_points,
         'selected_term_id': selected_term_id,
         'terms': terms,
+        'head_teacher_signature': head_teacher_signature,
+        'class_teacher_signature': class_teacher_signature,
+        'no_results_message': no_results_message,
+        'assessment_types': assessment_types,
+        'selected_division': selected_division,
     }
     
     return render(request, 'results/student_assessment_report.html', context)

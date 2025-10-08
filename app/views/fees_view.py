@@ -216,64 +216,125 @@ def add_student_payment_view(request, id):
     return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill.id]))
     
 
-    
-
+ 
 @login_required
 def student_fees_status_view(request):
-    students = Student.objects.all()
-    student_fees_data = []
+    """Fees status scoped to current academic year and term, enrolled students only, with due dates and payment history."""
+    # Scope: current academic year and current term by default
+    current_year = AcademicYear.objects.filter(is_current=True).first()
+    current_term = Term.objects.filter(is_current=True, academic_year=current_year).first() if current_year else None
 
     selected_academic_class = request.GET.get("academic_class")
-    selected_term = request.GET.get("term")
+    selected_term_id = request.GET.get("term")
+    selected_year_id = request.GET.get("year")
 
-    academic_classes = AcademicClass.objects.all()
-    terms = Term.objects.all()
+    # Resolve selected academic year (defaults to current)
+    selected_year = None
+    if selected_year_id:
+        selected_year = AcademicYear.objects.filter(id=selected_year_id).first()
+    if not selected_year:
+        selected_year = current_year
 
+    # Available filters (limited to selected year)
+    academic_years = AcademicYear.objects.all().order_by('-id')
+    academic_classes = AcademicClass.objects.filter(academic_year=selected_year) if selected_year else AcademicClass.objects.none()
+    terms = Term.objects.filter(academic_year=selected_year) if selected_year else Term.objects.none()
+
+    # Apply selected filters
     filtered_academic_classes = academic_classes
     if selected_academic_class:
         filtered_academic_classes = filtered_academic_classes.filter(Class_id=selected_academic_class)
-    if selected_term:
-        filtered_academic_classes = filtered_academic_classes.filter(term_id=selected_term)
+    if selected_term_id:
+        filtered_academic_classes = filtered_academic_classes.filter(term_id=selected_term_id)
+    else:
+        # default to current term of selected year
+        default_term = Term.objects.filter(is_current=True, academic_year=selected_year).first()
+        if default_term:
+            filtered_academic_classes = filtered_academic_classes.filter(term=default_term)
 
-    if selected_academic_class or selected_term:
-        class_ids = filtered_academic_classes.values_list("Class_id", flat=True)
-        students = students.filter(current_class_id__in=class_ids)
+    # Identify enrolled students via current class and term
+    class_ids = list(filtered_academic_classes.values_list("Class_id", flat=True))
+    students = Student.objects.filter(current_class_id__in=class_ids)
+    if selected_term_id or current_term:
+        term_obj = Term.objects.filter(id=selected_term_id).first() if selected_term_id else Term.objects.filter(is_current=True, academic_year=selected_year).first()
+        if term_obj:
+            students = students.filter(term=term_obj)
 
-    for student in students:
-        student_bill = StudentBill.objects.filter(student=student).first()
-        academic_class = AcademicClass.objects.filter(Class=student.current_class).first()
+    # Build rows with due dates and recent payments
+    student_fees_data = []
+    now = timezone.now().date()
+    for student in students.select_related("current_class", "term"):
+        # Student bill for the scoped academic class (year+term)
+        academic_class = (
+            AcademicClass.objects.filter(
+                Class=student.current_class,
+                academic_year=selected_year,
+                term=term_obj if (selected_term_id or current_term) else None
+            ).first()
+            if selected_year else None
+        )
 
-        academic_year = academic_class.academic_year if academic_class else None
-        term = academic_class.term if academic_class else None
+        if not academic_class:
+            # skip if no academic class context
+            continue
+
+        student_bill = StudentBill.objects.filter(student=student, academic_class=academic_class).first()
 
         total_amount = student_bill.total_amount if student_bill else 0
         amount_paid = student_bill.amount_paid if student_bill else 0
         amount_paid_percentage = (amount_paid / total_amount * 100) if total_amount > 0 else 0
+        due_date = student_bill.due_date if student_bill and student_bill.due_date else None
 
-        if amount_paid > total_amount:
-            payment_status = "Cleared"
-            balance = amount_paid - total_amount 
-            balance_label = "CR"
-        elif amount_paid < total_amount:
-            payment_status = "Defaulter"
-            balance = total_amount - amount_paid 
-            balance_label = "DR"
-        else:
-            payment_status = "Balanced"
+        # Determine status
+        if amount_paid >= total_amount and total_amount > 0:
+            # Fully paid
+            payment_status = "Paid"
             balance = 0
             balance_label = ""
+        elif amount_paid == 0 and total_amount == 0:
+            # No bill generated
+            payment_status = "No Bill"
+            balance = 0
+            balance_label = ""
+        else:
+            balance = abs(total_amount - amount_paid)
+            if amount_paid > total_amount:
+                # More paid than billed
+                payment_status = "Overpaid"
+                balance_label = "CR"
+            elif amount_paid == 0 and total_amount > 0:
+                # Nothing paid on an existing bill
+                is_overdue = bool(due_date and now > due_date)
+                payment_status = "Overdue" if is_overdue else "Unpaid"
+                balance_label = "DR"
+            else:
+                # Some payment made but not complete
+                is_overdue = bool(due_date and now > due_date and amount_paid < total_amount)
+                payment_status = "Overdue" if is_overdue else "Partial"
+                balance_label = "DR"
+
+        # Recent payments (last 3)
+        recent_payments = []
+        if student_bill:
+            recent_payments = list(
+                Payment.objects.filter(bill=student_bill)
+                .order_by("-payment_date")
+                .values("amount", "payment_date")[:3]
+            )
 
         student_fees_data.append({
             "student": student,
-            "academic_class": student.current_class if hasattr(student, 'current_class') else "N/A",
-            "academic_year": academic_year,
-            "term": term,
+            "academic_class": academic_class,
+            "academic_year": academic_class.academic_year,
+            "term": academic_class.term,
             "total_amount": total_amount,
             "amount_paid": amount_paid,
             "amount_paid_percentage": amount_paid_percentage,
             "payment_status": payment_status,
-            "balance": balance, 
+            "balance": balance,
             "balance_label": balance_label,
+            "due_date": due_date,
+            "recent_payments": recent_payments,
             "bill_id": student_bill.id if student_bill else None,
         })
 
@@ -351,12 +412,25 @@ def student_fees_status_view(request):
         buffer.seek(0)
         return HttpResponse(buffer, content_type="application/pdf")
 
+    # Summary metrics for UX
+    total_fees = sum(row["total_amount"] for row in student_fees_data)
+    total_paid = sum(row["amount_paid"] for row in student_fees_data)
+    total_balance = sum(row["balance"] for row in student_fees_data if row.get("balance_label") != "CR")
+
     context = {
+        "academic_years": academic_years,
         "academic_classes": academic_classes,
         "terms": terms,
         "class_filter": int(selected_academic_class) if selected_academic_class else "",
-        "term_filter": int(selected_term) if selected_term else "",
+        "academic_class_filter": int(selected_academic_class) if selected_academic_class else "",
+        "term_filter": int(selected_term_id) if selected_term_id else (current_term.id if current_term else ""),
+        "year_filter": int(selected_year.id) if selected_year else "",
         "student_fees_data": student_fees_data,
+        "total_fees": total_fees,
+        "total_paid": total_paid,
+        "total_balance": total_balance,
+        "current_term": term_obj if 'term_obj' in locals() and term_obj else current_term,
+        "current_year": selected_year,
     }
 
     return render(request, "fees/student_fees_status.html", context)
