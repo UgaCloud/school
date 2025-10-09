@@ -216,7 +216,8 @@ def add_student_payment_view(request, id):
     return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill.id]))
     
 
- 
+  
+
 @login_required
 def student_fees_status_view(request):
     """Fees status scoped to current academic year and term, enrolled students only, with due dates and payment history."""
@@ -252,90 +253,56 @@ def student_fees_status_view(request):
         if default_term:
             filtered_academic_classes = filtered_academic_classes.filter(term=default_term)
 
-    # Identify enrolled students via current class and term
-    class_ids = list(filtered_academic_classes.values_list("Class_id", flat=True))
-    students = Student.objects.filter(current_class_id__in=class_ids)
-    if selected_term_id or current_term:
-        term_obj = Term.objects.filter(id=selected_term_id).first() if selected_term_id else Term.objects.filter(is_current=True, academic_year=selected_year).first()
-        if term_obj:
-            students = students.filter(term=term_obj)
+    # Determine effective term
+    term_obj = Term.objects.filter(id=selected_term_id).first() if selected_term_id else Term.objects.filter(is_current=True, academic_year=selected_year).first()
 
-    # Build rows with due dates and recent payments
+    # Build rows from StudentBill to ensure we show existing billed data
     student_fees_data = []
     now = timezone.now().date()
-    for student in students.select_related("current_class", "term"):
-        # Student bill for the scoped academic class (year+term)
-        academic_class = (
-            AcademicClass.objects.filter(
-                Class=student.current_class,
-                academic_year=selected_year,
-                term=term_obj if (selected_term_id or current_term) else None
-            ).first()
-            if selected_year else None
-        )
+    bills_qs = StudentBill.objects.filter(
+        academic_class__academic_year=selected_year,
+        academic_class__term=term_obj,
+    )
+    if selected_academic_class:
+        bills_qs = bills_qs.filter(academic_class__Class_id=selected_academic_class)
 
-        if not academic_class:
-            # skip if no academic class context
-            continue
+    for bill in bills_qs.select_related("student", "academic_class", "academic_class__Class"):
+        total_amount = bill.total_amount
+        amount_paid = bill.amount_paid
+        due_date = bill.due_date
 
-        student_bill = StudentBill.objects.filter(student=student, academic_class=academic_class).first()
-
-        total_amount = student_bill.total_amount if student_bill else 0
-        amount_paid = student_bill.amount_paid if student_bill else 0
-        amount_paid_percentage = (amount_paid / total_amount * 100) if total_amount > 0 else 0
-        due_date = student_bill.due_date if student_bill and student_bill.due_date else None
-
-        # Determine status
         if amount_paid >= total_amount and total_amount > 0:
-            # Fully paid
-            payment_status = "Paid"
-            balance = 0
-            balance_label = ""
+            payment_status = "Paid"; balance = 0; balance_label = ""
         elif amount_paid == 0 and total_amount == 0:
-            # No bill generated
-            payment_status = "No Bill"
-            balance = 0
-            balance_label = ""
+            payment_status = "No Bill"; balance = 0; balance_label = ""
         else:
             balance = abs(total_amount - amount_paid)
             if amount_paid > total_amount:
-                # More paid than billed
-                payment_status = "Overpaid"
-                balance_label = "CR"
+                payment_status = "Overpaid"; balance_label = "CR"
             elif amount_paid == 0 and total_amount > 0:
-                # Nothing paid on an existing bill
                 is_overdue = bool(due_date and now > due_date)
-                payment_status = "Overdue" if is_overdue else "Unpaid"
-                balance_label = "DR"
+                payment_status = "Overdue" if is_overdue else "Unpaid"; balance_label = "DR"
             else:
-                # Some payment made but not complete
                 is_overdue = bool(due_date and now > due_date and amount_paid < total_amount)
-                payment_status = "Overdue" if is_overdue else "Partial"
-                balance_label = "DR"
+                payment_status = "Overdue" if is_overdue else "Partial"; balance_label = "DR"
 
-        # Recent payments (last 3)
-        recent_payments = []
-        if student_bill:
-            recent_payments = list(
-                Payment.objects.filter(bill=student_bill)
-                .order_by("-payment_date")
-                .values("amount", "payment_date")[:3]
-            )
+        recent_payments = list(
+            Payment.objects.filter(bill=bill).order_by("-payment_date").values("amount", "payment_date")[:3]
+        )
 
         student_fees_data.append({
-            "student": student,
-            "academic_class": academic_class,
-            "academic_year": academic_class.academic_year,
-            "term": academic_class.term,
+            "student": bill.student,
+            "academic_class": bill.academic_class,
+            "academic_year": bill.academic_class.academic_year,
+            "term": bill.academic_class.term,
             "total_amount": total_amount,
             "amount_paid": amount_paid,
-            "amount_paid_percentage": amount_paid_percentage,
+            "amount_paid_percentage": (amount_paid / total_amount * 100) if total_amount > 0 else 0,
             "payment_status": payment_status,
-            "balance": balance,
-            "balance_label": balance_label,
-            "due_date": due_date,
+            "balance": balance if 'balance' in locals() else 0,
+            "balance_label": balance_label if 'balance_label' in locals() else "",
             "recent_payments": recent_payments,
-            "bill_id": student_bill.id if student_bill else None,
+            "bill_id": bill.id,
         })
 
     if request.GET.get("download_pdf"):
@@ -412,6 +379,69 @@ def student_fees_status_view(request):
         buffer.seek(0)
         return HttpResponse(buffer, content_type="application/pdf")
 
+    # Fallback: if no rows for selected term, try latest term WITH data in the selected year
+    if not student_fees_data:
+        from django.db.models import Max
+        # Find latest term (by start_date) within selected year that has any StudentBill
+        term_ids_with_bills = (
+            StudentBill.objects.filter(academic_class__academic_year=selected_year)
+            .values_list('academic_class__term_id', flat=True)
+            .distinct()
+        )
+        fallback_term = (
+            Term.objects.filter(id__in=term_ids_with_bills, academic_year=selected_year)
+            .order_by('-start_date')
+            .first()
+        )
+        if fallback_term and (not selected_term_id or str(fallback_term.id) != str(selected_term_id)):
+            term_obj = fallback_term
+            # Rebuild from bills for fallback term
+            bills_qs = StudentBill.objects.filter(
+                academic_class__academic_year=selected_year,
+                academic_class__term=term_obj,
+            )
+            if selected_academic_class:
+                bills_qs = bills_qs.filter(academic_class__Class_id=selected_academic_class)
+            student_fees_data = []
+            now = timezone.now().date()
+            for bill in bills_qs.select_related("student", "academic_class", "academic_class__Class"):
+                total_amount = bill.total_amount
+                amount_paid = bill.amount_paid
+                due_date = bill.due_date
+                if amount_paid >= total_amount and total_amount > 0:
+                    payment_status = "Paid"; balance = 0; balance_label = ""
+                elif amount_paid == 0 and total_amount == 0:
+                    payment_status = "No Bill"; balance = 0; balance_label = ""
+                else:
+                    balance = abs(total_amount - amount_paid)
+                    if amount_paid > total_amount:
+                        payment_status = "Overpaid"; balance_label = "CR"
+                    elif amount_paid == 0 and total_amount > 0:
+                        is_overdue = bool(due_date and now > due_date)
+                        payment_status = "Overdue" if is_overdue else "Unpaid"; balance_label = "DR"
+                    else:
+                        is_overdue = bool(due_date and now > due_date and amount_paid < total_amount)
+                        payment_status = "Overdue" if is_overdue else "Partial"; balance_label = "DR"
+                recent_payments = list(
+                    Payment.objects.filter(bill=bill).order_by('-payment_date').values('amount','payment_date')[:3]
+                )
+                student_fees_data.append({
+                    "student": bill.student,
+                    "academic_class": bill.academic_class,
+                    "academic_year": bill.academic_class.academic_year,
+                    "term": bill.academic_class.term,
+                    "total_amount": total_amount,
+                    "amount_paid": amount_paid,
+                    "amount_paid_percentage": (amount_paid / total_amount * 100) if total_amount > 0 else 0,
+                    "payment_status": payment_status,
+                    "balance": balance if 'balance' in locals() else 0,
+                    "balance_label": balance_label if 'balance_label' in locals() else "",
+                    "recent_payments": recent_payments,
+                    "bill_id": bill.id,
+                })
+            # Update the effective filters
+            selected_term_id = str(fallback_term.id)
+
     # Summary metrics for UX
     total_fees = sum(row["total_amount"] for row in student_fees_data)
     total_paid = sum(row["amount_paid"] for row in student_fees_data)
@@ -434,4 +464,6 @@ def student_fees_status_view(request):
     }
 
     return render(request, "fees/student_fees_status.html", context)
+
+
 
