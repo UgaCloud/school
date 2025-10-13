@@ -4,10 +4,68 @@
 {% block page_title %}Settings{% endblock page_title %}
 {% block content %}
     <div class="clearfix"></div>
-    
-    {% include "./school_details.html" %}
-    {% include "./sections.html" %}
-    {% include "./signatures.html" %}
-    {% include "./departments.html" %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <ul class="nav nav-tabs card-header-tabs" id="settingsTabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="general-tab" data-toggle="tab" href="#general" role="tab" aria-controls="general" aria-selected="true">
+                        <i class="fa fa-cog"></i> General
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="sections-tab" data-toggle="tab" href="#sections" role="tab" aria-controls="sections" aria-selected="false">
+                        <i class="fa fa-layer-group"></i> Sections
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="signatures-tab" data-toggle="tab" href="#signatures" role="tab" aria-controls="signatures" aria-selected="false">
+                        <i class="fa fa-signature"></i> Signatures
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="departments-tab" data-toggle="tab" href="#departments" role="tab" aria-controls="departments" aria-selected="false">
+                        <i class="fa fa-sitemap"></i> Departments
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            <div class="tab-content" id="settingsTabsContent">
+                <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
+                    {% include "./school_details.html" %}
+                </div>
+                <div class="tab-pane fade" id="sections" role="tabpanel" aria-labelledby="sections-tab">
+                    {% include "./sections.html" %}
+                </div>
+                <div class="tab-pane fade" id="signatures" role="tabpanel" aria-labelledby="signatures-tab">
+                    {% include "./signatures.html" %}
+                </div>
+                <div class="tab-pane fade" id="departments" role="tabpanel" aria-labelledby="departments-tab">
+                    {% include "./departments.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        // Activate tab from URL hash if present
+        var hash = window.location.hash;
+        if (hash) {
+            var target = document.querySelector('a[href="' + hash + '"]');
+            if (target) {
+                $(target).tab('show');
+            }
+        }
+        // Update hash when tab changes
+        $('#settingsTabs a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            var newHash = e.target.getAttribute('href');
+            if (newHash) {
+                history.replaceState(null, null, newHash);
+            }
+        });
+    })();
+    </script>
 
 {% endblock content%}
