@@ -18,9 +18,9 @@
                     <p class="text-muted mb-0">
                         Manage student records, enrollment, and academic information
                     </p>
-                </div>
+            </div>
                 <div class="d-flex gap-2">
-                    {% if request.user.is_superuser %}
+                {% if request.user.is_superuser %}
                         <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".add-student-modal">
                             <i class="fa fa-plus me-1"></i> Add Student
                         </button>
@@ -168,7 +168,7 @@
                             </button>
                             <button class="btn btn-outline-success" id="bulkExport">
                                 <i class="fa fa-download me-1"></i>Export
-                            </button>
+                        </button>
                         </div>
                     </div>
                 </div>
@@ -219,14 +219,14 @@
                                     <th>Class & Stream</th>
                                     <th>Contact</th>
                                     <th>Status</th>
-                                    {% if request.user.is_superuser %}
+                            {% if request.user.is_superuser %}
                                         <th width="120">Actions</th>
-                                    {% endif %}
-                                </tr>
-                            </thead>
-                            <tbody>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
                                 {% for student in students %}
-                                    <tr data-student-id="{{ student.id }}">
+                                    <tr data-student-id="{{ student.id }}" data-gender="{{ student.gender }}" data-class="{{ student.current_class.code }}" data-stream="{{ student.stream.stream }}">
                                         <td>
                                             <input type="checkbox" class="form-check-input student-checkbox" value="{{ student.id }}">
                                         </td>
@@ -245,8 +245,8 @@
                                                 <div>
                                                     <h6 class="mb-0">{{ student.student_name }}</h6>
                                                     <small class="text-muted">
-                                                        <i class="fa fa-{{ student.gender|lower|yesno:'mars,venus' }} me-1"></i>
-                                                        {{ student.gender|yesno:'Male,Female' }}
+                                                        <i class="fa fa-{{ student.gender|yesno:'mars,venus' }} me-1"></i>
+                                                        {% if student.gender == 'M' %}Male{% else %}Female{% endif %}
                                                     </small>
                                                 </div>
                                             </div>
@@ -267,25 +267,25 @@
                                         </td>
                                         <td>
                                             <span class="badge bg-success">Active</span>
-                                        </td>
-                                        {% if request.user.is_superuser %}
-                                            <td>
+                                </td>
+                                {% if request.user.is_superuser %}
+                                    <td>
                                                 <div class="btn-group btn-group-sm">
                                                     <a href="{% url 'student_details_page' student.id %}" class="btn btn-outline-primary btn-sm" title="View Details">
                                                         <i class="fa fa-eye"></i>
                                                     </a>
                                                     <a href="{% url 'edit_student_page' student.id %}" class="btn btn-outline-warning btn-sm" title="Edit">
-                                                        <i class="fa fa-edit"></i>
-                                                    </a>
+                                            <i class="fa fa-edit"></i>
+                                        </a>
                                                     <a href="{% url 'delete_student_page' student.id %}" class="btn btn-outline-danger btn-sm" title="Delete" onclick="return confirm('Are you sure you want to delete this student?')">
                                                         <i class="fa fa-trash"></i>
                                                     </a>
                                                 </div>
-                                            </td>
-                                        {% endif %}
-                                    </tr>
-                                {% empty %}
-                                    <tr>
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% empty %}
+                            <tr>
                                         <td colspan="{% if request.user.is_superuser %}8{% else %}7{% endif %}" class="text-center py-5">
                                             <div class="text-muted">
                                                 <i class="fa fa-users fa-3x mb-3"></i>
@@ -298,10 +298,10 @@
                                                 {% endif %}
                                             </div>
                                         </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
                     </div>
                 </div>
             </div>
@@ -313,7 +313,7 @@
         <div class="col-12">
             <div class="row" id="studentCards">
                 {% for student in students %}
-                    <div class="col-lg-4 col-md-6 mb-4" data-student-id="{{ student.id }}">
+                    <div class="col-lg-4 col-md-6 mb-4" data-student-id="{{ student.id }}" data-gender="{{ student.gender }}" data-class="{{ student.current_class.code }}" data-stream="{{ student.stream.stream }}">
                         <div class="card h-100 shadow-sm student-card">
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-3">
@@ -349,9 +349,9 @@
                                 </div>
 
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <span class="badge bg-{{ student.gender|yesno:'primary,success' }}">
-                                        <i class="fa fa-{{ student.gender|lower|yesno:'mars,venus' }} me-1"></i>
-                                        {{ student.gender|yesno:'Male,Female' }}
+                                    <span class="badge bg-{% if student.gender == 'M' %}primary{% else %}success{% endif %}">
+                                        <i class="fa fa-{% if student.gender == 'M' %}mars{% else %}venus{% endif %} me-1"></i>
+                                        {% if student.gender == 'M' %}Male{% else %}Female{% endif %}
                                     </span>
                                     <span class="badge bg-success">Active</span>
                                 </div>
@@ -522,7 +522,7 @@
             </div>
         </div>
     </div>
-</div>
+</div> 
 
 <!-- Custom CSS -->
 <style>
@@ -679,12 +679,21 @@ document.addEventListener('DOMContentLoaded', function() {
         rows.forEach(row => {
             const studentName = row.querySelector('h6')?.textContent.toLowerCase() || '';
             const regNo = row.querySelector('.badge')?.textContent.toLowerCase() || '';
-            const gender = row.querySelector('.fa-mars, .fa-venus')?.parentElement.textContent.toLowerCase() || '';
-            const classCode = row.querySelector('.badge.bg-primary')?.textContent.toLowerCase() || '';
+            
+            // Use data attributes for reliable filtering
+            const studentGender = row.getAttribute('data-gender');
+            const studentClass = row.getAttribute('data-class');
             
             const matchesSearch = studentName.includes(searchValue) || regNo.includes(searchValue);
-            const matchesGender = !genderValue || gender.includes(genderValue.toLowerCase());
-            const matchesClass = !classValue || classCode.includes(classValue.toLowerCase());
+            
+            // Fix gender matching using data attribute
+            let matchesGender = true;
+            if (genderValue) {
+                matchesGender = studentGender === genderValue;
+                console.log('Row:', studentName, 'Data Gender:', studentGender, 'Filter:', genderValue, 'Matches:', matchesGender);
+            }
+            
+            const matchesClass = !classValue || studentClass.toLowerCase().includes(classValue.toLowerCase());
             
             const shouldShow = matchesSearch && matchesGender && matchesClass;
             row.style.display = shouldShow ? '' : 'none';
@@ -695,12 +704,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const cardElement = card.closest('[data-student-id]');
             const studentName = card.querySelector('h5')?.textContent.toLowerCase() || '';
             const regNo = card.querySelector('p')?.textContent.toLowerCase() || '';
-            const gender = card.querySelector('.fa-mars, .fa-venus')?.parentElement.textContent.toLowerCase() || '';
-            const classCode = card.querySelector('.text-primary')?.textContent.toLowerCase() || '';
+            
+            // Use data attributes for reliable filtering
+            const studentGender = cardElement.getAttribute('data-gender');
+            const studentClass = cardElement.getAttribute('data-class');
             
             const matchesSearch = studentName.includes(searchValue) || regNo.includes(searchValue);
-            const matchesGender = !genderValue || gender.includes(genderValue.toLowerCase());
-            const matchesClass = !classValue || classCode.includes(classValue.toLowerCase());
+            
+            // Fix gender matching using data attribute
+            let matchesGender = true;
+            if (genderValue) {
+                matchesGender = studentGender === genderValue;
+                console.log('Card:', studentName, 'Data Gender:', studentGender, 'Filter:', genderValue, 'Matches:', matchesGender);
+            }
+            
+            const matchesClass = !classValue || studentClass.toLowerCase().includes(classValue.toLowerCase());
             
             const shouldShow = matchesSearch && matchesGender && matchesClass;
             cardElement.style.display = shouldShow ? '' : 'none';

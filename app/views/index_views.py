@@ -20,13 +20,13 @@ def index_view(request):
         staff_account = request.user.staff_account
         user_role = staff_account.role.name
     except:
-        user_role = 'Support Staff'  # Default fallback
+        user_role = 'Support Staff'  
 
     # Define role permissions
-    admin_roles = ['Admin', 'Head master']
-    finance_roles = ['Admin', 'Head master', 'Bursar']
-    academic_roles = ['Admin', 'Head master', 'Director of Studies', 'Teacher', 'Class Teacher']
-    teacher_roles = ['Admin', 'Head master', 'Director of Studies', 'Teacher', 'Class Teacher']
+    admin_roles = ['Admin', 'Head Teacher']
+    finance_roles = ['Admin', 'Head Teacher', 'Bursar']
+    academic_roles = ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher']
+    teacher_roles = ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher']
 
     # Basic staff statistics (visible to all except support staff)
     if user_role not in ['Support Staff']:
@@ -188,8 +188,6 @@ def index_view(request):
             academic_class__academic_year=current_year,
             academic_class__term=current_term
         ).aggregate(total=Sum('items__amount'))['total'] or 0
-
-        fee_collection_rate = (total_fees_collected / total_billed * 100) if total_billed > 0 else 0
 
         fee_collection_rate = (total_fees_collected / total_billed * 100) if total_billed > 0 else 0
     else:
