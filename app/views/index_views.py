@@ -85,11 +85,18 @@ def index_view(request):
         ).first() if current_year and current_term else None
 
         budget_allocated = current_budget.budget_total if current_budget else 0
-        budget_spent = ExpenditureItem.objects.filter(
-            expenditure__budget_item__budget=current_budget
-        ).aggregate(
-            total=Sum(ExpressionWrapper(F('quantity') * F('unit_cost'), output_field=DecimalField()))
-        )['total'] or 0 if current_budget else 0
+
+        # Calculate budget spent including VAT by summing ExpenditureItem amounts and VAT
+        if current_budget:
+            expenditures = Expenditure.objects.filter(
+                budget_item__budget=current_budget
+            ).prefetch_related('items')
+            budget_spent = 0
+            for exp in expenditures:
+                items_total = sum(item.amount for item in exp.items.all())
+                budget_spent += items_total + exp.vat
+        else:
+            budget_spent = 0
     else:
         total_fees_collected = total_fees_outstanding = budget_allocated = budget_spent = 0
         current_budget = None
