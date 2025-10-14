@@ -71,10 +71,12 @@ def delete_income_source(request, id):
 def manage_expenses(request):
     form = finance_forms.ExpenseForm()
     expenses = get_all_model_records(Expense)
+    edit_forms = {expense.id: finance_forms.ExpenseForm(instance=expense) for expense in expenses}
     
     context = {
         "expenses": expenses,
-        "form": form
+        "form": form,
+        "edit_forms": edit_forms
     }
     return render(request, "finance/expenses.html", context)
 
