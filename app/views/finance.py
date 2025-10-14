@@ -130,10 +130,12 @@ def delete_expense(request, id):
 def manage_expenditures(request):
     form = finance_forms.ExpenditureForm()
     expenditures = get_all_model_records(Expenditure)
+    edit_forms = {expenditure.id: finance_forms.ExpenditureForm(instance=expenditure) for expenditure in expenditures}
     
     context = {
         "expenditures": expenditures,
-        "form": form
+        "form": form,
+        "edit_forms": edit_forms
     }
     return render(request, "finance/expenditures.html", context)
 
