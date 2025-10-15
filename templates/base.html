@@ -13,8 +13,6 @@
 
     <!-- Bootstrap -->
     <link href="{% static 'vendors/bootstrap/dist/css/bootstrap.min.css' %}" rel="stylesheet">
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
    <link href="{% static 'css/custom_overrides.css' %}" rel="stylesheet">
 
     <!-- Font Awesome -->
@@ -90,23 +88,23 @@
               <div class="menu_section"> 
                 {% if user.is_authenticated %}
                 <p class="" style="font-size: 1.0rem;">
-                  User role: 
+                  User role:
                   <span class="text-white" style="font-size: 1.0rem;">
-                      {{ user.staff_account.role.name }}
+                      {{ active_role|default:user.staff_account.role.name }}
                   </span>
               </p>
               <!-- Debugging output -->
-                {% if user.staff_account.role.name == "Admin" %}
+                {% if active_role == "Admin" %}
                     {% include 'admin_dashboard.html' %}
-                {% elif user.staff_account.role.name == "Teacher" %}
+                {% elif active_role == "Teacher" %}
                     {% include 'teacher_dashboard.html' %}
-                {% elif user.staff_account.role.name == "Bursar" %}
+                {% elif active_role == "Bursar" %}
                     {% include 'bursar_dashboard.html' %}
-                {% elif user.staff_account.role.name == "Director of Studies" %}
+                {% elif active_role == "Director of Studies" %}
                     {% include 'dos_dashboard.html' %}
-                {% elif user.staff_account.role.name == "Head Teacher" %}
+                {% elif active_role == "Head Teacher" %}
                     {% include 'headteacher_dashboard.html' %}
-                {% elif user.staff_account.role.name == "Class Teacher" %}
+                {% elif active_role == "Class Teacher" %}
                     {% include 'class_teacher_dashboard.html' %}
                 {% else %}
                     <p>No dashboard available for your role.</p>
@@ -164,7 +162,7 @@
                   
                   <a class="dropdown-item" href="{% url 'password_change' %}">Change Password</a>  
                   
-                  <a class="dropdown-item" href="{% url 'dashboard' %}">Switch Role</a>
+                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#switchRoleModal">Switch Role</a>
                   
                   <a class="dropdown-item" href="{% url 'logout' %}">  
                       <i class="fa fa-sign-out pull-right"></i> Log Out
@@ -173,7 +171,7 @@
               
                 </li>
                
-                -- 
+                
                 <li role="presentation" class="nav-item dropdown open">
                   <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdown1" data-toggle="dropdown" aria-expanded="false">
                     <i class="fa fa-envelope-o"></i>
@@ -542,6 +540,111 @@ $(document).ready(function() {
         }
     });
 });
+</script>
+
+<!-- Switch Role Modal -->
+<div class="modal fade" id="switchRoleModal" tabindex="-1" role="dialog" aria-labelledby="switchRoleLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-md" role="document">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title d-flex align-items-center" id="switchRoleLabel">
+          <i class="fa fa-user-shield mr-2"></i> Switch Role
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <form method="post" action="{% url 'switch_role' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <small class="text-muted d-block">Current role</small>
+            <div class="h5 mb-0">
+              {{ active_role|default:user.staff_account.role.name }}
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <small class="text-muted">Select a role to activate</small>
+          </div>
+
+          <div class="container-fluid px-0">
+            <div class="row">
+              {% for role in user.staff_account.staff.roles.all %}
+              <div class="col-12 mb-2">
+                <label class="w-100 m-0">
+                  <input type="radio" name="role" class="d-none role-radio" value="{{ role.id }}" {% if active_role == role.name %}checked{% endif %}>
+                  <div class="role-card d-flex align-items-center justify-content-between p-3 border rounded hover-elevate {% if active_role == role.name %}selected{% endif %}">
+                    <div class="d-flex align-items-center">
+                      <div class="role-icon mr-3">
+                        <i class="fa fa-id-badge"></i>
+                      </div>
+                      <div class="role-info">
+                        <div class="font-weight-bold">{{ role.name }}</div>
+                        <small class="text-muted">Click to select</small>
+                      </div>
+                    </div>
+                    <div>
+                      <span class="badge badge-pill {% if active_role == role.name %}badge-success{% else %}badge-secondary{% endif %}">
+                        {% if active_role == role.name %}Active{% else %}Available{% endif %}
+                      </span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+              {% empty %}
+              <div class="col-12">
+                <div class="alert alert-warning mb-0">
+                  No roles assigned to your account. Please contact an administrator.
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-dark">
+            <i class="fa fa-sync mr-1"></i> Apply Role
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  .role-card { transition: all .2s ease; cursor: pointer; background: #fff; }
+  .role-card.hover-elevate:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+  .role-card.selected { border-color: #28a745; box-shadow: 0 0 0 2px rgba(40,167,69,.15); }
+  .role-icon { width: 36px; height: 36px; border-radius: 8px; background: #f0f2f5; color: #2c3e50;
+               display: flex; align-items: center; justify-content: center; }
+  .modal-header.bg-dark { background: #2c3e50 !important; }
+</style>
+
+<script>
+  (function() {
+    // Toggle selected styling when card is clicked
+    document.addEventListener('click', function(e) {
+      var card = e.target.closest('.role-card');
+      if (!card) return;
+      var label = card.closest('label');
+      if (!label) return;
+      var radio = label.querySelector('input.role-radio');
+      if (!radio) return;
+
+      // Unselect others
+      document.querySelectorAll('#switchRoleModal .role-card').forEach(function(el) {
+        el.classList.remove('selected');
+      });
+
+      // Select current
+      card.classList.add('selected');
+      radio.checked = true;
+    }, false);
+  })();
 </script>
 
 </body>

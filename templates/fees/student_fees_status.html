@@ -8,12 +8,53 @@
 {% block content %}
 <div class="container-fluid">
 
-    <!-- Filter Section -->
-    <div class="row mb-3">
+    <style>
+        /* Print-friendly styles */
+        @page { size: A4 landscape; margin: 1.2cm; }
+        @media print {
+            body * { visibility: hidden !important; }
+            #print-table, #print-table * { visibility: visible !important; }
+            #print-table { position: absolute; left: 0; top: 0; width: 100%; }
+            .table { font-size: 11px; }
+            .table th, .table td { padding: 6px !important; }
+            .table tbody tr { break-inside: avoid; page-break-inside: avoid; }
+        }
+    </style>
+
+    <!-- Summary Cards -->
+    <div class="row mb-3 no-print">
         <div class="col-md-3">
-            <form method="get" action="{% url 'fees_status' %}" id="filterForm">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <div class="h6">Total Fees ({{ current_term.term }} {{ current_year.academic_year }})</div>
+                    <div class="h4">{{ total_fees|intcomma }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <div class="h6">Total Paid</div>
+                    <div class="h4">{{ total_paid|intcomma }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <div class="h6">Outstanding Balance</div>
+                    <div class="h4">{{ total_balance|intcomma }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <form method="get" action="{% url 'fees_status' %}" id="filterForm">
+    <div class="row mb-3 no-print">
+        <div class="col-md-3">
                 <label for="academic_class">Select Class:</label>
-                <select name="academic_class" id="academic_class" class="form-control" onchange="this.form.submit()">
+                <select name="academic_class" id="academic_class" class="form-control" onchange="document.getElementById('filterForm').submit()">
                     <option value="">-- All Classes --</option>
                     {% for academic_class in academic_classes %}
                         <option value="{{ academic_class.Class.id }}" 
@@ -25,9 +66,19 @@
         </div>
 
         <div class="col-md-3">
+            <label for="year">Select Year:</label>
+            <select name="year" id="year" class="form-control" onchange="document.getElementById('filterForm').submit()">
+                <option value="">-- Current Year --</option>
+                {% for y in academic_years %}
+                    <option value="{{ y.id }}" {% if y.id|stringformat:"s" == year_filter|stringformat:"s" %}selected{% endif %}>{{ y.academic_year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-3">
             <label for="term">Select Term:</label>
-            <select name="term" id="term" class="form-control" onchange="this.form.submit()">
-                <option value="">-- All Terms --</option>
+            <select name="term" id="term" class="form-control" onchange="document.getElementById('filterForm').submit()">
+                <option value="">-- Current Term --</option>
                 {% for term in terms %}
                     <option value="{{ term.id }}" 
                         {% if term.id|stringformat:"s" == term_filter|stringformat:"s" %}selected{% endif %}>
@@ -40,25 +91,30 @@
         <div class="col-md-3 d-flex align-items-end">
         </div>
     </div>
+    </form>
 
-    <!-- Button to Download as PDF -->
-    <div class="row mb-3">
-        <div class="col-md-3">
+    <!-- Actions -->
+    <div class="row mb-3 no-print">
+        <div class="col-md-6 d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" onclick="window.print()">Print</button>
             <form method="get" action="{% url 'fees_status' %}">
                 <input type="hidden" name="download_pdf" value="true">
-                <button type="submit" class="btn btn-danger">Download as PDF</button>
+                {% if class_filter %}<input type="hidden" name="academic_class" value="{{ class_filter }}">{% endif %}
+                {% if year_filter %}<input type="hidden" name="year" value="{{ year_filter }}">{% endif %}
+                {% if term_filter %}<input type="hidden" name="term" value="{{ term_filter }}">{% endif %}
+                <button type="submit" class="btn btn-outline-danger">Download PDF</button>
             </form>
         </div>
     </div>
 
     <!-- Table Section -->
-    <div class="table-responsive">
-        <table id="datatable-checkbox" class="table table-hover table-bordered table-striped shadow-sm rounded">
+    <div id="print-table" class="table-responsive">
+        <table id="datatable-checkbox" class="table table-bordered">
             <thead class="thead-light">
                 <tr>
-                    <th colspan="2">Term: {{ term }}</th>
-                    <th colspan="2">Academic Year: {{ academic_year }}</th>
-                    <th colspan="5"></th> <!-- Empty cells for alignment -->
+                    <th colspan="3">Term: {{ current_term.term }}</th>
+                    <th colspan="2">Academic Year: {{ current_year.academic_year }}</th>
+                    <th colspan="4"></th>
                 </tr>
                 <tr>
                     <th>Class</th>
@@ -90,12 +146,18 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if student_fee.payment_status == "Cleared" %}
-                            <span class="text-success" style="font-size: 1.1rem;">Cleared</span>
-                        {% elif student_fee.payment_status == "Defaulter" %}
-                            <span class="text-danger" style="font-size: 1.1rem;">Defaulter</span>
+                        {% if student_fee.payment_status == "Paid" %}
+                            <span class="badge bg-success">Paid</span>
+                        {% elif student_fee.payment_status == "Overpaid" %}
+                            <span class="badge bg-info">Overpaid</span>
+                        {% elif student_fee.payment_status == "Unpaid" %}
+                            <span class="badge bg-secondary">Unpaid</span>
+                        {% elif student_fee.payment_status == "Overdue" %}
+                            <span class="badge bg-danger">Overdue</span>
+                        {% elif student_fee.payment_status == "Partial" %}
+                            <span class="badge bg-warning text-dark">Partial</span>
                         {% else %}
-                            <span class="text-warning" style="font-size: 1.1rem;">{{ student_fee.payment_status }}</span>
+                            <span class="badge bg-secondary">No Bill</span>
                         {% endif %}
                     </td>
                     <td>
@@ -110,7 +172,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center text-muted">No students found.</td>
+                    <td colspan="8" class="text-center text-muted">No records found for the selected filters.</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -34,3 +34,29 @@ def is_top_score(score, subject_scores):
 @register.filter
 def get_score(student, subject):
     return student.get(subject, 0)  # Note: This assumes student is a dict
+
+@register.filter
+def sum_attr(iterable, attr_name):
+    """
+    Sum numeric attribute `attr_name` over any iterable of objects or dicts.
+    - Safely skips None and non-numeric values
+    - Works for both obj.attr and dict['attr'] cases
+    """
+    total = 0.0
+    if not iterable:
+        return 0.0
+    for item in iterable:
+        try:
+            # Try object attribute first
+            val = getattr(item, attr_name, None)
+            if val is None and isinstance(item, dict):
+                # Fallback to dict key
+                val = item.get(attr_name, None)
+            if val is None:
+                continue
+            # Convert to float safely
+            total += float(val)
+        except Exception:
+            # Ignore non-numeric/coercion errors
+            continue
+    return total

@@ -240,7 +240,7 @@
                 <p>Web:{{ school.website }}</p>
             </div>
         </div>
-        <div class="title">END OF TERM TWO REPORT CARD - 2025</div>
+        <div class="title">END OF TERM {{ term|default:"-" }} REPORT CARD - {{ academic_year|default:"-" }}</div>
         <div class="term-filter-form">
             <form method="get">
                 <label for="term_id"><strong>Select Term:</strong></label>

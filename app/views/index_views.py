@@ -15,18 +15,21 @@ from app.selectors.school_settings import get_current_academic_year
 
 @login_required
 def index_view(request):
-    # Get user role for role-based access control
     try:
         staff_account = request.user.staff_account
-        user_role = staff_account.role.name
-    except:
-        user_role = 'Support Staff'  # Default fallback
+        session_role = request.session.get('active_role_name')
+        if session_role:
+            user_role = session_role
+        else:
+            user_role = staff_account.role.name
+    except Exception:
+        user_role = 'Support Staff'
 
     # Define role permissions
-    admin_roles = ['Admin', 'Head master']
-    finance_roles = ['Admin', 'Head master', 'Bursar']
-    academic_roles = ['Admin', 'Head master', 'Director of Studies', 'Teacher', 'Class Teacher']
-    teacher_roles = ['Admin', 'Head master', 'Director of Studies', 'Teacher', 'Class Teacher']
+    admin_roles = ['Admin', 'Head Teacher']
+    finance_roles = ['Admin', 'Head Teacher', 'Bursar']
+    academic_roles = ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher']
+    teacher_roles = ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher']
 
     # Basic staff statistics (visible to all except support staff)
     if user_role not in ['Support Staff']:
@@ -85,11 +88,18 @@ def index_view(request):
         ).first() if current_year and current_term else None
 
         budget_allocated = current_budget.budget_total if current_budget else 0
-        budget_spent = ExpenditureItem.objects.filter(
-            expenditure__budget_item__budget=current_budget
-        ).aggregate(
-            total=Sum(ExpressionWrapper(F('quantity') * F('unit_cost'), output_field=DecimalField()))
-        )['total'] or 0 if current_budget else 0
+
+        # Calculate budget spent including VAT by summing ExpenditureItem amounts and VAT
+        if current_budget:
+            expenditures = Expenditure.objects.filter(
+                budget_item__budget=current_budget
+            ).prefetch_related('items')
+            budget_spent = 0
+            for exp in expenditures:
+                items_total = sum(item.amount for item in exp.items.all())
+                budget_spent += items_total + exp.vat
+        else:
+            budget_spent = 0
     else:
         total_fees_collected = total_fees_outstanding = budget_allocated = budget_spent = 0
         current_budget = None
@@ -113,12 +123,15 @@ def index_view(request):
 
     # Performance metrics - visible to academic and admin roles
     if user_role in academic_roles and current_year:
+        # Scope assessment metrics to the current term
         total_assessments = Assessment.objects.filter(
-            academic_class__academic_year=current_year
+            academic_class__academic_year=current_year,
+            academic_class__term=current_term
         ).count()
 
         completed_assessments = Result.objects.filter(
-            assessment__academic_class__academic_year=current_year
+            assessment__academic_class__academic_year=current_year,
+            assessment__academic_class__term=current_term
         ).values('assessment').distinct().count()
 
         assessment_completion_rate = (completed_assessments / total_assessments * 100) if total_assessments > 0 else 0
@@ -187,14 +200,16 @@ def index_view(request):
         ).aggregate(total=Sum('items__amount'))['total'] or 0
 
         fee_collection_rate = (total_fees_collected / total_billed * 100) if total_billed > 0 else 0
-
-        fee_collection_rate = (total_fees_collected / total_billed * 100) if total_billed > 0 else 0
     else:
         paid_bills = unpaid_bills = overdue_bills = total_bills = fee_collection_rate = 0
 
     # Calculate role-aware metrics
     if user_role in academic_roles and current_year:
-        active_classes = AcademicClass.objects.filter(academic_year=current_year).count()
+        # Count only classes in the current term to avoid double-counting across terms
+        active_classes = AcademicClass.objects.filter(
+            academic_year=current_year,
+            term=current_term
+        ).count()
     else:
         active_classes = 0
 

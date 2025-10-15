@@ -17,6 +17,21 @@ POSITION_SIGNATURE_CHOICES=[
 ]
 
 ##### Authentication Roles ###########
+# Session-based role helpers
+ROLE_PRIORITY = [
+    "Admin",
+    "Head Teacher",
+    "Director of Studies",
+    "Bursar",
+    "Class Teacher",
+    "Teacher",
+    "Support Staff",
+    # handle inconsistent historical labels gracefully
+    "Head master",
+    "Headteacher",
+    "DOS",
+]
+
 ROLE_CHOICES = [
         ('Admin', 'Admin'),
         ('Teacher', 'Teacher'),

@@ -27,7 +27,33 @@ from django.contrib.auth.views import PasswordResetView
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from app.models.classes import ClassSubjectAllocation
+from app.constants import ROLE_PRIORITY
 
+
+
+
+def pick_default_role(roles_qs):
+    priorities = {name: idx for idx, name in enumerate(ROLE_PRIORITY)}
+    best = None
+    best_score = 10**6
+    try:
+        for role in roles_qs:
+            score = priorities.get(getattr(role, "name", None), len(ROLE_PRIORITY) + 1)
+            if score < best_score:
+                best = role
+                best_score = score
+    except Exception:
+        best = None
+    # Fallback to first role if nothing matched
+    if best is None and hasattr(roles_qs, "first"):
+        return roles_qs.first()
+    return best
+
+def get_assigned_roles(user):
+    try:
+        return user.staff_account.staff.roles.all()
+    except Exception:
+        return Role.objects.none()
 
 
 @login_required
@@ -78,16 +104,31 @@ def create_account_view(request):
 
 
 def user_login(request):
-    error_message = None  
+    """
+    Authenticate user. On success
+    """
+    error_message = None
     school_settings = SchoolSetting.objects.first()
 
     if request.method == 'POST':
         form = CustomLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
-
             login(request, user)
-            return redirect('dashboard')
+
+            # Determine default active role from assigned roles without changing DB
+            roles = get_assigned_roles(user)
+            picked = pick_default_role(roles)
+            if picked:
+                request.session['active_role_name'] = picked.name
+            else:
+                # Fallback to existing StaffAccount role name or Support Staff
+                try:
+                    request.session['active_role_name'] = user.staff_account.role.name
+                except Exception:
+                    request.session['active_role_name'] = 'Support Staff'
+
+            return redirect('index_page')
         else:
             error_message = "Invalid username or password. Please try again."
     else:
@@ -104,41 +145,41 @@ def user_login(request):
 
 @login_required
 def dashboard(request):
-    staff_account = StaffAccount.objects.get(user=request.user)
-
-    roles = staff_account.staff.roles.all()
-    current_role = staff_account.role
-
-    return render(request, 'accounts/dashboards.html', {
-        'roles': roles,
-        'current_role': current_role
-    })
+    
+    
+    return redirect('index_page')
 
 
 
 @login_required
 def switch_role(request):
+    """
+    Switch the active role in SESSION only.
+    """
     staff_account = get_object_or_404(StaffAccount, user=request.user)
-    
+
     # Access the related Staff instance
     staff = staff_account.staff
-    
+
     # Retrieve only the roles assigned to this Staff member
-    assigned_roles = staff.roles.all()  # Assuming `roles` is a related field in Staff model
+    assigned_roles = staff.roles.all()
 
     if request.method == 'POST':
         form = RoleSwitchForm(request.POST)
+        # Limit choices to assigned roles for safety
+        form.fields['role'].queryset = assigned_roles
         if form.is_valid():
             selected_role = form.cleaned_data['role']
-            staff_account.role = selected_role 
-            staff_account.save()
-            return redirect(index_view)  
+            request.session['active_role_name'] = selected_role.name
+            messages.success(request, f"Switched active role to {selected_role.name}.")
+            return redirect(index_view)
+        else:
+            messages.error(request, "Invalid role selection.")
     else:
-        
         form = RoleSwitchForm()
-        form.fields['role'].queryset = assigned_roles  
+        form.fields['role'].queryset = assigned_roles
 
-    return render(request, 'accounts/switch_role.html', {'form': form})
+    return render(request, 'accounts/switch_role.html', {'form': form, 'roles': assigned_roles})
 
 
 def logout_view(request):
