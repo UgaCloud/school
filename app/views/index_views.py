@@ -15,12 +15,15 @@ from app.selectors.school_settings import get_current_academic_year
 
 @login_required
 def index_view(request):
-    # Get user role for role-based access control
     try:
         staff_account = request.user.staff_account
-        user_role = staff_account.role.name
-    except:
-        user_role = 'Support Staff'  
+        session_role = request.session.get('active_role_name')
+        if session_role:
+            user_role = session_role
+        else:
+            user_role = staff_account.role.name
+    except Exception:
+        user_role = 'Support Staff'
 
     # Define role permissions
     admin_roles = ['Admin', 'Head Teacher']

@@ -1,6 +1,7 @@
 {% extends "../base.html" %}
 {% load crispy_forms_tags %}
 {% load humanize %}
+{% load custom_filters %}
 
 {% block page_title %}
 <a href="{% url 'budget_page' %}" class="btn btn-outline-secondary btn-sm mr-2"><i class="fa fa-chevron-left"></i> Back to Budgets</a>
@@ -24,6 +25,11 @@
                 <button type="button" class="btn btn-success btn-sm mb-3" data-toggle="modal" data-target="#addBudgetItemModal">
                     <i class="fa fa-plus-circle"></i> Add Item
                 </button>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <h4 id="filteredTotalSpent" class="text-danger">Total Spent: <span id="totalSpent" data-initial-total="{{ budget_items|sum_attr:'amount_spent'|floatformat:'2' }}">{{ budget_items|sum_attr:'amount_spent'|floatformat:'2'|intcomma }} UGX</span></h4>
+                    </div>
+                </div>
 
                 <!-- start budget list -->
                  {% if budget_items %}
@@ -53,26 +59,20 @@
                 </thead>
                 <tbody>
                     {% for item in budget_items %}
-                    <tr>
+                    <tr class="budget-item-row" data-spent="{{ item.amount_spent|default_if_none:0|floatformat:'2' }}">
                         <td class="align-middle text-center">
                             <input type="checkbox" class="flat" name="table_records">
                         </td>
                         <td class="align-middle text-center">{{forloop.counter}}</td>
                         <td class="align-middle">{{item}}</td>
                         <td class="align-middle text-right">
-                            <span class="badge badge-pill badge-primary p-2">{{item.allocated_amount|intcomma}}/-</span>
+                            <span class="amount-text">{{ item.allocated_amount|floatformat:'2'|intcomma }}/-</span>
                         </td>
                         <td class="align-middle text-right">
-                            <span class="badge badge-pill badge-info p-2">{{item.amount_spent|intcomma}}/-</span>
+                            <span class="item-amount-spent amount-text" data-amount="{{ item.amount_spent|floatformat:'2' }}">{{ item.amount_spent|floatformat:'2'|intcomma }}/-</span>
                         </td>
                         <td class="align-middle text-right">
-                            {% if item.remaining_amount > 0 %}
-                                <span class="badge badge-pill badge-success p-2">{{item.remaining_amount|intcomma}}/-</span>
-                            {% elif item.remaining_amount < 0 %}
-                                <span class="badge badge-pill badge-danger p-2">{{item.remaining_amount|intcomma}}/-</span>
-                            {% else %}
-                                <span class="badge badge-pill badge-warning p-2">{{item.remaining_amount|intcomma}}/-</span>
-                            {% endif %}
+                            <span class="amount-text">{{ item.remaining_amount|floatformat:'2'|intcomma }}/-</span>
                         </td>
                         <td class="align-middle text-center">
                             <div class="btn-group" role="group">
@@ -83,6 +83,27 @@
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <th class="text-right" colspan="3">Totals:</th>
+                        <th class="text-right">
+                            <span class="amount-text">
+                                {{ budget_items|sum_attr:'allocated_amount'|floatformat:'2'|intcomma }}/-
+                            </span>
+                        </th>
+                        <th class="text-right">
+                            <span class="amount-text">
+                                {{ budget_items|sum_attr:'amount_spent'|floatformat:'2'|intcomma }}/-
+                            </span>
+                        </th>
+                        <th class="text-right">
+                            <span class="amount-text">
+                                {{ budget_items|sum_attr:'remaining_amount'|floatformat:'2'|intcomma }}/-
+                            </span>
+                        </th>
+                        <th></th>
+                    </tr>
+                </tfoot>
                 </table>
                 {% else %}
                     <div class="text-center py-5">
@@ -118,20 +139,87 @@
                     { orderable: false, targets: 0 },
                     { responsivePriority: 1, targets: 2 },
                     { responsivePriority: 2, targets: 6 }
-                ]
+                ],
+                initComplete: function () {
+                    // Ensure total is computed after DataTable initializes
+                    updateTotalSpent();
+                }
             });
         }
+        // Always get the DataTable API instance
+        var table = $('#datatable-checkbox').DataTable();
+        // Recompute totals on any DataTable redraw
+        table.on('draw.dt order.dt search.dt page.dt length.dt', function () {
+            updateTotalSpent();
+        });
 
         // Search functionality
         $('#itemSearch').on('keyup', function() {
-            $('#datatable-checkbox').DataTable().search(this.value).draw();
+            table.search(this.value).draw();
         });
 
         // Clear search input
         $('#clearSearch').on('click', function() {
             $('#itemSearch').val('');
-            $('#datatable-checkbox').DataTable().search('').draw();
+            table.search('').draw();
         });
+
+        // Parse numeric amount from a text like "1,130,000.00/-"
+        function parseAmount(text) {
+            var cleaned = (text || '').toString()
+                .replace(/[^\d\.\-]/g, '')   // remove everything except digits, dot, minus
+                .replace(/\-+$/,'');         // remove trailing hyphens from "/-"
+            var val = parseFloat(cleaned);
+            return isNaN(val) ? 0 : val;
+        }
+
+        // Calculate and update total spent for filtered rows (across ALL pages)
+        function updateTotalSpent() {
+            var total = 0;
+
+            if ($.fn.DataTable && $.fn.DataTable.isDataTable('#datatable-checkbox')) {
+                var tbl = $('#datatable-checkbox').DataTable();
+
+                // Preferred: sum using column data for "Amount Spent" (index 4)
+                var colIdx = 4;
+                tbl.column(colIdx, { search: 'applied' }).data().each(function(value) {
+                    // value may be HTML (badge). Extract text then parse
+                    var text = $('<div>').html(value).text();
+                    total += parseAmount(text);
+                });
+
+                // Fallback: if total is still zero and there are filtered rows, sum from DOM nodes
+                if (total === 0 && tbl.rows({ search: 'applied' }).count() > 0) {
+                    $(tbl.rows({ search: 'applied' }).nodes()).each(function() {
+                        var amountText = $(this).find('.item-amount-spent').text();
+                        total += parseAmount($('<div>').html(amountText).text());
+                    });
+                }
+            } else {
+                // No DataTable loaded - sum visible DOM rows
+                $('#datatable-checkbox tbody tr:visible').each(function() {
+                    var amountText = $(this).find('.item-amount-spent').text();
+                    total += parseAmount($('<div>').html(amountText).text());
+                });
+            }
+
+            if (total === 0) {
+                var init = parseFloat($('#totalSpent').data('initial-total'));
+                if (!isNaN(init)) { total = init; }
+            }
+            // Prefer computed total only when it's positive; otherwise keep initial server total
+            var display = total;
+            if (!(display > 0)) {
+                var init = parseFloat($('#totalSpent').data('initial-total'));
+                if (!isNaN(init) && init > 0) {
+                    display = init;
+                }
+            }
+            $('#totalSpent').text(display.toLocaleString() + ' UGX');
+        }
+
+        // Initialize total spent on page load
+        updateTotalSpent();
     });
 </script>
 <style>

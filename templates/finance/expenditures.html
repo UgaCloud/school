@@ -107,8 +107,9 @@
                                             <input type="checkbox" id="check-all">
                                         </th>
                                         <th>#</th>
-                                        <th>Description</th>
+                                       
                                         <th>Budget Item</th>
+                                         <th>Description</th>
                                         <th>Vendor</th>
                                         <th>Amount (UGX)</th>
                                         <th>Date Incurred</th>
@@ -123,15 +124,16 @@
                                                 <input type="checkbox" class="flat" name="table_records" value="{{ expenditure.id }}">
                                             </td>
                                             <td>{{ forloop.counter }}</td>
-                                            <td>
-                                                <strong>{{ expenditure.description|truncatechars:50 }}</strong>
-                                            </td>
+                                            
                                             <td>
                                                 {% if expenditure.budget_item %}
                                                     <small>{{ expenditure.budget_item }}</small>
                                                 {% else %}
                                                     <small class="text-muted">N/A</small>
                                                 {% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ expenditure.description|truncatechars:50 }}</strong>
                                             </td>
                                             <td>
                                                 {% if expenditure.vendor %}
