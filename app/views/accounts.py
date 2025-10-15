@@ -27,6 +27,8 @@ from django.contrib.auth.views import PasswordResetView
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from app.models.classes import ClassSubjectAllocation
+from app.constants import ROLE_PRIORITY
+
 
 
 
