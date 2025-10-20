@@ -513,16 +513,19 @@ $(document).ready(function() {
     // Initialize DataTables only for tables with .datatable class that aren't already initialized
     $('.datatable').each(function() {
         if (!$.fn.dataTable.isDataTable(this)) {
-            $(this).DataTable({
+            var $table = $(this).DataTable({
                 responsive: true,
                 paging: true,
                 searching: true,
                 ordering: true,
                 fixedHeader: true,
+                stateSave: true,                 // Persist sort/search/page across reloads
+                pageLength: 10,
+                lengthMenu: [[10, 25, 50, 100, -1],[10, 25, 50, 100, "All"]],
                 buttons: [
-                    { extend: 'csv', text: 'Export CSV', className: 'btn btn-outline-primary' },
-                    { extend: 'pdf', text: 'Export PDF', className: 'btn btn-outline-primary' },
-                    { extend: 'print', text: 'Print', className: 'btn btn-outline-primary' }
+                    { extend: 'csv',  text: 'Export CSV',  className: 'btn btn-outline-primary btn-sm' },
+                    { extend: 'pdf',  text: 'Export PDF',  className: 'btn btn-outline-primary btn-sm' },
+                    { extend: 'print',text: 'Print',       className: 'btn btn-outline-primary btn-sm' }
                 ],
                 language: {
                     search: "_INPUT_",
@@ -532,11 +535,21 @@ $(document).ready(function() {
                 columnDefs: [
                     { orderable: false, targets: -1 } // Disable sorting on last column (e.g., Action)
                 ],
-                dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                     '<"row"<"col-sm-12"B>>' +
-                     '<"row"<"col-sm-12"tr>>' +
-                     '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>'
+                dom:
+                    '<"row align-items-center mb-2"' +
+                        '<"col-sm-12 col-md-4"l>' +
+                        '<"col-sm-12 col-md-4 text-center"B>' +
+                        '<"col-sm-12 col-md-4"f>' +
+                    '>' +
+                    '<"row"<"col-sm-12"tr>>' +
+                    '<"row align-items-center mt-2"' +
+                        '<"col-sm-12 col-md-5"i>' +
+                        '<"col-sm-12 col-md-7"p>' +
+                    '>'
             });
+
+            // Optional: ensure buttons container has consistent spacing
+            $table.buttons().container().addClass('dt-buttons-wrap');
         }
     });
 });
