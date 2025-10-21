@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 from app.constants import *
 
 class Student(models.Model):
@@ -28,6 +29,51 @@ class Student(models.Model):
 
     def get_absolute_url(self):
         return reverse("student_detail", kwargs={"pk": self.pk})
+
+    def save(self, *args, **kwargs):
+       
+        is_new = self.pk is None
+        needs_generation = is_new or not self.reg_no
+
+        if not needs_generation and self.reg_no:
+            if Student.objects.filter(reg_no=self.reg_no).exclude(pk=self.pk).exists():
+                needs_generation = True
+
+        if needs_generation:
+            self.reg_no = self._build_unique_reg_no()
+
+        super().save(*args, **kwargs)
+
+    def _build_unique_reg_no(self) -> str:
+        try:
+            year_str = str(self.academic_year.academic_year)
+            if not year_str or not year_str.isdigit():
+                year_str = str(timezone.now().year)
+        except Exception:
+            year_str = str(timezone.now().year)
+
+        prefix = f"STD{year_str}-"
+
+        # Find the maximum numeric suffix for this prefix
+        existing = Student.objects.filter(reg_no__startswith=prefix).values_list('reg_no', flat=True)
+        max_seq = 0
+        for rn in existing:
+            try:
+                # Accept formats like 'STD2025-172' -> '172'
+                suffix = rn.split('-', 1)[1]
+                num = int(''.join(ch for ch in suffix if ch.isdigit()))
+                if num > max_seq:
+                    max_seq = num
+            except Exception:
+                continue
+
+        next_seq = max_seq + 1
+        candidate = f"{prefix}{next_seq}"
+        # Ensure uniqueness even under race conditions
+        while Student.objects.filter(reg_no=candidate).exists():
+            next_seq += 1
+            candidate = f"{prefix}{next_seq}"
+        return candidate
 
 class StudentRegistrationCSV(models.Model):
     file_name = models.FileField(upload_to='media/csvs/')

@@ -143,15 +143,14 @@ def manage_expenditures(request):
 def add_expenditure(request):
     if request.method == "POST":
         form = finance_forms.ExpenditureForm(request.POST, request.FILES)
-        
         if form.is_valid():
             expenditure = form.save()
-            
             messages.success(request, SUCCESS_ADD_MESSAGE)
+            return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure.id]))
         else:
             messages.error(request, FAILURE_MESSAGE)
-    
-    return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure.id]))
+            return HttpResponsePermanentRedirect(reverse(manage_expenditures))
+    return HttpResponsePermanentRedirect(reverse(manage_expenditures))
 
 @login_required
 def edit_expenditures(request, id):
@@ -234,11 +233,16 @@ def edit_expenditure_items(request, id):
 
 def delete_expenditure_item(request, id):
     expenditure_item = get_model_record(ExpenditureItem, id)
-    
+    expenditure_id = expenditure_item.expenditure.id if getattr(expenditure_item, "expenditure", None) else None
+
+    # Delete then redirect back to the parent expenditure items page
     expenditure_item.delete()
     messages.success(request, DELETE_MESSAGE)
-    
-    return HttpResponsePermanentRedirect(reverse(manage_expenditure_items))
+
+    if expenditure_id:
+        return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
+    # Fallback: go to expenditures list if parent missing
+    return HttpResponsePermanentRedirect(reverse(manage_expenditures))
 
 @login_required
 def manage_vendors(request):

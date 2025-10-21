@@ -10,8 +10,8 @@ class StudentForm(ModelForm):
     
     class Meta:
         model = Student
-        fields = ("__all__")
-
+        exclude = ("reg_no",)
+        
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
