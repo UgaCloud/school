@@ -83,16 +83,35 @@
 
                     <button type="submit" class="btn btn-primary mb-2 ml-3">Filter</button>
 
-                   {% if academic_class_exists %}
-                    <a href="{% url 'class_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}" 
-                       class="btn btn-success ml-3" target="_blank">
-                       Print Bulk Reports
-                  </a>
-                   {% else %}
-                      <button class="btn btn-secondary ml-3" disabled title="No data for selected combination">
-                       Print Bulk Reports (Unavailable)
-                     </button>
-                   {% endif %}
+                    {# Full Term Bulk Reports #}
+                    {% if academic_class_exists %}
+                      <a href="{% url 'class_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}"
+                         class="btn btn-success ml-3" target="_blank">
+                         Print Bulk Reports
+                      </a>
+                    {% else %}
+                      <button class="btn btn-secondary ml-3" disabled title="Select a valid Academic Year, Term and Class to enable full-term bulk reports.">
+                        Print Bulk Reports
+                      </button>
+                    {% endif %}
+
+                    {# Assessment-Type Bulk Mini Reports (always visible; enabled only when filters are valid) #}
+                    {% if selected_assessment_type %}
+                      {% if academic_class_exists %}
+                        <a href="{% url 'class_assessment_type_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}&assessment_type_id={{ selected_assessment_type }}"
+                           class="btn btn-info ml-2" target="_blank">
+                           Print Bulk Mini Reports (Assessment Type)
+                        </a>
+                      {% else %}
+                        <button class="btn btn-secondary ml-2" disabled title="Select a valid Academic Year, Term and Class to enable bulk mini-reports.">
+                          Print Bulk Mini Reports (Assessment Type)
+                        </button>
+                      {% endif %}
+                    {% else %}
+                      <button class="btn btn-secondary ml-2" disabled title="Select an Assessment Type above to enable bulk mini-reports">
+                        Print Bulk Mini Reports (Assessment Type)
+                      </button>
+                    {% endif %}
 
                 </form>
             </div>

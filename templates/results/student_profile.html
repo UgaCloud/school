@@ -253,7 +253,26 @@
     </h3>
     <div id="student-info-content" class="student-info-content collapse show" aria-labelledby="student-info-heading">
         <div class="d-flex justify-content-end mb-0.4cm">
-            <a href="{% url 'student_term_report' student.obj.id %}" class="print-button" aria-label="Print Full Term Report">
+            <!-- Quick access: Mini Report per Assessment Type -->
+            <div class="btn-group mr-2">
+                <button type="button" class="btn btn-outline-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+                    Mini Report
+                </button>
+                <div class="dropdown-menu dropdown-menu-right">
+                    {% for at in assessment_types %}
+                        <a
+                          class="dropdown-item"
+                          href="{% url 'student_mini_report' student.obj.id at.id %}{% if selected_term %}?term_id={{ selected_term }}{% endif %}">
+                          {{ at.name }}
+                        </a>
+                    {% empty %}
+                        <span class="dropdown-item text-muted">No assessment types</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Existing: Full End-of-Term Report -->
+            <a href="{% url 'student_term_report' student.obj.id %}{% if selected_term %}?term_id={{ selected_term }}{% endif %}" class="print-button" aria-label="Print Full Term Report">
                 <i class="fas fa-print"></i> Print Report
             </a>
         </div>
