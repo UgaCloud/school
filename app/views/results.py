@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, HttpResponseRedirect, get_object_
 from django.contrib import messages
 from django.urls import reverse
 from django.forms import modelformset_factory
-from django.db import transaction,IntegrityError
+from django.db import transaction, IntegrityError
 from django.db.models import (
     Avg, Sum, F, Q, Count, Max, Case, When, Value, IntegerField
 )
@@ -45,9 +45,9 @@ from reportlab.lib.pagesizes import A4, letter, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from datetime import datetime
 
 from django.utils import timezone
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +297,7 @@ def class_assessment_list_view(request):
     }
     return render(request, 'results/class_assessments.html', context)
 
+
 #List of Assessments basing on specific academic_class
 @login_required
 def list_assessments_view(request, class_id):
@@ -396,8 +397,6 @@ def list_assessments_view(request, class_id):
         'date_to': date_to_raw or '',
         'can_add_results': can_add_results,
     })
-
-
 
 
 
@@ -578,7 +577,7 @@ def edit_assessment(request, id):
         if form.is_valid():
             form.save()
             messages.success(request,SUCCESS_ADD_MESSAGE)
-            return redirect(add_assessment_view)
+            return redirect('assessment_create')
             
         else:
             messages.error(request,FAILURE_MESSAGE)
@@ -597,7 +596,7 @@ def delete_assessment_view(request,id):
     assessment = get_model_record(Assessment,id)
     assessment.delete()
     messages.success(request, DELETE_MESSAGE)
-    return HttpResponseRedirect(reverse(add_assessment_view))
+    return HttpResponseRedirect(reverse('assessment_create'))
 
 
 
@@ -682,6 +681,27 @@ def class_result_filter_view(request):
     # Get selected parameters from GET request
     selected_year = request.GET.get('year_id')
     selected_class_stream = request.GET.get('class_stream_id')
+    selected_term = request.GET.get('term_id')
+
+    # Terms for the selected academic year
+    terms = Term.objects.filter(academic_year_id=selected_year).order_by('start_date') if selected_year else Term.objects.none()
+
+    # Apply filters and deduplicate class streams to prevent duplicates in the dropdown
+    if academic_class_streams is not None:
+        if selected_year:
+            academic_class_streams = academic_class_streams.filter(
+                academic_class__academic_year_id=selected_year
+            )
+        if selected_term:
+            academic_class_streams = academic_class_streams.filter(
+                academic_class__term_id=selected_term
+            )
+        academic_class_streams = academic_class_streams.order_by(
+            'academic_class__Class__name',
+            'stream__stream',
+            'academic_class__academic_year__academic_year',
+            'academic_class__id'
+        ).distinct()
 
     students = Student.objects.none()
     no_students_message = None
@@ -691,10 +711,39 @@ def class_result_filter_view(request):
             academic_class_stream_id=selected_class_stream,
             academic_class_stream__academic_class__academic_year_id=selected_year
         )
+        # If a term is selected, further scope by term
+        if selected_term:
+            class_registers = class_registers.filter(
+                academic_class_stream__academic_class__term_id=selected_term
+            )
         students = Student.objects.filter(id__in=class_registers.values('student_id')).order_by('student_name')
 
         if not students.exists():
             no_students_message = "No students found matching your criteria."
+
+    # Derive bulk print params (year, term, class) from selected class stream
+    bulk_year_id = None
+    bulk_term_id = None
+    bulk_class_id = None
+    selected_assessment_type = request.GET.get('assessment_type_id')
+
+    try:
+        if selected_year and selected_class_stream:
+            cs = AcademicClassStream.objects.select_related(
+                'academic_class__Class',
+                'academic_class__term',
+                'academic_class__academic_year'
+            ).filter(id=selected_class_stream).first()
+            if cs and cs.academic_class:
+                ac = cs.academic_class
+                bulk_year_id = ac.academic_year_id
+                # Prefer explicitly selected term; fallback to stream's academic class term
+                bulk_term_id = selected_term or getattr(ac.term, 'id', None)
+                bulk_class_id = getattr(ac.Class, 'id', None)
+    except Exception:
+        bulk_year_id = bulk_year_id or None
+        bulk_term_id = bulk_term_id or None
+        bulk_class_id = bulk_class_id or None
 
     context = {
         'years': years,
@@ -703,6 +752,16 @@ def class_result_filter_view(request):
         'selected_class_stream': selected_class_stream,
         'students': students,
         'no_students_message': no_students_message,
+        # Term filter options and selection
+        'terms': terms,
+        'selected_term': selected_term or '',
+        # Needed for "Bulk Mini Reports (Assessment Type)" on Class Stream filter page
+        'assessment_types': AssessmentType.objects.all(),
+        'selected_assessment_type': selected_assessment_type or '',
+        # Derived ids for bulk printing link
+        'bulk_year_id': str(bulk_year_id) if bulk_year_id else '',
+        'bulk_term_id': str(bulk_term_id) if bulk_term_id else '',
+        'bulk_class_id': str(bulk_class_id) if bulk_class_id else '',
     }
     return render(request, 'results/class_stream_filter.html', context)
 
@@ -851,30 +910,63 @@ def student_performance_view(request, student_id):
     
     return render(request, "results/student_performance.html", context)
 
+
 @login_required
 def student_assessment_type_report(request, student_id, assessment_type_id):
     student = get_object_or_404(Student, id=student_id)
-    assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
-    school = SchoolSetting.load()
-    
-    # Get selected term or fallback to student's current term
-    selected_term_id = request.GET.get('term_id', student.term.id if student.term else None)
+
+    # Determine selected term or fallback to student's current term
+    selected_term_id = request.GET.get('term_id', str(student.term.id) if getattr(student, 'term', None) else None)
     terms = Term.objects.filter(academic_year=student.academic_year) if student.academic_year else Term.objects.none()
-    
-    # Fetch results for the given student & assessment type
-    results = Result.objects.filter(
-        student=student,
-        assessment__assessment_type=assessment_type
-    ).select_related(
-        'assessment__subject',
-        'assessment__assessment_type',
-        'assessment__academic_class__term'
+
+    # Build per-student assessment-type report context (re-usable for bulk)
+    context = build_student_assessment_type_context(student, assessment_type_id, selected_term_id)
+
+    # Order assessment types like term report (for consistent UI)
+    assessment_order = Case(
+        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
+        When(name__iexact="MID OF TERM", then=Value(2)),
+        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
+        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
+        default=Value(5),
+        output_field=IntegerField()
+    )
+    assessment_types = AssessmentType.objects.all().order_by(assessment_order, 'name')
+
+    # Augment context for template dropdowns (preserve any fallback term chosen in builder)
+    context.update({
+        'terms': terms,
+        'assessment_types': assessment_types,
+        'selected_term_id': context.get('selected_term_id'),
+    })
+
+    return render(request, 'results/student_assessment_report.html', context)
+
+
+def build_student_assessment_type_context(student, assessment_type_id, selected_term_id):
+    """
+    Builds the per-student report context for a specific assessment type.
+    Preserves data and report format used by templates/results/student_assessment_report.html
+    """
+    school = SchoolSetting.load()
+    assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
+
+    # Base queryset
+    results = (
+        Result.objects
+        .filter(student=student, assessment__assessment_type=assessment_type)
+        .select_related(
+            'assessment__subject',
+            'assessment__assessment_type',
+            'assessment__academic_class__term'
+        )
     )
     if selected_term_id:
         results = results.filter(assessment__academic_class__term_id=selected_term_id)
 
-    # If no results for the selected/current term, fallback to latest term with data
+    # Handle fallback to latest term with results if none in selected term
     no_results_message = None
+    term_label = "-"
     if not results.exists():
         term_ids_with_results = (
             Result.objects
@@ -889,46 +981,39 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
         )
         if fallback_term:
             selected_term_id = str(fallback_term.id)
-            results = Result.objects.filter(
-                student=student,
-                assessment__assessment_type=assessment_type,
-                assessment__academic_class__term_id=fallback_term.id
-            ).select_related(
-                'assessment__subject',
-                'assessment__assessment_type',
-                'assessment__academic_class__term'
+            results = (
+                Result.objects
+                .filter(
+                    student=student,
+                    assessment__assessment_type=assessment_type,
+                    assessment__academic_class__term_id=fallback_term.id
+                )
+                .select_related(
+                    'assessment__subject',
+                    'assessment__assessment_type',
+                    'assessment__academic_class__term'
+                )
             )
-            term = fallback_term.term
+            term_label = fallback_term.term
             no_results_message = "No results in selected term. Showing latest term with data."
         else:
             no_results_message = "No results available for this assessment type."
-    
-    # Order assessment types like term report
-    assessment_order = Case(
-        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
-        When(name__iexact="MID OF TERM", then=Value(2)),
-        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
-        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
-        default=Value(5),
-        output_field=IntegerField()
-    )
-    assessment_types = AssessmentType.objects.all().order_by(assessment_order, 'name')
+    else:
+        if selected_term_id:
+            t = Term.objects.filter(id=selected_term_id).first()
+            term_label = t.term if t else "-"
 
-    # Group scores by subject
+    # Group by subject and compute per-subject averages
+    from decimal import Decimal
     subject_scores = {}
     for result in results:
         subject = result.assessment.subject.name
         if subject not in subject_scores:
-            subject_scores[subject] = {
-                'scores': [],
-                'total': Decimal('0.0'),
-                'count': 0
-            }
+            subject_scores[subject] = {'scores': [], 'total': Decimal('0.0'), 'count': 0}
         subject_scores[subject]['scores'].append(result)
         subject_scores[subject]['total'] += Decimal(str(result.score))
         subject_scores[subject]['count'] += 1
-    
-    # Create summary list for each subject
+
     summary = []
     for subject, data in subject_scores.items():
         avg = (data['total'] / data['count']).quantize(Decimal('0.01')) if data['count'] else Decimal('0.00')
@@ -938,25 +1023,22 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
             'average': float(avg),
             'grade': grade,
             'points': points,
-            'details': data['scores']
+            'details': data['scores'],
         })
-    
-    # Calculate totals
-    total_marks = sum(Decimal(str(result.score)) for result in results)  # Total marks scored
-    total_aggregates = sum(item['points'] for item in summary)           # Sum of points across subjects
+
+    # Totals and overall
+    total_marks = sum(Decimal(str(r.score)) for r in results) if results else Decimal('0.00')
+    total_aggregates = sum(item['points'] for item in summary) if summary else 0
     overall_average = (total_marks / len(results)).quantize(Decimal('0.01')) if results else Decimal('0.00')
     overall_grade, overall_points = get_grade_and_points(overall_average)
     selected_division = get_division(int(total_aggregates)) if total_aggregates else "-"
-    
-    
+
     academic_year = student.academic_year.academic_year if student.academic_year else "-"
-    term = Term.objects.filter(id=selected_term_id).first().term if selected_term_id else "-"
-    
-    # Signatures similar to term report
+
+    # Signatures
     head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
     class_teacher_signature = None
     try:
-        # Determine student's academic class in the selected term
         academic_class = AcademicClass.objects.filter(
             Class=student.current_class,
             academic_year=student.academic_year,
@@ -975,8 +1057,8 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     # Avoid duplicating the same image for both signatures
     try:
         if (
-            class_teacher_signature 
-            and head_teacher_signature 
+            class_teacher_signature
+            and head_teacher_signature
             and getattr(head_teacher_signature, 'signature', None)
             and getattr(class_teacher_signature, 'name', None)
             and class_teacher_signature.name == head_teacher_signature.signature.name
@@ -985,28 +1067,24 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     except Exception:
         pass
 
-    context = {
+    return {
         'school': school,
         'student': student,
         'assessment_type': assessment_type,
         'summary': summary,
-        'term': term,
+        'term': term_label,
         'academic_year': academic_year,
         'total_marks': float(total_marks),
         'total_aggregates': total_aggregates,
         'overall_average': float(overall_average),
         'overall_grade': overall_grade,
         'overall_points': overall_points,
-        'selected_term_id': selected_term_id,
-        'terms': terms,
+        'selected_term_id': str(selected_term_id) if selected_term_id else None,
         'head_teacher_signature': head_teacher_signature,
         'class_teacher_signature': class_teacher_signature,
         'no_results_message': no_results_message,
-        'assessment_types': assessment_types,
         'selected_division': selected_division,
     }
-    
-    return render(request, 'results/student_assessment_report.html', context)
 
     
 @login_required
@@ -1186,12 +1264,19 @@ def build_student_report_context(student, term_id):
     head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
     class_teacher_signature = None
     try:
-        class_stream = AcademicClassStream.objects.get(
-            academic_class=student.academic_class,
-            stream=student.stream  
-        )
-        class_teacher_signature = class_stream.class_teacher_signature
-    except (AcademicClassStream.DoesNotExist, AttributeError):
+        # Resolve the academic class for this student in the given term
+        academic_class_obj = AcademicClass.objects.filter(
+            Class=student.current_class,
+            academic_year=student.academic_year,
+            term=term
+        ).first()
+        if academic_class_obj:
+            class_stream = AcademicClassStream.objects.filter(
+                academic_class=academic_class_obj,
+                stream=student.stream
+            ).first()
+            class_teacher_signature = class_stream.class_teacher_signature if class_stream else None
+    except Exception:
         class_teacher_signature = None
 
     return {
@@ -1247,6 +1332,52 @@ def class_bulk_reports(request):
         'head_teacher_signature': head_teacher_signature,
     }
     return render(request, 'results/class_bulk_reports.html', context)
+
+
+@login_required
+def class_assessment_type_bulk_reports(request):
+    """
+    Bulk-print/preview assessment-type reports for all students in a class.
+    Query params: academic_year_id, term_id, class_id, assessment_type_id
+    """
+    academic_year_id = request.GET.get('academic_year_id')
+    term_id = request.GET.get('term_id')
+    class_id = request.GET.get('class_id')
+    assessment_type_id = request.GET.get('assessment_type_id')
+
+    if not (academic_year_id and term_id and class_id and assessment_type_id):
+        messages.error(request, "Please select Academic Year, Term, Class and Assessment Type first.")
+        return redirect('class_performance_summary')
+
+    academic_class = get_object_or_404(
+        AcademicClass,
+        academic_year_id=academic_year_id,
+        term_id=term_id,
+        Class_id=class_id
+    )
+
+    # Students in the class (ordered)
+    students = Student.objects.filter(current_class_id=class_id).order_by('student_name')
+
+    school = SchoolSetting.load()
+    assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
+
+    # Build per-student contexts (preserving template format)
+    reports = [
+        build_student_assessment_type_context(student, assessment_type_id, term_id)
+        for student in students
+    ]
+
+    head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
+
+    context = {
+        'school': school,
+        'assessment_type': assessment_type,
+        'reports': reports,
+        'class_obj': academic_class,
+        'head_teacher_signature': head_teacher_signature,
+    }
+    return render(request, 'results/class_assessment_type_bulk_reports.html', context)
 
 @login_required
 def class_performance_summary(request):

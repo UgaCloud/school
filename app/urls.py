@@ -171,9 +171,11 @@ urlpatterns = [
     # Consolidated Term Report
     path('student/<int:student_id>/term-report/', student_term_report, name='student_term_report'),
     path('class/bulk-reports/',class_bulk_reports, name='class_bulk_reports'),
+    # Bulk mini-reports per assessment type for a whole class
+    path('class/bulk-reports/assessment-type/', class_assessment_type_bulk_reports, name='class_assessment_type_bulk_reports'),
     path('class-performance-summary/', class_performance_summary, name='class_performance_summary'),
     path('assessment-sheet/', assessment_sheet_view, name='assessment_sheet'),
-
+    
     
 
 
