@@ -409,10 +409,7 @@
                 <form method="POST" action="{% url 'add_student' %}" enctype="multipart/form-data" id="addStudentForm">
                     {% csrf_token %}
                     <div class="row">
-                        <div class="col-md-6">
-                            {{ student_form.reg_no|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             {{ student_form.student_name|as_crispy_field }}
                         </div>
                     </div>
