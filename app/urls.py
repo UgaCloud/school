@@ -126,6 +126,9 @@ urlpatterns = [
     path('edit_expenditure/<int:id>/', edit_expenditures, name="edit_expenditure"),
     path('expenditure/edit/<int:id>/', edit_expenditures, name='edit_expenditure'),
     path('delete_expenditure/<int:id>/', delete_expenditure, name="delete_expenditure"),
+    # Expenditure approval
+    path('expenditure/<int:id>/approve/', approve_expenditure, name="approve_expenditure"),
+    path('expenditure/<int:id>/revoke-approval/', revoke_expenditure_approval, name="revoke_expenditure_approval"),
      
     #Expenditure Items
     path('items/<int:id>/', manage_expenditure_items, name="items_page"),
@@ -138,6 +141,8 @@ urlpatterns = [
     path('add_vendor/', add_vendor, name="add_vendor_page"),
     path('edit_vendor/<int:id>/', edit_vendors, name="edit_vendor"),
     path('delete_vendor/<int:id>/', delete_vendor, name="delete_vendor"),
+    # Vendor Payments Report
+    path('vendor-report/', vendor_payments_report, name="vendor_report"),
     
     #Budgets
     path('budgets/', manage_budgets, name="budget_page"),
@@ -154,7 +159,11 @@ urlpatterns = [
 
     #Financial Summary Report
     path('financial-summary/', financial_summary_report, name="financial_summary_report"),
-    
+    # Income Statement
+    path('income-statement/', income_statement_report, name="income_statement"),
+    # Cash Flow Report
+    path('cash-flow/', cash_flow_report, name="cash_flow"),
+     
     #Results
     path('add_grading_system/', grading_system_view, name='add_grading_system_page'),
     path('edit_grading_system/<int:id>/', edit_grading_system_view, name="edit_grading_system"),

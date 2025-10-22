@@ -35,14 +35,20 @@ import tempfile
 import io
 
 from xhtml2pdf import pisa
-from openpyxl import Workbook
-from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
-from openpyxl.utils import get_column_letter
+
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Border, Side, Alignment, PatternFill
+    from openpyxl.utils import get_column_letter
+except Exception:
+    Workbook = None
+    Font = Border = Side = Alignment = PatternFill = None
+    get_column_letter = None
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch, cm
 from reportlab.lib.pagesizes import A4, letter, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
@@ -1503,14 +1509,14 @@ def assessment_sheet_view(request):
     def get_division(aggregates):
         """Determine division based on total aggregates (adjust thresholds as per your policy)."""
       
-        # Example thresholds; replace with your institution's criteria
-        if aggregates >= 16:  # Assuming max points per subject is 4, and 4 subjects
+        
+        if aggregates <= 12:  
             return 1
-        elif aggregates >= 12:
+        elif aggregates <= 23:
             return 2
-        elif aggregates >= 8:
+        elif aggregates <= 29:
             return 3
-        elif aggregates >= 4:
+        elif aggregates <= 34:
             return 4
         else:
             return "U"
@@ -1547,6 +1553,9 @@ def assessment_sheet_view(request):
     terms = Term.objects.filter(academic_year=current_academic_year).order_by("start_date")
     selected_term_id = request.GET.get("term_id")
     selected_assessment_type_id = request.GET.get("assessment_type_id")
+    # Normalize "None"/empty to real None to avoid invalid ID lookups (e.g., export calls with assessment_type_id=None)
+    if selected_assessment_type_id in (None, "", "None", "none", "NULL", "null"):
+        selected_assessment_type_id = None
 
     if not selected_term_id:
         selected_term = Term.objects.filter(
@@ -1673,6 +1682,23 @@ def assessment_sheet_view(request):
             print(f"Unexpected division value: {division} for student {student['name']}")
     print(f"Final division counts: {division_counts}")
 
+    # Compute PASS PERCENTAGE (>= 70%) per subject
+    subject_pass_percentage = {}
+    for subject in unique_subjects:
+        total = 0
+        passed = 0
+        for s in students_data:
+            subj = s.get('subjects', {}).get(subject)
+            if subj is not None:
+                try:
+                    score_val = float(subj.get('score', 0))
+                except (TypeError, ValueError):
+                    score_val = 0
+                total += 1
+                if score_val >= 70:
+                    passed += 1
+        subject_pass_percentage[subject] = round((passed / total) * 100) if total else 0
+
     # Calculate colspan for the empty message
     colspan = len(unique_subjects) * 2 + 4  # 2 columns per subject (score and AGG) + No, Name, Total Marks, Total AGG, Division
 
@@ -1687,17 +1713,51 @@ def assessment_sheet_view(request):
         title_style = styles['Title']
         normal_style = styles['Normal']
 
-        # Add metadata
-        metadata = [
-            f"{request.session.get('school_name', 'Bayan Learning Center')}",
-            f"ASSESSMENT SHEET FOR {term_obj.term.upper()} EXAMINATIONS",
-            f"CLASS {selected_grade} | CLASSTEACHER: {class_teacher}",
-            f"Assessment Type: {assessment_type.name if assessment_type else 'All Assessments'}",
-            ""
+        # Styled header (logo + titles)
+        school = None
+        school_name_text = request.session.get('school_name', 'Bayan Learning Center')
+        try:
+            school = SchoolSetting.load()
+            if getattr(school, 'school_name', None):
+                school_name_text = school.school_name
+        except Exception:
+            pass
+
+        logo_img = None
+        try:
+            if school and getattr(school, 'school_logo', None) and getattr(school.school_logo, 'path', None):
+                logo_img = Image(school.school_logo.path, width=60, height=60)
+        except Exception:
+            logo_img = None
+
+        # Header right block
+        title_text = f"ASSESSMENT SHEET"
+        subtitle_text = f"{(assessment_type.name if assessment_type else 'All Assessments').upper()} | TERM: {term_obj.term.upper()}"
+        class_text = f"CLASS {selected_grade} | CLASSTEACHER: {class_teacher}"
+
+        title_para = Paragraph(f"<para align='center'><b>{school_name_text}</b></para>", styles['Title'])
+        subtitle_para = Paragraph(f"<para align='center' spaceb='4'>{title_text}</para>", styles['Heading2'])
+        detail_para = Paragraph(f"<para align='center' spaceb='4'>{subtitle_text}</para>", styles['Heading4'])
+        class_para = Paragraph(f"<para align='center'>{class_text}</para>", styles['Normal'])
+
+        header_data = [
+            [logo_img if logo_img else Paragraph("", normal_style),
+             [title_para, subtitle_para, detail_para, class_para]]
         ]
-        for line in metadata:
-            p = Paragraph(line, normal_style)
-            elements.append(p)
+        header_table = Table(header_data, colWidths=[70, 700])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'CENTER'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.whitesmoke),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#e5e7eb')),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 12))
 
         # Prepare table data with explicit column headers
         table_headers = ["NO", "NAME"]
@@ -1716,29 +1776,108 @@ def assessment_sheet_view(request):
             row.extend([str(student['total_marks']), str(student['total_aggregates']), student['division']])
             table_data.append(row)
 
-        # Create table with adjusted column widths
-        table = Table(table_data, colWidths=[30] + [80] + [50] * (len(unique_subjects) * 2) + [60, 60, 50])
+        # Create table with adjusted column widths and improved styling
+        table = Table(table_data, colWidths=[30, 150] + [55, 40] * len(unique_subjects) + [70, 70, 40])
         table.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+
+            # Body
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor('#f7f7f7')]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('ALIGN', (0, 1), (0, -1), 'CENTER'),          # NO
+            ('ALIGN', (1, 1), (1, -1), 'LEFT'),            # NAME
+            ('ALIGN', (2, 1), (-1, -1), 'CENTER'),         # Others
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+
+            # Repeat header on new pages
+            ('REPEATROWS', (0, 0), (-1, 0)),
+        ]))
+
+        # Add main table
+        elements.append(table)
+
+        # Spacer
+        elements.append(Spacer(1, 12))
+
+        # ---- Subjects Pass Percentage (>= 70%) ----
+        heading_pp = Paragraph("SUBJECTS PASS PERCENTAGE (>=70%)", title_style)
+        elements.append(heading_pp)
+        elements.append(Spacer(1, 6))
+
+        pp_headers = ["NO", "SUBJECT", "PASS PERCENTAGE(70% AND ABOVE)", "SUBJECT TEACHER"]
+        pp_data = [pp_headers]
+        for i, subject in enumerate(unique_subjects, 1):
+            pass_pct = subject_pass_percentage.get(subject, 0)
+            teacher = subject_teachers.get(subject, "Tr. [Teacher Name]")
+            pp_data.append([str(i), subject, f"{pass_pct}%", teacher])
+
+        pp_table = Table(pp_data, colWidths=[30, 150, 220, 220])
+        pp_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
             ('BACKGROUND', (0, 1), (-1, -1), colors.white),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('LEFTPADDING', (0, 0), (-1, -1), 2),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
+        elements.append(pp_table)
 
-        # Add table to elements
-        elements.append(table)
+        # Spacer
+        elements.append(Spacer(1, 12))
+
+        # ---- Division Counts ----
+        heading_div = Paragraph("NO. OF PUPILS AND THEIR DIVISION", title_style)
+        elements.append(heading_div)
+        elements.append(Spacer(1, 6))
+
+        div_headers = ["DIVISION", "1", "2", "3", "4", "U"]
+        div_row = [
+            "NUMBER OF PUPILS",
+            str(division_counts.get(1, 0)),
+            str(division_counts.get(2, 0)),
+            str(division_counts.get(3, 0)),
+            str(division_counts.get(4, 0)),
+            str(division_counts.get("U", 0)),
+        ]
+        div_data = [div_headers, div_row]
+
+        div_table = Table(div_data, colWidths=[120, 60, 60, 60, 60, 60])
+        div_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(div_table)
 
         # Build PDF
         doc.build(elements)
@@ -1760,10 +1899,12 @@ def assessment_sheet_view(request):
         "selected_grade": selected_grade,
         "assessment_types": assessment_types,
         "selected_assessment_type_id": selected_assessment_type_id,
+        "selected_assessment_type_name": (assessment_type.name if assessment_type else "All Assessments"),
         "subject_teachers": subject_teachers,
         "colspan": colspan,
         "show_selection": False,
         "subject_grade_dist": subject_grade_dist,
+        "subject_pass_percentage": subject_pass_percentage,
         "division_counts": division_counts,
     })
     return render(request, "results/assessment_sheet.html", context)

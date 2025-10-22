@@ -6,7 +6,8 @@ from django.contrib.auth.decorators import login_required
 from app.models.accounts import StaffAccount
 from app.models.subjects import Subject
 from app.models.staffs import Staff
-from app.models.classes import ClassSubjectAllocation,AcademicClassStream
+from app.models.classes import ClassSubjectAllocation,AcademicClassStream, AcademicClass, Term
+from app.models.school_settings import AcademicYear
 from collections import defaultdict
 from django.db.models import Q
 
@@ -14,7 +15,17 @@ from django.db.models import Q
 
 @login_required
 def timetable_center(request):
-    class_streams = AcademicClassStream.objects.all()
+    # Limit streams to current academic year and term to avoid visually duplicated labels across years/terms.
+    class_streams = (
+        AcademicClassStream.objects
+        .select_related('academic_class__Class', 'academic_class__academic_year', 'academic_class__term', 'stream')
+        .filter(
+            academic_class__academic_year__is_current=True,
+            academic_class__term__is_current=True
+        )
+        .order_by('academic_class__Class__name', 'stream__stream')
+        .distinct()
+    )
     time_slots = TimeSlot.objects.all()
     selected_class_id = request.GET.get('class_stream_id')
     selected_class = None
@@ -22,13 +33,131 @@ def timetable_center(request):
 
     if selected_class_id:
         selected_class = AcademicClassStream.objects.get(pk=selected_class_id)
-        timetable_entries = Timetable.objects.filter(class_stream=selected_class)
+        timetable_entries = Timetable.objects.filter(class_stream=selected_class).select_related('time_slot', 'subject', 'teacher', 'classroom')
+        # Build nested dict for template access: timetable_data[weekday][slot_id] = entry
+        nested = defaultdict(dict)
         for entry in timetable_entries:
-            timetable_data[(entry.weekday, entry.time_slot.id)] = entry
+            nested[entry.weekday][entry.time_slot.id] = entry
+        timetable_data = nested
 
     if request.method == 'POST':
+        action = request.POST.get('action')
         selected_class_id = request.POST.get('class_stream_id')
         selected_class = AcademicClassStream.objects.get(pk=selected_class_id)
+
+        if action == 'copy_previous':
+            # Current context
+            curr_ac = selected_class.academic_class
+            curr_term_code = curr_ac.term.term  # "1" | "2" | "3"
+            curr_year_pk = curr_ac.academic_year.pk
+
+            # Find the most recent earlier AcademicClass for the same base Class
+            # Earlier means: any prior year, or same year with a lower term number.
+            earlier_ac_qs = (
+                AcademicClass.objects
+                .filter(Class=curr_ac.Class)
+                .filter(
+                    Q(academic_year__pk__lt=curr_year_pk) |
+                    Q(academic_year__pk=curr_year_pk, term__term__lt=curr_term_code)
+                )
+                .order_by('-academic_year__pk', '-term__term')
+            )
+
+            source_stream = None
+            source_ac = None
+
+            # Strategy: choose the first earlier stream that actually has timetable entries.
+            for ac in earlier_ac_qs:
+                cand_stream = AcademicClassStream.objects.filter(
+                    academic_class=ac,
+                    stream=selected_class.stream
+                ).first()
+                if not cand_stream:
+                    continue
+                if Timetable.objects.filter(class_stream=cand_stream).exists():
+                    source_stream = cand_stream
+                    source_ac = ac
+                    break
+
+            # If none of the earlier streams have entries, fall back to the immediate previous AcademicClass (if any)
+            if source_stream is None:
+                source_ac = earlier_ac_qs.first()
+                if source_ac:
+                    source_stream = AcademicClassStream.objects.filter(
+                        academic_class=source_ac,
+                        stream=selected_class.stream
+                    ).first()
+
+            # If still nothing found, inform and exit
+            if not source_stream:
+                messages.warning(request, "No previous class stream found to copy from for this Class/Stream.")
+                return redirect(f"{request.path}?class_stream_id={selected_class_id}")
+
+            prev_entries = (
+                Timetable.objects
+                .filter(class_stream=source_stream)
+                .select_related('time_slot', 'subject', 'teacher', 'classroom')
+            )
+
+            if not prev_entries:
+                messages.warning(request, "No timetable entries found in previous terms for this stream to copy.")
+                return redirect(f"{request.path}?class_stream_id={selected_class_id}")
+
+            created_or_updated = 0
+            skipped_teacher = 0
+            skipped_room = 0
+
+            for e in prev_entries:
+                defaults = {
+                    'subject': e.subject,
+                    'teacher': e.teacher,
+                    'classroom': e.classroom,
+                }
+
+                # Avoid teacher conflicts across other class streams at same weekday+slot
+                if e.teacher_id:
+                    teacher_in_use = (
+                        Timetable.objects
+                        .filter(teacher=e.teacher, weekday=e.weekday, time_slot=e.time_slot)
+                        .exclude(class_stream=selected_class)
+                        .exists()
+                    )
+                    if teacher_in_use:
+                        defaults['teacher'] = None
+                        skipped_teacher += 1
+
+                # Avoid classroom conflicts across other class streams at same weekday+slot
+                if e.classroom_id:
+                    room_in_use = (
+                        Timetable.objects
+                        .filter(classroom=e.classroom, weekday=e.weekday, time_slot=e.time_slot)
+                        .exclude(class_stream=selected_class)
+                        .exists()
+                    )
+                    if room_in_use:
+                        defaults['classroom'] = None
+                        skipped_room += 1
+
+                Timetable.objects.update_or_create(
+                    class_stream=selected_class,
+                    weekday=e.weekday,
+                    time_slot=e.time_slot,
+                    defaults=defaults
+                )
+                created_or_updated += 1
+
+            msg = f"Copied {created_or_updated} timetable entries from the most recent previous term."
+            if skipped_teacher or skipped_room:
+                parts = []
+                if skipped_teacher:
+                    parts.append(f"{skipped_teacher} teacher conflict(s) cleared")
+                if skipped_room:
+                    parts.append(f"{skipped_room} room conflict(s) cleared")
+                msg += " (" + ", ".join(parts) + ")."
+            messages.success(request, msg)
+            return redirect(f"{request.path}?class_stream_id={selected_class_id}")
+
+        # Default: save timetable from JSON payload
         timetable_json = request.POST.get('timetable_json')
 
         if timetable_json:
@@ -58,8 +187,8 @@ def timetable_center(request):
                             }
                         )
 
-            messages.success(request, "Timetable updated successfully.")
-            return redirect(f"{request.path}?class_stream_id={selected_class_id}")
+        messages.success(request, "Timetable updated successfully.")
+        return redirect(f"{request.path}?class_stream_id={selected_class_id}")
 
     context = {
         "class_streams": class_streams,

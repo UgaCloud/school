@@ -7,6 +7,7 @@ from app.models.fees_payment import StudentBill, StudentBillItem,BillItem,BillIt
 from app.models.classes import AcademicClass,AcademicClassStream, Class, Stream, Term
 from app.models.staffs import Staff
 from app.models.school_settings import AcademicYear
+from app.models.finance import Transaction, IncomeSource, Expenditure, ExpenditureItem
 from app.selectors.classes import get_current_academic_class
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -502,3 +503,98 @@ def update_bill_after_payment(sender, instance, created, **kwargs):
 
         bill.save(update_fields=['status'])
 
+
+# === Mirror Student Payments and Expenditures into Transaction model ===
+# This keeps the Income Statement (which reads Transaction) in sync with operational data.
+
+def _payment_tx_description(payment):
+    return f"Student payment bill#{payment.bill_id} ref {payment.reference_no}"
+
+
+@receiver(post_save, sender=Payment)
+def mirror_payment_to_transaction(sender, instance, **kwargs):
+    """
+    Ensure each Payment creates/updates a corresponding Income Transaction.
+    Using reference_no in the description to provide idempotency on update.
+    """
+    try:
+        desc = _payment_tx_description(instance)
+        source, _ = IncomeSource.objects.get_or_create(
+            name="School fees",
+            defaults={"description": "Payments collected from student bills"},
+        )
+        Transaction.objects.update_or_create(
+            description=desc,
+            defaults={
+                "date": instance.payment_date,
+                "transaction_type": "Income",
+                "amount": instance.amount,
+                "related_income_source": source,
+            },
+        )
+    except Exception:
+        # Avoid breaking save flow if mirroring fails
+        pass
+
+
+@receiver(post_delete, sender=Payment)
+def delete_payment_transaction(sender, instance, **kwargs):
+    """
+    Remove mirrored Transaction when a Payment is deleted.
+    """
+    try:
+        desc = _payment_tx_description(instance)
+        Transaction.objects.filter(description=desc).delete()
+    except Exception:
+        pass
+
+
+def _expenditure_tx_description(exp):
+    vendor = exp.vendor.name if getattr(exp, "vendor", None) else "No vendor"
+    return f"Expenditure#{exp.id} {vendor}"
+
+
+def _upsert_expenditure_transaction(exp):
+    try:
+        desc = _expenditure_tx_description(exp)
+        Transaction.objects.update_or_create(
+            description=desc,
+            defaults={
+                "date": exp.date_incurred,
+                "transaction_type": "Expense",
+                "amount": exp.amount,  # includes items total + VAT (via property)
+                "related_income_source": None,
+            },
+        )
+    except Exception:
+        pass
+
+
+@receiver(post_save, sender=Expenditure)
+def mirror_expenditure_to_transaction(sender, instance, **kwargs):
+    """
+    Create/update an Expense Transaction for each Expenditure.
+    """
+    _upsert_expenditure_transaction(instance)
+
+
+@receiver(post_delete, sender=Expenditure)
+def delete_expenditure_transaction(sender, instance, **kwargs):
+    """
+    Remove mirrored Transaction when an Expenditure is deleted.
+    """
+    try:
+        desc = _expenditure_tx_description(instance)
+        Transaction.objects.filter(description=desc).delete()
+    except Exception:
+        pass
+
+
+@receiver([post_save, post_delete], sender=ExpenditureItem)
+def sync_expenditure_item_change(sender, instance, **kwargs):
+    """
+    Keep the mirrored Expense Transaction amount in sync when ExpenditureItems change.
+    """
+    exp = instance.expenditure
+    if exp:
+        _upsert_expenditure_transaction(exp)

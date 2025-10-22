@@ -28,7 +28,6 @@
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         text-align: center;
-        display: {% if show_selection %}block{% else %}none{% endif %};
     }
 
     .selection-container h2 {
@@ -57,7 +56,6 @@
         flex-wrap: wrap;
         gap: 1rem;
         align-items: center;
-        display: {% if not show_selection %}flex{% else %}none{% endif %};
     }
 
     .filter-container label {
@@ -89,7 +87,6 @@
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         border-radius: 8px;
         overflow-x: auto;
-        display: {% if not show_selection %}table{% else %}none{% endif %};
     }
 
     .assessment-table th {
@@ -130,7 +127,6 @@
         display: flex;
         gap: 1rem;
         margin-bottom: 1.5rem;
-        display: {% if not show_selection %}flex{% else %}none{% endif %};
     }
 
     .export-btn, .filter-btn {
@@ -204,12 +200,12 @@
 <div class="table-container">
     <div class="header-info">
         <h2>{{ school_name|default:"Bayan Learning Center" }}</h2>
-        <h3>ASSESSMENT SHEET FOR {{ term|upper|default:"MID-TERM" }} EXAMINATIONS</h3>
-        <p>CLASS {{ selected_grade|default:"Grade Two" }} | CLASSTEACHER: {{ class_teacher|default:"Tr. Nalujja Halimah" }}</p>
+        <h3>ASSESSMENT SHEET FOR {{ selected_assessment_type_name|upper|default:"ALL ASSESSMENTS" }} EXAMINATIONS</h3>
+        <p>CLASS {{ selected_grade|default:"Grade Two" }} | CLASSTEACHER: {{ class_teacher|default:"Tr. Nalujja Halimah" }} | TERM: {{ term|default:"-" }}</p>
     </div>
 
     <!-- Class Selection Form -->
-    <div class="selection-container">
+    <div class="selection-container" style="display: {% if show_selection %}block{% else %}none{% endif %};">
         <h2>{{ school_name|default:"Bayan Learning Center" }}</h2>
         <h3>Select a Class</h3>
         <form method="GET" action="">
@@ -225,7 +221,7 @@
     </div>
 
     <!-- Filter and Table Section -->
-    <form class="filter-container" method="GET" action="">
+    <form class="filter-container" method="GET" action="" style="display: {% if not show_selection %}flex{% else %}none{% endif %};">
         <div>
             <label for="grade">Class:</label>
             <select name="grade" id="grade" onchange="this.form.submit()">
@@ -260,7 +256,7 @@
         <button type="submit" class="filter-btn">Apply Filters</button>
     </form>
 
-    <div class="button-group">
+    <div class="button-group" style="display: {% if not show_selection %}flex{% else %}none{% endif %};">
         <form method="GET" action="">
             <input type="hidden" name="grade" value="{{ selected_grade }}">
             <input type="hidden" name="term_id" value="{{ selected_term_id }}">
@@ -270,7 +266,7 @@
         </form>
     </div>
 
-    <table class="assessment-table">
+    <table class="assessment-table" style="display: {% if not show_selection %}table{% else %}none{% endif %};">
         <thead>
             <tr>
                 <th>NO</th>
@@ -311,7 +307,7 @@
     <table class="assessment-table" style="margin-top: 2rem;">
         <thead>
             <tr>
-                <th colspan="{{ colspan }}" style="text-align: center; background: #f3f4f6;">SUBJECTS AND THEIR TOTAL AVERAGE</th>
+                <th colspan="{{ colspan }}" style="text-align: center; background: #f3f4f6;">SUBJECTS PASS PERCENTAGE (>=70%)</th>
             </tr>
             <tr>
                 <th>NO</th>
@@ -326,9 +322,7 @@
                 <td>{{ forloop.counter }}</td>
                 <td>{{ subject }}</td>
                 <td>
-                    {{ subject_grade_dist|get_item:subject|get_item:"A"|default:"0" }}% + 
-                    {{ subject_grade_dist|get_item:subject|get_item:"B"|default:"0" }}% = 
-                    {{ subject_grade_dist|get_item:subject|get_item:"A"|add:subject_grade_dist|get_item:subject|get_item:"B"|default:"0" }}%
+                    {{ subject_pass_percentage|get_item:subject|default:"0" }}%
                 </td>
                 <td>{{ subject_teachers|get_item:subject|default:"Tr. [Teacher Name]" }}</td>
             </tr>
