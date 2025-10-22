@@ -50,7 +50,7 @@ class Timetable(models.Model):
     weekday = models.CharField(max_length=3, choices=WeekDay.choices)
     time_slot = models.ForeignKey(TimeSlot, on_delete=models.CASCADE)
     subject = models.ForeignKey('app.Subject', on_delete=models.CASCADE)
-    teacher = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True, related_name='teaching_slots')
+    teacher = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True, blank=True, related_name='teaching_slots')
     classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True, related_name="allocations")
 
     class Meta:
@@ -61,15 +61,16 @@ class Timetable(models.Model):
         return f'{self.subject} on {self.weekday} at {self.time_slot}'
 
     def clean(self):
-        # Conflict: Same teacher at same time
-        teacher_conflict = Timetable.objects.filter(
-            teacher=self.teacher,
-            weekday=self.weekday,
-            time_slot=self.time_slot
-        ).exclude(pk=self.pk).exists()
+        # Conflict: Same teacher at same time (skip when teacher is unset)
+        if self.teacher:
+            teacher_conflict = Timetable.objects.filter(
+                teacher=self.teacher,
+                weekday=self.weekday,
+                time_slot=self.time_slot
+            ).exclude(pk=self.pk).exists()
 
-        if teacher_conflict:
-            raise ValidationError("This teacher is already assigned at this time.")
+            if teacher_conflict:
+                raise ValidationError("This teacher is already assigned at this time.")
 
         # Conflict: Same classroom at same time
         if self.classroom:
