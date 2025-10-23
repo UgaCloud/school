@@ -1,0 +1,360 @@
+{% extends "../base.html" %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block page_title %}Financial Dashboard{% endblock %}
+
+{% block content %}
+    <div class="clearfix"></div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="x_panel">
+                <div class="x_title">
+                    <h2><i class="fa fa-dashboard"></i> Financial Dashboard</h2>
+                    <ul class="nav navbar-right panel_toolbox">
+                        <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+                        <li><a href="#" onclick="refreshDashboard()"><i class="fa fa-refresh"></i> Refresh</a></li>
+                        <li><a href="#" data-toggle="modal" data-target="#sendRemindersModal"><i class="fa fa-bell"></i> Send Reminders</a></li>
+                    </ul>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="x_content">
+
+                    {% if dashboard_data %}
+                    <!-- KPI Cards -->
+                    <div class="row" style="margin-bottom: 30px;">
+                        <div class="col-md-3">
+                            <div class="card border-left-success">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Collection Rate</h5>
+                                    <h2 class="text-success">{{ dashboard_data.collection_rate }}%</h2>
+                                    <div class="progress mt-2" style="height: 10px;">
+                                        <div class="progress-bar bg-success" style="width: {{ dashboard_data.collection_rate }}%"></div>
+                                    </div>
+                                    <small class="text-muted">Of total fees billed</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-left-warning">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Budget Utilization</h5>
+                                    <h2 class="text-warning">{{ dashboard_data.budget_utilization }}%</h2>
+                                    <div class="progress mt-2" style="height: 10px;">
+                                        <div class="progress-bar bg-warning" style="width: {{ dashboard_data.budget_utilization }}%"></div>
+                                    </div>
+                                    <small class="text-muted">Of allocated budget</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-left-info">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Total Collected</h5>
+                                    <h2 class="text-info">UGX {{ dashboard_data.total_collected|intcomma }}</h2>
+                                    <small class="text-muted">{{ dashboard_data.current_term }} - {{ dashboard_data.current_year }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-left-danger">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Outstanding</h5>
+                                    <h2 class="text-danger">UGX {{ dashboard_data.total_billed|subtract:dashboard_data.total_collected|intcomma }}</h2>
+                                    <small class="text-muted">Fees pending</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="row" style="margin-bottom: 30px;">
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fa fa-line-chart"></i> Monthly Collection vs Expenditure Trend</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="monthlyTrendChart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fa fa-pie-chart"></i> Budget Distribution</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="budgetChart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="row" style="margin-bottom: 30px;">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fa fa-bolt"></i> Quick Actions</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <a href="{% url 'expenditure_page' %}" class="btn btn-primary btn-block">
+                                                <i class="fa fa-plus"></i> Add Expenditure
+                                            </a>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <a href="{% url 'bank_reconciliation' %}" class="btn btn-info btn-block">
+                                                <i class="fa fa-bank"></i> Bank Reconciliation
+                                            </a>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <a href="{% url 'financial_summary_report' %}" class="btn btn-success btn-block">
+                                                <i class="fa fa-file-pdf-o"></i> Generate Report
+                                            </a>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <a href="{% url 'export_financial_data' %}?type=quickbooks" class="btn btn-warning btn-block">
+                                                <i class="fa fa-download"></i> Export Data
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fa fa-clock-o"></i> Recent Expenditures</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Description</th>
+                                                    <th>Amount</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for expenditure in recent_expenditures %}
+                                                <tr>
+                                                    <td>{{ expenditure.date_incurred|date:"M d" }}</td>
+                                                    <td>{{ expenditure.description|truncatechars:30 }}</td>
+                                                    <td>UGX {{ expenditure.amount|intcomma }}</td>
+                                                    <td>
+                                                        <span class="badge badge-{{ expenditure.payment_status|lower }}">
+                                                            {{ expenditure.payment_status }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted">
+                                                        No recent expenditures
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fa fa-bell"></i> Pending Approvals</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Department</th>
+                                                    <th>Amount</th>
+                                                    <th>Approver</th>
+                                                    <th>Level</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for approval in pending_approvals %}
+                                                <tr>
+                                                    <td>{{ approval.expenditure.budget_item.department }}</td>
+                                                    <td>UGX {{ approval.expenditure.amount|intcomma }}</td>
+                                                    <td>{{ approval.current_approver.get_full_name|default:approval.current_approver.username }}</td>
+                                                    <td>{{ approval.approval_level }}/{{ approval.max_approval_level }}</td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted">
+                                                        No pending approvals
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% else %}
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h4><i class="fa fa-info-circle"></i> No Data Available</h4>
+                                    <p class="text-muted">Please select an academic year and term to view dashboard data.</p>
+                                    <a href="{% url 'financial_summary_report' %}" class="btn btn-primary">
+                                        <i class="fa fa-cog"></i> Setup Financial Data
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send Reminders Modal -->
+    <div class="modal fade" id="sendRemindersModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Send Payment Reminders</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <form method="post" action="{% url 'send_payment_reminders' %}">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="reminder_type">Reminder Type</label>
+                            <select name="reminder_type" class="form-control" required>
+                                <option value="upcoming_deadline">Upcoming Deadline (7 days)</option>
+                                <option value="overdue">Overdue Payments</option>
+                                <option value="final_notice">Final Notice (30+ days overdue)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <small class="form-text text-muted">
+                                This will send notifications to all students with outstanding fees matching the selected criteria.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Send Reminders</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function refreshDashboard() {
+            location.reload();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize charts when page loads
+            {% if dashboard_data.monthly_collection %}
+            initMonthlyTrendChart();
+            {% endif %}
+            {% if dashboard_data %}
+            initBudgetChart();
+            {% endif %}
+        });
+
+        function initMonthlyTrendChart() {
+            const ctx = document.getElementById('monthlyTrendChart').getContext('2d');
+            const monthlyTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [
+                        {% for month in dashboard_data.monthly_collection %}
+                        '{{ month.month|date:"M Y" }}'{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    ],
+                    datasets: [{
+                        label: 'Collection',
+                        data: [
+                            {% for month in dashboard_data.monthly_collection %}
+                            {{ month.total }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        ],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1
+                    }, {
+                        label: 'Expenditure',
+                        data: [
+                            {% for month in dashboard_data.monthly_expenditure %}
+                            {{ month.total|default:0 }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        ],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'UGX ' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initBudgetChart() {
+            const budgetCtx = document.getElementById('budgetChart').getContext('2d');
+            const budgetChart = new Chart(budgetCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Spent', 'Remaining'],
+                    datasets: [{
+                        data: [{{ dashboard_data.total_expenditure }}, {{ dashboard_data.total_budget|subtract:dashboard_data.total_expenditure }}],
+                        backgroundColor: [
+                            'rgb(255, 99, 132)',
+                            'rgb(75, 192, 192)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+
+{% endblock %}

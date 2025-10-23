@@ -1,3 +1,28 @@
+
+
+
+NOTIFICATION_TYPES = [
+        ('payment_reminder', 'Payment Reminder'),
+        ('overdue_notice', 'Overdue Notice'),
+        ('fee_deadline', 'Fee Deadline'),
+        ('budget_alert', 'Budget Alert'),
+        ('expenditure_approval', 'Expenditure Approval Required'),
+        ('bank_reconciliation', 'Bank Reconciliation Required'),
+    ]
+
+
+TRANSACTION_TYPE_CHOICES = [
+        ('Income', 'Income'),
+        ('Expense', 'Expense')
+    ]
+
+APPROVAL_STATUS = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('escalated', 'Escalated'),
+    ]
+
 # Roles
 
 
