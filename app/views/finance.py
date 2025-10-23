@@ -12,8 +12,14 @@ import app.forms.finance as finance_forms
 import app.selectors.finance as finance_selector
 from django.http import HttpResponse
 import csv
+from datetime import timedelta
+from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum, F, DecimalField, Value
+from django.db.models.functions import TruncMonth, Coalesce
+from django.shortcuts import get_object_or_404
+from app.models.staffs import Staff
 
 @login_required
 def manage_income_sources(request):
@@ -1326,3 +1332,331 @@ def cash_flow_report(request):
         'sample_expense': expense_list[:5],
     }
     return render(request, 'finance/cash_flow.html', context)
+
+@login_required
+def bank_reconciliation_view(request):
+    """Enhanced bank reconciliation with automated matching"""
+    bank_accounts = BankAccount.objects.all()
+    statements = BankStatement.objects.select_related('bank_account').order_by('-statement_date')
+
+    # Get unreconciled bank transactions
+    unreconciled_transactions = BankTransaction.objects.filter(
+        reconciled=False
+    ).select_related('bank_statement__bank_account').order_by('-transaction_date')
+
+    # Get unmatched payments for reconciliation (exclude payments already reconciled by any bank transaction)
+    unmatched_payments = Payment.objects.exclude(
+        id__in=BankTransaction.objects.filter(
+            reconciled=True, reconciled_with__isnull=False
+        ).values_list('reconciled_with_id', flat=True)
+    ).order_by('-payment_date')
+
+    context = {
+        'bank_accounts': bank_accounts,
+        'statements': statements,
+        'unreconciled_transactions': unreconciled_transactions,
+        'unmatched_payments': unmatched_payments,
+    }
+    return render(request, 'finance/bank_reconciliation.html', context)
+
+@login_required
+def upload_bank_statement_view(request):
+    """Upload and process bank statements"""
+    if request.method == 'POST' and request.FILES.get('statement_file'):
+        bank_account_id = request.POST.get('bank_account')
+        statement_date = request.POST.get('statement_date')
+
+        try:
+            bank_account = BankAccount.objects.get(id=bank_account_id)
+            statement = BankStatement.objects.create(
+                bank_account=bank_account,
+                statement_date=statement_date,
+                opening_balance=request.POST.get('opening_balance', 0),
+                closing_balance=request.POST.get('closing_balance', 0),
+                uploaded_by=request.user.staff if hasattr(request.user, 'staff') else None,
+                file=request.FILES.get('statement_file')
+            )
+
+            # Process CSV file
+            if statement.file.name.endswith('.csv'):
+                process_bank_statement_csv(statement)
+
+            messages.success(request, "Bank statement uploaded successfully")
+        except Exception as e:
+            messages.error(request, f"Error uploading statement: {str(e)}")
+
+    return redirect('bank_reconciliation')
+
+def process_bank_statement_csv(statement):
+    """Process uploaded CSV bank statement"""
+    import csv
+    import codecs
+
+    with open(statement.file.path, 'r', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+
+        for row in reader:
+            BankTransaction.objects.create(
+                bank_statement=statement,
+                transaction_date=row.get('Date', row.get('date')),
+                description=row.get('Description', row.get('description', '')),
+                amount=row.get('Amount', row.get('amount', 0)),
+                transaction_type='Credit' if float(row.get('Amount', 0)) > 0 else 'Debit',
+                reference=row.get('Reference', row.get('reference', '')),
+            )
+
+@login_required
+def reconcile_transaction_view(request, transaction_id):
+    """Reconcile bank transaction with payment"""
+    if request.method == 'POST':
+        transaction = get_object_or_404(BankTransaction, id=transaction_id)
+        payment_id = request.POST.get('payment_id')
+
+        if payment_id:
+            payment = get_object_or_404(Payment, id=payment_id)
+            transaction.reconciled = True
+            transaction.reconciled_with = payment
+            transaction.reconciliation_date = timezone.now()
+            transaction.save()
+
+            messages.success(request, "Transaction reconciled successfully")
+        else:
+            messages.error(request, "Please select a payment to reconcile with")
+
+    return redirect('bank_reconciliation')
+
+@login_required
+def financial_dashboard_view(request):
+    """Enhanced financial dashboard with charts and KPIs"""
+    # Get current academic year and term
+    current_year = AcademicYear.objects.filter(is_current=True).first()
+    current_term = Term.objects.filter(is_current=True, academic_year=current_year).first() if current_year else None
+
+    dashboard_data = {}
+
+    if current_year and current_term:
+        # Fee Collection KPIs
+        # Sum billed amounts from actual bill items since total_amount is a Python property (not a DB field)
+        total_billed = StudentBillItem.objects.filter(
+            bill__academic_class__academic_year=current_year,
+            bill__academic_class__term=current_term
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        total_collected = Payment.objects.filter(
+            bill__academic_class__academic_year=current_year,
+            bill__academic_class__term=current_term
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        collection_rate = (total_collected / total_billed * 100) if total_billed > 0 else 0
+
+        # Budget vs Actual
+        budget = Budget.objects.filter(academic_year=current_year, term=current_term).first()
+        total_budget = budget.budget_total if budget else 0
+        # Use Python-side aggregation because Expenditure.amount is a property
+        if budget:
+            exp_list = list(
+                Expenditure.objects.filter(
+                    budget_item__budget=budget,
+                    date_incurred__gte=current_term.start_date,
+                    date_incurred__lte=current_term.end_date
+                ).prefetch_related('items')
+            )
+            total_expenditure = sum((e.amount for e in exp_list), 0)
+        else:
+            total_expenditure = 0
+
+        budget_utilization = (total_expenditure / total_budget * 100) if total_budget > 0 else 0
+
+        # Monthly trends
+        monthly_collection = Payment.objects.filter(
+            bill__academic_class__academic_year=current_year,
+            bill__academic_class__term=current_term
+        ).annotate(
+            month=TruncMonth('payment_date')
+        ).values('month').annotate(
+            total=Sum('amount')
+        ).order_by('month')
+
+        # Compute monthly expenditure in Python
+        if budget:
+            month_totals = {}
+            for e in exp_list:
+                m = e.date_incurred.replace(day=1)
+                month_totals[m] = month_totals.get(m, 0) + e.amount
+            monthly_expenditure = [{'month': m, 'total': t} for m, t in sorted(month_totals.items())]
+        else:
+            monthly_expenditure = []
+
+        dashboard_data = {
+            'collection_rate': round(collection_rate, 1),
+            'total_billed': total_billed,
+            'total_collected': total_collected,
+            'budget_utilization': round(budget_utilization, 1),
+            'total_budget': total_budget,
+            'total_expenditure': total_expenditure,
+            'monthly_collection': list(monthly_collection),
+            'monthly_expenditure': list(monthly_expenditure),
+            'current_year': current_year,
+            'current_term': current_term,
+        }
+
+    context = {
+        'dashboard_data': dashboard_data,
+        'recent_expenditures': Expenditure.objects.order_by('-date_incurred')[:10],
+        'pending_approvals': (
+            ApprovalWorkflow.objects.filter(
+                current_approver=request.user.staff, status='pending'
+            ).select_related('expenditure')
+            if hasattr(request.user, 'staff') and request.user.staff
+            else ApprovalWorkflow.objects.filter(status='pending').select_related('expenditure')[:10]
+        ),
+    }
+    return render(request, 'finance/financial_dashboard.html', context)
+
+@login_required
+def send_payment_reminders_view(request):
+    """Send automated payment reminders to parents"""
+    if request.method == 'POST':
+        reminder_type = request.POST.get('reminder_type', 'upcoming_deadline')
+
+        # Get students with outstanding fees
+        if reminder_type == 'upcoming_deadline':
+            # Students with fees due in next 7 days
+            upcoming_bills = StudentBill.objects.filter(
+                due_date__gte=timezone.now().date(),
+                due_date__lte=timezone.now().date() + timedelta(days=7),
+                status__in=['Unpaid', 'Partial']
+            ).select_related('student')
+
+        elif reminder_type == 'overdue':
+            # Students with overdue fees
+            overdue_bills = StudentBill.objects.filter(
+                due_date__lt=timezone.now().date(),
+                status__in=['Unpaid', 'Partial']
+            ).select_related('student')
+
+        elif reminder_type == 'final_notice':
+            # Students with fees overdue by more than 30 days
+            final_notice_bills = StudentBill.objects.filter(
+                due_date__lt=timezone.now().date() - timedelta(days=30),
+                status__in=['Unpaid', 'Partial']
+            ).select_related('student')
+
+        # Send notifications (implement email/SMS logic here)
+        notifications_sent = 0
+
+        # Create in-app notifications
+        for bill in StudentBill.objects.filter(status__in=['Unpaid', 'Partial']):
+            FinancialNotification.objects.create(
+                recipient=bill.student,
+                notification_type='payment_reminder',
+                title='School Fee Reminder',
+                message=f'Dear {bill.student.student_name}, you have outstanding fees of UGX {bill.balance:,} for {bill.academic_class}. Please make payment before the due date.',
+                action_required=True,
+                related_object_type='StudentBill',
+                related_object_id=bill.id
+            )
+            notifications_sent += 1
+
+        messages.success(request, f"Payment reminders sent to {notifications_sent} students")
+
+    return redirect('financial_dashboard')
+
+@login_required
+def approval_workflow_view(request):
+    """Multi-level approval workflow for expenditures"""
+    if request.method == 'POST':
+        expenditure_id = request.POST.get('expenditure_id')
+        action = request.POST.get('action')  # approve, reject, escalate
+
+        expenditure = get_object_or_404(Expenditure, id=expenditure_id)
+        workflow = expenditure.approval_workflow
+
+        if action == 'approve':
+            if workflow.approval_level < workflow.max_approval_level:
+                # Escalate to next level
+                next_approver = get_next_approver(workflow.approval_level + 1)
+                workflow.current_approver = next_approver
+                workflow.approval_level += 1
+                workflow.comments = request.POST.get('comments', '')
+                workflow.save()
+                messages.info(request, f"Expenditure escalated to level {workflow.approval_level} approval")
+            else:
+                # Final approval
+                workflow.status = 'approved'
+                workflow.approved_by = request.user.staff if hasattr(request.user, 'staff') else None
+                workflow.approved_date = timezone.now()
+                workflow.save()
+
+                # Update expenditure status
+                expenditure.payment_status = 'Approved'
+                expenditure.save()
+
+                messages.success(request, "Expenditure fully approved")
+
+        elif action == 'reject':
+            workflow.status = 'rejected'
+            workflow.rejection_reason = request.POST.get('rejection_reason', '')
+            workflow.save()
+
+            expenditure.payment_status = 'Rejected'
+            expenditure.save()
+
+            messages.success(request, "Expenditure rejected")
+
+    # Get pending approvals for current user
+    pending_approvals = ApprovalWorkflow.objects.filter(
+        current_approver=request.user.staff if hasattr(request.user, 'staff') else None,
+        status='pending'
+    ).select_related('expenditure')
+
+    context = {
+        'pending_approvals': pending_approvals,
+    }
+    return render(request, 'finance/approval_workflow.html', context)
+
+def get_next_approver(level):
+    """Get next approver based on level (implement your logic)"""
+    # This is a placeholder - implement based on your organizational structure
+    staff = Staff.objects.filter(role__name='Head Teacher').first()
+    return staff
+
+@login_required
+def export_financial_data_view(request):
+    """Export financial data for accounting software integration"""
+    export_type = request.GET.get('type', 'quickbooks')
+
+    if export_type == 'quickbooks':
+        # Generate QuickBooks IIF format
+        response = HttpResponse(content_type='text/plain')
+        response['Content-Disposition'] = 'attachment; filename="financial_data.iif"'
+
+        # Generate IIF content (simplified example)
+        content = generate_quickbooks_iif()
+        response.write(content)
+
+    elif export_type == 'sage':
+        # Generate Sage CSV format
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="financial_data.csv"'
+
+        content = generate_sage_csv()
+        response.write(content)
+
+    return response
+
+def generate_quickbooks_iif():
+    """Generate QuickBooks IIF format export"""
+    iif_content = "!TRNS\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tMEMO\n"
+    iif_content += "!SPL\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tMEMO\n"
+    iif_content += "!ENDTRNS\n"
+
+    # Add transaction data here
+    return iif_content
+
+def generate_sage_csv():
+    """Generate Sage CSV format export"""
+    csv_content = "Date,Account,Description,Amount,Reference\n"
+
+    # Add transaction data here
+    return csv_content

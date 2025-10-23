@@ -156,13 +156,22 @@ urlpatterns = [
     path('edit_budget_item/<int:id>/', edit_budget_items, name="edit_budget_item"),
     path('delete_budget_item/<int:id>/', delete_budget_item, name="delete_budget_item"),
 
+#Financial Summary Report
+path('financial-summary/', financial_summary_report, name="financial_summary_report"),
+# Income Statement
+path('income-statement/', income_statement_report, name="income_statement"),
+# Cash Flow Report
+path('cash-flow/', cash_flow_report, name="cash_flow"),
 
-    #Financial Summary Report
-    path('financial-summary/', financial_summary_report, name="financial_summary_report"),
-    # Income Statement
-    path('income-statement/', income_statement_report, name="income_statement"),
-    # Cash Flow Report
-    path('cash-flow/', cash_flow_report, name="cash_flow"),
+# Financial Dashboard and Reconciliation
+path('finance/dashboard/', financial_dashboard_view, name="financial_dashboard"),
+path('finance/bank-reconciliation/', bank_reconciliation_view, name="bank_reconciliation"),
+path('finance/bank-reconciliation/upload/', upload_bank_statement_view, name="upload_bank_statement"),
+path('finance/reconcile/<int:transaction_id>/', reconcile_transaction_view, name="reconcile_transaction"),
+path('finance/send-reminders/', send_payment_reminders_view, name="send_payment_reminders"),
+path('finance/approvals/', approval_workflow_view, name="approval_workflow"),
+path('finance/export/', export_financial_data_view, name="export_financial_data"),
+ 
      
     #Results
     path('add_grading_system/', grading_system_view, name='add_grading_system_page'),

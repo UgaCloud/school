@@ -60,3 +60,19 @@ def sum_attr(iterable, attr_name):
             # Ignore non-numeric/coercion errors
             continue
     return total
+
+@register.filter
+def subtract(a, b):
+    """
+    Subtract b from a with safe numeric coercion.
+    Usage: {{ a|subtract:b }}
+    """
+    try:
+        return float(a) - float(b)
+    except Exception:
+        try:
+            # handle Decimal or string commas
+            from decimal import Decimal
+            return Decimal(str(a).replace(',', '')) - Decimal(str(b).replace(',', ''))
+        except Exception:
+            return 0

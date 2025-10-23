@@ -1,6 +1,6 @@
 from django.db import models
 from django.urls import reverse
-from app.constants import MEASUREMENTS,PAYMENT_STATUS
+from app.constants import MEASUREMENTS,PAYMENT_STATUS,NOTIFICATION_TYPES,TRANSACTION_TYPE_CHOICES,APPROVAL_STATUS
 
 class BankAccount(models.Model):
     bank_name = models.CharField(max_length=100)
@@ -127,10 +127,7 @@ class IncomeSource(models.Model):
         return self.name
 
 class Transaction(models.Model):
-    TRANSACTION_TYPE_CHOICES = [
-        ('Income', 'Income'),
-        ('Expense', 'Expense')
-    ]
+    
     date = models.DateField()
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
     description = models.TextField()
@@ -148,6 +145,33 @@ class Transaction(models.Model):
     @property
     def is_expense(self):
         return self.transaction_type == 'Expense'
+
+class BankStatement(models.Model):
+    bank_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='statements')
+    statement_date = models.DateField()
+    opening_balance = models.DecimalField(max_digits=15, decimal_places=2)
+    closing_balance = models.DecimalField(max_digits=15, decimal_places=2)
+    uploaded_by = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True)
+    upload_date = models.DateTimeField(auto_now_add=True)
+    file = models.FileField(upload_to='bank_statements/', blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.bank_account} - {self.statement_date}'
+
+class BankTransaction(models.Model):
+    bank_statement = models.ForeignKey(BankStatement, on_delete=models.CASCADE, related_name='transactions')
+    transaction_date = models.DateField()
+    description = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    transaction_type = models.CharField(max_length=10, choices=[('Credit', 'Credit'), ('Debit', 'Debit')])
+    reference = models.CharField(max_length=100, blank=True, null=True)
+    reconciled = models.BooleanField(default=False)
+    reconciled_with = models.ForeignKey('app.Payment', on_delete=models.SET_NULL, null=True, blank=True)
+    reconciliation_date = models.DateTimeField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.transaction_date} - {self.description} - {self.amount}'
 
 class CashFlowStatement(models.Model):
     start_date = models.DateField()
@@ -168,4 +192,77 @@ class CashFlowStatement(models.Model):
 
     def __str__(self):
         return f'Cash Flow Statement from {self.start_date} to {self.end_date}'
+
+class FinancialNotification(models.Model):
+
+
+    recipient = models.ForeignKey('app.Student', on_delete=models.CASCADE, related_name='financial_notifications')
+    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES)
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    sent_date = models.DateTimeField(auto_now_add=True)
+    read_date = models.DateTimeField(blank=True, null=True)
+    read = models.BooleanField(default=False)
+    action_required = models.BooleanField(default=False)
+    related_object_type = models.CharField(max_length=50, blank=True, null=True)  # e.g., 'StudentBill', 'Expenditure'
+    related_object_id = models.IntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.notification_type} - {self.recipient} - {self.sent_date}'
+
+class ApprovalWorkflow(models.Model):
+   
+    expenditure = models.OneToOneField(Expenditure, on_delete=models.CASCADE, related_name='approval_workflow')
+    current_approver = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True, related_name='pending_approvals')
+    approval_level = models.IntegerField(default=1)
+    max_approval_level = models.IntegerField(default=2)
+    status = models.CharField(max_length=20, choices=APPROVAL_STATUS, default='pending')
+    created_date = models.DateTimeField(auto_now_add=True)
+    approved_date = models.DateTimeField(blank=True, null=True)
+    approved_by = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True, related_name='approved_expenditures')
+    rejection_reason = models.TextField(blank=True, null=True)
+    comments = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f'Approval for {self.expenditure} - Level {self.approval_level}'
+
+class FinancialDashboard(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    dashboard_type = models.CharField(max_length=50, choices=[
+        ('summary', 'Financial Summary'),
+        ('collection', 'Fee Collection'),
+        ('expenditure', 'Expenditure Analysis'),
+        ('budget', 'Budget Performance'),
+        ('forecast', 'Financial Forecast'),
+    ])
+    is_default = models.BooleanField(default=False)
+    created_by = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    config = models.JSONField(default=dict)  # Store dashboard configuration
+
+    def __str__(self):
+        return self.title
+
+class FeeAutomationRule(models.Model):
+    RULE_TYPES = [
+        ('fee_update', 'Fee Structure Update'),
+        ('discount_apply', 'Automatic Discount Application'),
+        ('late_fee', 'Late Fee Assessment'),
+        ('reminder_schedule', 'Reminder Schedule'),
+    ]
+
+    name = models.CharField(max_length=255)
+    rule_type = models.CharField(max_length=50, choices=RULE_TYPES)
+    is_active = models.BooleanField(default=True)
+    conditions = models.JSONField()  # Store rule conditions
+    actions = models.JSONField()  # Store rule actions
+    execution_schedule = models.CharField(max_length=100, blank=True, null=True)  # Cron expression
+    last_execution = models.DateTimeField(blank=True, null=True)
+    next_execution = models.DateTimeField(blank=True, null=True)
+    created_by = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.name} ({self.rule_type})'
     
