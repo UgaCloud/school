@@ -2,6 +2,8 @@ from django.forms import ModelForm, HiddenInput, DateInput
 from crispy_forms.helper import FormHelper
 
 from app.models.finance import *
+from app.models.classes import Term
+from app.models.school_settings import AcademicYear
 
 class IncomeSourceForm(ModelForm):
     
@@ -49,8 +51,20 @@ class ExpenditureForm(ModelForm):
         super().__init__(*args, **kwargs)
         self.Helper = FormHelper()
         self.fields["date_incurred"].widget = DateInput(attrs={
-                    "type": "date",
-                })
+            "type": "date",
+        })
+        # Limit selectable Budget Items to the currently active academic year and term
+        try:
+            current_year = AcademicYear.objects.filter(is_current=True).first()
+            current_term = Term.objects.filter(is_current=True, academic_year=current_year).first() if current_year else Term.objects.filter(is_current=True).first()
+            if 'budget_item' in self.fields and current_year and current_term:
+                self.fields['budget_item'].queryset = BudgetItem.objects.filter(
+                    budget__academic_year=current_year,
+                    budget__term=current_term
+                )
+        except Exception:
+            # Fail-safe: do not block form rendering if anything goes wrong
+            pass
         
 class ExpenditureItemForm(ModelForm):
     

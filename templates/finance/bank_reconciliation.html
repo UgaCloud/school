@@ -20,6 +20,67 @@
                 </div>
                 <div class="x_content">
 
+                    <!-- Scope Filters: Academic Year / Term / Show All -->
+                    <form method="get" class="form-inline mb-3">
+                        <div class="form-group mr-2">
+                            <label for="academic_year"><strong>Academic Year:</strong></label>
+                            <select name="academic_year" id="academic_year" class="form-control ml-2" style="min-width: 180px;">
+                                <option value="">Current</option>
+                                {% if academic_years %}
+                                    {% for y in academic_years %}
+                                        <option value="{{ y.id }}" {% if selected_academic_year and y.id == selected_academic_year %}selected{% endif %}>
+                                            {{ y.academic_year }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+
+                        <div class="form-group mr-2">
+                            <label for="term"><strong>Term:</strong></label>
+                            <select name="term" id="term" class="form-control ml-2" style="min-width: 140px;">
+                                <option value="">Current</option>
+                                {% if terms %}
+                                    {% for t in terms %}
+                                        <option value="{{ t.id }}" {% if selected_term and t.id == selected_term %}selected{% endif %}>
+                                            {{ t.term }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+
+                        <div class="form-group form-check mr-3 ml-2">
+                            <input type="checkbox" class="form-check-input" id="show_all" name="show_all" value="1" {% if show_all %}checked{% endif %}>
+                            <label class="form-check-label" for="show_all">Show all terms</label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-sm mr-2">
+                            <i class="fa fa-filter"></i> Apply
+                        </button>
+                        <a href="{% url 'bank_reconciliation' %}" class="btn btn-light btn-sm">Reset</a>
+                    </form>
+
+                    <!-- Current Scope Summary -->
+                    <div class="alert alert-info py-2">
+                        <strong>Scope:</strong>
+                        {% if show_all %}
+                            All terms
+                        {% else %}
+                            {% if selected_academic_year %}
+                                {% for y in academic_years %}{% if y.id == selected_academic_year %}{{ y.academic_year }}{% endif %}{% endfor %}
+                            {% else %}
+                                Current Year
+                            {% endif %}
+                            —
+                            {% if selected_term %}
+                                {% for t in terms %}{% if t.id == selected_term %}Term {{ t.term }}{% endif %}{% endfor %}
+                            {% else %}
+                                Current Term
+                            {% endif %}
+                        {% endif %}
+                    </div>
+
                     <!-- Bank Accounts Overview -->
                     <div class="row">
                         {% for account in bank_accounts %}

@@ -18,7 +18,7 @@
                 </li>
                 <li><a class="print-link" onclick="window.print()" title="Print Report"><i class="fa fa-print"></i></a>
                 </li>
-                <li><a href="?{% for key, value in request.GET.items %} {{ key }}={{ value }}&{% endfor %}export=pdf" title="Export to PDF" target="_blank"><i class="fa fa-file-pdf-o"></i></a>
+                <li><a href="?{% for key, value in request.GET.items %} {{ key }}={{ value }}&{% endfor %}export=csv" title="Export to CSV" target="_blank"><i class="fa fa-file-excel-o"></i></a>
                 </li>
                 </ul>
                 <div class="clearfix"></div>
@@ -103,6 +103,46 @@
                         </form>
                     </div>
                 </div>
+
+                {% if over_expenditure_alerts %}
+                <div class="row" style="margin-top: 15px;">
+                    <div class="col-md-12">
+                        <div class="alert alert-danger" role="alert">
+                            <h4 class="alert-heading">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                Over-expenditure Alerts ({{ over_expenditure_alerts|length }})
+                            </h4>
+                            <p class="mb-2">The following budget items have exceeded their allocations. Consider corrective actions.</p>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Department</th>
+                                            <th>Expense</th>
+                                            <th>Allocated</th>
+                                            <th>Spent</th>
+                                            <th>Over by</th>
+                                            <th>Utilization</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for a in over_expenditure_alerts %}
+                                        <tr>
+                                            <td>{{ a.department }}</td>
+                                            <td>{{ a.expense }}</td>
+                                            <td>UGX {{ a.allocated|floatformat:0|intcomma }}</td>
+                                            <td>UGX {{ a.spent|floatformat:0|intcomma }}</td>
+                                            <td>UGX {{ a.over_by|floatformat:0|intcomma }}</td>
+                                            <td>{{ a.utilization }}%</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
                 {% if class_data %}
                 <!-- Key Performance Indicators -->

@@ -20,6 +20,12 @@
                 </div>
 
                 <div class="x_content">
+                    {% if editing_locked %}
+                    <div class="alert alert-warning d-flex align-items-center" role="alert">
+                        <i class="fa fa-lock mr-2"></i>
+                        Items are read-only because this expenditure belongs to a closed term. Activate that term to make changes.
+                    </div>
+                    {% endif %}
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header bg-light">
                             <h5 class="my-0">Expenditure Details</h5>
@@ -70,9 +76,15 @@
                     
                     <h3>Expenditure Total: {{expenditure.amount|intcomma}}/-</h3>
 
+                    {% if editing_locked %}
+                    <button type="button" class="btn btn-success btn-sm mb-3" disabled title="Editing locked for closed term">
+                        <i class="fa fa-plus-circle"></i> Add Item
+                    </button>
+                    {% else %}
                     <button type="button" class="btn btn-success btn-sm mb-3" data-toggle="modal" data-target="#addItemModal">
                         <i class="fa fa-plus-circle"></i> Add Item
                     </button>
+                    {% endif %}
 
                     <!-- start item list -->
                     {% if expenditure_items %}
@@ -112,10 +124,14 @@
                                             <span class="badge badge-pill badge-info p-2">{{ item.amount|intcomma }}/-</span>
                                         </td>
                                         <td class="align-middle text-center">
-                                            <div class="btn-group" role="group">
-                                                <a href="{% url 'edit_expenditure_item' item.id %}" class="btn btn-outline-info btn-sm"><i class="fa fa-edit"></i> Edit</a>
-                                                <a href="{% url 'delete_expenditure_item' item.id %}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this record?')"><i class="fa fa-trash"></i> Delete</a>
-                                            </div>
+                                            {% if editing_locked %}
+                                                <span class="text-muted small"><i class="fa fa-lock"></i> Locked for closed term</span>
+                                            {% else %}
+                                                <div class="btn-group" role="group">
+                                                    <a href="{% url 'edit_expenditure_item' item.id %}" class="btn btn-outline-info btn-sm"><i class="fa fa-edit"></i> Edit</a>
+                                                    <a href="{% url 'delete_expenditure_item' item.id %}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this record?')"><i class="fa fa-trash"></i> Delete</a>
+                                                </div>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}

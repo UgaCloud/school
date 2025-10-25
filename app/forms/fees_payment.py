@@ -37,7 +37,12 @@ class PaymentForm(ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.Helper = FormHelper()
+        # Always derive 'bill' and 'recorded_by' from context, not user input
         self.fields["bill"].widget = HiddenInput()
+        self.fields["recorded_by"].widget = HiddenInput()
+        # Allow auto-generation of reference number when not provided
+        if "reference_no" in self.fields:
+            self.fields["reference_no"].required = False
         self.fields["payment_date"].widget = DateInput(attrs={
                     "type": "date",
                 })

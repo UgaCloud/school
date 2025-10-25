@@ -1,6 +1,6 @@
 from django.db import models
 from django.urls import reverse
-from app.constants import MEASUREMENTS,PAYMENT_STATUS,NOTIFICATION_TYPES,TRANSACTION_TYPE_CHOICES,APPROVAL_STATUS
+from app.constants import MEASUREMENTS,PAYMENT_STATUS
 
 class BankAccount(models.Model):
     bank_name = models.CharField(max_length=100)
@@ -127,7 +127,10 @@ class IncomeSource(models.Model):
         return self.name
 
 class Transaction(models.Model):
-    
+    TRANSACTION_TYPE_CHOICES = [
+        ('Income', 'Income'),
+        ('Expense', 'Expense')
+    ]
     date = models.DateField()
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
     description = models.TextField()
@@ -194,7 +197,14 @@ class CashFlowStatement(models.Model):
         return f'Cash Flow Statement from {self.start_date} to {self.end_date}'
 
 class FinancialNotification(models.Model):
-
+    NOTIFICATION_TYPES = [
+        ('payment_reminder', 'Payment Reminder'),
+        ('overdue_notice', 'Overdue Notice'),
+        ('fee_deadline', 'Fee Deadline'),
+        ('budget_alert', 'Budget Alert'),
+        ('expenditure_approval', 'Expenditure Approval Required'),
+        ('bank_reconciliation', 'Bank Reconciliation Required'),
+    ]
 
     recipient = models.ForeignKey('app.Student', on_delete=models.CASCADE, related_name='financial_notifications')
     notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES)
@@ -211,7 +221,13 @@ class FinancialNotification(models.Model):
         return f'{self.notification_type} - {self.recipient} - {self.sent_date}'
 
 class ApprovalWorkflow(models.Model):
-   
+    APPROVAL_STATUS = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('escalated', 'Escalated'),
+    ]
+
     expenditure = models.OneToOneField(Expenditure, on_delete=models.CASCADE, related_name='approval_workflow')
     current_approver = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True, related_name='pending_approvals')
     approval_level = models.IntegerField(default=1)

@@ -88,6 +88,27 @@
         <!-- Quick Access -->
         <li><a href="{% url 'financial_dashboard' %}"><i class="fa fa-tachometer"></i> Financial Dashboard</a></li>
 
+          <!-- Configuration Group -->
+        <li>
+          <a><i class="fa fa-cogs"></i> Setup <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
+            <li><a href="{% url 'expense_page' %}">Expenses</a></li>
+            <li><a href="{% url 'budget_page' %}">Budget</a></li>
+            <li><a href="{% url 'vendor_page' %}">Vendors</a></li>
+          </ul>
+        </li>
+        <!-- Operations Group -->
+        <li>
+          <a><i class="fa fa-briefcase"></i> Operations <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'bank_reconciliation' %}">Bank Reconciliation</a></li>
+            <li><a href="{% url 'expenditure_page' %}">Expenditure</a></li>
+            <li><a href="{% url 'approval_workflow' %}">Approvals</a></li>
+          </ul>
+        </li>
+
+
         <!-- Reports Group -->
         <li>
           <a><i class="fa fa-chart-bar"></i> Reports <span class="fa fa-chevron-down"></span></a>
@@ -99,27 +120,7 @@
           </ul>
         </li>
 
-        <!-- Operations Group -->
-        <li>
-          <a><i class="fa fa-briefcase"></i> Operations <span class="fa fa-chevron-down"></span></a>
-          <ul class="nav child_menu">
-            <li><a href="{% url 'bank_reconciliation' %}">Bank Reconciliation</a></li>
-            <li><a href="{% url 'expenditure_page' %}">Expenditure</a></li>
-            <li><a href="{% url 'approval_workflow' %}">Approvals</a></li>
-          </ul>
-        </li>
-
-        <!-- Configuration Group -->
-        <li>
-          <a><i class="fa fa-cogs"></i> Setup <span class="fa fa-chevron-down"></span></a>
-          <ul class="nav child_menu">
-            <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
-            <li><a href="{% url 'expense_page' %}">Expenses</a></li>
-            <li><a href="{% url 'budget_page' %}">Budget</a></li>
-            <li><a href="{% url 'vendor_page' %}">Vendors</a></li>
-          </ul>
-        </li>
-
+        
         <!-- Integrations Group -->
         <li>
           <a><i class="fa fa-plug"></i> Integrations <span class="fa fa-chevron-down"></span></a>
