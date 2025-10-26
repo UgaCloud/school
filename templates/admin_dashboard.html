@@ -22,18 +22,15 @@
 </style>
 
 <ul class="nav side-menu">
-    <li><a href="{% url 'index_page' %}"><i class="fa fa-dashboard"></i> Dashboard </a>
-      
-    </li>
-</li>
-<li><a><i class="fa fa-institution"></i> Administration <span class="fa fa-chevron-down"></span></a>
+    <li><a href="{% url 'index_page' %}"><i class="fa fa-dashboard"></i> Dashboard </a></li>
+    <li><a href="javascript:;"><i class="fa fa-institution"></i> Administration <span class="fa fa-chevron-down"></span></a>
   <ul class="nav child_menu">
     <li><a href="{% url 'settings_page' %}">School Profile</a></li>
     <li><a href="{% url 'user_list' %}">Manage Users</a></li>
     
   </ul>
 </li>
-    <li><a><i class="fa fa-book"></i> Academics <span class="fa fa-chevron-down"></span></a>
+    <li><a href="javascript:;"><i class="fa fa-book"></i> Academics <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
         <li><a href="{% url 'class_page' %}">Classes</a></li>
         <li><a href="{% url 'stream_page' %}">Streams</a></li>
@@ -45,33 +42,34 @@
       </ul>
     </li>
   
-    <li><a><i class="fa fa-book"></i> Human Resource <span class="fa fa-chevron-down"></span></a>
+    <li><a href="javascript:;"><i class="fa fa-book"></i> Human Resource <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
         <li><a href="{% url 'staff_page' %}">Manage Staff</a></li>
         <li><a href="#">Attendance</a></li>
       </ul>
     </li>
   
-    <li><a><i class="fa fa-mortar-board"></i> Student Center <span class="fa fa-chevron-down"></span></a>
+    <li><a href="javascript:;"><i class="fa fa-mortar-board"></i> Student Center <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
         <li><a href="{% url 'student_page' %}">Student Info</a></li>
       </ul>
     </li>
   
     <!-- Timetable -->
-    <li>
-      <a><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
-      <ul class="nav child_menu">
-          <li><a href="">School Timetable</a></li>
-          <li><a href="">Class Timetable</a></li>
-          <li><a href="">Teacher Timetable</a></li>
-          <li><a href="">Classrooms</a></li>
+    {% with url_name=request.resolver_match.url_name %}
+    <li class="{% if url_name == 'timetable_center' or url_name == 'teacher_timetable' %}active{% endif %}">
+      <a href="javascript:;" {% if url_name == 'timetable_center' or url_name == 'teacher_timetable' %}class="active" aria-expanded="true"{% endif %}><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu" {% if url_name == 'timetable_center' or url_name == 'teacher_timetable' %}style="display:block"{% endif %}>
           <li><a href="{% url 'timetable_center' %}">Set Timetable</a></li>
+          {% if request.user.is_authenticated and request.user.staff_account and request.user.staff_account.role.name == "Teacher" %}
+          <li><a href="{% url 'teacher_timetable' %}">Teacher Timetable</a></li>
+          {% endif %}
       </ul>
-  </li>
+    </li>
+    {% endwith %}
   
     <!-- Fees -->
-    <li><a><i class="fa fa-money"></i> Fees Center <span class="fa fa-chevron-down"></span></a>
+    <li><a href="javascript:;"><i class="fa fa-money"></i> Fees Center <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
         <li><a href="{% url 'bill_item_page' %}">Bill Items</a></li>
         <li><a href="{% url 'student_bill_page' %}">Student Bill</a></li>
@@ -83,14 +81,14 @@
   
     <!-- Finance -->
     <li>
-      <a><i class="fa fa-money"></i> Finance <span class="fa fa-chevron-down"></span></a>
+      <a href="javascript:;"><i class="fa fa-money"></i> Finance <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
         <!-- Quick Access -->
         <li><a href="{% url 'financial_dashboard' %}"><i class="fa fa-tachometer"></i> Financial Dashboard</a></li>
 
           <!-- Configuration Group -->
         <li>
-          <a><i class="fa fa-cogs"></i> Setup <span class="fa fa-chevron-down"></span></a>
+          <a href="javascript:;"><i class="fa fa-cogs"></i> Setup <span class="fa fa-chevron-down"></span></a>
           <ul class="nav child_menu">
             <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
             <li><a href="{% url 'expense_page' %}">Expenses</a></li>
@@ -100,7 +98,7 @@
         </li>
         <!-- Operations Group -->
         <li>
-          <a><i class="fa fa-briefcase"></i> Operations <span class="fa fa-chevron-down"></span></a>
+          <a href="javascript:;"><i class="fa fa-briefcase"></i> Operations <span class="fa fa-chevron-down"></span></a>
           <ul class="nav child_menu">
             <li><a href="{% url 'bank_reconciliation' %}">Bank Reconciliation</a></li>
             <li><a href="{% url 'expenditure_page' %}">Expenditure</a></li>
@@ -111,7 +109,7 @@
 
         <!-- Reports Group -->
         <li>
-          <a><i class="fa fa-chart-bar"></i> Reports <span class="fa fa-chevron-down"></span></a>
+          <a href="javascript:;"><i class="fa fa-chart-bar"></i> Reports <span class="fa fa-chevron-down"></span></a>
           <ul class="nav child_menu">
             <li><a href="{% url 'financial_summary_report' %}">Financial Summary</a></li>
             <li><a href="{% url 'income_statement' %}">Income Statement</a></li>
@@ -123,7 +121,7 @@
         
         <!-- Integrations Group -->
         <li>
-          <a><i class="fa fa-plug"></i> Integrations <span class="fa fa-chevron-down"></span></a>
+          <a href="javascript:;"><i class="fa fa-plug"></i> Integrations <span class="fa fa-chevron-down"></span></a>
           <ul class="nav child_menu">
             <li><a href="{% url 'export_financial_data' %}?type=quickbooks">Export to Accounting</a></li>
           </ul>
@@ -132,7 +130,7 @@
     </li>
   
     <!--Results item-->
-    <li><a><i class="fa fa-book"></i>Results Center<span class="fa fa-chevron-down"></span></a>
+    <li><a href="javascript:;"><i class="fa fa-book"></i>Results Center<span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
         <li><a href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
         <li><a href="{% url 'assessment_create' %}">Assessment</a></li>

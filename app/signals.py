@@ -116,6 +116,18 @@ def create_student_bill(sender, instance, created, **kwargs):
 
         
 
+@receiver(post_save, sender=AcademicYear)
+def ensure_single_current_academic_year(sender, instance, created, **kwargs):
+    """
+    Ensure only one AcademicYear is marked as current.
+    """
+    if instance.is_current:
+        # Set all other AcademicYears to is_current=False
+        other_current_years = AcademicYear.objects.filter(is_current=True).exclude(id=instance.id)
+        if other_current_years.exists():
+            other_current_years.update(is_current=False)
+
+
 @receiver(post_save, sender=Term)
 def move_students_on_term_change(sender, instance, created, **kwargs):
     """
