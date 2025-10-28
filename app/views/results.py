@@ -18,6 +18,7 @@ from app.forms.results import (
     AssesmentTypeForm, GradingSystemForm, ResultForm, AssessmentForm
 )
 from app.models import *
+from app.models.students import Student
 from app.selectors.model_selectors import *
 from app.selectors.results import (
     get_grade_and_points, get_current_mode, get_performance_metrics,
@@ -217,82 +218,46 @@ def class_assessment_list_view(request):
         # Fallback: show all terms if no year context found
         terms = Term.objects.all().order_by('academic_year__id', 'start_date')
 
-    # If the current role is Teacher/Class Teacher, enforce restricted view even if the user is superuser
-    if request.user.is_superuser and not StaffAccount.objects.filter(user=request.user, role__name__in=["Teacher","Class Teacher"]).exists():
+    # Role-aware class listing:
+    # - Admins see all classes (unless they explicitly switch to Teacher/Class Teacher session role)
+    # - Teachers see only classes where they are allocated (subject teacher) or class teacher in any term
+    try:
+        staff_account = StaffAccount.objects.get(user=request.user)
+    except StaffAccount.DoesNotExist:
+        staff_account = None
+
+    session_role = request.session.get('active_role_name')
+    role_name = session_role if session_role else (staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None)
+    role_key = (role_name or '').strip().lower()
+
+    if request.user.is_superuser and role_key not in {'teacher', 'class teacher', 'class_teacher'}:
         academic_classes = AcademicClass.objects.all()
-        if selected_year_id:
-            academic_classes = academic_classes.filter(academic_year_id=selected_year_id)
-        if selected_term_id:
-            academic_classes = academic_classes.filter(term_id=selected_term_id)
+    elif role_key in {'teacher', 'class teacher', 'class_teacher'} and staff_account and getattr(staff_account, 'staff', None):
+        # Subject-teacher allocations (any term) -> Class ids
+        allocated_class_ids = ClassSubjectAllocation.objects.filter(
+            subject_teacher=staff_account.staff
+        ).values_list('academic_class_stream__academic_class__Class_id', flat=True).distinct()
+        # Class-teacher assignments (any term) -> AcademicClass ids
+        class_teacher_ac_ids = AcademicClassStream.objects.filter(
+            class_teacher=staff_account.staff
+        ).values_list('academic_class_id', flat=True).distinct()
+
+        academic_classes = AcademicClass.objects.filter(
+            Q(id__in=class_teacher_ac_ids) | Q(Class_id__in=allocated_class_ids)
+        )
     else:
-        try:
-            staff_account = StaffAccount.objects.get(user=request.user)
-            role_name = staff_account.role.name if getattr(staff_account, "role", None) else None
+        academic_classes = AcademicClass.objects.none()
 
-            # Subject-teacher allocations: classes allocated in any term
-            allocated_classes = Class.objects.filter(
-                academicclass__class_streams__subjects__subject_teacher=staff_account.staff
-            ).distinct()
-            allocated_academic_classes = AcademicClass.objects.filter(
-                Class__in=allocated_classes
-            )
-            if selected_year_id:
-                allocated_academic_classes = allocated_academic_classes.filter(
-                    academic_year_id=selected_year_id
-                )
-            if selected_term_id:
-                allocated_academic_classes = allocated_academic_classes.filter(
-                    term_id=selected_term_id
-                )
-            allocated_academic_classes = allocated_academic_classes.distinct()
+    # Apply current filters
+    if selected_year_id:
+        academic_classes = academic_classes.filter(academic_year_id=selected_year_id)
+    if selected_term_id:
+        academic_classes = academic_classes.filter(term_id=selected_term_id)
+    academic_classes = academic_classes.distinct().order_by(
+        'academic_year__id', 'term__start_date', 'Class__name'
+    )
 
-            # Class-teacher assignments: classes where class teacher in any term
-            class_teacher_classes = Class.objects.filter(
-                academicclass__class_streams__class_teacher=staff_account.staff
-            ).distinct()
-            class_teacher_academic_classes = AcademicClass.objects.filter(
-                Class__in=class_teacher_classes
-            )
-            if selected_year_id:
-                class_teacher_academic_classes = class_teacher_academic_classes.filter(
-                    academic_year_id=selected_year_id
-                )
-            if selected_term_id:
-                class_teacher_academic_classes = class_teacher_academic_classes.filter(
-                    term_id=selected_term_id
-                )
-            class_teacher_academic_classes = class_teacher_academic_classes.distinct()
-
-            # Visibility by role
-            if role_name == "Teacher":
-                # Only classes where this staff is a subject teacher
-                academic_classes = allocated_academic_classes.distinct().order_by(
-                    'academic_year__id', 'term__start_date', 'Class__name'
-                )
-                if not academic_classes.exists():
-                    messages.info(
-                        request,
-                        "No subject allocations found for the current term. Please contact Admin to allocate your subjects."
-                    )
-            elif role_name == "Class Teacher":
-                # Only classes where this staff is a class teacher
-                academic_classes = class_teacher_academic_classes.distinct().order_by(
-                    'academic_year__id', 'term__start_date', 'Class__name'
-                )
-                if not academic_classes.exists():
-                    messages.info(
-                        request,
-                        "No class teacher assignments found for the current term."
-                    )
-            else:
-                # Other roles (e.g., Bursar) see none here; broaden as needed
-                academic_classes = AcademicClass.objects.none()
-        except StaffAccount.DoesNotExist:
-            academic_classes = AcademicClass.objects.none()
-            messages.info(
-                request,
-                "No staff account found. Please contact Admin to set up your profile and allocations."
-            )
+    # Restricted mode: no fallback to all classes for teachers
 
     context = {
         'academic_classes': academic_classes,
@@ -317,37 +282,31 @@ def list_assessments_view(request, class_id):
         base_qs = Assessment.objects.filter(academic_class=academic_class)
         role_name = "Admin"
     else:
-        role_name = staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None
-        if staff_account:
-            # Subject allocations for this class in any term
-            teacher_allocations = ClassSubjectAllocation.objects.filter(
-                subject_teacher=staff_account.staff,
-                academic_class_stream__academic_class__Class=academic_class.Class
-            )
-            subject_ids = list(teacher_allocations.values_list('subject', flat=True))
-
-            # Class teacher for this class in any term
-            is_class_teacher_for_class = AcademicClassStream.objects.filter(
-                academic_class__Class=academic_class.Class,
-                class_teacher=staff_account.staff
-            ).exists()
-
-            if role_name == "Class Teacher" and is_class_teacher_for_class:
+        session_role = request.session.get('active_role_name')
+        role_name = session_role if session_role else (staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None)
+        role_key = (role_name or "").strip().lower()
+        if staff_account or role_key:
+            # Teachers: only their subject assessments; Class Teachers: all assessments in the class
+            if role_key in {"class teacher", "class_teacher"}:
                 base_qs = Assessment.objects.filter(academic_class=academic_class)
-            elif subject_ids:
-                # Teacher role: only their subject allocations (from any term for this class)
-                base_qs = Assessment.objects.filter(
-                    academic_class=academic_class,
-                    subject__in=subject_ids
+            elif role_key == "teacher":
+                teacher_allocations = ClassSubjectAllocation.objects.filter(
+                    subject_teacher=staff_account.staff,
+                    academic_class_stream__academic_class__Class=academic_class.Class
                 )
+                subject_ids = list(teacher_allocations.values_list('subject', flat=True))
+                if subject_ids:
+                    base_qs = Assessment.objects.filter(
+                        academic_class=academic_class,
+                        subject__in=subject_ids
+                    )
+                else:
+                    base_qs = Assessment.objects.none()
             else:
                 base_qs = Assessment.objects.none()
-                messages.info(
-                    request,
-                    "No subject allocations found for this class. Please contact Admin to allocate your subjects."
-                )
         else:
             base_qs = Assessment.objects.none()
+
 
     # --- Robust filters ---
     def to_int(val):
@@ -389,8 +348,10 @@ def list_assessments_view(request, class_id):
     assessment_types = AssessmentType.objects.filter(assessments__academic_class=academic_class).distinct().order_by('name')
 
     
-    allowed_roles = {"Teacher", "Class Teacher", "Head master", "Director of Studies", "Admin"}
-    can_add_results = request.user.is_superuser or (role_name in allowed_roles)
+    # Normalize role name for case-insensitive checks
+    role_key = (role_name or "").strip().lower()
+    allowed_roles = {"teacher", "class teacher", "class_teacher", "head master", "headmaster", "director of studies", "admin"}
+    can_add_results = request.user.is_superuser or (role_key in allowed_roles)
 
     return render(request, 'results/list_assessments.html', {
         'assessments': assessments.order_by('-date', 'assessment_type__name', 'subject__name'),
@@ -468,7 +429,7 @@ def assessment_list_view(request):
     context = {
         'assessments': assessments,
     }
-    return render(request, 'results/assessment_list.html', context)
+    return render(request, 'results/list_assessments.html', context)
 
 @login_required
 def add_assessment_view(request):
@@ -1431,17 +1392,28 @@ def class_performance_summary(request):
             academic_class_exists = False
 
         if academic_class:
-            results_qs = Result.objects.filter(assessment__academic_class=academic_class)
+            # Optimize queries with select_related and prefetch_related
+            results_qs = Result.objects.filter(assessment__academic_class=academic_class).select_related(
+                'student', 'assessment__subject', 'assessment__assessment_type'
+            )
             if assessment_type_id:
                 results_qs = results_qs.filter(assessment__assessment_type_id=assessment_type_id)
 
-            # --- keep your best students + subject averages ---
+            # Get all students for this class with optimized query
+            students = Student.objects.filter(current_class_id=class_id).select_related(
+                'current_class', 'stream'
+            ).prefetch_related('results')
+
+            # Pre-calculate all metrics in fewer queries
+            # Best students - optimized
             best_students = (
                 results_qs
                 .values('student__student_name', 'student__current_class__name')
                 .annotate(average=Avg('score'))
                 .order_by('-average')[:5]
             )
+
+            # Subject averages - optimized
             subject_averages = (
                 results_qs
                 .values('assessment__subject__name')
@@ -1449,24 +1421,47 @@ def class_performance_summary(request):
                 .order_by('-avg_score')
             )
 
-            # --- build assessment sheet ---
-            subjects = Subject.objects.all().order_by('id')  
-            students = Student.objects.filter(current_class_id=class_id)
+            # Build students data more efficiently
+            students_dict = {student.id: student for student in students}
+            subjects = Subject.objects.all().order_by('id')
 
-            for student in students:
+            # Get all results for students in this class
+            student_results = results_qs.values(
+                'student_id', 'score', 'assessment__subject_id'
+            )
+
+            # Group results by student
+            results_by_student = defaultdict(list)
+            for result in student_results:
+                results_by_student[result['student_id']].append(result)
+
+            # Build students_data efficiently
+            for student_id, student in students_dict.items():
+                student_results_list = results_by_student.get(student_id, [])
                 results = {}
                 total_marks = 0
                 total_agg = 0
 
                 for subject in subjects:
-                    res = results_qs.filter(student=student, assessment__subject=subject).first()
+                    res = next((r for r in student_results_list if r['assessment__subject_id'] == subject.id), None)
                     if res:
+                        # Calculate points using the grading system
+                        points = 0
+                        try:
+                            grading = GradingSystem.objects.filter(
+                                min_score__lte=res['score'],
+                                max_score__gte=res['score']
+                            ).first()
+                            points = grading.points if grading else 0
+                        except:
+                            points = 0
+
                         results[subject.id] = {
-                            'marks': res.score,
-                            'agg': getattr(res, 'aggregate', '-'),
+                            'marks': res['score'],
+                            'agg': points,
                         }
-                        total_marks += res.score
-                        total_agg += getattr(res, 'aggregate', 0)
+                        total_marks += res['score']
+                        total_agg += points
 
                 students_data.append({
                     'student': student,
@@ -1475,6 +1470,111 @@ def class_performance_summary(request):
                     'total_agg': total_agg,
                     'division': get_division(total_agg) if total_agg else '-'
                 })
+
+    # Calculate additional KPIs and data for the dashboard
+    total_students = 0
+    average_score = 0
+    pass_rate = 0
+    top_performer = None
+    current_term = None
+    class_performance = []
+    subject_performance = []
+    assessment_type_performance = []
+    top_students = []
+    grade_distribution = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0}
+    gender_comparison = {'Male': 0, 'Female': 0}
+    stream_comparison = {}
+    subject_heatmap = {}
+    performance_trends = []
+
+    if academic_class:
+        total_students = students.count()
+        average_score = results_qs.aggregate(Avg('score'))['score__avg'] or 0
+        pass_rate = (results_qs.filter(score__gte=70).count() / results_qs.count() * 100) if results_qs.count() > 0 else 0
+        top_performer = results_qs.values('student__student_name').annotate(average=Avg('score')).order_by('-average').first()
+        current_term = academic_class.term.term
+
+        # Class Performance Overview (for this class)
+        class_performance = [{
+            'class': academic_class.Class.name,
+            'average': average_score,
+            'students': total_students
+        }]
+
+        # Subject Performance Overview
+        subject_performance = [
+            {
+                'subject': avg['assessment__subject__name'],
+                'average': avg['avg_score'],
+                'best_score': avg['best_score']
+            } for avg in subject_averages
+        ]
+
+        # Assessment Type Comparison
+        assessment_type_performance = (
+            results_qs
+            .values('assessment__assessment_type__name')
+            .annotate(avg_score=Avg('score'))
+            .order_by('-avg_score')
+        )
+
+        # Top 10 Students
+        top_students = (
+            results_qs
+            .values('student__student_name', 'student__current_class__name')
+            .annotate(average=Avg('score'))
+            .order_by('-average')[:10]
+        )
+
+        # Grade Distribution removed as requested
+
+        # Gender Performance Comparison - calculate average scores by gender
+        gender_performance = results_qs.values('student__gender').annotate(
+            avg_score=Avg('score'),
+            student_count=Count('id')
+        ).order_by('-avg_score')
+
+        gender_comparison = {}
+        for perf in gender_performance:
+            gender = perf['student__gender']
+            if gender == 'M':
+                gender_comparison['Male'] = {
+                    'average': perf['avg_score'],
+                    'count': perf['student_count']
+                }
+            elif gender == 'F':
+                gender_comparison['Female'] = {
+                    'average': perf['avg_score'],
+                    'count': perf['student_count']
+                }
+
+        # Stream comparison - optimized
+        stream_stats = students.values('stream__stream').annotate(count=Count('id')).order_by('-count')
+        stream_comparison = {stat['stream__stream'] or 'No Stream': stat['count'] for stat in stream_stats}
+
+        # Subject Difficulty Heatmap - optimized with single query
+        heatmap_data = results_qs.values('assessment__subject__name').annotate(avg_score=Avg('score')).order_by('assessment__subject__name')
+        subject_heatmap = {item['assessment__subject__name']: item['avg_score'] for item in heatmap_data}
+
+        # Performance Trends Over Terms (simplified, for this term only)
+        performance_trends = [{
+            'term': current_term,
+            'average': average_score
+        }]
+
+    # Get academic year and term names for display
+    selected_academic_year_name = ''
+    selected_term_name = ''
+    if academic_year_id:
+        try:
+            selected_academic_year_name = AcademicYear.objects.get(id=academic_year_id).academic_year
+        except AcademicYear.DoesNotExist:
+            selected_academic_year_name = ''
+    if term_id:
+        try:
+            selected_term_name = Term.objects.get(id=term_id).term
+        except Term.DoesNotExist:
+            selected_term_name = ''
 
     context = {
         'academic_years': academic_years,
@@ -1489,7 +1589,23 @@ def class_performance_summary(request):
         'selected_term': str(term_id) if term_id else '',
         'selected_class': str(class_id) if class_id else '',
         'selected_assessment_type': str(assessment_type_id) if assessment_type_id else '',
-        'academic_class_exists': academic_class_exists,  # <-- flag for template
+        'selected_academic_year_name': selected_academic_year_name,
+        'selected_term_name': selected_term_name,
+        'academic_class_exists': academic_class_exists,
+        # New dashboard data
+        'total_students': total_students,
+        'average_score': average_score,
+        'pass_rate': pass_rate,
+        'top_performer': top_performer,
+        'current_term': current_term,
+        'class_performance': class_performance,
+        'subject_performance': subject_performance,
+        'assessment_type_performance': assessment_type_performance,
+        'top_students': top_students,
+        'gender_comparison': gender_comparison,
+        'stream_comparison': stream_comparison,
+        'subject_heatmap': subject_heatmap,
+        'performance_trends': performance_trends,
     }
 
     return render(request, 'results/class_performance_summary.html', context)
@@ -1908,3 +2024,51 @@ def assessment_sheet_view(request):
         "division_counts": division_counts,
     })
     return render(request, "results/assessment_sheet.html", context)
+
+
+
+
+# Bulk Result Entry with CSV
+@login_required
+def bulk_result_entry_view(request, assessment_id=None):
+    if assessment_id:
+        assessment = get_object_or_404(Assessment, id=assessment_id)
+    else:
+        assessment = None
+
+    if request.method == "POST" and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+        assessment_id = request.POST.get('assessment_id')
+        assessment = get_object_or_404(Assessment, id=assessment_id)
+
+        # Process CSV
+        import csv
+        import io
+        data = csv_file.read().decode('utf-8')
+        reader = csv.DictReader(io.StringIO(data))
+
+        with transaction.atomic():
+            for row in reader:
+                student_reg_no = row.get('reg_no')
+                score = row.get('score')
+                try:
+                    student = Student.objects.get(reg_no=student_reg_no)
+                    Result.objects.create(
+                        assessment=assessment,
+                        student=student,
+                        score=Decimal(score)
+                    )
+                except (Student.DoesNotExist, ValueError):
+                    messages.error(request, f"Error processing row for {student_reg_no}")
+
+        messages.success(request, "Bulk results uploaded successfully!")
+        return redirect('add_results', assessment_id=assessment.id)
+
+    # Get all assessments for selection
+    assessments = Assessment.objects.all()
+    context = {
+        'assessment': assessment,
+        'assessments': assessments,
+    }
+    return render(request, 'results/bulk_result_entry.html', context)
+

@@ -2,12 +2,15 @@ from django.db import models
 from django.contrib.auth.models import User
 from decimal import Decimal
 from app.models.school_settings import SchoolSetting
+from app.models.students import Student
+from app.models.classes import AcademicClass, Term
+from app.models.subjects import Subject
 
 
 class GradingSystem(models.Model):
     min_score = models.DecimalField(max_digits=5, decimal_places=2)
     max_score = models.DecimalField(max_digits=5, decimal_places=2)
-    grade = models.CharField(max_length=2)
+    grade = models.CharField(max_length=10)
     points = models.DecimalField(max_digits=4, decimal_places=2)
 
     def __str__(self):
@@ -58,7 +61,7 @@ class Result(models.Model):
     assessment = models.ForeignKey("app.Assessment", on_delete=models.CASCADE, related_name='results')
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='results')
     score = models.DecimalField(max_digits=5, decimal_places=2)
-
+   
     def __str__(self):
         return f'{self.student} - {self.assessment} - {self.score}'
 
@@ -189,3 +192,5 @@ class AnnualResult(models.Model):
                 self.rank_in_class = index + 1
                 self.save()
                 break
+
+
