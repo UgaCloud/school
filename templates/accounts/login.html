@@ -134,9 +134,11 @@
   <div class="container">
     <!-- Top Card: School Information -->
     <div class="card school-card">
-      <div class="school-logo">
-        <img src="{{ school_settings.school_logo.url }}" alt="School Logo">
-      </div>
+      {% if school_settings.school_logo %}
+        <div class="school-logo">
+          <img src="{{ school_settings.school_logo.url }}" alt="School Logo">
+        </div>
+      {% endif %}
       <div class="school-name">{{ school_settings.school_name }}</div>
     </div>
     

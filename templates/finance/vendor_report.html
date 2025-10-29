@@ -21,7 +21,7 @@
           </li>
           <li>
             <a
-              href="?{% if selected_vendor %}vendor={{ selected_vendor }}&{% endif %}{% if start_date %}start_date={{ start_date }}&{% endif %}{% if end_date %}end_date={{ end_date }}&{% endif %}export=csv"
+              href="?{% if selected_vendor %}vendor={{ selected_vendor }}&{% endif %}{% if start_date %}start_date={{ start_date }}&{% endif %}{% if end_date %}end_date={{ end_date }}&{% endif %}{% if selected_academic_year %}academic_year={{ selected_academic_year }}&{% endif %}{% if selected_term %}term={{ selected_term }}&{% endif %}{% if show_all %}show_all=1&{% endif %}export=csv"
               title="Export to CSV">
               <i class="fa fa-file-excel-o"></i>
             </a>
@@ -57,17 +57,69 @@
                 <input type="date" name="end_date" id="end_date" class="form-control" value="{{ end_date|default:'' }}" style="margin-left: 10px;">
               </div>
 
+              <div class="form-group" style="margin-left: 20px;">
+                <label for="academic_year"><strong>Academic Year:</strong></label>
+                <select name="academic_year" id="academic_year" class="form-control" style="min-width: 180px; margin-left: 10px;">
+                  <option value="">Current</option>
+                  {% if academic_years %}
+                    {% for y in academic_years %}
+                      <option value="{{ y.id }}" {% if selected_academic_year and y.id == selected_academic_year %}selected{% endif %}>{{ y.academic_year }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-left: 20px;">
+                <label for="term"><strong>Term:</strong></label>
+                <select name="term" id="term" class="form-control" style="min-width: 140px; margin-left: 10px;">
+                  <option value="">Current</option>
+                  {% if terms %}
+                    {% for t in terms %}
+                      <option value="{{ t.id }}" {% if selected_term and t.id == selected_term %}selected{% endif %}>{{ t.term }}</option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </div>
+
+              <div class="form-group form-check" style="margin-left: 20px;">
+                <input type="checkbox" class="form-check-input" id="show_all" name="show_all" value="1" {% if show_all %}checked{% endif %}>
+                <label class="form-check-label" for="show_all">Show all terms</label>
+              </div>
+
               <button type="submit" class="btn btn-primary" style="margin-left: 20px;">
                 <i class="fa fa-refresh"></i> Apply
               </button>
 
               <a
-                href="?{% if selected_vendor %}vendor={{ selected_vendor }}&{% endif %}{% if start_date %}start_date={{ start_date }}&{% endif %}{% if end_date %}end_date={{ end_date }}&{% endif %}export=csv"
+                href="?{% if selected_vendor %}vendor={{ selected_vendor }}&{% endif %}{% if start_date %}start_date={{ start_date }}&{% endif %}{% if end_date %}end_date={{ end_date }}&{% endif %}{% if selected_academic_year %}academic_year={{ selected_academic_year }}&{% endif %}{% if selected_term %}term={{ selected_term }}&{% endif %}{% if show_all %}show_all=1&{% endif %}export=csv"
                 class="btn btn-success"
                 style="margin-left: 10px;">
                 <i class="fa fa-download"></i> Export CSV
               </a>
             </form>
+
+            <!-- Current Scope Summary -->
+            <div class="alert alert-info py-2 mt-2">
+              <strong>Scope:</strong>
+              {% if show_all %}
+                All terms
+              {% else %}
+                {% if selected_academic_year %}
+                  {% for y in academic_years %}{% if y.id == selected_academic_year %}{{ y.academic_year }}{% endif %}{% endfor %}
+                {% else %}
+                  Current Year
+                {% endif %}
+                —
+                {% if selected_term %}
+                  {% for t in terms %}{% if t.id == selected_term %}Term {{ t.term }}{% endif %}{% endfor %}
+                {% else %}
+                  Current Term
+                {% endif %}
+              {% endif %}
+              {% if start_date or end_date %}
+                — Dates: {{ start_date|default:"-" }} to {{ end_date|default:"-" }}
+              {% endif %}
+            </div>
           </div>
         </div>
 

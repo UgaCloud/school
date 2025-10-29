@@ -18,6 +18,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from io import BytesIO
+from django.utils import timezone
 
 @login_required
 def manage_bill_items_view(request):
@@ -169,7 +170,11 @@ def manage_student_bills_view(request):
 def manage_student_bill_details_view(request, id):
     context = get_student_bill_details(id)
     context["bill_item_form"] = StudentBillItemForm(initial={"bill": context["student_bill"]})
-    context["payment_form"] = PaymentForm(initial={"bill": context["student_bill"]})
+    # Pre-fill recorded_by so bursar doesn't need to type it
+    context["payment_form"] = PaymentForm(initial={
+        "bill": context["student_bill"],
+        "recorded_by": getattr(request.user, "username", "") or getattr(request.user, "get_username", lambda: "")()
+    })
     student = context["student_bill"].student
     context["academic_year"] = student.academic_year
     context["term"] = student.term
@@ -205,7 +210,14 @@ def add_student_payment_view(request, id):
         form = PaymentForm(request.POST)
         
         if form.is_valid():
-            form.save()
+            payment = form.save(commit=False)
+            # Ensure the recorder is always the current user regardless of form input
+            payment.bill = bill  # enforce bill from URL context
+            payment.recorded_by = getattr(request.user, "username", "") or getattr(request.user, "get_username", lambda: "")()
+            # Auto-generate reference_no if not provided or blank
+            if not getattr(payment, "reference_no", None) or str(payment.reference_no).strip() == "":
+                payment.reference_no = f"PMT-{bill.id}-{timezone.now().strftime('%Y%m%d%H%M%S%f')}"
+            payment.save()
             
             messages.success(request, SUCCESS_ADD_MESSAGE)
         else:

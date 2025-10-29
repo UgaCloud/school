@@ -1,4 +1,24 @@
 {% load static %}  
+  
+<style>
+  /* Limit submenu height and enable scrolling to avoid long, overflowing lists */
+  .nav.child_menu {
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  /* Improve readability and alignment */
+  .nav.child_menu > li > a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap; /* prevent awkward wrapping */
+  }
+  .nav.child_menu .nav.child_menu {
+    margin-left: 8px;
+    padding-left: 10px;
+    border-left: 2px solid #f0f2f5; /* subtle visual grouping */
+  }
+</style>
 
 <ul class="nav side-menu">
   <li><a href="{% url 'index_page' %}"><i class="fa fa-dashboard"></i> Dashboard </a>
@@ -22,11 +42,46 @@
   </li>
 
   <!--Results item-->
-  <li><a><i class="fa fa-book"></i>Results Center<span class="fa fa-chevron-down"></span></a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'add_results_page' %}">Results</a></li>
-      <li><a href="">View Results</a></li>
-    </ul>
-  </li>
+
+<!-- Results Center -->
+    <li><a href="javascript:;"><i class="fa fa-graduation-cap"></i>Results Center<span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+
+    
+
+        <!-- Operations -->
+        <li>
+          <a href="javascript:;"><i class="fa fa-edit"></i>Enter Results <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'add_results_page' %}">Enter Results</a></li>
+<!--            
+            <li><a href="">Bulk Exam Import</a></li>
+            
+            <li><a href="{% url 'add_grading_system_page' %}">Grade Adjustments</a></li> -->
+          </ul>
+        </li>
+
+        <!-- Scheduling -->
+        
+
+        <!-- Analytics & Reports -->
+        <li>
+          <a href="javascript:;"><i class="fa fa-chart-bar"></i> Analysis & Reports <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
+            <!-- <li><a href="{% url 'class_performance_summary' %}">Performance Analytics</a></li>
+              <li><a href="{% url 'class_bulk_reports' %}">Result Cards Generator</a></li> -->
+            <!-- <li><a href="{% url 'class_performance_summary' %}">Subject Analysis</a></li>
+            <li><a href="{% url 'class_performance_summary' %}">Comparison Reports</a></li> -->
+             <li><a href="{% url 'assessment_sheet' %}">Assessment Sheet</a></li>
+          </ul>
+        </li>
+
+        <!-- Tools & Utilities -->
+        
+      </ul>
+    </li>
+  </ul>
+
 </ul>
            

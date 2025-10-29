@@ -1,5 +1,25 @@
 {% load static %}
 
+<style>
+  /* Limit submenu height and enable scrolling to avoid long, overflowing lists */
+  .nav.child_menu {
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  /* Improve readability and alignment */
+  .nav.child_menu > li > a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap; /* prevent awkward wrapping */
+  }
+  .nav.child_menu .nav.child_menu {
+    margin-left: 8px;
+    padding-left: 10px;
+    border-left: 2px solid #f0f2f5; /* subtle visual grouping */
+  }
+</style>
+
 <ul class="nav side-menu">
     <li><a href="{% url 'index_page' %}"><i class="fa fa-dashboard"></i> Dashboard </a>
       
@@ -56,25 +76,116 @@
       </ul>
     </li>
   
-    <!-- Finance -->
-    <li><a><i class="fa fa-money"></i> Finance <span class="fa fa-chevron-down"></span></a>
+   <!-- Finance -->
+    <li>
+      <a href="javascript:;"><i class="fa fa-money"></i> Finance <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
-      <li><a href="#">Chart of Accounts</a></li>
-      <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
-        <li><a href="{% url 'expense_page' %}">Expenses</a></li>
-        <li><a href="{% url 'budget_page' %}">Budget</a></li>
-        <li><a href="{% url 'expenditure_page' %}">Expenditure</a></li>
-        <li><a href="{% url 'vendor_page' %}">Vendors</a></li>
+        <!-- Quick Access -->
+        <li><a href="{% url 'financial_dashboard' %}"><i class="fa fa-tachometer"></i> Financial Dashboard</a></li>
+
+          <!-- Configuration Group -->
+        <li>
+          <a href="javascript:;"><i class="fa fa-cogs"></i> Setup <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
+            <li><a href="{% url 'expense_page' %}">Expenses</a></li>
+            <li><a href="{% url 'budget_page' %}">Budget</a></li>
+            <li><a href="{% url 'vendor_page' %}">Vendors</a></li>
+          </ul>
+        </li>
+        <!-- Operations Group -->
+        <li>
+          <a href="javascript:;"><i class="fa fa-briefcase"></i> Operations <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'bank_reconciliation' %}">Bank Reconciliation</a></li>
+            <li><a href="{% url 'expenditure_page' %}">Expenditure</a></li>
+            <li><a href="{% url 'approval_workflow' %}">Approvals</a></li>
+          </ul>
+        </li>
+
+
+        <!-- Reports Group -->
+        <li>
+          <a href="javascript:;"><i class="fa fa-chart-bar"></i> Reports <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'financial_summary_report' %}">Financial Summary</a></li>
+            <li><a href="{% url 'income_statement' %}">Income Statement</a></li>
+            <li><a href="{% url 'cash_flow' %}">Cash Flow Report</a></li>
+            <li><a href="{% url 'vendor_report' %}">Vendor Payments</a></li>
+          </ul>
+        </li>
+
+        
+        <!-- Integrations Group -->
+        <li>
+          <a href="javascript:;"><i class="fa fa-plug"></i> Integrations <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'export_financial_data' %}?type=quickbooks">Export to Accounting</a></li>
+          </ul>
+        </li>
       </ul>
     </li>
   
-    <!--Results item-->
-    <li><a><i class="fa fa-book"></i>Results Center<span class="fa fa-chevron-down"></span></a>
+    <!-- Results Center -->
+    <li><a href="javascript:;"><i class="fa fa-graduation-cap"></i>Results Center<span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
-        <li><a href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
-        <li><a href="{% url 'assessment_create' %}">Assessment</a></li>
-        <li><a href="{% url 'add_results_page' %}">Results</a></li>
-        <li><a href="">View Results</a></li>
+        <!-- Quick Access -->
+        <li><a href="{% url 'class_performance_summary' %}"><i class="fa fa-tachometer"></i> Results Dashboard</a></li>
+     
+      
+
+        <!-- Configuration
+        <li>
+          <a href="javascript:;"><i class="fa fa-cogs"></i> Setup <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
+            <li><a href="{% url 'assessment_create' %}">Assessment Structure</a></li>
+            <li><a href="{% url 'add_grading_system_page' %}">Grading System</a></li>
+          
+          </ul>
+        </li> -->
+
+        <!-- Operations -->
+        <!-- <li>
+          <a href="javascript:;"><i class="fa fa-edit"></i> Data Entry <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'add_results_page' %}">Enter Results</a></li>
+           
+            <li><a href="{% url 'bulk_result_entry' %}">CSV Bulk Import</a></li>
+            
+            <li><a href="{% url 'add_grading_system_page' %}">Grade Adjustments</a></li>
+          </ul>
+        </li> -->
+
+        <!-- Scheduling -->
+        <!-- <li>
+          <a href="javascript:;"><i class="fa fa-calendar"></i> Scheduling <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'assessment_create' %}">Create Exams</a></li>
+            <li><a href="{% url 'assessment_list' %}">Exam Timetables</a></li>
+          </ul>
+        </li> -->
+
+        <!-- Analytics & Reports -->
+        <li>
+          <a href="javascript:;"><i class="fa fa-chart-bar"></i> Analysis & Reports <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
+            <li><a href="{% url 'class_performance_summary' %}">Performance Analytics</a></li>
+            <li><a href="{% url 'class_performance_summary' %}">Subject Analysis</a></li>
+            <li><a href="{% url 'class_performance_summary' %}">Comparison Reports</a></li>
+             <li><a href="{% url 'assessment_sheet' %}">Assessment Sheet</a></li>
+          </ul>
+        </li>
+
+        <!-- Tools & Utilities -->
+        <li>
+          <a href="javascript:;"><i class="fa fa-tools"></i> Tools <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'class_bulk_reports' %}">Result Cards Generator</a></li>
+          
+          </ul>
+        </li>
       </ul>
     </li>
   </ul>

@@ -3,651 +3,192 @@
 {% load get_item %}
 
 {% block content %}
-<style>
-  /* Timetable Center — Professional UI/UX (front-end only) */
-  .table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    background: #ffffff;
-    box-shadow: 0 8px 24px rgba(2, 6, 23, 0.06);
-  }
-
-  table {
-    border-collapse: separate;
-    border-spacing: 0;
-    width: 100%;
-    table-layout: fixed;
-  }
-
-  th, td {
-    border: 1px solid #e5e7eb;
-    padding: 0.5rem 0.75rem;
-    text-align: left;
-    word-wrap: break-word;
-    white-space: normal;
-    vertical-align: top;
-    background: #fff;
-  }
-
-  /* Column widths */
-  th, td { min-width: 110px; max-width: 180px; }
-
-  /* Time slot column */
-  th:first-child, td:first-child {
-    min-width: 160px;
-    max-width: 220px;
-    font-weight: 600;
-    background: #fafafa;
-  }
-
-  /* Sticky header and first column for better navigation */
-  thead th {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    background: #f3f4f6;
-    backdrop-filter: saturate(180%) blur(4px);
-  }
-  tbody td:first-child, thead th:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 6;
-  }
-
-  /* Hover rows */
-  tbody tr:hover { background-color: #f8fafc; }
-
-  /* Scrollbar styling */
-  .table-responsive::-webkit-scrollbar { height: 8px; }
-  .table-responsive::-webkit-scrollbar-thumb {
-    background-color: rgba(100, 116, 139, 0.5);
-    border-radius: 4px;
-  }
-
-  /* Buttons */
-  .btn-primary {
-    background-color: #3b82f6;
-    color: white;
-    font-weight: 600;
-    padding: 0.45rem 1rem;
-    border-radius: 0.5rem;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(59,130,246,.35);
-    transition: transform .08s ease, background-color .2s ease;
-  }
-  .btn-primary:hover { background-color: #2563eb; }
-  .btn-primary:active { transform: translateY(1px); }
-
-  /* Form elements */
-  select {
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    padding: 0.25rem 0.5rem;
-    box-shadow: 0 1px 2px rgba(0,0,0,.05);
-    transition: border-color .2s ease, box-shadow .2s ease;
-    width: 100%;
-  }
-  select:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, .25);
-  }
-
-  /* Toolbar */
-  .tt-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: space-between;
-    align-items: center;
-    margin: .5rem 0 1rem;
-  }
-  .tt-toolbar .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 6px;
-  }
-  .legend-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    border-radius: 999px;
-    font-size: .75rem;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-  }
-  .legend-dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--chip-color, #cbd5e1);
-    box-shadow: inset 0 0 0 2px #ffffff;
-  }
-  .switch { display: inline-flex; gap: 6px; align-items: center; font-size: .9rem; }
-
-  /* Cell visuals */
-  .tt-cell { position: relative; }
-  .tt-empty { color: #94a3b8; font-style: italic; }
-
-  .tt-chip {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    border: 1px solid #e5e7eb;
-    border-left: 6px solid var(--chip-color, #cbd5e1);
-    background: #f9fafb;
-    padding: 6px 8px;
-    border-radius: 10px;
-    cursor: grab;
-    user-select: none;
-  }
-  .tt-chip .line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .tt-chip .subject { font-weight: 600; font-size: .9rem; color: #111827; }
-  .tt-chip .meta { font-size: .75rem; color: #6b7280; }
-  .tt-chip .clear {
-    border: none; background: transparent; color: #9ca3af; cursor: pointer; padding: 0 4px; font-size: 1.2rem; line-height: 1;
-  }
-  .tt-chip .clear:hover { color: #ef4444; }
-
-  /* Warnings (front-end only) */
-  .tt-cell.warning { background: #fffbeb; outline: 2px dashed #f59e0b; }
-  .tt-cell.conflict { background: #fef2f2; outline: 2px solid #ef4444; }
-
-  /* Edit mode shows selects under the visual chip */
-  .tt-edit-set { display: none; margin-top: 6px; }
-  .tt-edit-mode .tt-edit-set { display: block; }
-
-  /* Compact density for power users */
-  .compact th, .compact td { padding: .35rem .5rem; }
-  .compact .tt-chip { padding: 4px 6px; border-left-width: 5px; }
-  .compact th:first-child, .compact td:first-child { min-width: 140px; }
-
-  @media (max-width: 768px) {
-    th, td { min-width: 90px; max-width: 140px; font-size: 0.875rem; }
-    th:first-child, td:first-child { min-width: 120px; max-width: 160px; }
-  }
-</style>
-
-<style>
-/* Print styles for a clean, pin-ready timetable */
-.print-only { display: none; }
-.no-print {}
-
-/* Dedicated print rules */
-@media print {
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 11pt; }
-  @page { size: A4 landscape; margin: 12mm; }
-
-  /* Hide app chrome and interactive controls */
-  .left_col, .top_nav, footer, .tt-toolbar, form[method="get"],
-  #clearAllBtn, #editModeToggle, #compactModeToggle { display: none !important; }
-
-  /* Hide inline edit controls */
-  .tt-edit-set { display: none !important; }
-
-  /* Hide any DataTables/controls if present */
-  .datatable, .dataTables_wrapper, .dt-buttons, .dataTables_filter,
-  .dataTables_length, .dataTables_paginate, .dataTables_info { display: none !important; }
-
-  /* Expand content area */
-  .right_col, .container.body .right_col { margin-left: 0 !important; width: 100% !important; }
-  .container, .right_col, .container.mx-auto { padding: 0 !important; }
-
-  /* Print header visibility */
-  .print-only { display: block !important; }
-
-  /* Table print layout: strong grid, readable density */
-  .table-responsive { overflow: visible !important; box-shadow: none !important; border: 1px solid #000; }
-  table { border-collapse: collapse !important; width: 100% !important; font-size: 10pt; }
-  thead { display: table-header-group; } /* repeat header on each page */
-  th, td { border: 1px solid #000 !important; background: #fff !important; color: #000 !important; padding: 6px 8px !important; }
-  tr, td, th { page-break-inside: avoid !important; }
-
-  /* Simplify cell visuals */
-  .tt-chip { border: none !important; border-left: 0 !important; background: transparent !important; padding: 0 !important; }
-  .tt-chip .clear { display: none !important; }
-  .tt-visual .tt-empty { display: none !important; }
-
-  /* Emphasize first column with time */
-  th:first-child, td:first-child { background: #fff !important; font-weight: 700 !important; }
-
-  /* Print header layout */
-  .print-header { margin-bottom: 8px; }
-  .print-header .ph-row { display: grid; grid-template-columns: 120px 1fr 220px; gap: 12px; align-items: center; }
-  .print-header img { max-height: 90px; max-width: 120px; object-fit: contain; }
-  .print-header .ph-name { font-size: 18pt; font-weight: 700; text-transform: uppercase; }
-  .print-header .ph-motto { font-size: 11pt; margin-top: 2px; }
-  .print-header .ph-meta { font-size: 9pt; margin-top: 4px; }
-  .print-header .ph-doc-title { font-size: 14pt; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; text-align: right; }
-
-  /* Print footer/signature area */
-  .print-footer { margin-top: 10px; }
-  .print-footer .pf-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: end; }
-  .print-footer .sig-box { height: 70px; border-bottom: 1px solid #000; margin-bottom: 4px; }
-  .print-footer .stamp-box { height: 90px; width: 140px; border: 1px dashed #000; }
-  .print-footer .label { font-size: 9pt; }
-}
-</style>
-
-<div class="container mx-auto p-6">
-  <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Timetable Center</h2>
-
-  <form method="get" class="mb-6">
-    <label class="block mb-2 text-lg font-semibold">Select Class Stream:</label>
-    <select name="class_stream_id" required onchange="this.form.submit()" class="border rounded p-2 w-full mb-4 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <option value="">-- Select Class --</option>
-      {% for class_stream in class_streams %}
-        <option value="{{ class_stream.id }}" {% if selected_class and class_stream.id == selected_class.id %}selected{% endif %}>
-          {{ class_stream }}
-        </option>
-      {% endfor %}
-    </select>
-  </form>
-
-  {% if selected_class %}
-  <div class="tt-toolbar">
-    <div class="left">
-      <div class="h6 m-0">Editing: <strong>{{ selected_class }}</strong></div>
-      <div id="subject-legend" class="legend"></div>
-    </div>
-    <div class="toolbar-right">
-      <label class="switch">
-        <input type="checkbox" id="editModeToggle">
-        <span>Edit mode</span>
-      </label>
-      <label class="switch">
-        <input type="checkbox" id="compactModeToggle">
-        <span>Compact</span>
-      </label>
-      <button type="button" class="btn-primary" id="clearAllBtn" title="Clear all selections (front-end only)">Clear all</button>
-      <button type="button" class="btn-primary" onclick="window.print()" title="Print this timetable">Print</button>
-      <form method="post" style="display:inline-block; margin-left:8px;">
-        {% csrf_token %}
-        <input type="hidden" name="class_stream_id" value="{{ selected_class.id }}">
-        <input type="hidden" name="action" value="copy_previous">
-        <button type="submit" class="btn-primary" title="Copy last term timetable into current term">Copy previous term</button>
-      </form>
-    </div>
-  </div>
-  {% endif %}
-  
-  {% if selected_class %}
-  <!-- Print-only header (clean, official layout) -->
-  <div class="print-only print-header">
-    <div class="ph-row">
-      <div class="ph-left">
-        {% if school_settings.school_logo %}
-          <img src="{{ school_settings.school_logo.url }}" alt="School logo">
-        {% endif %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-calendar"></i> Timetable Center</h2>
+        <ul class="nav navbar-right panel_toolbox">
+          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+        </ul>
+        <div class="clearfix"></div>
       </div>
-      <div class="ph-center">
-        <div class="ph-name">{{ school_settings.school_name }}</div>
-        {% if school_settings.school_motto %}
-          <div class="ph-motto">{{ school_settings.school_motto }}</div>
-        {% endif %}
-        <div class="ph-meta">
-          {% if school_settings.address %}{{ school_settings.address }}{% if school_settings.city %}, {{ school_settings.city }}{% endif %}{% elif school_settings.city %}{{ school_settings.city }}{% endif %}
-          {% if school_settings.office_phone_number1 %} | Tel: {{ school_settings.office_phone_number1 }}{% endif %}
-          {% if school_settings.email %} | Email: {{ school_settings.email }}{% endif %}
-          {% if school_settings.website %} | {{ school_settings.website }}{% endif %}
+      <div class="x_content">
+        <form method="get" class="form-horizontal form-label-left">
+          <div class="form-group">
+            <label class="control-label col-md-2 col-sm-3 col-xs-12">Select Class Stream:</label>
+            <div class="col-md-6 col-sm-6 col-xs-12">
+              <select name="class_stream_id" required onchange="this.form.submit()" class="form-control">
+                <option value="">-- Select Class --</option>
+                {% for class_stream in class_streams %}
+                <option value="{{ class_stream.id }}" {% if selected_class and class_stream.id == selected_class.id %}selected{% endif %}>{{ class_stream }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </form>
+
+        {% if selected_class %}
+        <div class="row" style="margin-bottom:10px;">
+          <div class="col-md-8 col-sm-12">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div class="checkbox" style="margin:0;">
+                <label><input type="checkbox" id="editModeToggle"> Edit mode</label>
+              </div>
+              <div class="checkbox" style="margin:0;">
+                <label><input type="checkbox" id="compactModeToggle"> Compact</label>
+              </div>
+              <div id="subject-legend" class="legend"></div>
+            </div>
+          </div>
+          <div class="col-md-4 col-sm-12 text-right">
+            <button type="button" class="btn btn-default btn-sm" id="clearAllBtn" title="Clear all selections"><i class="fa fa-eraser"></i> Clear</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="window.print()" title="Print this timetable"><i class="fa fa-print"></i> Print</button>
+            <form method="post" style="display:inline-block; margin-left:6px;">
+              {% csrf_token %}
+              <input type="hidden" name="class_stream_id" value="{{ selected_class.id }}">
+              <input type="hidden" name="action" value="copy_previous">
+              <button type="submit" class="btn btn-info btn-sm" title="Copy last term timetable into current term"><i class="fa fa-copy"></i> Copy previous</button>
+            </form>
+          </div>
         </div>
-      </div>
-      <div class="ph-right">
-        <div class="ph-doc-title">Class Timetable</div>
-        <div><strong>Class:</strong> {{ selected_class }}</div>
-        <div><strong>Year:</strong> {{ selected_class.academic_class.academic_year }}</div>
-        <div><strong>Term:</strong> {{ selected_class.academic_class.term }}</div>
-        <div><strong>Date:</strong> {% now "j F Y" %}</div>
-      </div>
-    </div>
-  </div>
 
-  <form id="timetableForm" method="post">
-    {% csrf_token %}
-    <input type="hidden" name="class_stream_id" value="{{ selected_class.id }}">
-    <input type="hidden" name="timetable_json" id="timetable_json" />
-
-    <div class="table-responsive">
-      <table class="min-w-full text-sm">
-        <thead>
-          <tr class="bg-gray-200">
-            <th>Time Slot</th>
-            {% for weekday, label in weekdays %}
-              <th>{{ label }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for slot in time_slots %}
-            <tr class="hover:bg-gray-100">
-              <td>{{ slot }}</td>
-              {% for weekday, _ in weekdays %}
-                {% with key=weekday|stringformat:"s"|add:"_"|add:slot.id|stringformat:"s" %}
+        <div class="table-responsive">
+          <form id="timetableForm" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="class_stream_id" value="{{ selected_class.id }}">
+            <input type="hidden" name="timetable_json" id="timetable_json" />
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Time Slot</th>
+                  {% for weekday, label in weekdays %}
+                  <th>{{ label }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for slot in time_slots %}
+                <tr>
+                  <td>{{ slot }}</td>
+                  {% for weekday, _ in weekdays %}
+                  {% with key=weekday|stringformat:"s"|add:"_"|add:slot.id|stringformat:"s" %}
                   <td class="tt-cell" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}">
                     {% with cell=timetable_data|get_item:weekday|get_item:slot.id %}
-
-                    <!-- Visual tile (readable, draggable) -->
                     <div class="tt-visual">
                       {% if cell %}
-                        <div class="tt-chip" draggable="true"
-                             data-subject-id="{{ cell.subject.id|default:'' }}"
-                             data-teacher-id="{{ cell.teacher.id|default:'' }}"
-                             data-classroom-id="{{ cell.classroom.id|default:'' }}">
-                          <div class="line">
-                            <span class="subject">{{ cell.subject|default:"Subject" }}</span>
-                            <button type="button" class="clear" title="Clear" onclick="clearCell(this.closest('.tt-cell'))">&times;</button>
-                          </div>
-                          <div class="meta">
-                            <i class="fa fa-user"></i> {{ cell.teacher|default:"—" }} &nbsp;&nbsp;
-                            <i class="fa fa-door-open"></i> {{ cell.classroom|default:"TBD" }}
-                          </div>
+                      <div class="tt-chip" draggable="true" data-subject-id="{{ cell.subject.id|default:'' }}" data-teacher-id="{{ cell.teacher.id|default:'' }}" data-classroom-id="{{ cell.classroom.id|default:'' }}">
+                        <div class="line">
+                          <span class="subject">{{ cell.subject|default:"Subject" }}</span>
+                          <button type="button" class="clear" title="Clear" onclick="clearCell(this.closest('.tt-cell'))">&times;</button>
                         </div>
+                        <div class="meta">
+                          <i class="fa fa-user"></i> {{ cell.teacher|default:"—" }} &nbsp;&nbsp;
+                          <i class="fa fa-building"></i> {{ cell.classroom|default:"TBD" }}
+                        </div>
+                      </div>
                       {% else %}
-                        <span class="tt-empty">Empty</span>
+                      <span class="tt-empty">Empty</span>
                       {% endif %}
                     </div>
-
-                    <!-- Edit set (kept for form submission; toggled by 'Edit mode') -->
                     <div class="tt-edit-set">
-                      <select name="{{ key }}_subject" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="mb-1 w-full tt-subject">
+                      <select name="{{ key }}_subject" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="form-control" style="margin-bottom:6px;">
                         <option value="">-- Subject --</option>
                         {% for subject in subjects %}
-                          <option value="{{ subject.id }}" {% if cell and cell.subject.id == subject.id %}selected{% endif %}>{{ subject }}</option>
+                        <option value="{{ subject.id }}" {% if cell and cell.subject.id == subject.id %}selected{% endif %}>{{ subject }}</option>
                         {% endfor %}
                       </select>
-
-                      <select name="{{ key }}_teacher" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="mb-1 w-full tt-teacher">
+                      <select name="{{ key }}_teacher" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="form-control" style="margin-bottom:6px;">
                         <option value="">-- Teacher --</option>
                         {% for teacher in teachers %}
-                          <option value="{{ teacher.id }}" {% if cell and cell.teacher.id == teacher.id %}selected{% endif %}>{{ teacher }}</option>
+                        <option value="{{ teacher.id }}" {% if cell and cell.teacher.id == teacher.id %}selected{% endif %}>{{ teacher }}</option>
                         {% endfor %}
                       </select>
-
-                      <select name="{{ key }}_classroom" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="w-full tt-room">
+                      <select name="{{ key }}_classroom" data-weekday="{{ weekday }}" data-timeslot="{{ slot.id }}" class="form-control">
                         <option value="">-- Room (optional) --</option>
                         {% for room in classrooms %}
-                          <option value="{{ room.id }}" {% if cell and cell.classroom and cell.classroom.id == room.id %}selected{% endif %}>{{ room }}</option>
+                        <option value="{{ room.id }}" {% if cell and cell.classroom and cell.classroom.id == room.id %}selected{% endif %}>{{ room }}</option>
                         {% endfor %}
                       </select>
                     </div>
                     {% endwith %}
                   </td>
-                {% endwith %}
-              {% endfor %}
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="mt-4 text-center no-print">
-      <button type="button" class="btn-primary" onclick="submitTimetable()">Save Timetable</button>
-    </div>
-
-    <!-- Print footer with signatures and stamp -->
-    <div class="print-only print-footer">
-      <div class="pf-row">
-        <div class="pf-col">
-          <div class="label">Prepared by</div>
-          <div class="sig-box">
-            {% if selected_class.class_teacher_signature %}
-              <img src="{{ selected_class.class_teacher_signature.url }}" alt="Class Teacher Signature" style="max-height:70px; max-width:240px; object-fit: contain;">
-            {% endif %}
-          </div>
-          <div><strong>{{ selected_class.class_teacher }}</strong></div>
-          <div class="label">Class Teacher</div>
-          <div class="label">Date: ____________</div>
+                  {% endwith %}
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <div class="text-center" style="margin-top:12px;">
+              <button type="button" class="btn btn-primary" onclick="submitTimetable()"><i class="fa fa-save"></i> Save Timetable</button>
+            </div>
+          </form>
         </div>
-
-        <div class="pf-col">
-          <div class="label">Approved by</div>
-          <div class="sig-box"></div>
-          <div><strong>Head Teacher</strong></div>
-          <div class="label">Date: ____________</div>
+        {% else %}
+        <div class="alert alert-info" role="alert" style="margin:0;">
+          <i class="fa fa-info-circle"></i> Select a class stream to view and edit its timetable.
         </div>
-
-        <div class="pf-col">
-          <div class="label">School Stamp</div>
-          <div class="stamp-box"></div>
-        </div>
+        {% endif %}
       </div>
     </div>
-  </form>
-  {% endif %}
+  </div>
 </div>
 
+<style>
+.legend{display:flex;flex-wrap:wrap;gap:6px;}
+.legend-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:.75rem;border:1px solid #e5e7eb;background:#fff;}
+.legend-dot{width:10px;height:10px;border-radius:50%;background:var(--chip-color,#cbd5e1);box-shadow:inset 0 0 0 2px #fff;}
+.tt-cell.warning{background:#fffbeb;outline:2px dashed #f59e0b;}
+.tt-chip{border-left:6px solid var(--chip-color,#cbd5e1);}
+.tt-empty{color:#94a3b8;font-style:italic;}
+</style>
+
 <script>
-/* Front-end enhancements only: better visuals, edit mode, compact mode, drag & drop, and basic validation (no DB writes) */
-
-function subjectColor(id) {
-  // Hash to HSL for stable, pleasant colors
-  if (!id) return '#cbd5e1';
-  let h = 0;
-  const s = 70, l = 75;
-  const str = String(id);
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
-  return `hsl(${h}, ${s}%, ${l}%)`;
-}
-
-function clearCell(td) {
-  if (!td) return;
-  td.querySelectorAll('.tt-subject, .tt-teacher, .tt-room').forEach(sel => sel.value = '');
-  renderCellPreview(td);
-  computeWarnings();
-}
-
-function renderCellPreview(td) {
-  const subjectSel = td.querySelector('.tt-subject');
-  const teacherSel = td.querySelector('.tt-teacher');
-  const roomSel = td.querySelector('.tt-room');
-  const visual = td.querySelector('.tt-visual');
-
-  const subjectId = subjectSel ? subjectSel.value : '';
-  const subjectName = subjectSel && subjectSel.selectedOptions[0] ? subjectSel.selectedOptions[0].text.trim() : '';
-  const teacherName = teacherSel && teacherSel.value ? teacherSel.selectedOptions[0].text.trim() : '';
-  const roomName = roomSel && roomSel.value ? roomSel.selectedOptions[0].text.trim() : '';
-
-  visual.innerHTML = '';
-  if (subjectId || teacherName || roomName) {
-    const chip = document.createElement('div');
-    chip.className = 'tt-chip';
-    chip.setAttribute('draggable', 'true');
-    chip.style.setProperty('--chip-color', subjectColor(subjectId));
-    chip.dataset.subjectId = subjectId || '';
-    chip.dataset.teacherId = teacherSel?.value || '';
-    chip.dataset.classroomId = roomSel?.value || '';
-
-    const top = document.createElement('div');
-    top.className = 'line';
-    const subjSpan = document.createElement('span');
-    subjSpan.className = 'subject';
-    subjSpan.textContent = subjectName || 'Subject';
-    const clearBtn = document.createElement('button');
-    clearBtn.type = 'button';
-    clearBtn.className = 'clear';
-    clearBtn.title = 'Clear';
-    clearBtn.innerHTML = '&times;';
-    clearBtn.addEventListener('click', () => clearCell(td));
-
-    top.appendChild(subjSpan);
-    top.appendChild(clearBtn);
-
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.innerHTML = `<i class="fa fa-user"></i> ${teacherName || '—'} &nbsp;&nbsp; <i class="fa fa-door-open"></i> ${roomName || 'TBD'}`;
-
-    chip.appendChild(top);
-    chip.appendChild(meta);
-
-    // Drag events
-    chip.addEventListener('dragstart', (e) => {
-      e.dataTransfer.setData('text/plain', JSON.stringify({
-        subject: subjectSel?.value || '',
-        teacher: teacherSel?.value || '',
-        classroom: roomSel?.value || '',
-      }));
-      e.dataTransfer.effectAllowed = 'move';
-      td.classList.add('drag-origin');
-    });
-    chip.addEventListener('dragend', () => {
-      td.classList.remove('drag-origin');
-    });
-
-    visual.appendChild(chip);
-  } else {
-    const empty = document.createElement('span');
-    empty.className = 'tt-empty';
-    empty.textContent = 'Empty';
-    visual.appendChild(empty);
-  }
-}
-
-function handleDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-}
-
-function handleDrop(e) {
-  e.preventDefault();
-  const td = e.currentTarget;
-  const payload = e.dataTransfer.getData('text/plain');
-  if (!payload) return;
-  let data = {};
-  try { data = JSON.parse(payload); } catch (_) { return; }
-
-  // Move: assign to target, clear source handled by origin user action (we'll clear here if origin equals target skip)
-  const subjectSel = td.querySelector('.tt-subject');
-  const teacherSel = td.querySelector('.tt-teacher');
-  const roomSel = td.querySelector('.tt-room');
-
-  if (subjectSel) subjectSel.value = data.subject || '';
-  if (teacherSel) teacherSel.value = data.teacher || '';
-  if (roomSel) roomSel.value = data.classroom || '';
-
-  renderCellPreview(td);
-  computeWarnings();
-}
-
-function computeWarnings() {
-  // Basic front-end validation: highlight cells where only one of Subject/Teacher is selected
-  document.querySelectorAll('.tt-cell').forEach(td => {
-    const subject = td.querySelector('.tt-subject')?.value || '';
-    const teacher = td.querySelector('.tt-teacher')?.value || '';
-    const room = td.querySelector('.tt-room')?.value || '';
-    const onlyOneOfPair = (subject && !teacher) || (!subject && teacher);
-    const roomButNoSubject = room && !subject;
-
-    td.classList.remove('warning');
-    if (onlyOneOfPair || roomButNoSubject) td.classList.add('warning');
-  });
-}
-
-function populateLegend() {
-  const legend = document.getElementById('subject-legend');
-  if (!legend) return;
-  legend.innerHTML = '';
-  const firstSubjectSelect = document.querySelector('.tt-subject');
-  if (!firstSubjectSelect) return;
-
-  // Unique subjects from options
-  const seen = new Set();
-  Array.from(firstSubjectSelect.options).forEach(opt => {
-    if (!opt.value) return;
-    const id = opt.value;
-    if (seen.has(id)) return;
-    seen.add(id);
-
-    const chip = document.createElement('span');
-    chip.className = 'legend-chip';
-    chip.style.setProperty('--chip-color', subjectColor(id));
-    const dot = document.createElement('span');
-    dot.className = 'legend-dot';
-    const label = document.createElement('span');
-    label.textContent = opt.text.trim();
-    chip.appendChild(dot);
-    chip.appendChild(label);
-    legend.appendChild(chip);
-  });
-}
-
-function initCells() {
-  document.querySelectorAll('.tt-cell').forEach(td => {
-    // Render initial visual based on server-filled selections
-    renderCellPreview(td);
-    // Allow dropping onto cells
-    td.addEventListener('dragover', handleDragOver);
-    td.addEventListener('drop', handleDrop);
-    // React to edits in edit mode
-    td.querySelectorAll('select').forEach(sel => {
-      sel.addEventListener('change', () => {
-        renderCellPreview(td);
-        computeWarnings();
-      });
-    });
-  });
-  computeWarnings();
-  populateLegend();
-}
-
-function toggleEditMode(enabled) {
-  const table = document.querySelector('table');
-  if (!table) return;
-  if (enabled) table.classList.add('tt-edit-mode');
-  else table.classList.remove('tt-edit-mode');
-}
-
-function toggleCompactMode(enabled) {
-  const table = document.querySelector('table');
-  if (!table) return;
-  if (enabled) table.classList.add('compact');
-  else table.classList.remove('compact');
-}
-
-function clearAllCells() {
-  document.querySelectorAll('.tt-cell').forEach(td => clearCell(td));
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  initCells();
-
-  const editToggle = document.getElementById('editModeToggle');
-  const compactToggle = document.getElementById('compactModeToggle');
-  const clearAllBtn = document.getElementById('clearAllBtn');
-
-  if (editToggle) {
-    editToggle.addEventListener('change', (e) => toggleEditMode(e.target.checked));
-    // Default: off (compact visual editing). Turn on to reveal selects.
-    toggleEditMode(editToggle.checked);
-  }
-  if (compactToggle) {
-    compactToggle.addEventListener('change', (e) => toggleCompactMode(e.target.checked));
-  }
-  if (clearAllBtn) {
-    clearAllBtn.addEventListener('click', clearAllCells);
-  }
-});
-
-function submitTimetable() {
-  // Build JSON from current selects (front-end state)
-  const data = {};
-  document.querySelectorAll('select[data-weekday]').forEach(select => {
-    const weekday = select.getAttribute('data-weekday');
-    const timeslot = select.getAttribute('data-timeslot');
-    if (!data[weekday]) data[weekday] = {};
-    if (!data[weekday][timeslot]) data[weekday][timeslot] = {};
-    const name = select.name;
-    if (name.endsWith('_subject')) data[weekday][timeslot].subject = select.value || null;
-    else if (name.endsWith('_teacher')) data[weekday][timeslot].teacher = select.value || null;
-    else if (name.endsWith('_classroom')) data[weekday][timeslot].classroom = select.value || null;
-  });
-
-  // No DB writes happen until you confirm by submitting
-  document.getElementById('timetable_json').value = JSON.stringify(data);
-  document.getElementById('timetableForm').submit();
-}
+function subjectColor(id){if(!id)return'#cbd5e1';var h=0,s=70,l=75,str=String(id);for(var i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))%360;return'hsl('+h+', '+s+'%, '+l+'%)';}
+function clearCell(td){if(!td)return;td.querySelectorAll('.tt-subject, .tt-teacher, .tt-room').forEach(function(sel){sel.value='';});renderCellPreview(td);computeWarnings();}
+function renderCellPreview(td){var subjectSel=td.querySelector('.tt-subject');var teacherSel=td.querySelector('.tt-teacher');var roomSel=td.querySelector('.tt-room');var visual=td.querySelector('.tt-visual');var subjectId=subjectSel?subjectSel.value:'';var subjectName=subjectSel&&subjectSel.selectedOptions[0]?subjectSel.selectedOptions[0].text.trim():'';var teacherName=teacherSel&&teacherSel.value?teacherSel.selectedOptions[0].text.trim():'';var roomName=roomSel&&roomSel.value?roomSel.selectedOptions[0].text.trim():'';visual.innerHTML='';if(subjectId||teacherName||roomName){var chip=document.createElement('div');chip.className='tt-chip';chip.setAttribute('draggable','true');chip.style.setProperty('--chip-color',subjectColor(subjectId));chip.dataset.subjectId=subjectId||'';chip.dataset.teacherId=(teacherSel&&teacherSel.value)||'';chip.dataset.classroomId=(roomSel&&roomSel.value)||'';var top=document.createElement('div');top.className='line';var subjSpan=document.createElement('span');subjSpan.className='subject';subjSpan.textContent=subjectName||'Subject';var clearBtn=document.createElement('button');clearBtn.type='button';clearBtn.className='clear';clearBtn.title='Clear';clearBtn.innerHTML='&times;';clearBtn.addEventListener('click',function(){clearCell(td);});top.appendChild(subjSpan);top.appendChild(clearBtn);var meta=document.createElement('div');meta.className='meta';meta.innerHTML='<i class="fa fa-user"></i> '+(teacherName||'—')+' &nbsp;&nbsp; <i class="fa fa-building"></i> '+(roomName||'TBD');chip.appendChild(top);chip.appendChild(meta);chip.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/plain',JSON.stringify({subject:(subjectSel&&subjectSel.value)||'',teacher:(teacherSel&&teacherSel.value)||'',classroom:(roomSel&&roomSel.value)||''}));e.dataTransfer.effectAllowed='move';td.classList.add('drag-origin');});chip.addEventListener('dragend',function(){td.classList.remove('drag-origin');});visual.appendChild(chip);}else{var empty=document.createElement('span');empty.className='tt-empty';empty.textContent='Empty';visual.appendChild(empty);}}
+function handleDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';}
+function handleDrop(e){e.preventDefault();var td=e.currentTarget;var payload=e.dataTransfer.getData('text/plain');if(!payload)return;var data={};try{data=JSON.parse(payload);}catch(err){return;}var subjectSel=td.querySelector('.tt-subject');var teacherSel=td.querySelector('.tt-teacher');var roomSel=td.querySelector('.tt-room');if(subjectSel)subjectSel.value=data.subject||'';if(teacherSel)teacherSel.value=data.teacher||'';if(roomSel)roomSel.value=data.classroom||'';renderCellPreview(td);computeWarnings();}
+function computeWarnings(){document.querySelectorAll('.tt-cell').forEach(function(td){var subject=(td.querySelector('.tt-subject')||{}).value||'';var teacher=(td.querySelector('.tt-teacher')||{}).value||'';var room=(td.querySelector('.tt-room')||{}).value||'';var onlyOneOfPair=(subject&&!teacher)||(!subject&&teacher);var roomButNoSubject=room&&!subject;td.classList.remove('warning');if(onlyOneOfPair||roomButNoSubject)td.classList.add('warning');});}
+function populateLegend(){var legend=document.getElementById('subject-legend');if(!legend)return;legend.innerHTML='';var first=document.querySelector('.tt-subject');if(!first)return;var seen={};Array.prototype.forEach.call(first.options,function(opt){if(!opt.value)return;var id=opt.value;if(seen[id])return;seen[id]=true;var chip=document.createElement('span');chip.className='legend-chip';chip.style.setProperty('--chip-color',subjectColor(id));var dot=document.createElement('span');dot.className='legend-dot';var label=document.createElement('span');label.textContent=(opt.text||'').trim();chip.appendChild(dot);chip.appendChild(label);legend.appendChild(chip);});}
+function initCells(){document.querySelectorAll('.tt-cell').forEach(function(td){renderCellPreview(td);td.addEventListener('dragover',handleDragOver);td.addEventListener('drop',handleDrop);td.querySelectorAll('select').forEach(function(sel){sel.addEventListener('change',function(){renderCellPreview(td);computeWarnings();});});});computeWarnings();populateLegend();}
+function toggleEditMode(enabled){var table=document.querySelector('table');if(!table)return;if(enabled)table.classList.add('tt-edit-mode');else table.classList.remove('tt-edit-mode');}
+function toggleCompactMode(enabled){var table=document.querySelector('table');if(!table)return;if(enabled)table.classList.add('compact');else table.classList.remove('compact');}
+function clearAllCells(){document.querySelectorAll('.tt-cell').forEach(function(td){clearCell(td);});}
+document.addEventListener('DOMContentLoaded',function(){initCells();var editToggle=document.getElementById('editModeToggle');var compactToggle=document.getElementById('compactModeToggle');var clearAllBtn=document.getElementById('clearAllBtn');if(editToggle){editToggle.addEventListener('change',function(e){toggleEditMode(e.target.checked);});toggleEditMode(editToggle.checked);}if(compactToggle){compactToggle.addEventListener('change',function(e){toggleCompactMode(e.target.checked);});}if(clearAllBtn){clearAllBtn.addEventListener('click',clearAllCells);}});
+function submitTimetable(){var data={};document.querySelectorAll('select[data-weekday]').forEach(function(select){var weekday=select.getAttribute('data-weekday');var timeslot=select.getAttribute('data-timeslot');if(!data[weekday])data[weekday]={};if(!data[weekday][timeslot])data[weekday][timeslot]={};var name=select.name||'';if(name.indexOf('_subject',name.length-8)!==-1)data[weekday][timeslot].subject=select.value||null;else if(name.indexOf('_teacher',name.length-8)!==-1)data[weekday][timeslot].teacher=select.value||null;else if(name.indexOf('_classroom',name.length-10)!==-1)data[weekday][timeslot].classroom=select.value||null;});document.getElementById('timetable_json').value=JSON.stringify(data);document.getElementById('timetableForm').submit();}
 </script>
 
+<style>
+  @media screen {
+    body.force-nav-md.nav-sm .left_col { width: 230px !important; }
+    body.force-nav-md.nav-sm .right_col { margin-left: 230px !important; }
+    body.force-nav-md.nav-sm .navbar.nav_title { width: 230px !important; }
+    body.force-nav-md.nav-sm .sidebar-footer { width: 230px !important; }
+  }
+</style>
+<script>
+(function () {
+  var KEY = 'sidebar_collapsed';
+  function enforceWideSidebar() {
+    try {
+      var b = document.body;
+      if (!b) return;
+      b.classList.add('force-nav-md');
+      b.classList.remove('nav-sm');
+      b.classList.add('nav-md');
+      localStorage.setItem(KEY, '0');
+    } catch (e) {}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', enforceWideSidebar);
+  } else {
+    enforceWideSidebar();
+  }
+  setTimeout(enforceWideSidebar, 0);
+  setTimeout(enforceWideSidebar, 50);
+  setTimeout(enforceWideSidebar, 300);
+  window.addEventListener('resize', function () { setTimeout(enforceWideSidebar, 0); });
+})();
+</script>
 {% endblock %}

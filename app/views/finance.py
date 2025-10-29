@@ -16,10 +16,39 @@ from datetime import timedelta
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, F, DecimalField, Value
+from django.db.models import Sum, F, DecimalField, Value, Q
 from django.db.models.functions import TruncMonth, Coalesce
 from django.shortcuts import get_object_or_404
 from app.models.staffs import Staff
+
+def _get_current_year_and_term():
+    """
+    Helper: returns (current_year, current_term) where term is bound to the current year when available.
+    """
+    current_year = AcademicYear.objects.filter(is_current=True).first()
+    current_term = Term.objects.filter(is_current=True, academic_year=current_year).first() if current_year else Term.objects.filter(is_current=True).first()
+    return current_year, current_term
+
+def _parse_date_any(value):
+    """
+    Accepts 'YYYY-MM-DD' (HTML date inputs) and common 'DD/MM/YYYY' or 'MM/DD/YYYY' forms.
+    Returns a date or None.
+    """
+    if not value:
+        return None
+    d = parse_date(value)
+    if d:
+        return d
+    try:
+        from datetime import datetime
+        for fmt in ("%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%m-%d-%Y"):
+            try:
+                return datetime.strptime(value, fmt).date()
+            except ValueError:
+                continue
+    except Exception:
+        pass
+    return None
 
 @login_required
 def manage_income_sources(request):
@@ -138,24 +167,161 @@ def delete_expense(request, id):
 @login_required
 def manage_expenditures(request):
     form = finance_forms.ExpenditureForm()
-    # Optional server-side filters without altering data
+
+    # Filters
     start_date = request.GET.get('start_date') or ''
     end_date = request.GET.get('end_date') or ''
-    expenditures_qs = Expenditure.objects.all().order_by('-date_incurred', '-id')
-    if start_date:
-        expenditures_qs = expenditures_qs.filter(date_incurred__gte=start_date)
-    if end_date:
-        expenditures_qs = expenditures_qs.filter(date_incurred__lte=end_date)
+    academic_year_id = request.GET.get('academic_year')
+    term_id = request.GET.get('term')
+    show_all = (request.GET.get('show_all') == '1') or (request.GET.get('all') == '1')
+    include_unassigned = (request.GET.get('include_unassigned') == '1')
+    ignore_scope = (request.GET.get('ignore_scope') == '1')
+    # Date basis: incurred (date_incurred) or recorded (date_recorded)
+    date_field = (request.GET.get('date_field') or 'incurred').lower()
+    if date_field not in ('incurred', 'recorded'):
+        date_field = 'incurred'
+    date_field_db = 'date_incurred' if date_field == 'incurred' else 'date_recorded'
 
-    expenditures = expenditures_qs
+    # Determine scope year/term
+    current_year, current_term = _get_current_year_and_term()
+    scope_year = None
+    scope_term = None
+    if not show_all:
+        if academic_year_id and term_id:
+            scope_year = AcademicYear.objects.filter(id=academic_year_id).first()
+            scope_term = Term.objects.filter(id=term_id, academic_year=scope_year).first() if scope_year else None
+        else:
+            scope_year, scope_term = current_year, current_term
+
+    # Parse dates from query (support YYYY-MM-DD and DD/MM/YYYY, MM/DD/YYYY)
+    start_date_obj = _parse_date_any(start_date)
+    end_date_obj = _parse_date_any(end_date)
+
+    # Default to scoped term's date range if not provided
+    if not (start_date_obj and end_date_obj) and scope_term:
+        start_date_obj = start_date_obj or scope_term.start_date
+        end_date_obj = end_date_obj or scope_term.end_date
+
+    # Normalize for template inputs
+    start_date = start_date_obj.isoformat() if start_date_obj else ''
+    end_date = end_date_obj.isoformat() if end_date_obj else ''
+
+    # Base queryset with optional scoping
+    expenditures_qs = Expenditure.objects.all()
+    if scope_year and scope_term and not ignore_scope:
+        scope_cond = Q(
+            budget_item__budget__academic_year=scope_year,
+            budget_item__budget__term=scope_term
+        )
+        if include_unassigned:
+            scope_cond = scope_cond | Q(budget_item__isnull=True)
+        expenditures_qs = expenditures_qs.filter(scope_cond)
+
+    # Apply date filters if provided (UI may hide date pickers; server still supports query params)
+    if start_date_obj:
+        expenditures_qs = expenditures_qs.filter(**{f"{date_field_db}__gte": start_date_obj})
+    if end_date_obj:
+        expenditures_qs = expenditures_qs.filter(**{f"{date_field_db}__lte": end_date_obj})
+
+    # Optimize relations for listing/export
+    expenditures_qs = expenditures_qs.select_related('vendor', 'budget_item__department', 'budget_item__expense')
+
+    expenditures = expenditures_qs.order_by('-date_incurred', '-id')
     edit_forms = {expenditure.id: finance_forms.ExpenditureForm(instance=expenditure) for expenditure in expenditures}
+
+    # Export CSV for current scope
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        parts = ['expenditures']
+        try:
+            if scope_year:
+                parts.append(f"year_{getattr(scope_year, 'id', scope_year)}")
+            if scope_term:
+                parts.append(f"term_{getattr(scope_term, 'id', scope_term)}")
+        except Exception:
+            pass
+        fname = "_".join([str(p) for p in parts if p]) or "expenditures"
+        response['Content-Disposition'] = f'attachment; filename="{fname}.csv"'
+        writer = csv.writer(response)
+
+        writer.writerow(['Expenditures'])
+        writer.writerow(['Academic Year ID', getattr(scope_year, 'id', '') if scope_year else ('ALL' if show_all else '')])
+        writer.writerow(['Term ID', getattr(scope_term, 'id', '') if scope_term else ('ALL' if show_all else '')])
+        writer.writerow([])
+
+        # Header
+        writer.writerow([
+            'ID',
+            'Date Incurred',
+            'Date Recorded',
+            'Vendor',
+            'Department',
+            'Expense',
+            'Budget Item',
+            'Description',
+            'Amount',
+            'VAT',
+            'Payment Status',
+            'Approved By'
+        ])
+
+        for e in expenditures:
+            dept = e.budget_item.department if getattr(e, 'budget_item', None) else ''
+            expn = e.budget_item.expense if getattr(e, 'budget_item', None) else ''
+            bi = e.budget_item if getattr(e, 'budget_item', None) else ''
+            writer.writerow([
+                e.id,
+                e.date_incurred,
+                e.date_recorded,
+                e.vendor.name if e.vendor else '',
+                str(dept) if dept else '',
+                str(expn) if expn else '',
+                str(bi) if bi else '',
+                e.description,
+                e.amount,
+                e.vat,
+                e.payment_status,
+                e.approved_by or ''
+            ])
+
+        return response
+
+    # Counts to help users diagnose empty results
+    in_scope_count = expenditures.count()
+    date_window_qs = Expenditure.objects.all()
+    if start_date_obj:
+        date_window_qs = date_window_qs.filter(**{f"{date_field_db}__gte": start_date_obj})
+    if end_date_obj:
+        date_window_qs = date_window_qs.filter(**{f"{date_field_db}__lte": end_date_obj})
+    total_in_date_count = date_window_qs.count()
+    out_of_scope_count = max(total_in_date_count - in_scope_count, 0)
+    scope_applied = bool(scope_year and scope_term) and not show_all
+
+    # Lists for filter UI
+    academic_years = get_all_model_records(AcademicYear)
+    terms = Term.objects.filter(academic_year=scope_year) if scope_year else get_all_model_records(Term)
+
+    # Extra diagnostics
+    unassigned_in_date_count = date_window_qs.filter(budget_item__isnull=True).count()
     
     context = {
         "expenditures": expenditures,
         "form": form,
         "edit_forms": edit_forms,
         "start_date": start_date,
-        "end_date": end_date
+        "end_date": end_date,
+        "used_active_term_default": not (request.GET.get('start_date') or request.GET.get('end_date')),
+        "academic_years": academic_years,
+        "terms": terms,
+        "selected_academic_year": int(academic_year_id) if academic_year_id else (current_year.id if current_year else None),
+        "selected_term": int(term_id) if term_id else (current_term.id if current_term else None),
+        "show_all": show_all,
+        "include_unassigned": include_unassigned,
+        "date_field": date_field,
+        # diagnostics for empty result sets
+        "out_of_scope_count": out_of_scope_count,
+        "unassigned_in_date_count": unassigned_in_date_count,
+        "scope_applied": scope_applied,
     }
     return render(request, "finance/expenditures.html", context)
 
@@ -203,13 +369,27 @@ def delete_expenditure(request, id):
 @login_required
 def manage_expenditure_items(request, id):
     expenditure = get_model_record(Expenditure, id)
-    form = finance_forms.ExpenditureItemForm(initial={"expenditure":expenditure})
+    form = finance_forms.ExpenditureItemForm(initial={"expenditure": expenditure})
     expenditure_items = finance_selector.get_expenditure_items(expenditure)
+
+    # Lock editing when the parent expenditure does not belong to the active term
+    current_year, current_term = _get_current_year_and_term()
+    belongs_to_active = False
+    try:
+        budget = expenditure.budget_item.budget if expenditure and expenditure.budget_item else None
+        if budget and current_year and current_term:
+            belongs_to_active = (
+                budget.academic_year_id == current_year.id and
+                budget.term_id == current_term.id
+            )
+    except Exception:
+        belongs_to_active = False
     
     context = {
         "expenditure_items": expenditure_items,
         "form": form,
-        "expenditure": expenditure
+        "expenditure": expenditure,
+        "editing_locked": not belongs_to_active
     }
     return render(request, "finance/expenditure_items.html", context)
 
@@ -218,34 +398,81 @@ def add_expenditure_item(request):
     if request.method == "POST":
         form = finance_forms.ExpenditureItemForm(request.POST)
         expenditure_id = request.POST["expenditure"]
-        if form.is_valid():
+
+        # Enforce active-term scope for parent expenditure
+        exp = get_model_record(Expenditure, expenditure_id)
+        current_year, current_term = _get_current_year_and_term()
+        allowed = False
+        try:
+            budget = exp.budget_item.budget if exp and exp.budget_item else None
+            if budget and current_year and current_term:
+                allowed = (
+                    budget.academic_year_id == current_year.id and
+                    budget.term_id == current_term.id
+                )
+        except Exception:
+            allowed = False
+
+        if not allowed:
+            messages.error(request, "Cannot add items to an expenditure outside the active term.")
+        elif form.is_valid():
             form.save()
-            
             messages.success(request, SUCCESS_ADD_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
-    
-    return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
+
+        return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
+    return HttpResponsePermanentRedirect(reverse(manage_expenditures))
 
 @login_required
 def edit_expenditure_items(request, id):
     expenditure_item = get_model_record(ExpenditureItem, id)
     if request.method == "POST":
         form = finance_forms.ExpenditureItemForm(request.POST, instance=expenditure_item)
-        if form.is_valid():
+
+        # Enforce active-term scope for parent expenditure
+        exp = expenditure_item.expenditure
+        current_year, current_term = _get_current_year_and_term()
+        allowed = False
+        try:
+            budget = exp.budget_item.budget if exp and exp.budget_item else None
+            if budget and current_year and current_term:
+                allowed = (
+                    budget.academic_year_id == current_year.id and
+                    budget.term_id == current_term.id
+                )
+        except Exception:
+            allowed = False
+
+        if not allowed:
+            messages.error(request, "Cannot edit items for an expenditure outside the active term.")
+        elif form.is_valid():
             form.save()
             messages.success(request, SUCCESS_ADD_MESSAGE)
         else:
             messages.error(request, FAILURE_MESSAGE)
 
-        
-        expenditure_id = expenditure_item.expenditure.id  
+        expenditure_id = expenditure_item.expenditure.id
         return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
 
     form = finance_forms.ExpenditureItemForm(instance=expenditure_item)
+    # Determine if editing is allowed for this item based on active term
+    current_year, current_term = _get_current_year_and_term()
+    allowed = False
+    try:
+        exp = expenditure_item.expenditure
+        budget = exp.budget_item.budget if exp and exp.budget_item else None
+        if budget and current_year and current_term:
+            allowed = (
+                budget.academic_year_id == current_year.id and
+                budget.term_id == current_term.id
+            )
+    except Exception:
+        allowed = False
     context = {
         "form": form,
-        "expenditure_item": expenditure_item
+        "expenditure_item": expenditure_item,
+        "editing_locked": not allowed
     }
     return render(request, "finance/edit_expenditure_item.html", context)
 
@@ -255,9 +482,26 @@ def delete_expenditure_item(request, id):
     expenditure_item = get_model_record(ExpenditureItem, id)
     expenditure_id = expenditure_item.expenditure.id if getattr(expenditure_item, "expenditure", None) else None
 
-    # Delete then redirect back to the parent expenditure items page
-    expenditure_item.delete()
-    messages.success(request, DELETE_MESSAGE)
+    # Enforce active-term scope for deletion
+    allowed = False
+    try:
+        exp = expenditure_item.expenditure
+        current_year, current_term = _get_current_year_and_term()
+        budget = exp.budget_item.budget if exp and exp.budget_item else None
+        if budget and current_year and current_term:
+            allowed = (
+                budget.academic_year_id == current_year.id and
+                budget.term_id == current_term.id
+            )
+    except Exception:
+        allowed = False
+
+    if not allowed:
+        messages.error(request, "Cannot delete items for an expenditure outside the active term.")
+    else:
+        # Delete then redirect back to the parent expenditure items page
+        expenditure_item.delete()
+        messages.success(request, DELETE_MESSAGE)
 
     if expenditure_id:
         return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
@@ -325,11 +569,18 @@ def delete_vendor(request, id):
 @login_required
 def manage_budgets(request):
     form = finance_forms.BudgetForm()
-    budgets = get_all_model_records(Budget)
+    # By default show only the active term's budget; allow ?all=1 to show all
+    show_all = request.GET.get('all') == '1' or request.GET.get('show_all') == '1'
+    if show_all:
+        budgets = get_all_model_records(Budget)
+    else:
+        current_year, current_term = _get_current_year_and_term()
+        budgets = Budget.objects.filter(academic_year=current_year, term=current_term) if (current_year and current_term) else Budget.objects.none()
     
     context = {
         "budgets": budgets,
-        "form": form
+        "form": form,
+        "show_all": show_all
     }
     return render(request, "finance/budgets.html", context)
 
@@ -870,13 +1121,43 @@ def vendor_payments_report(request):
     start_date = parse_date(start_date_str) if start_date_str else None
     end_date = parse_date(end_date_str) if end_date_str else None
 
+    # Optional Year/Term overrides + Show All
+    academic_year_id = request.GET.get('academic_year')
+    term_id = request.GET.get('term')
+    show_all = (request.GET.get('show_all') == '1') or (request.GET.get('all') == '1')
+
+    current_year, current_term = _get_current_year_and_term()
+    scope_year = None
+    scope_term = None
+    if not show_all:
+        if academic_year_id and term_id:
+            scope_year = AcademicYear.objects.filter(id=academic_year_id).first()
+            scope_term = Term.objects.filter(id=term_id, academic_year=scope_year).first() if scope_year else None
+        else:
+            scope_year, scope_term = current_year, current_term
+
+    # Default to scoped term dates if none provided
+    if not (start_date and end_date) and scope_term:
+        start_date = start_date or scope_term.start_date
+        end_date = end_date or scope_term.end_date
+        start_date_str = start_date.isoformat()
+        end_date_str = end_date.isoformat()
+
     vendors = get_all_model_records(Vendor)
 
     expenditures_qs = (
         Expenditure.objects.select_related('vendor', 'budget_item__department', 'budget_item__expense')
         .filter(vendor__isnull=False)
-        .order_by('-date_incurred', '-id')
     )
+
+    # Restrict to selected/active term unless show_all
+    if scope_year and scope_term:
+        expenditures_qs = expenditures_qs.filter(
+            budget_item__budget__academic_year=scope_year,
+            budget_item__budget__term=scope_term,
+        )
+
+    expenditures_qs = expenditures_qs.order_by('-date_incurred', '-id')
 
     if vendor_id:
         expenditures_qs = expenditures_qs.filter(vendor_id=vendor_id)
@@ -922,6 +1203,10 @@ def vendor_payments_report(request):
             filename_parts.append(f"from_{start_date_str}")
         if end_date_str:
             filename_parts.append(f"to_{end_date_str}")
+        if scope_year:
+            filename_parts.append(f"year_{scope_year.id}")
+        if scope_term:
+            filename_parts.append(f"term_{scope_term.id}")
         fname = "_".join(filename_parts) if filename_parts else "vendor_payments"
         response['Content-Disposition'] = f'attachment; filename="{fname}.csv"'
         writer = csv.writer(response)
@@ -950,6 +1235,10 @@ def vendor_payments_report(request):
             ])
         return response
 
+    # Lists for filter UI
+    academic_years = get_all_model_records(AcademicYear)
+    terms = Term.objects.filter(academic_year=scope_year) if scope_year else get_all_model_records(Term)
+
     context = {
         'vendors': vendors,
         'selected_vendor': int(vendor_id) if vendor_id else None,
@@ -958,6 +1247,11 @@ def vendor_payments_report(request):
         'summary': summary,
         'breakdown': breakdown,
         'total_spent': total_spent,
+        'academic_years': academic_years,
+        'terms': terms,
+        'selected_academic_year': int(academic_year_id) if academic_year_id else (current_year.id if current_year else None),
+        'selected_term': int(term_id) if term_id else (current_term.id if current_term else None),
+        'show_all': show_all,
     }
     return render(request, 'finance/vendor_report.html', context)
 
@@ -1339,23 +1633,66 @@ def bank_reconciliation_view(request):
     bank_accounts = BankAccount.objects.all()
     statements = BankStatement.objects.select_related('bank_account').order_by('-statement_date')
 
-    # Get unreconciled bank transactions
+    # Optional Year/Term overrides + Show All
+    academic_year_id = request.GET.get('academic_year')
+    term_id = request.GET.get('term')
+    show_all = (request.GET.get('show_all') == '1') or (request.GET.get('all') == '1')
+
+    current_year, current_term = _get_current_year_and_term()
+    scope_year = None
+    scope_term = None
+    if not show_all:
+        if academic_year_id and term_id:
+            scope_year = AcademicYear.objects.filter(id=academic_year_id).first()
+            scope_term = Term.objects.filter(id=term_id, academic_year=scope_year).first() if scope_year else None
+        else:
+            scope_year, scope_term = current_year, current_term
+
+    # Get unreconciled bank transactions with optional term window
     unreconciled_transactions = BankTransaction.objects.filter(
         reconciled=False
-    ).select_related('bank_statement__bank_account').order_by('-transaction_date')
+    ).select_related('bank_statement__bank_account')
+
+    if scope_term:
+        unreconciled_transactions = unreconciled_transactions.filter(
+            transaction_date__gte=scope_term.start_date,
+            transaction_date__lte=scope_term.end_date
+        )
+
+    unreconciled_transactions = unreconciled_transactions.order_by('-transaction_date')
 
     # Get unmatched payments for reconciliation (exclude payments already reconciled by any bank transaction)
     unmatched_payments = Payment.objects.exclude(
         id__in=BankTransaction.objects.filter(
             reconciled=True, reconciled_with__isnull=False
         ).values_list('reconciled_with_id', flat=True)
-    ).order_by('-payment_date')
+    )
+
+    # Scope unmatched payments to selected/active year/term and date window
+    if scope_year and scope_term:
+        unmatched_payments = unmatched_payments.filter(
+            bill__academic_class__academic_year=scope_year,
+            bill__academic_class__term=scope_term,
+            payment_date__gte=scope_term.start_date,
+            payment_date__lte=scope_term.end_date
+        )
+
+    unmatched_payments = unmatched_payments.order_by('-payment_date')
+
+    # Lists for filter UI
+    academic_years = get_all_model_records(AcademicYear)
+    terms = Term.objects.filter(academic_year=scope_year) if scope_year else get_all_model_records(Term)
 
     context = {
         'bank_accounts': bank_accounts,
         'statements': statements,
         'unreconciled_transactions': unreconciled_transactions,
         'unmatched_payments': unmatched_payments,
+        'academic_years': academic_years,
+        'terms': terms,
+        'selected_academic_year': int(academic_year_id) if academic_year_id else (current_year.id if current_year else None),
+        'selected_term': int(term_id) if term_id else (current_term.id if current_term else None),
+        'show_all': show_all,
     }
     return render(request, 'finance/bank_reconciliation.html', context)
 

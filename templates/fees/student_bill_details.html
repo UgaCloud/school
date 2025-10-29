@@ -145,7 +145,7 @@
                 <div class="col-md-6">
                     <h2>Billed Items</h2>
                 </div>
-                {% if request.user.staff_account.role.name == "Bursar" %}
+                {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
                     <div class="col-md-6">
                         <div id="add-bill-item" class="pull-right" style="margin-top: 5px;">
                             <a class="btn btn-success" data-toggle="modal" data-target=".bill-item-modal-lg">
@@ -188,7 +188,7 @@
                 </ul>
                 <div class="tab-content">
                     <div role="tabpanel" class="tab-pane active" id="tab_content1" aria-labelledby="home-tab">
-                        {% if request.user.staff_account.role.name == "Bursar" %}
+                        {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
                             <div class="mb-3">
                                 <a class="btn btn-success" data-toggle="modal" data-target=".payment-modal-lg">
                                     <i class="fa fa-plus"></i> Record New Payment
