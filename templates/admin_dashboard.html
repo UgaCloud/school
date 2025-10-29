@@ -150,13 +150,13 @@
 
         <!-- Operations -->
         <li>
-          <a href="javascript:;"><i class="fa fa-edit"></i>Enter Results <span class="fa fa-chevron-down"></span></a>
+          <a href="javascript:;"><i class="fa fa-edit"></i> Data Entry <span class="fa fa-chevron-down"></span></a>
           <ul class="nav child_menu">
             <li><a href="{% url 'add_results_page' %}">Enter Results</a></li>
-<!--            
-            <li><a href="">Bulk Exam Import</a></li>
+           
+            <li><a href="{% url 'bulk_result_entry' %}">CSV Bulk Import</a></li>
             
-            <li><a href="{% url 'add_grading_system_page' %}">Grade Adjustments</a></li> -->
+            <li><a href="{% url 'add_grading_system_page' %}">Grade Adjustments</a></li>
           </ul>
         </li>
 
@@ -165,7 +165,7 @@
           <a href="javascript:;"><i class="fa fa-calendar"></i> Scheduling <span class="fa fa-chevron-down"></span></a>
           <ul class="nav child_menu">
             <li><a href="{% url 'assessment_create' %}">Create Exams</a></li>
-            <li><a href="">Exam Timetables</a></li>
+            <li><a href="{% url 'assessment_list' %}">Exam Timetables</a></li>
           </ul>
         </li>
 
@@ -175,15 +175,20 @@
           <ul class="nav child_menu">
             <li><a href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
             <li><a href="{% url 'class_performance_summary' %}">Performance Analytics</a></li>
-              <li><a href="{% url 'class_bulk_reports' %}">Result Cards Generator</a></li>
-            <!-- <li><a href="{% url 'class_performance_summary' %}">Subject Analysis</a></li>
-            <li><a href="{% url 'class_performance_summary' %}">Comparison Reports</a></li> -->
+            <li><a href="{% url 'class_performance_summary' %}">Subject Analysis</a></li>
+             <li><a href="{% url 'class_assessment_combined' %}">Combined Assessments</a></li>
              <li><a href="{% url 'assessment_sheet' %}">Assessment Sheet</a></li>
           </ul>
         </li>
 
         <!-- Tools & Utilities -->
-        
+        <li>
+          <a href="javascript:;"><i class="fa fa-tools"></i> Tools <span class="fa fa-chevron-down"></span></a>
+          <ul class="nav child_menu">
+            <li><a href="{% url 'class_bulk_reports' %}">Result Cards Generator</a></li>
+          
+          </ul>
+        </li>
       </ul>
     </li>
   </ul>

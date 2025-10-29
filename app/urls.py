@@ -177,6 +177,8 @@ path('finance/export/', export_financial_data_view, name="export_financial_data"
     path('add_grading_system/', grading_system_view, name='add_grading_system_page'),
     path('edit_grading_system/<int:id>/', edit_grading_system_view, name="edit_grading_system"),
     path('delete_grading_system/<int:id>/', delete_grading_system_view, name="delete_grading_system"),
+    path('bulk_result_entry/', bulk_result_entry_view, name='bulk_result_entry'),
+    path('bulk_result_entry/<int:assessment_id>/', bulk_result_entry_view, name='bulk_result_entry'),
     path('add_results/',add_results_view,name="add_results_page"),
     path('add_results/<int:assessment_id>/', add_results_view, name='add_results'),
     path('edit_results/<int:assessment_id>/<int:student_id>/edit_results/', edit_results_view, name='edit_results_view'),
@@ -193,9 +195,10 @@ path('finance/export/', export_financial_data_view, name="export_financial_data"
     path('class/bulk-reports/assessment-type/', class_assessment_type_bulk_reports, name='class_assessment_type_bulk_reports'),
     path('class-performance-summary/', class_performance_summary, name='class_performance_summary'),
     path('assessment-sheet/', assessment_sheet_view, name='assessment_sheet'),
+    path('class/combined-assessments/', class_assessment_combined_view, name='class_assessment_combined'),
+    path('class/combined-assessments/print/', class_assessment_combined_print, name='class_assessment_combined_print'),
     
     
-
 
 
 
