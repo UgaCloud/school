@@ -296,7 +296,11 @@
                         {% for at in rep.assessment_types %}
                             {% with data=item.assessments|get_item:at.name %}
                                 <td>{{ data.score|floatformat:0|default:"-" }}</td>
-                                <td>{{ data.points|floatformat:0|default:"-" }}</td>
+                                {% if item.subject|contains:"READING" or item.subject|contains:"RELIGIOUS EDUCATION" or item.subject|contains:"RELIGIOUSEDUCATION" %}
+                                    <td>-</td>
+                                {% else %}
+                                    <td>{{ data.points|floatformat:0|default:"-" }}</td>
+                                {% endif %}
                             {% endwith %}
                         {% endfor %}
                         <td>
