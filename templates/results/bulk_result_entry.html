@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bulk Result Entry{% endblock %}
+
+{% block content %}
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+      {{ message }}
+    </div>
+  {% endfor %}
+{% endif %}
+
+<div class="page-title">
+    <div class="title_left">
+        <h3><i class="fa fa-upload"></i> Bulk Result Entry</h3>
+    </div>
+</div>
+
+<div class="clearfix"></div>
+
+<div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+
+        <!-- Upload Form -->
+        <div class="x_panel">
+            <div class="x_title">
+                <h2>Upload CSV File for {{ assessment.subject.name }} - {{ assessment.assessment_type.name }}</h2>
+                <div class="clearfix"></div>
+            </div>
+
+            <div class="x_content">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {% if not assessment %}
+                    <div class="form-group">
+                        <label for="assessment_id">Select Assessment</label>
+                        <select name="assessment_id" id="assessment_id" class="form-control" required>
+                            <option value="">-- Select Assessment --</option>
+                            {% for assessment in assessments %}
+                                <option value="{{ assessment.id }}">{{ assessment.subject.name }} - {{ assessment.assessment_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="form-group">
+                        <label for="csv_file">Select CSV File</label>
+                        <input type="file" name="csv_file" id="csv_file" class="form-control" accept=".csv" required>
+                        <small class="form-text text-muted">
+                            CSV should have columns: reg_no, score
+                        </small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload and Process</button>
+                    {% if assessment %}
+                    <a href="{% url 'add_results' assessment.id %}" class="btn btn-secondary">Back to Manual Entry</a>
+                    {% else %}
+                    <a href="{% url 'class_assessment_list' %}" class="btn btn-secondary">Back to Assessments</a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="x_panel">
+            <div class="x_title">
+                <h2>CSV Format Instructions</h2>
+                <div class="clearfix"></div>
+            </div>
+            <div class="x_content">
+                <p>Your CSV file should contain the following columns:</p>
+                <ul>
+                    <li><strong>reg_no:</strong> Student registration number</li>
+                    <li><strong>score:</strong> Student score (numeric value)</li>
+                </ul>
+                <p>Example:</p>
+                <pre>
+reg_no,score
+REG001,85.5
+REG002,92.0
+REG003,78.3
+                </pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

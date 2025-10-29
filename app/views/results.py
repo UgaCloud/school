@@ -1303,10 +1303,7 @@ def class_bulk_reports(request):
 
 @login_required
 def class_assessment_type_bulk_reports(request):
-    """
-    Bulk-print/preview assessment-type reports for all students in a class.
-    Query params: academic_year_id, term_id, class_id, assessment_type_id
-    """
+   
     academic_year_id = request.GET.get('academic_year_id')
     term_id = request.GET.get('term_id')
     class_id = request.GET.get('class_id')
@@ -1496,27 +1493,34 @@ def class_performance_summary(request):
 
         # Class Performance Overview (for this class)
         class_performance = [{
-            'class': academic_class.Class.name,
-            'average': average_score,
-            'students': total_students
+            'class': str(academic_class.Class.name),
+            'average': float(average_score or 0),
+            'students': int(total_students or 0)
         }]
 
         # Subject Performance Overview
         subject_performance = [
             {
                 'subject': avg['assessment__subject__name'],
-                'average': avg['avg_score'],
-                'best_score': avg['best_score']
+                'average': float(avg['avg_score'] or 0),
+                'best_score': float(avg['best_score'] or 0),
             } for avg in subject_averages
         ]
 
         # Assessment Type Comparison
-        assessment_type_performance = (
+        assessment_type_performance = list(
             results_qs
             .values('assessment__assessment_type__name')
             .annotate(avg_score=Avg('score'))
             .order_by('-avg_score')
         )
+        assessment_type_performance = [
+            {
+                'assessment__assessment_type__name': a['assessment__assessment_type__name'],
+                'avg_score': float(a['avg_score'] or 0),
+            }
+            for a in assessment_type_performance
+        ]
 
         # Top 10 Students
         top_students = (
@@ -1526,7 +1530,6 @@ def class_performance_summary(request):
             .order_by('-average')[:10]
         )
 
-        # Grade Distribution removed as requested
 
         # Gender Performance Comparison - calculate average scores by gender
         gender_performance = results_qs.values('student__gender').annotate(
@@ -1539,13 +1542,13 @@ def class_performance_summary(request):
             gender = perf['student__gender']
             if gender == 'M':
                 gender_comparison['Male'] = {
-                    'average': perf['avg_score'],
-                    'count': perf['student_count']
+                    'average': float(perf['avg_score'] or 0),
+                    'count': int(perf['student_count'] or 0)
                 }
             elif gender == 'F':
                 gender_comparison['Female'] = {
-                    'average': perf['avg_score'],
-                    'count': perf['student_count']
+                    'average': float(perf['avg_score'] or 0),
+                    'count': int(perf['student_count'] or 0)
                 }
 
         # Stream comparison - optimized
@@ -1559,7 +1562,7 @@ def class_performance_summary(request):
         # Performance Trends Over Terms (simplified, for this term only)
         performance_trends = [{
             'term': current_term,
-            'average': average_score
+            'average': float(average_score or 0)
         }]
 
     # Get academic year and term names for display
@@ -1623,7 +1626,7 @@ def assessment_sheet_view(request):
         return "READING" in text or "RELIGIOUSEDUCATION" in text
 
     def get_division(aggregates):
-        """Determine division based on total aggregates (adjust thresholds as per your policy)."""
+        """Determine division based on total aggregates"""
         if aggregates <= 12:
             return 1
         elif aggregates <= 23:
@@ -1686,6 +1689,12 @@ def assessment_sheet_view(request):
         return redirect("student_performance_view")
 
     term_obj = get_object_or_404(Term, id=selected_term_id)
+    # Ensure an assessment type is selected by default (remove "All Assessments" mode)
+    if not selected_assessment_type_id:
+        default_at = AssessmentType.objects.filter(name__iexact="BEGINNING OF TERM").first()
+        if not default_at:
+            default_at = AssessmentType.objects.order_by('name').first()
+        selected_assessment_type_id = str(default_at.id) if default_at else None
     assessment_type = get_object_or_404(AssessmentType, id=selected_assessment_type_id) if selected_assessment_type_id else None
 
     # Order assessment types
@@ -1766,13 +1775,55 @@ def assessment_sheet_view(request):
                 unique_subjects.append(subj_key)
                 seen_subjects.add(subj_key)
 
-            score = r.actual_score  # Use the weighted score from Result model
-            points = r.points       # Use points from GradingSystem via Result model
-            grade = r.grade         # Use grade from GradingSystem via Result model
+            # Displayed score uses weighted actual_score
+            score = r.actual_score
+
+            # Robust points resolution:
+            # 1) Try model property (GradingSystem)
+            # 2) Try selector helper get_grade_and_points using RAW score
+            # 3) Final fallback to hard-coded scale
+            raw_score = r.score
+            points = None
+            try:
+                pval = r.points
+                points = float(pval) if pval is not None else None
+            except Exception:
+                points = None
+
+            if points is None or points == 0.0:
+                try:
+                    g, p = get_grade_and_points(Decimal(str(raw_score)))
+                    points = float(p) if p is not None else None
+                except Exception:
+                    points = None
+
+            if points is None or points <= 0:
+                try:
+                    s = float(raw_score)
+                    if s >= 80:
+                        points = 1.0
+                    elif s >= 75:
+                        points = 2.0
+                    elif s >= 70:
+                        points = 3.0
+                    elif s >= 65:
+                        points = 4.0
+                    elif s >= 60:
+                        points = 5.0
+                    elif s >= 55:
+                        points = 6.0
+                    elif s >= 50:
+                        points = 7.0
+                    elif s >= 40:
+                        points = 8.0
+                    else:
+                        points = 9.0
+                except Exception:
+                    points = 0.0
 
             subjects_payload[subj_key] = {
                 "score": int(score) if score is not None else 0,
-                "agg": float(points) if points is not None else 0,
+                "agg": points,
             }
 
             # Map subject teacher using stream-specific allocation if available
@@ -1803,7 +1854,7 @@ def assessment_sheet_view(request):
 
             if not is_excluded_subject(subj_name, subj_desc):
                 total_marks_sum += Decimal(str(score)) if score is not None else Decimal("0")
-                total_aggregates_sum += float(points) if points is not None else 0
+                total_aggregates_sum += float(points) if points is not None else 0.0
 
         student_record = {
             "name": student.student_name,
@@ -1839,9 +1890,6 @@ def assessment_sheet_view(request):
         division = student["division"]
         if division in division_counts:
             division_counts[division] += 1
-        else:
-            print(f"Unexpected division value: {division} for student {student['name']}")
-    print(f"Final division counts: {division_counts}")
 
     # Compute PASS PERCENTAGE (>= 70%) per subject
     subject_pass_percentage = {}
@@ -1875,59 +1923,156 @@ def assessment_sheet_view(request):
                 ids_from_names = list(subject_name_to_ids.get(subj, set()))
                 combined_ids = list({*ids_from_results, *ids_from_names})
 
-                # If still empty, try to resolve subject ids by direct lookup
+                # If still empty, try to resolve subject ids by direct lookup (name/description)
                 if not combined_ids:
                     direct_ids = list(
                         Subject.objects.filter(name__iexact=subj).values_list("id", flat=True)
                     )
                     if not direct_ids:
                         direct_ids = list(
-                            Subject.objects.filter(name__icontains=subj).values_list("id", flat=True)
+                            Subject.objects.filter(
+                                Q(name__icontains=subj) | Q(description__icontains=subj)
+                            ).values_list("id", flat=True)
                         )
                     combined_ids = direct_ids
 
-                if combined_ids:
-                    fallback_allocs = ClassSubjectAllocation.objects.filter(
-                        academic_class_stream__academic_class__id__in=class_ids,
-                        academic_class_stream__academic_class__term_id=selected_term_id,
-                        subject_id__in=combined_ids
-                    ).select_related("subject_teacher")
-                else:
-                    fallback_allocs = ClassSubjectAllocation.objects.filter(
-                        academic_class_stream__academic_class__id__in=class_ids,
-                        academic_class_stream__academic_class__term_id=selected_term_id,
-                        subject__name__iexact=subj
-                    ).select_related("subject_teacher")
+                # Reusable base queryset
+                qs_base = ClassSubjectAllocation.objects.select_related(
+                    "subject_teacher", "subject", "academic_class_stream__academic_class"
+                )
 
-                for alloc in fallback_allocs:
-                    tname = f"Tr. {alloc.subject_teacher.first_name} {alloc.subject_teacher.last_name}".strip()
-                    if tname:
-                        names.add(tname)
+                def add_names(qs):
+                    for alloc in qs:
+                        tname = f"Tr. {alloc.subject_teacher.first_name} {alloc.subject_teacher.last_name}".strip()
+                        if tname:
+                            names.add(tname)
+
+                # 1) Same grade + selected term
+                if combined_ids:
+                    qs = qs_base.filter(
+                        academic_class_stream__academic_class__id__in=class_ids,
+                        academic_class_stream__academic_class__term_id=selected_term_id,
+                        subject_id__in=combined_ids,
+                    )
+                else:
+                    qs = qs_base.filter(
+                        academic_class_stream__academic_class__id__in=class_ids,
+                        academic_class_stream__academic_class__term_id=selected_term_id,
+                    ).filter(
+                        Q(subject__name__iexact=subj)
+                        | Q(subject__name__icontains=subj)
+                        | Q(subject__description__icontains=subj)
+                    )
+                add_names(qs)
+
+                # 2) Same grade, any term in current academic year
+                if not names:
+                    if combined_ids:
+                        qs = qs_base.filter(
+                            academic_class_stream__academic_class__id__in=class_ids,
+                            subject_id__in=combined_ids,
+                        )
+                    else:
+                        qs = qs_base.filter(
+                            academic_class_stream__academic_class__id__in=class_ids,
+                        ).filter(
+                            Q(subject__name__iexact=subj)
+                            | Q(subject__name__icontains=subj)
+                            | Q(subject__description__icontains=subj)
+                        )
+                    add_names(qs)
+
+                # 3) Any grade in current academic year, selected term
+                if not names:
+                    if combined_ids:
+                        qs = qs_base.filter(
+                            academic_class_stream__academic_class__academic_year=current_academic_year,
+                            academic_class_stream__academic_class__term_id=selected_term_id,
+                            subject_id__in=combined_ids,
+                        )
+                    else:
+                        qs = qs_base.filter(
+                            academic_class_stream__academic_class__academic_year=current_academic_year,
+                            academic_class_stream__academic_class__term_id=selected_term_id,
+                        ).filter(
+                            Q(subject__name__iexact=subj)
+                            | Q(subject__name__icontains=subj)
+                            | Q(subject__description__icontains=subj)
+                        )
+                    add_names(qs)
+
+                # 4) Any grade in current academic year, any term
+                if not names:
+                    if combined_ids:
+                        qs = qs_base.filter(
+                            academic_class_stream__academic_class__academic_year=current_academic_year,
+                            subject_id__in=combined_ids,
+                        )
+                    else:
+                        qs = qs_base.filter(
+                            academic_class_stream__academic_class__academic_year=current_academic_year,
+                        ).filter(
+                            Q(subject__name__iexact=subj)
+                            | Q(subject__name__icontains=subj)
+                            | Q(subject__description__icontains=subj)
+                        )
+                    add_names(qs)
+
+                # 5) Global fallback by subject name anywhere
+                if not names:
+                    qs = qs_base.filter(
+                        Q(subject__name__iexact=subj)
+                        | Q(subject__name__icontains=subj)
+                        | Q(subject__description__icontains=subj)
+                    )
+                    add_names(qs)
+
             except Exception:
                 # If anything goes wrong, keep placeholder and continue
                 pass
 
-            # Secondary fallback: partial match on subject name/description (e.g., 'SCIENCE' -> 'PRIMARY SCIENCE')
-            if not names:
-                try:
-                    fallback_allocs2 = (
-                        ClassSubjectAllocation.objects.filter(
-                            academic_class_stream__academic_class__id__in=class_ids,
-                            academic_class_stream__academic_class__term_id=selected_term_id
-                        )
-                        .filter(Q(subject__name__icontains=subj) | Q(subject__description__icontains=subj))
-                        .select_related("subject_teacher")
-                    )
-                    for alloc in fallback_allocs2:
-                        tname = f"Tr. {alloc.subject_teacher.first_name} {alloc.subject_teacher.last_name}".strip()
-                        if tname:
-                            names.add(tname)
-                except Exception:
-                    pass
-
         subject_teachers[subj] = ", ".join(sorted(names)) if names else "Tr. [Teacher Name]"
-    # Handle PDF export
-    if request.GET.get('export') == 'pdf':
+    # Handle export
+    export_fmt = request.GET.get('export')
+    if export_fmt == 'csv':
+        # Build CSV export of the main table
+        import csv
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Headers
+        headers = ["NO", "NAME"]
+        for subject in unique_subjects:
+            headers.extend([subject, "AGG"])
+        headers.extend(["T.T MARKS", "T.T AGG", "DIV"])
+        writer.writerow(headers)
+
+        # Rows
+        for i, student in enumerate(students_data, 1):
+            row = [str(i), (student.get('name') or '').title()]
+            for subject in unique_subjects:
+                subj_data = (student.get('subjects') or {}).get(subject, {}) or {}
+                score = subj_data.get('score', '-')
+                agg = subj_data.get('agg', '-')
+                row.extend([score, agg])
+            row.extend([
+                student.get('total_marks', '-'),
+                student.get('total_aggregates', '-'),
+                student.get('division', '-'),
+            ])
+            writer.writerow(row)
+
+        csv_content = output.getvalue()
+        output.close()
+
+        school_name_text = request.session.get('school_name', 'Bayan Learning Center')
+        filename = f'{school_name_text}_{term_obj.term}_{selected_grade}_Assessment.csv'.replace(' ', '_')
+        response = HttpResponse(csv_content, content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    elif export_fmt == 'pdf':
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         elements = []
@@ -1956,7 +2101,7 @@ def assessment_sheet_view(request):
 
         # Header right block
         title_text = f"ASSESSMENT SHEET"
-        subtitle_text = f"{(assessment_type.name if assessment_type else 'All Assessments').upper()} | TERM: {term_obj.term.upper()}"
+        subtitle_text = f"{(assessment_type.name if assessment_type else '-').upper()} | TERM: {term_obj.term.upper()}"
         class_text = f"CLASS {selected_grade} | CLASSTEACHER: {class_teacher}"
 
         title_para = Paragraph(f"<para align='center'><b>{school_name_text}</b></para>", styles['Title'])
@@ -1983,13 +2128,21 @@ def assessment_sheet_view(request):
         elements.append(header_table)
         elements.append(Spacer(1, 12))
 
-        # Prepare table data with explicit column headers
-        table_headers = ["NO", "NAME"]
+        # Prepare table with two-tier header to allow long subject names to wrap
+        top_header = ["NO", "NAME"]
         for subject in unique_subjects:
-            table_headers.extend([subject, "AGG"])
-        table_headers.extend(["T.T MARKS", "T.T AGG", "DIV"])
+            # Use Paragraph with smaller font so long names wrap across both subject columns
+            subj_para = Paragraph(f'<para align="center"><b><font size="8">{subject}</font></b></para>', styles["Normal"])
+            top_header.extend([subj_para, ""])
+        top_header.extend(["T.T MARKS", "T.T AGG", "DIV"])
 
-        table_data = [table_headers]
+        # Second header row shows column labels for the two subject columns
+        sub_header = ["", ""]
+        for _ in unique_subjects:
+            sub_header.extend(["MARKS", "AGG"])
+        sub_header.extend(["", "", ""])
+
+        table_data = [top_header, sub_header]
         for i, student in enumerate(students_data, 1):
             row = [str(i), student['name'].title()]
             for subject in unique_subjects:
@@ -2000,32 +2153,86 @@ def assessment_sheet_view(request):
             row.extend([str(student['total_marks']), str(student['total_aggregates']), student['division']])
             table_data.append(row)
 
-        # Create table with adjusted column widths and improved styling
-        table = Table(table_data, colWidths=[30, 150] + [55, 40] * len(unique_subjects) + [70, 70, 40])
+        # Dynamic, responsive column widths based on longest word in each subject label
+        page_w, _ = landscape(letter)
+        available_w = page_w - 36 - 36  # left/right margins used in SimpleDocTemplate
+
+        # Fixed columns
+        no_w = 30
+        name_w = 150
+        tt_marks_w = 70
+        tt_agg_w = 70
+        div_w = 40
+        fixed_w = no_w + name_w + tt_marks_w + tt_agg_w + div_w
+        subjects_area_w = max(120.0, available_w - fixed_w)
+
+        # Compute pair widths proportional to longest word length; enforce sensible minimums
+        pair_raw = []
+        for s in unique_subjects:
+            text = str(s or "")
+            words = [w for w in text.split(" ") if w]
+            longest = max((len(w) for w in words), default=len(text))
+            est_pair_width = max(80.0, longest * 6.5)  # approx points required at small header font
+            pair_raw.append(est_pair_width)
+
+        total_raw = sum(pair_raw) if pair_raw else 0.0
+        scale = (subjects_area_w / total_raw) if total_raw and total_raw > subjects_area_w else 1.0
+        pair_final = [(w * scale) for w in pair_raw] if pair_raw else []
+
+        # Split each pair into MARKS and AGG columns (MARKS ~60%, AGG ~40%) with hard mins
+        dynamic_subject_colwidths = []
+        for w in pair_final:
+            marks_w = max(35.0, w * 0.60)
+            agg_w = max(25.0, w - marks_w)
+            dynamic_subject_colwidths.extend([marks_w, agg_w])
+
+        col_widths = [no_w, name_w] + dynamic_subject_colwidths + [tt_marks_w, tt_agg_w, div_w]
+        table = Table(table_data, colWidths=col_widths)
         table.setStyle(TableStyle([
-            # Header
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            # Header rows (apply to both the top and second header rows)
+            ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (-1, 1), colors.white),
+            ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 1), 8),
+            ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, 1), 6),
 
             # Body
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor('#f7f7f7')]),
+            ('ROWBACKGROUNDS', (0, 2), (-1, -1), [colors.whitesmoke, colors.HexColor('#f7f7f7')]),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('ALIGN', (0, 1), (0, -1), 'CENTER'),          # NO
-            ('ALIGN', (1, 1), (1, -1), 'LEFT'),            # NAME
-            ('ALIGN', (2, 1), (-1, -1), 'CENTER'),         # Others
+            ('FONTNAME', (0, 2), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 2), (-1, -1), 8),
+            ('ALIGN', (0, 2), (0, -1), 'CENTER'),          # NO
+            ('ALIGN', (1, 2), (1, -1), 'LEFT'),            # NAME
+            ('ALIGN', (2, 2), (-1, -1), 'CENTER'),         # Others
             ('LEFTPADDING', (0, 0), (-1, -1), 4),
             ('RIGHTPADDING', (0, 0), (-1, -1), 4),
             ('TOPPADDING', (0, 0), (-1, -1), 3),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
 
-            # Repeat header on new pages
-            ('REPEATROWS', (0, 0), (-1, 0)),
+            # Repeat both header rows on new pages
+            ('REPEATROWS', (0, 0), (-1, 1)),
+        ]))
+
+        # Span "NO" and "NAME" vertically across both header rows
+        table.setStyle(TableStyle([
+            ('SPAN', (0, 0), (0, 1)),
+            ('SPAN', (1, 0), (1, 1)),
+        ]))
+
+        # Span each subject label across its two columns in the first header row
+        subj_count = len(unique_subjects)
+        for j in range(subj_count):
+            start_col = 2 + (j * 2)
+            table.setStyle(TableStyle([('SPAN', (start_col, 0), (start_col + 1, 0))]))
+
+        # Span the final totals columns across both header rows
+        last_start = 2 + (subj_count * 2)
+        table.setStyle(TableStyle([
+            ('SPAN', (last_start + 0, 0), (last_start + 0, 1)),  # T.T MARKS
+            ('SPAN', (last_start + 1, 0), (last_start + 1, 1)),  # T.T AGG
+            ('SPAN', (last_start + 2, 0), (last_start + 2, 1)),  # DIV
         ]))
 
         # Add main table
@@ -2123,7 +2330,7 @@ def assessment_sheet_view(request):
         "selected_grade": selected_grade,
         "assessment_types": assessment_types,
         "selected_assessment_type_id": selected_assessment_type_id,
-        "selected_assessment_type_name": (assessment_type.name if assessment_type else "All Assessments"),
+        "selected_assessment_type_name": (assessment_type.name if assessment_type else "-"),
         "subject_teachers": subject_teachers,
         "colspan": colspan,
         "show_selection": False,
@@ -2329,16 +2536,7 @@ def class_assessment_combined_view(request):
 
 @login_required
 def class_assessment_combined_print(request):
-    """
-    Print-ready combined assessments report for all students in a class,
-    using a report-card layout similar to the existing student term report.
-
-    Query params (GET):
-      - academic_year_id: int
-      - term_id: int
-      - class_id: int
-      - assessment_type_ids: multiple values or comma-separated list of assessment type ids
-    """
+  
     def to_int(val):
         try:
             return int(val)
@@ -2573,3 +2771,238 @@ def class_assessment_combined_print(request):
         'reports': reports,
     }
     return render(request, 'results/combined_assessments_print.html', context)
+
+@login_required
+def results_overview_dashboard(request):
+   
+    def to_int(val):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return None
+
+    selected_year_id = to_int(request.GET.get('academic_year_id'))
+    selected_term_id = to_int(request.GET.get('term_id'))
+    selected_class_id = to_int(request.GET.get('class_id'))
+ 
+    # Defaults to current AY and current Term
+    if not selected_year_id:
+        current_year = AcademicYear.objects.filter(is_current=True).first()
+        if current_year:
+            selected_year_id = current_year.id
+    if selected_year_id and not selected_term_id:
+        current_term = Term.objects.filter(academic_year_id=selected_year_id, is_current=True).first()
+        if current_term:
+            selected_term_id = current_term.id
+ 
+    # Scope academic classes for selected year/term (used for cross-joins)
+    class_scope = AcademicClass.objects.all()
+    if selected_year_id:
+        class_scope = class_scope.filter(academic_year_id=selected_year_id)
+    if selected_term_id:
+        class_scope = class_scope.filter(term_id=selected_term_id)
+    if selected_class_id:
+        class_scope = class_scope.filter(Class_id=selected_class_id)
+ 
+    # Main results queryset for analytics
+    results_qs = Result.objects.select_related(
+        'student',
+        'assessment__subject',
+        'assessment__assessment_type',
+        'assessment__academic_class__term',
+        'assessment__academic_class__academic_year',
+        'assessment__academic_class__Class',
+    )
+    if selected_year_id:
+        results_qs = results_qs.filter(assessment__academic_class__academic_year_id=selected_year_id)
+    if selected_term_id:
+        results_qs = results_qs.filter(assessment__academic_class__term_id=selected_term_id)
+    if selected_class_id:
+        results_qs = results_qs.filter(assessment__academic_class__Class_id=selected_class_id)
+
+    total_results = results_qs.count()
+
+    # KPIs
+    # Students counted via ClassRegister for the scoped classes (avoids counting alumni or outside-year students)
+    try:
+        class_ids = list(class_scope.values_list('id', flat=True))
+        total_students_scoped = Student.objects.filter(
+            id__in=ClassRegister.objects.filter(
+                academic_class_stream__academic_class_id__in=class_ids
+            ).values_list('student_id', flat=True)
+        ).distinct().count() if class_ids else Student.objects.count()
+    except Exception:
+        total_students_scoped = Student.objects.count()
+
+    average_score_school = results_qs.aggregate(avg=Avg('score'))['avg'] or 0
+    pass_rate_school = (results_qs.filter(score__gte=70).count() / total_results * 100) if total_results else 0
+    total_assessments = Assessment.objects.filter(academic_class_id__in=class_scope.values('id')).count()
+    total_classes = class_scope.values('Class_id').distinct().count()
+    total_subjects = Subject.objects.filter(
+        assessments__academic_class_id__in=class_scope.values('id')
+    ).distinct().count()
+    latest_assessment = Assessment.objects.filter(
+        academic_class_id__in=class_scope.values('id')
+    ).order_by('-date', '-id').first()
+    latest_assessment_date = latest_assessment.date if latest_assessment else None
+
+    # Leaderboards and distributions
+    top_students = list(
+        results_qs.values('student__student_name', 'student__current_class__name')
+        .annotate(average=Avg('score'))
+        .order_by('-average')[:10]
+    )
+    bottom_students = list(
+        results_qs.values('student__student_name', 'student__current_class__name')
+        .annotate(average=Avg('score'))
+        .order_by('average')[:10]
+    )
+
+    subject_performance_qs = (
+        results_qs.values('assessment__subject__name')
+        .annotate(avg=Avg('score'), count=Count('id'))
+        .order_by('-avg')
+    )
+    subject_performance = [
+        {
+            'assessment__subject__name': row['assessment__subject__name'],
+            'avg': float(row['avg'] or 0),
+            'count': int(row['count'] or 0),
+        }
+        for row in subject_performance_qs
+    ]
+    class_league_qs = (
+        results_qs.values('assessment__academic_class__Class__name')
+        .annotate(avg=Avg('score'), count=Count('id'))
+        .order_by('-avg')
+    )
+    class_league = [
+        {
+            'assessment__academic_class__Class__name': row['assessment__academic_class__Class__name'],
+            'avg': float(row['avg'] or 0),
+            'count': int(row['count'] or 0),
+        }
+        for row in class_league_qs
+    ]
+    assessment_type_mix_qs = (
+        results_qs.values('assessment__assessment_type__name')
+        .annotate(avg=Avg('score'), count=Count('id'))
+        .order_by('-avg')
+    )
+    assessment_type_mix = [
+        {
+            'assessment__assessment_type__name': row['assessment__assessment_type__name'],
+            'avg': float(row['avg'] or 0),
+            'count': int(row['count'] or 0),
+        }
+        for row in assessment_type_mix_qs
+    ]
+
+    # Top performer per class (highest average per class)
+    class_student_avgs = (
+        results_qs
+        .values('assessment__academic_class__Class__name', 'student__student_name')
+        .annotate(avg=Avg('score'))
+        .order_by('assessment__academic_class__Class__name', '-avg')
+    )
+    top_by_class = {}
+    for row in class_student_avgs:
+        cname = row.get('assessment__academic_class__Class__name') or 'Unknown'
+        if cname not in top_by_class:
+            top_by_class[cname] = {
+                'student': row.get('student__student_name') or '-',
+                'average': float(row.get('avg') or 0.0),
+            }
+    class_top_performers = [
+        {'class': cls, 'student': data['student'], 'average': data['average']}
+        for cls, data in top_by_class.items()
+    ]
+ 
+    # Streams via class registers (accurate for AY/Term scope)
+    try:
+        stream_stats_qs = ClassRegister.objects.filter(
+            academic_class_stream__academic_class_id__in=class_scope.values('id')
+        ).values('academic_class_stream__stream__stream').annotate(count=Count('id')).order_by('-count')
+        stream_comparison = {row['academic_class_stream__stream__stream'] or 'No Stream': row['count'] for row in stream_stats_qs}
+    except Exception:
+        stream_comparison = {}
+
+    # Gender averages
+    gender_raw = results_qs.values('student__gender').annotate(
+        avg_score=Avg('score'),
+        student_count=Count('student', distinct=True)
+    )
+    gender_comparison = {}
+    for g in gender_raw:
+        if g['student__gender'] == 'M':
+            gender_comparison['Male'] = {
+                'average': float(g['avg_score'] or 0),
+                'count': int(g['student_count'] or 0)
+            }
+        elif g['student__gender'] == 'F':
+            gender_comparison['Female'] = {
+                'average': float(g['avg_score'] or 0),
+                'count': int(g['student_count'] or 0)
+            }
+
+    # Trends across terms in the selected year
+    performance_trends = []
+    if selected_year_id:
+        for t in Term.objects.filter(academic_year_id=selected_year_id).order_by('start_date'):
+            term_avg = results_qs.filter(assessment__academic_class__term_id=t.id).aggregate(avg=Avg('score'))['avg'] or 0
+            performance_trends.append({'term': t.term, 'average': term_avg})
+
+    # Subject difficulty heatmap (same as subject performance but keyed for table)
+    subject_heatmap = {row['assessment__subject__name']: row['avg'] for row in subject_performance}
+
+    # Selected labels
+    selected_academic_year_name = ''
+    selected_term_name = ''
+    if selected_year_id:
+        try:
+            selected_academic_year_name = AcademicYear.objects.get(id=selected_year_id).academic_year
+        except AcademicYear.DoesNotExist:
+            selected_academic_year_name = ''
+    if selected_term_id:
+        try:
+            selected_term_name = Term.objects.get(id=selected_term_id).term
+        except Term.DoesNotExist:
+            selected_term_name = ''
+
+    context = {
+        # Filters and labels
+        'academic_years': AcademicYear.objects.all().order_by('-id'),
+        'terms': Term.objects.filter(academic_year_id=selected_year_id).order_by('start_date') if selected_year_id else Term.objects.none(),
+        'classes': Class.objects.all().order_by('name'),
+        'selected_academic_year': str(selected_year_id or ''),
+        'selected_term': str(selected_term_id or ''),
+        'selected_class': str(selected_class_id or ''),
+        'selected_academic_year_name': selected_academic_year_name,
+        'selected_term_name': selected_term_name,
+ 
+        # KPIs
+        'kpi': {
+            'total_students': total_students_scoped,
+            'average_score_school': average_score_school,
+            'pass_rate_school': pass_rate_school,
+            'total_assessments': total_assessments,
+            'total_classes': total_classes,
+            'total_subjects': total_subjects,
+            'latest_assessment_date': latest_assessment_date,
+        },
+ 
+        # Cards and tables
+        'top_students': top_students,
+        'bottom_students': bottom_students,
+        'subject_performance': subject_performance,
+        'class_league': class_league,
+        'assessment_type_mix': assessment_type_mix,
+        'class_top_performers': class_top_performers,
+ 
+        # Charts
+        'stream_comparison': stream_comparison,
+        'gender_comparison': gender_comparison,
+        'performance_trends': performance_trends,
+        'subject_heatmap': subject_heatmap,
+    }
+    return render(request, 'results/school_results_dashboard.html', context)

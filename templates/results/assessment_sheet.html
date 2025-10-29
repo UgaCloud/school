@@ -200,7 +200,13 @@
 <div class="table-container">
     <div class="header-info">
         <h2>{{ school_name|default:"Bayan Learning Center" }}</h2>
-        <h3>ASSESSMENT SHEET FOR {{ selected_assessment_type_name|upper|default:"ALL ASSESSMENTS" }} EXAMINATIONS</h3>
+        <h3>
+            {% if selected_assessment_type_name %}
+                ASSESSMENT SHEET FOR {{ selected_assessment_type_name|upper }} EXAMINATIONS
+            {% else %}
+                ASSESSMENT SHEET
+            {% endif %}
+        </h3>
         <p>CLASS {{ selected_grade|default:"Grade Two" }} | CLASSTEACHER: {{ class_teacher|default:"Tr. Nalujja Halimah" }} | TERM: {{ term|default:"-" }}</p>
     </div>
 
@@ -244,8 +250,7 @@
         </div>
         <div>
             <label for="assessment_type_id">Assessment Type:</label>
-            <select name="assessment_type_id" id="assessment_type_id" onchange="this.form.submit()">
-                <option value="">All Assessments</option>
+            <select name="assessment_type_id" id="assessment_type_id" onchange="this.form.submit()" required>
                 {% for assessment_type in assessment_types %}
                     <option value="{{ assessment_type.id }}" {% if assessment_type.id|stringformat:"s" == selected_assessment_type_id %}selected{% endif %}>
                         {{ assessment_type.name }}
@@ -263,6 +268,13 @@
             <input type="hidden" name="assessment_type_id" value="{{ selected_assessment_type_id }}">
             <input type="hidden" name="export" value="pdf">
             <button type="submit" class="export-btn">Export to PDF</button>
+        </form>
+        <form method="GET" action="">
+            <input type="hidden" name="grade" value="{{ selected_grade }}">
+            <input type="hidden" name="term_id" value="{{ selected_term_id }}">
+            <input type="hidden" name="assessment_type_id" value="{{ selected_assessment_type_id }}">
+            <input type="hidden" name="export" value="csv">
+            <button type="submit" class="export-btn" style="background:#059669">Export to CSV</button>
         </form>
     </div>
 
@@ -286,11 +298,11 @@
                 <td>{{ forloop.counter }}</td>
                 <td>{{ student.name|title|default:"-" }}</td>
                 {% for subject in subjects %}
-                    <td>{{ student.subjects|get_item:subject|get_item:"score"|default:"-" }}</td>
-                    <td>{{ student.subjects|get_item:subject|get_item:"agg"|default:"-" }}</td>
+                    <td>{{ student.subjects|get_item:subject|get_item:"score"|default_if_none:"-" }}</td>
+                    <td>{{ student.subjects|get_item:subject|get_item:"agg"|default_if_none:"-"|floatformat:0 }}</td>
                 {% endfor %}
-                <td>{{ student.total_marks|default:"-" }}</td>
-                <td>{{ student.total_aggregates|default:"-" }}</td>
+                <td>{{ student.total_marks|default_if_none:"-" }}</td>
+                <td>{{ student.total_aggregates|default_if_none:"-"|floatformat:0 }}</td>
                 <td>{{ student.division|default:"-" }}</td>
             </tr>
             {% empty %}

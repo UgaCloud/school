@@ -194,6 +194,7 @@ path('finance/export/', export_financial_data_view, name="export_financial_data"
     # Bulk mini-reports per assessment type for a whole class
     path('class/bulk-reports/assessment-type/', class_assessment_type_bulk_reports, name='class_assessment_type_bulk_reports'),
     path('class-performance-summary/', class_performance_summary, name='class_performance_summary'),
+    path('results/overview/', results_overview_dashboard, name='school_results_dashboard'),
     path('assessment-sheet/', assessment_sheet_view, name='assessment_sheet'),
     path('class/combined-assessments/', class_assessment_combined_view, name='class_assessment_combined'),
     path('class/combined-assessments/print/', class_assessment_combined_print, name='class_assessment_combined_print'),
