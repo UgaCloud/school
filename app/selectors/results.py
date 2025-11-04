@@ -92,12 +92,12 @@ def calculate_weighted_subject_averages(assessments):
 def get_division(total_aggregates):
     if 4 <= total_aggregates <= 12:
         return "Division 1"
-    elif 13 <= total_aggregates <= 23:
+    elif 13 <= total_aggregates <= 24:
         return "Division 2"
-    elif 24 <= total_aggregates <= 29:
+    elif 25 <= total_aggregates <= 28:
         return "Division 3"
-    elif 30 <= total_aggregates <= 34:
-        return "Division 4"
+    elif 29 <= total_aggregates <= 32:
+        return "Division 4" 
     else:
         return "U"  
 

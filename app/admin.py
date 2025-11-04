@@ -109,7 +109,10 @@ class AcademicClassAdmin(admin.ModelAdmin):
     list_display = ('Class', 'term', 'academic_year', 'fees_amount')
     list_filter = ('Class', 'academic_year', 'term')
     search_fields = ('Class__name', 'academic_year__name', 'term__term')  
-    readonly_fields = ('fees_amount',)
+    def get_readonly_fields(self, request, obj=None):
+        # Allow editing fees_amount when adding a new AcademicClass
+        # Keep it read-only on change to prevent accidental edits
+        return ('fees_amount',) if obj else ()
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)

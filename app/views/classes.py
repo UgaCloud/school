@@ -348,15 +348,24 @@ def edit_academic_class_details_view(request,id):
 @login_required
 def add_class_stream(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
-    class_stream_form = AcademicClassStreamForm(request.POST)
-    
-    if class_stream_form.is_valid():
-        class_stream_form.save()
-        
+    form = AcademicClassStreamForm(request.POST)
+
+    if form.is_valid():
+        cs = form.save(commit=False)
+        # Ensure the academic_class comes from the URL/id, not from the client
+        cs.academic_class = academic_class
+        cs.save()
         messages.success(request, SUCCESS_ADD_MESSAGE)
     else:
+        # Surface validation errors so the user knows what to fix
         messages.error(request, FAILURE_MESSAGE)
-        
+        try:
+            err_txt = form.errors.as_text()
+            if err_txt:
+                messages.error(request, err_txt)
+        except Exception:
+            pass
+
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
 
 @login_required
