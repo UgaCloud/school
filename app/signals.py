@@ -64,18 +64,27 @@ def create_class_bill(sender, instance, created, **kwargs):
             if not created:  # Only for updates, not new creations
                 student_bills = StudentBill.objects.filter(academic_class=instance)
                 for student_bill in student_bills:
-                    student_bill_item, item_created = StudentBillItem.objects.get_or_create(
+                    # Ensure a single StudentBillItem per (bill, bill_item); clean up duplicates if any
+                    qs = StudentBillItem.objects.filter(
                         bill=student_bill,
-                        bill_item=bill_item,
-                        defaults={
-                            'description': f'School Fees - {instance}',
-                            'amount': instance.fees_amount
-                        }
-                    )
-                    # Update existing StudentBillItem amount
-                    if not item_created:
+                        bill_item=bill_item
+                    ).order_by('id')
+                    if qs.exists():
+                        student_bill_item = qs.first()
+                        # Remove any duplicates to enforce one item per bill/bill_item
+                        if qs.count() > 1:
+                            qs.exclude(pk=student_bill_item.pk).delete()
+                        # Update description and amount to reflect current class fees
+                        student_bill_item.description = f'School Fees - {instance}'
                         student_bill_item.amount = instance.fees_amount
                         student_bill_item.save()
+                    else:
+                        StudentBillItem.objects.create(
+                            bill=student_bill,
+                            bill_item=bill_item,
+                            description=f'School Fees - {instance}',
+                            amount=instance.fees_amount
+                        )
 
 @receiver(post_save, sender=Student)
 def create_student_bill(sender, instance, created, **kwargs):
@@ -218,14 +227,26 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                                                 )
 
                                                 # Create student bill item
-                                                bill_item, item_created = StudentBillItem.objects.get_or_create(
+                                                qs = StudentBillItem.objects.filter(
                                                     bill=student_bill,
-                                                    bill_item=class_bill.bill_item,
-                                                    defaults={
-                                                        'description': class_bill.bill_item.description,
-                                                        'amount': class_bill.amount
-                                                    }
-                                                )
+                                                    bill_item=class_bill.bill_item
+                                                ).order_by('id')
+                                                if qs.exists():
+                                                    student_bill_item = qs.first()
+                                                    if qs.count() > 1:
+                                                        qs.exclude(pk=student_bill_item.pk).delete()
+                                                    student_bill_item.description = class_bill.bill_item.description
+                                                    student_bill_item.amount = class_bill.amount
+                                                    student_bill_item.save()
+                                                    item_created = False
+                                                else:
+                                                    student_bill_item = StudentBillItem.objects.create(
+                                                        bill=student_bill,
+                                                        bill_item=class_bill.bill_item,
+                                                        description=class_bill.bill_item.description,
+                                                        amount=class_bill.amount
+                                                    )
+                                                    item_created = True
 
                                                 if bill_created or item_created:
                                                     bills_created_count += 1

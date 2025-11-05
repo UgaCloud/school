@@ -610,14 +610,27 @@ def edit_class_bill_item_view(request, id):
 
                 
                 if updated_class_bill.bill_item.item_name != "School Fees":
-                    student_bill_item, created = StudentBillItem.objects.get_or_create(
+                    # Ensure a single StudentBillItem per (bill, bill_item); clean up duplicates if any
+                    qs = StudentBillItem.objects.filter(
                         bill=student_bill,
-                        bill_item=updated_class_bill.bill_item,
-                        description=updated_class_bill.bill_item.description,
-                    )
-
-                    student_bill_item.amount = updated_class_bill.amount 
-                    student_bill_item.save()
+                        bill_item=updated_class_bill.bill_item
+                    ).order_by('id')
+                    if qs.exists():
+                        student_bill_item = qs.first()
+                        # Remove duplicates if present
+                        if qs.count() > 1:
+                            qs.exclude(pk=student_bill_item.pk).delete()
+                        # Update fields to reflect the current class bill configuration
+                        student_bill_item.description = updated_class_bill.bill_item.description
+                        student_bill_item.amount = updated_class_bill.amount
+                        student_bill_item.save()
+                    else:
+                        StudentBillItem.objects.create(
+                            bill=student_bill,
+                            bill_item=updated_class_bill.bill_item,
+                            description=updated_class_bill.bill_item.description,
+                            amount=updated_class_bill.amount
+                        )
 
                 student_bill.save()
 
@@ -780,14 +793,27 @@ def bulk_create_class_bills(request):
                             )
 
                             if bill_item.item_name != "School Fees":
-                                StudentBillItem.objects.get_or_create(
+                                # Ensure a single StudentBillItem per (bill, bill_item); clean up duplicates if any
+                                qs = StudentBillItem.objects.filter(
                                     bill=student_bill,
-                                    bill_item=bill_item,
-                                    defaults={
-                                        'description': bill_item.description,
-                                        'amount': amount
-                                    }
-                                )
+                                    bill_item=bill_item
+                                ).order_by('id')
+                                if qs.exists():
+                                    student_bill_item = qs.first()
+                                    # Remove duplicates if present
+                                    if qs.count() > 1:
+                                        qs.exclude(pk=student_bill_item.pk).delete()
+                                    # Update to current values
+                                    student_bill_item.description = bill_item.description
+                                    student_bill_item.amount = amount
+                                    student_bill_item.save()
+                                else:
+                                    StudentBillItem.objects.create(
+                                        bill=student_bill,
+                                        bill_item=bill_item,
+                                        description=bill_item.description,
+                                        amount=amount
+                                    )
 
                             students_affected += 1
 

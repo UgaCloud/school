@@ -5,316 +5,276 @@
 {% block page_title %}{{ academic_class.Class.name|default:academic_class.Class.code }} - Class Details{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <!-- Header Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h2 class="mb-1">
-                        <i class="fa fa-graduation-cap text-primary me-2"></i>
-                        {{ academic_class.Class.name|default:academic_class.Class.code }}
-                    </h2>
-                    <p class="text-muted mb-0">
-                        TERM:{{ academic_class.term.term }} - {{ academic_class.academic_year.academic_year }}
-                    </p>
-                </div>
-                <div>
-                    <span class="badge bg-primary fs-6 px-3 py-2">
-                        <i class="fa fa-school me-1"></i>{{ academic_class.section }}
-                    </span>
-                </div>
-            </div>
+<div class="container-fluid">
+
+  <!-- Page Header / Breadcrumbs -->
+  <div class="row">
+    <div class="col-md-12">
+      <div class="x_panel">
+        <div class="x_title d-flex align-items-center justify-content-between">
+          <h2 class="mb-0">
+            <i class="fa fa-graduation-cap"></i>
+            {{ academic_class.Class.name|default:academic_class.Class.code }}
+            <small class="d-block text-muted" style="font-size:.9rem;">
+              TERM: {{ academic_class.term.term }} &mdash; {{ academic_class.academic_year.academic_year }} &middot;
+              Section: {{ academic_class.section }}
+            </small>
+          </h2>
+          <div class="btn-group">
+            <a href="{% url 'academic_class_page' %}" class="btn btn-default btn-sm">
+              <i class="fa fa-arrow-left"></i> Back to Classes
+            </a>
+            {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
+              <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addStreamModal">
+                <i class="fa fa-plus-circle"></i> Add Stream
+              </button>
+            {% endif %}
+          </div>
+          <div class="clearfix"></div>
         </div>
+
+        <!-- KPI Tiles -->
+        <div class="x_content">
+          <div class="row tile_count">
+            <div class="col-md-4 col-sm-4 col-xs-12 tile_stats_count">
+              <span class="count_top"><i class="fa fa-users"></i> Total</span>
+              <div class="count">{{ total_students|default:0 }}</div>
+            </div>
+            <div class="col-md-4 col-sm-4 col-xs-12 tile_stats_count">
+              <span class="count_top"><i class="fa fa-mars"></i> Male</span>
+              <div class="count">{{ male_students|default:0 }}</div>
+            </div>
+            <div class="col-md-4 col-sm-4 col-xs-12 tile_stats_count">
+              <span class="count_top"><i class="fa fa-venus"></i> Female</span>
+              <div class="count">{{ female_students|default:0 }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Details + Overview -->
+  <div class="row">
+    <!-- Class Details -->
+    <div class="col-md-6">
+      <div class="x_panel">
+        <div class="x_title">
+          <h2><i class="fa fa-info-circle"></i> Class Details</h2>
+          <ul class="nav navbar-right panel_toolbox">
+            {% if user.staff_account.role.name == "Admin" %}
+              <li>
+                <a href="{% url 'edit_academic_class_details_page' academic_class.id %}" title="Edit Class"><i class="fa fa-edit"></i></a>
+              </li>
+            {% endif %}
+            <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+          </ul>
+          <div class="clearfix"></div>
+        </div>
+        <div class="x_content">
+          <div class="row">
+            <div class="col-sm-6">
+              <ul class="list-unstyled">
+                <li><i class="fa fa-graduation-cap"></i> <strong>Class:</strong> {{ academic_class.Class.name|default:academic_class.Class.code }}</li>
+                <li><i class="fa fa-calendar-o"></i> <strong>Academic Year:</strong> {{ academic_class.academic_year.academic_year }}</li>
+                <li><i class="fa fa-clock-o"></i> <strong>Term:</strong> {{ academic_class.term.term }}</li>
+              </ul>
+            </div>
+            <div class="col-sm-6">
+              <ul class="list-unstyled">
+                <li><i class="fa fa-university"></i> <strong>Section:</strong> {{ academic_class.section }}</li>
+                {% if user.staff_account.role.name == "Admin" %}
+                <li><i class="fa fa-money"></i> <strong>Fees:</strong> UGX {{ academic_class.fees_amount|intcomma }}</li>
+                {% endif %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
+    <!-- Student Overview -->
+    <div class="col-md-6">
+      <div class="x_panel">
+        <div class="x_title">
+          <h2><i class="fa fa-users"></i> Student Overview</h2>
+          <ul class="nav navbar-right panel_toolbox">
+            <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+          </ul>
+          <div class="clearfix"></div>
+        </div>
+        <div class="x_content">
+          <div class="row text-center">
+            <div class="col-xs-4">
+              <div class="h2">{{ total_students|default:0 }}</div>
+              <small class="text-muted">Total</small>
+            </div>
+            <div class="col-xs-4">
+              <div class="h2 text-info">{{ male_students|default:0 }}</div>
+              <small class="text-muted">Male</small>
+            </div>
+            <div class="col-xs-4">
+              <div class="h2 text-success">{{ female_students|default:0 }}</div>
+              <small class="text-muted">Female</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <!-- Main Content -->
-    <div class="row">
-        <!-- Main Content Area -->
-        <div class="col-12">
-            <!-- Class Streams & Teachers -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-gradient-primary text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fa fa-users-cog me-2"></i>Class Management
-                        </h5>
-                        {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
-                        <button class="btn btn-light btn-sm" data-toggle="modal" data-target=".bs-example-modal-lg">
-                            <i class="fa fa-plus me-1"></i>Add Stream
-                        </button>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="card-body">
-                    <!-- Class Overview -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <div class="card border-primary">
-                                <div class="card-body">
-                                    <h6 class="card-title text-primary">
-                                        <i class="fa fa-graduation-cap me-2"></i>Class Details
-                                    </h6>
-                                    <div class="mb-2">
-                                        <small class="text-muted">Class:</small>
-                                        <strong>{{ academic_class.Class.name|default:academic_class.Class.code }}</strong>
-                                    </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted">Academic Year:</small>
-                                        <strong>{{ academic_class.academic_year.academic_year }}</strong>
-                                    </div>
-                                    <div class="mb-2">
-                                        <small class="text-muted">Term:</small>
-                                        <strong>{{ academic_class.term.term }}</strong>
-                                    </div>
-                                    <div class="mb-0">
-                                        <small class="text-muted">Section:</small>
-                                        <span class="badge bg-secondary ms-1">{{ academic_class.section }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card border-success">
-                                <div class="card-body">
-                                    <h6 class="card-title text-success">
-                                        <i class="fa fa-users me-2"></i>Student Overview
-                                    </h6>
-                                    <div class="row text-center">
-                                        <div class="col-4">
-                                            <div class="mb-2">
-                                                <i class="fa fa-users fa-2x text-primary"></i>
-                                            </div>
-                                            <div class="h6 mb-0">{{ total_students }}</div>
-                                            <small class="text-muted">Total</small>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="mb-2">
-                                                <i class="fa fa-mars fa-2x text-info"></i>
-                                            </div>
-                                            <div class="h6 mb-0">{{ male_students }}</div>
-                                            <small class="text-muted">Male</small>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="mb-2">
-                                                <i class="fa fa-venus fa-2x text-success"></i>
-                                            </div>
-                                            <div class="h6 mb-0">{{ female_students }}</div>
-                                            <small class="text-muted">Female</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Streams Section -->
-                    <h6 class="text-primary mb-3">
-                        <i class="fa fa-stream me-2"></i>Class Streams & Teachers
-                    </h6>
-                    {% if class_streams %}
-                    <div class="row">
-                        {% for stream in class_streams %}
-                        <div class="col-lg-6 col-xl-4 mb-3">
-                            <div class="card border h-100">
-                                <div class="card-header bg-light">
-                                    <div class="d-flex align-items-center">
-                                        <div class="flex-grow-1">
-                                            <h6 class="mb-0 text-primary">
-                                                <i class="fa fa-stream me-1"></i>{{ stream.stream }}
-                                            </h6>
-                                        </div>
-                                        {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
-                                        <a href="{% url 'edit_class_stream' stream.id %}"
-                                           class="btn btn-outline-primary btn-sm">
-                                            <i class="fa fa-edit"></i>
-                                        </a>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <div class="d-flex align-items-center mb-2">
-                                        {% if stream.class_teacher.staff_photo %}
-                                        <img src="{{ stream.class_teacher.staff_photo.url }}"
-                                             alt="Teacher"
-                                             class="rounded-circle me-3"
-                                             style="width: 50px; height: 50px; object-fit: cover;">
-                                        {% else %}
-                                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-3"
-                                             style="width: 50px; height: 50px;">
-                                            <i class="fa fa-user text-white"></i>
-                                        </div>
-                                        {% endif %}
-                                        <div class="flex-grow-1">
-                                            <h6 class="mb-1">{{ stream.class_teacher.first_name }} {{ stream.class_teacher.last_name }}</h6>
-                                            <small class="text-muted">{{ stream.class_teacher.staff_id }}</small>
-                                        </div>
-                                    </div>
-                                    {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
-                                    <a href="#" class="btn btn-outline-success btn-sm w-100">
-                                        <i class="fa fa-eye me-1"></i>View Teacher Profile
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
+  <!-- Streams & Teachers -->
+  <div class="row">
+    <div class="col-md-12">
+      <div class="x_panel">
+        <div class="x_title d-flex align-items-center justify-content-between">
+          <h2 class="mb-0">
+            <i class="fa fa-stream"></i> Class Streams & Teachers
+          </h2>
+          {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
+            <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addStreamModal">
+              <i class="fa fa-plus"></i> Add Stream
+            </button>
+          {% endif %}
+          <div class="clearfix"></div>
+        </div>
+        <div class="x_content">
+          {% if class_streams %}
+            <div class="row">
+              {% for stream in class_streams %}
+                <div class="col-lg-4 col-md-6 col-sm-6">
+                  <div class="x_panel" style="position:relative;">
+                    {% if stream.class_teacher %}
+                      <span class="status-ribbon ribbon-success">Assigned</span>
                     {% else %}
-                    <div class="text-center py-5">
-                        <i class="fa fa-stream fa-4x text-muted mb-3"></i>
-                        <h5 class="text-muted">No Streams Found</h5>
-                        <p class="text-muted">This class doesn't have any streams assigned yet.</p>
-                        {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
-                        <button class="btn btn-primary" data-toggle="modal" data-target=".bs-example-modal-lg">
-                            <i class="fa fa-plus me-1"></i>Add First Stream
-                        </button>
-                        {% endif %}
-                    </div>
+                      <span class="status-ribbon ribbon-default">Unassigned</span>
                     {% endif %}
+                    <div class="x_title">
+                      <h2 class="mb-0"><i class="fa fa-stream"></i> {{ stream.stream }}</h2>
+                      <ul class="nav navbar-right panel_toolbox">
+                        {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
+                          <li><a href="{% url 'edit_class_stream' stream.id %}" title="Edit"><i class="fa fa-edit"></i></a></li>
+                        {% endif %}
+                        <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+                      </ul>
+                      <div class="clearfix"></div>
+                    </div>
+                    <div class="x_content">
+                      <div class="media">
+                        <div class="media-left">
+                          {% if stream.class_teacher and stream.class_teacher.staff_photo %}
+                            <img class="media-object img-circle" src="{{ stream.class_teacher.staff_photo.url }}" alt="Teacher" style="width:54px;height:54px;object-fit:cover;">
+                          {% else %}
+                            <div class="media-object img-circle" style="width:54px;height:54px;background:#e9ecef;display:flex;align-items:center;justify-content:center;">
+                              <i class="fa fa-user text-muted"></i>
+                            </div>
+                          {% endif %}
+                        </div>
+                        <div class="media-body">
+                          {% if stream.class_teacher %}
+                            <h4 class="media-heading" style="margin-top:6px;">{{ stream.class_teacher.first_name }} {{ stream.class_teacher.last_name }}</h4>
+                            <small class="text-muted">{{ stream.class_teacher.department }}</small>
+                          {% else %}
+                            <h4 class="media-heading" style="margin-top:6px;">No teacher assigned</h4>
+                            <small class="text-muted">Edit to assign a class teacher</small>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              {% endfor %}
             </div>
+          {% else %}
+            <div class="text-center" style="padding:30px 10px;">
+              <i class="fa fa-stream fa-3x text-muted"></i>
+              <h4 class="text-muted" style="margin-top:10px;">No Streams Found</h4>
+              <p class="text-muted">This class doesn't have any streams assigned yet.</p>
+              {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
+                <button class="btn btn-primary" data-toggle="modal" data-target="#addStreamModal">
+                  <i class="fa fa-plus"></i> Add First Stream
+                </button>
+              {% endif %}
+            </div>
+          {% endif %}
         </div>
+      </div>
     </div>
+  </div>
 
-    <!-- Attendance Section -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-gradient-secondary text-white">
-                    <h5 class="mb-0">
-                        <i class="fa fa-calendar-check me-2"></i>Class Register & Attendance
-                    </h5>
-                </div>
-                <div class="card-body">
-                    {% include "classes/class_register.html" %}
-                </div>
-            </div>
+  <!-- Class Register & Attendance -->
+  <div class="row">
+    <div class="col-md-12">
+      <div class="x_panel" id="classRegisterPanel">
+        <div class="x_title">
+          <h2><i class="fa fa-calendar-check-o"></i> Class Register & Attendance</h2>
+          <ul class="nav navbar-right panel_toolbox">
+            <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+          </ul>
+          <div class="clearfix"></div>
         </div>
+        <div class="x_content">
+          {% include "classes/class_register.html" %}
+        </div>
+      </div>
     </div>
+  </div>
+
 </div>
 
 <!-- Add Stream Modal -->
-<div class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-gradient-primary text-white">
-                <h5 class="modal-title">
-                    <i class="fa fa-plus me-2"></i>Add Class Stream
-                </h5>
-                <button type="button" class="close text-white" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form method="POST" action="{% url 'add_class_stream_page' academic_class.id %}">
-                    {% csrf_token %}
-                    {{ class_stream_form|crispy }}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                    <i class="fa fa-times me-1"></i>Close
-                </button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fa fa-save me-1"></i>Save Changes
-                </button>
-            </div>
-        </form>
+<div class="modal fade" id="addStreamModal" tabindex="-1" role="dialog" aria-labelledby="addStreamLabel">
+  <div class="modal-dialog modal-md" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="addStreamLabel"><i class="fa fa-plus-circle"></i> Add Class Stream</h4>
+      </div>
+      <form method="POST" action="{% url 'add_class_stream_page' academic_class.id %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="alert alert-info" style="margin-bottom:10px;">
+            <i class="fa fa-info-circle"></i>
+            Select a Stream and (optionally) assign a Class Teacher.
+          </div>
+          {{ class_stream_form|crispy }}
+          <p class="text-muted"><small>Streams must be unique per class and term. Teacher signature is optional.</small></p>
         </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Add Stream</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
 
 <style>
-.bg-gradient-primary {
-    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
-}
-
-.bg-gradient-success {
-    background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%);
-}
-
-.bg-gradient-info {
-    background: linear-gradient(135deg, #36b9cc 0%, #2c9faf 100%);
-}
-
-.bg-gradient-warning {
-    background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%);
-}
-
-.bg-gradient-secondary {
-    background: linear-gradient(135deg, #858796 0%, #6c757d 100%);
-}
-
-.border-left-primary {
-    border-left: 4px solid #4e73df !important;
-}
-
-.border-left-info {
-    border-left: 4px solid #36b9cc !important;
-}
-
-.border-left-success {
-    border-left: 4px solid #1cc88a !important;
-}
-
-.border-left-warning {
-    border-left: 4px solid #f6c23e !important;
-}
-
-.card {
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-}
-
-.card-header {
-    border-radius: 8px 8px 0 0 !important;
-    border: none;
-    padding: 1.25rem 1.5rem;
-}
-
-.card-body {
-    padding: 1.5rem;
-}
-
-.btn {
-    border-radius: 6px;
-    font-weight: 500;
-}
-
-.badge {
-    font-size: 0.75em;
-}
-
-.text-xs {
-    font-size: 0.7rem;
-}
-
-.text-gray-800 {
-    color: #5a5c69 !important;
-}
-
-@media (max-width: 768px) {
-    .container-fluid {
-        padding-left: 15px;
-        padding-right: 15px;
-    }
-
-    .card-body {
-        padding: 1rem;
-    }
-
-    .h5 {
-        font-size: 1.1rem;
-    }
-}
+  .status-ribbon {
+    position: absolute;
+    right: -38px;
+    top: 12px;
+    transform: rotate(45deg);
+    color: #fff;
+    padding: 6px 50px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .ribbon-success { background: #26B99A; }
+  .ribbon-default { background: #9e9e9e; }
 </style>
 
+<script>
+  (function(){
+    $(document).ready(function(){
+      // Upgrade any register table inside include to DataTables
+      var $panel = $('#classRegisterPanel');
+      var $tbl = $panel.find('table');
+      if ($tbl.length) {
+        $tbl.addClass('datatable');
+      }
+    });
+  })();
+</script>
 {% endblock %}
