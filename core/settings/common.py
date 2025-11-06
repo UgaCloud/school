@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap4',
     'widget_tweaks',
-    'debug_toolbar',
     'app',
    
 ] 
@@ -53,13 +52,13 @@ CRISPY_TEMPLATE_PACK = "bootstrap4"
 
 
 MIDDLEWARE = [
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'app.middleware.request_user.RequestUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app.middleware.update_jazzmin.UpdateJazzminMiddleware',
@@ -89,32 +88,19 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
-# # Database
-# # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-# # DATABASES = {
-# #     'default': {
-# #         'ENGINE': 'django.db.backends.postgresql',
-# #         'NAME': 'schooldb',
-# #         'USER': 'schooluser',
-# #         'PASSWORD': 'root@admin',
-# #         'HOST': 'localhost',
-# #         'PORT': '5432',
-# #     }
-# # }
-
+# Database
+# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 # DATABASES = {
 #     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
+#         'ENGINE': 'django.db.backends.postgresql',
 #         'NAME': 'schooldb',
 #         'USER': 'schooluser',
-#         'PASSWORD': '',
-#         'HOST': 'localhost',  
-#         'PORT': '3306',
+#         'PASSWORD': 'root@admin',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
 #     }
 # }
-
 
 
 DATABASES = {
@@ -123,10 +109,16 @@ DATABASES = {
         'NAME': 'bayezieu_schooldb',
         'USER': 'bayezieu_bayan_user',
         'PASSWORD': '@bayan%dbuser',
-        'HOST': '127.0.0.1',  
+        'HOST': '127.0.0.1',
         'PORT': '3306',
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'use_unicode': True,
+            'init_command': "SET NAMES 'utf8mb4'"
+        },
     }
 }
+
 
 # DATABASES = {
 #     'default': {
@@ -134,12 +126,6 @@ DATABASES = {
 #         'NAME': str(BASE_DIR / 'db.sqlite3'),
 #     }
 # }
-# # DATABASES = {
-# #     'default': {
-# #         'ENGINE': 'django.db.backends.sqlite3',
-# #         'NAME': str(BASE_DIR / 'db.sqlite3'),
-# #     }
-# # }
 
 
 # Password validation
@@ -165,7 +151,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Kampala'
 
 USE_I18N = True
 
@@ -205,12 +191,12 @@ DEV_TUNNEL_URL = "https//:bayan-learningcenter.com"
 
 # Email Configuration for SMTP (Using Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587 
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "wmizaac@gmail.com"
-EMAIL_HOST_PASSWORD = "xxxqcmbgthxzvbuj" 
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST = "bayern-learningcenter.com"
+EMAIL_PORT = 465 
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = "bayan-learningcenter@bayern-learningcenter.com"
+EMAIL_HOST_PASSWORD = "Mypp3[xD_Vdi" 
+DEFAULT_FROM_EMAIL = "bayan-learningcenter@bayern-learningcenter.com"
 
 
 LOGGING = {
@@ -250,27 +236,92 @@ USER_ROLE_PREFIXES = {
     'class Teacher': 'Class-Teacher-',
 }
 
+
 # admin dashboard settings
 JAZZMIN_SETTINGS = {
-    "site_title": "school",
-    "theme":"darkly",
-    "show_ui_builder":True,
-    "topmenu_links":[
-         {"app":"app"}
+    "site_title": "Bayan Learning Center Admin",
+    "site_header": "Bayan Learning Center Administration",
+    "site_brand": "Bayan Learning Center",
+    "custom_css": "css/rainbow.css",  # Overridden per-request by UpdateJazzminMiddleware
+    "site_logo": "images/user.png",
+    "site_logo_classes": "brand-image img-circle elevation-3",
+    "site_icon": "images/favicon.ico",
+    "welcome_sign": "Welcome to Bayan Learning Center Admin",
+    "copyright": "UgaCloud 2025",
+   
 
+    # Quick global search
+    "search_model": ["auth.User", "auth.Group"],
+
+    # Navigation
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "topmenu_links": [
+        {"name": "Dashboard", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"app": "app"},
+        {"model": "auth.User"},
+        {"name": "WebApp", "url": "https://bayan-learningcenter.com", "icon": "fas fa-globe", "new_window": True},
     ],
-
-   "recent_actions": {
-        "icon": "fas fa-history",  # Custom icon for the recent actions section
-        "title": "Recent Activities",  # Custom title
-        "card_class": "card-primary",  # Bootstrap card class
-        "show_scroll_bar": True,  # Add a scrollbar for long lists
-    },
-
-    "custom_css": "static/css/custom.css",
-    "custom_js": "static/js/custom.js",
-
     
 
+    # Icons to improve scannability
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.group": "fas fa-users",
+    },
+
+    # Forms and relations UX
+    "related_modal_active": True,
+    "changeform_format": "vertical_tabs",
+    "changeform_format_overrides": {"auth.user": "collapsible"},
+
+    # Language / misc
+    "language_chooser": False,
+    "show_ui_builder": False,  # keep off in production
+
+    # Dashboard recent actions
+    "recent_actions": {
+        "icon": "fas fa-history",
+        "title": "Recent Activities",
+        "card_class": "card-primary",
+        "show_scroll_bar": True,
+    },
+
+    # Non-intrusive overrides (served via {% static %})
+    # "custom_css": "css/custom_overrides.css",
+    # "custom_js": "build/js/custom.js",
 }
 
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "flatly",                     # Base theme (light)
+    "dark_mode_theme": None,
+    "theme_condition": "always",
+
+    # Layout
+    "navbar": "navbar-primary navbar-dark",   # Dark blue top bar
+    "sidebar": "sidebar-dark-primary",        # Dark sidebar (deep blue)
+    "navbar_fixed": True,
+    "sidebar_fixed": True,
+    "footer_fixed": False,
+    "actions_sticky_top": True,
+
+    # Buttons
+    "button_classes": {
+        "primary": "btn btn-primary",
+        "secondary": "btn btn-outline-secondary",
+        "info": "btn btn-info",
+        "warning": "btn btn-warning",
+        "danger": "btn btn-danger",
+        "success": "btn btn-success",
+    },
+
+    # UX polish
+    "body_small_text": False,
+    "brand_small_text": False,
+    "sidebar_nav_small_text": False,
+    "no_navbar_border": True,
+    "sidebar_nav_compact_style": True,
+    "sidebar_nav_child_indent": True,
+}
