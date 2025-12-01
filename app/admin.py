@@ -5,8 +5,10 @@ from app.models.staffs import *
 from app.models.results import *
 from app.models.school_settings import *
 from app.models.students import *
+from app.models.fees_payment import BillItem, StudentBill, StudentBillItem, Payment, ClassBill, StudentCredit
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.urls import reverse
 import json
 from .models import Classroom, TimeSlot, BreakPeriod, Timetable
 
@@ -78,6 +80,17 @@ class StaffAdmin(admin.ModelAdmin):
         return ", ".join([role.name for role in obj.roles.all()])
     display_roles.short_description = 'Roles'
 
+class StudentBillInline(admin.TabularInline):
+    model = StudentBill
+    extra = 0
+    fields = ('academic_class', 'bill_date', 'status', 'total_amount', 'amount_paid', 'balance', 'manage_payments')
+    readonly_fields = ('bill_date', 'total_amount', 'amount_paid', 'balance', 'manage_payments')
+
+    def manage_payments(self, obj):
+        url = reverse('admin:app_studentbill_change', args=[obj.pk])
+        return format_html('<a class="button" href="{}">Open bill</a>', url)
+    manage_payments.short_description = 'Payments'
+
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
     list_display = (
@@ -87,6 +100,7 @@ class StudentAdmin(admin.ModelAdmin):
     list_filter = ('gender', 'current_class', 'academic_year')
     search_fields = ('reg_no', 'student_name', 'guardian', 'contact')
     readonly_fields = ('photo_preview',)
+    inlines = [StudentBillInline]
 
     def photo_preview(self, obj):
         if obj.photo:
@@ -424,3 +438,51 @@ class AuditLogAdmin(admin.ModelAdmin):
     def has_view_permission(self, request, obj=None):
         # Allow staff to view logs
         return request.user.is_active and request.user.is_staff
+
+
+# Fees and Billing admin registrations
+
+@admin.register(BillItem)
+class BillItemAdmin(admin.ModelAdmin):
+    list_display = ('item_name', 'category', 'bill_duration')
+    search_fields = ('item_name', 'description')
+    list_filter = ('category', 'bill_duration')
+
+
+class StudentBillItemInline(admin.TabularInline):
+    model = StudentBillItem
+    extra = 1
+
+
+class PaymentInline(admin.TabularInline):
+    model = Payment
+    extra = 1
+
+
+@admin.register(StudentBill)
+class StudentBillAdmin(admin.ModelAdmin):
+    list_display = ('student', 'academic_class', 'bill_date', 'status', 'total_amount', 'amount_paid', 'balance')
+    list_filter = ('academic_class', 'status')
+    search_fields = ('student__student_name', 'student__reg_no', 'academic_class__Class__name')
+    inlines = [StudentBillItemInline, PaymentInline]
+    readonly_fields = ('total_amount', 'amount_paid', 'balance')
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('student', 'academic_class')
+
+
+@admin.register(ClassBill)
+class ClassBillAdmin(admin.ModelAdmin):
+    list_display = ('academic_class', 'bill_item', 'amount')
+    list_filter = ('academic_class', 'bill_item')
+    search_fields = ('academic_class__name', 'bill_item__item_name')
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ('bill', 'payment_date', 'amount', 'payment_method', 'reference_no', 'recorded_by')
+    list_filter = ('payment_method', 'payment_date')
+    search_fields = ('reference_no', 'recorded_by', 'bill__student__first_name', 'bill__student__last_name')
+    readonly_fields = ('bill',)
+

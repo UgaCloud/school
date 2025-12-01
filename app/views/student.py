@@ -25,7 +25,15 @@ from app.models import ClassRegister, AcademicClassStream
 
 @login_required
 def manage_student_view(request):
-    students = student_selectors.get_all_students()
+    # Default to active-only without schema changes:
+    # Active = has a current-year/term ClassRegister
+    status = request.GET.get("status", "active")
+    if status == "inactive":
+        students = student_selectors.get_inactive_students()
+    elif status == "all":
+        students = student_selectors.get_all_students()
+    else:
+        students = student_selectors.get_active_students()
     
     student_form = student_forms.StudentForm()
     csv_form = student_forms.StudentRegistrationCSVForm()
@@ -33,7 +41,12 @@ def manage_student_view(request):
     context = {
         "students": students,
         "student_form": student_form,
-        "csv_form": csv_form
+        "csv_form": csv_form,
+        # Optional totals for template use (non-breaking)
+        "status": status,
+        "total_active": student_selectors.get_active_students().count(),
+        "total_inactive": student_selectors.get_inactive_students().count(),
+        "total_all": student_selectors.get_all_students().count(),
     }
     
     return render(request, "student/manage_students.html", context)
