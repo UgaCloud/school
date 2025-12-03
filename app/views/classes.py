@@ -438,11 +438,10 @@ def class_bill_list_view(request):
         # Get all bills for this class
         class_bills = ClassBill.objects.filter(academic_class=academic_class).select_related('bill_item')
 
-        # Get all students in this class - use the most reliable method
-        students_in_class = Student.objects.filter(current_class=academic_class.Class)
+        # Get all active students
+        students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
         total_students = students_in_class.count()
 
-        # Debug logging removed
 
         # Calculate total billed amount including both ClassBills and individual StudentBillItems
         total_billed = 0
@@ -550,7 +549,7 @@ def add_class_bill_item_view(request, id):
             class_bill.academic_class = academic_class 
             class_bill.save()
             
-            students_in_class = Student.objects.filter(current_class=academic_class.Class)  
+            students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
             
             for student in students_in_class:
                 # Checking  if there's already an existing StudentBill for the student $ academic class
@@ -598,8 +597,8 @@ def edit_class_bill_item_view(request, id):
         if form.is_valid():
             updated_class_bill = form.save()  
 
-            # Update the StudentBillItems for all students in the academic class
-            students_in_class = Student.objects.filter(current_class=academic_class.Class)
+            # Update the StudentBillItems for all active students in the academic class
+            students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
 
             for student in students_in_class:
                 student_bill, created = StudentBill.objects.get_or_create(
@@ -784,7 +783,7 @@ def bulk_create_class_bills(request):
                         bills_created += 1
 
                         # Create student bill items
-                        students_in_class = Student.objects.filter(current_class__id=class_id)
+                        students_in_class = Student.objects.filter(current_class__id=class_id, is_active=True)
                         for student in students_in_class:
                             student_bill, _ = StudentBill.objects.get_or_create(
                                 student=student,
@@ -859,8 +858,8 @@ def bulk_create_class_bills(request):
             # Check if class already has bills
             existing_bills = ClassBill.objects.filter(academic_class=ac).count()
 
-            # Get actual student count for this class
-            student_count = Student.objects.filter(current_class=ac.Class).count()
+            # Get actual active student count for this class
+            student_count = Student.objects.filter(current_class=ac.Class, is_active=True).count()
 
             available_classes.append({
                 'id': ac.Class.id,

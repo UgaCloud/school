@@ -19,6 +19,7 @@ class Student(models.Model):
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
     term = models.ForeignKey("app.Term", on_delete=models.CASCADE)
     photo = models.ImageField(upload_to="student_photos", null=True, blank=True, default="student_photos/default.jpg")
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = ("student")

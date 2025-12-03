@@ -25,8 +25,6 @@ from app.models import ClassRegister, AcademicClassStream
 
 @login_required
 def manage_student_view(request):
-    # Default to active-only without schema changes:
-    # Active = has a current-year/term ClassRegister
     status = request.GET.get("status", "active")
     if status == "inactive":
         students = student_selectors.get_inactive_students()
@@ -42,7 +40,6 @@ def manage_student_view(request):
         "students": students,
         "student_form": student_form,
         "csv_form": csv_form,
-        # Optional totals for template use (non-breaking)
         "status": status,
         "total_active": student_selectors.get_active_students().count(),
         "total_inactive": student_selectors.get_inactive_students().count(),
@@ -161,10 +158,11 @@ def edit_student_view(request, id):
 @login_required
 def delete_student_view(request, id):
     student = student_selectors.get_student(id)
-    
-    student.delete()
-    
-    messages.success(request, DELETE_MESSAGE)
+
+    student.is_active = False
+    student.save()
+
+    messages.success(request, "Student deactivated successfully.")
 
     return HttpResponseRedirect(reverse(manage_student_view))
 
@@ -190,9 +188,9 @@ def classregister(request):
 #class registration
 @login_required
 def bulk_register_students(request):
-    # Filter students not yet registered
+    # Filter active students not yet registered
     registered_students = ClassRegister.objects.values_list('student_id', flat=True)
-    unregistered_students = Student.objects.exclude(id__in=registered_students)
+    unregistered_students = Student.objects.filter(is_active=True).exclude(id__in=registered_students)
 
     if request.method == "POST":
         selected_students = request.POST.getlist("students")
