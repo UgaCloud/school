@@ -43,9 +43,9 @@ def index_view(request):
 
     # Basic student statistics (visible to academic and admin roles)
     if user_role in academic_roles:
-        total_students = Student.objects.count()
-        total_male_students = Student.objects.filter(gender='M').count()
-        total_female_students = Student.objects.filter(gender='F').count()
+        total_students = Student.objects.filter(is_active=True).count()
+        total_male_students = Student.objects.filter(gender='M', is_active=True).count()
+        total_female_students = Student.objects.filter(gender='F', is_active=True).count()
         male_students_percentage = (total_male_students / total_students * 100) if total_students > 0 else 0
         female_students_percentage = (total_female_students / total_students * 100) if total_students > 0 else 0
     else:
@@ -61,7 +61,7 @@ def index_view(request):
 
     if user_role in academic_roles:
         # Class distribution
-        class_distribution = Student.objects.values('current_class__name').annotate(
+        class_distribution = Student.objects.filter(is_active=True).values('current_class__name').annotate(
             count=Count('id')
         ).order_by('-count')[:15]
     else:

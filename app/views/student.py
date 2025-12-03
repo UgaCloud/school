@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.urls import reverse
 import csv
 from django.db import IntegrityError
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from app.constants import *
 import app.selectors.students as student_selectors
 import app.forms.student as student_forms
@@ -25,7 +26,27 @@ from app.models import ClassRegister, AcademicClassStream
 
 @login_required
 def manage_student_view(request):
-    students = student_selectors.get_all_students()
+    status = request.GET.get("status", "active")
+    page_number = request.GET.get("page", 1)
+    per_page = request.GET.get("per_page", 25)
+    
+    # Get students based on status
+    if status == "inactive":
+        students_list = student_selectors.get_inactive_students()
+    elif status == "all":
+        students_list = student_selectors.get_all_students()
+    else:
+        students_list = student_selectors.get_active_students()
+    
+    # Paginate the students
+    paginator = Paginator(students_list, per_page)
+    
+    try:
+        students = paginator.page(page_number)
+    except PageNotAnInteger:
+        students = paginator.page(1)
+    except EmptyPage:
+        students = paginator.page(paginator.num_pages)
     
     student_form = student_forms.StudentForm()
     csv_form = student_forms.StudentRegistrationCSVForm()
@@ -33,7 +54,12 @@ def manage_student_view(request):
     context = {
         "students": students,
         "student_form": student_form,
-        "csv_form": csv_form
+        "csv_form": csv_form,
+        "status": status,
+        "total_active": student_selectors.get_active_students().count(),
+        "total_inactive": student_selectors.get_inactive_students().count(),
+        "total_all": student_selectors.get_all_students().count(),
+        "per_page": int(per_page),
     }
     
     return render(request, "student/manage_students.html", context)
@@ -148,10 +174,11 @@ def edit_student_view(request, id):
 @login_required
 def delete_student_view(request, id):
     student = student_selectors.get_student(id)
-    
-    student.delete()
-    
-    messages.success(request, DELETE_MESSAGE)
+
+    student.is_active = False
+    student.save()
+
+    messages.success(request, "Student deactivated successfully.")
 
     return HttpResponseRedirect(reverse(manage_student_view))
 
@@ -177,9 +204,9 @@ def classregister(request):
 #class registration
 @login_required
 def bulk_register_students(request):
-    # Filter students not yet registered
+    # Filter active students not yet registered
     registered_students = ClassRegister.objects.values_list('student_id', flat=True)
-    unregistered_students = Student.objects.exclude(id__in=registered_students)
+    unregistered_students = Student.objects.filter(is_active=True).exclude(id__in=registered_students)
 
     if request.method == "POST":
         selected_students = request.POST.getlist("students")

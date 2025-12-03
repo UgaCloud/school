@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login Page</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
   <style>
+    /* Layout integrity and containment */
+    *, *::before, *::after { box-sizing: border-box; }
+
     body {
       background: linear-gradient(to bottom, #032B44, #FFFFFF);
       font-family: 'Open Sans', sans-serif;
       margin: 0;
       padding: 0;
+      color: #0f172a;
     }
 
     .container {
@@ -19,25 +24,28 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
+      padding: 16px;
     }
 
     .card {
       background-color: #fff;
       border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
       width: 90%;
-      max-width: 350px;
-      margin: 20px 0;
+      max-width: 360px;
+      margin: 16px 0;
       padding: 20px;
       text-align: center;
+      overflow: hidden; /* ensure nothing protrudes */
+      border: 1px solid rgba(3,43,68,0.06);
     }
 
     .card-title {
       font-size: 20px;
       color: #032B44;
       font-weight: bold;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
     }
 
     .school-card {
@@ -46,9 +54,14 @@
     }
 
     .school-logo img {
-      width: 60px;
-      height: 60px;
+      width: 64px;
+      height: 64px;
       margin-bottom: 10px;
+      border-radius: 6px;
+      object-fit: contain;
+      background: #fff;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+      border: 1px solid rgba(3,43,68,0.05);
     }
 
     .school-name {
@@ -57,54 +70,130 @@
       color: #032B44;
     }
 
-    .form-group {
-      margin-bottom: 12px;
+    /* Flip container (no 3D to avoid text inversion) */
+    .card3d {
+      width: 90%;
+      max-width: 360px;
+      margin: 16px 0;
       position: relative;
+      display: block;
+      /* dynamic height will be set via JS to avoid jump during flip */
+      transition: height 0.25s ease;
     }
 
-    label {
+    .flip-inner {
+      position: relative;
+      width: 100%;
+      height: auto;
+    }
+
+    .card3d.flipped .flip-inner { transform: none; }
+
+    .card-face {
+      position: relative;
+      display: none;
+      margin: 0;
+    }
+
+    /* show front by default; show back when flipped */
+    .card3d .card-face.front { display: block; }
+    .card3d.flipped .card-face.front { display: none; }
+    .card3d.flipped .card-face.back { display: block; }
+
+    /* Forms */
+    .form {
+      display: grid;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .form-group {
+      margin-bottom: 8px;
+    }
+
+    .input-wrap {
+      position: relative;
+      width: 100%;
+      display: inline-block;
+    }
+
+    label.float {
       position: absolute;
       top: 8px;
       left: 12px;
       font-size: 12px;
-      color: #aaa;
+      color: #888;
       pointer-events: none;
-      transition: 0.3s;
+      transition: 0.25s;
+      background: transparent;
     }
 
     .form-control {
-      width: 90%;
-      height: 30px;
-      padding: 5px 10px;
+      width: 100%;
+      height: 36px;
+      padding: 8px 36px 8px 10px; /* space for toggle button on password */
       font-size: 14px;
       border: 1px solid #ccc;
-      border-radius: 5px;
+      border-radius: 6px;
       background-color: #f9f9f9;
-      transition: border-color 0.3s;
+      transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+      display: block;
+      max-width: 100%;
     }
 
     .form-control:focus {
       border-color: #032B44;
       outline: none;
       background-color: #fff;
+      box-shadow: 0 0 0 3px rgba(3, 43, 68, 0.15);
     }
 
-    .form-control:focus + label,
-    .form-control:not(:placeholder-shown) + label {
-      top: -10px;
+    .form-control:focus + label.float,
+    .form-control:not(:placeholder-shown) + label.float {
+      top: -9px;
       left: 8px;
       font-size: 10px;
       color: #032B44;
+      background: #fff;
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: transparent;
+      color: #666;
+      padding: 4px 6px;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .toggle-password:hover,
+    .toggle-password:focus {
+      color: #032B44;
+      background: rgba(3, 43, 68, 0.08);
+      outline: none;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 2px;
     }
 
     .btn {
-      width: 90%;
-      padding: 8px;
+      width: 100%;
+      padding: 10px;
       font-size: 14px;
       background-color: #032B44;
       color: #fff;
       border: none;
-      border-radius: 5px;
+      border-radius: 6px;
       font-weight: bold;
       cursor: pointer;
     }
@@ -124,11 +213,30 @@
     }
 
     .error {
-      color: red;
-      font-size: 11px;
-      margin-top: 3px;
+      color: #b91c1c;
+      font-size: 12px;
+      margin-top: 4px;
+      text-align: left;
     }
-  </style>
+
+    /* Toast/Slim success info */
+    .toast {
+      display: none;
+      text-align: left;
+      font-size: 12px;
+      color: #065f46;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+    }
+    .toast.show { display: block; }
+  /* Alignment and visibility fixes */
+  .card.card-face { width: 100%; max-width: 100%; margin: 0; }
+  #flipCard { margin-left: auto; margin-right: auto; }
+  #forgotLink { display: block; margin-top: 12px; text-align: center; }
+</style>
 </head>
 <body>
   <div class="container">
@@ -141,48 +249,195 @@
       {% endif %}
       <div class="school-name">{{ school_settings.school_name }}</div>
     </div>
-    
 
-    <!-- Bottom Card: Login Form -->
-    <div class="card">
-      <div class="card-title">Sign In</div>
-        <!-- Error Message -->
-       {% if error_message %}
-         <div class="error">
-           {{ error_message }}
-        </div>
-       {% endif %}
+    <!-- Bottom: Flip Card wrapper -->
+    <div class="card3d" id="flipCard" aria-live="polite">
+      <div class="flip-inner" id="flipInner">
+        <!-- Front Face: Sign In -->
+        <section class="card card-face front" aria-labelledby="sign-in-title">
+          <div class="card-title" id="sign-in-title">Sign In</div>
 
-      <form action="" method="POST" id="login-form">
-        {% csrf_token %}
-        <div class="form-group">
-          <input type="text" id="username" name="username" class="form-control" placeholder=" " required>
-          <label for="username">
-            <i class="fas fa-user"></i> Username
-          </label>
-          {% if form.username.errors %}
-            <span class="error">{{ form.username.errors }}</span>
+          <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+          {% if error_message %}
+            <div class="error">{{ error_message }}</div>
           {% endif %}
-        </div>
-        <div class="form-group">
-          <input type="password" id="password" name="password" class="form-control" placeholder=" " required>
-          <label for="password">
-            <i class="fas fa-lock"></i> Password
-          </label>
-          {% if form.password.errors %}
-            <span class="error">{{ form.password.errors }}</span>
+
+          {% if form.non_field_errors %}
+            <div class="error">
+              {% for err in form.non_field_errors %}
+                <div>{{ err }}</div>
+              {% endfor %}
+            </div>
           {% endif %}
-        </div>
-        <button type="submit" class="btn">Sign In</button>
-      </form>
-      <a href="{% url 'password_reset' %}" class="link">Forgot password?</a>
+
+          <form action="" method="POST" id="login-form" class="form" novalidate>
+            {% csrf_token %}
+
+            <div class="form-group">
+              <div class="input-wrap">
+                <input type="text" id="username" name="username" class="form-control" placeholder=" " required autocomplete="username">
+                <label for="username" class="float"><i class="fas fa-user"></i> Username</label>
+              </div>
+              {% if form.username.errors %}
+                <span class="error">
+                  {% for err in form.username.errors %}{{ err }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                </span>
+              {% endif %}
+            </div>
+
+            <div class="form-group">
+              <div class="input-wrap">
+                <input type="password" id="password" name="password" class="form-control" placeholder=" " required autocomplete="current-password">
+                <label for="password" class="float"><i class="fas fa-lock"></i> Password</label>
+                <button type="button" class="toggle-password" id="togglePassword" aria-controls="password" aria-label="Show password" aria-pressed="false">
+                  <i class="far fa-eye" aria-hidden="true"></i>
+                </button>
+              </div>
+              {% if form.password.errors %}
+                <span class="error">
+                  {% for err in form.password.errors %}{{ err }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                </span>
+              {% endif %}
+            </div>
+
+            <button type="submit" class="btn">Sign In</button>
+          </form>
+
+          <a href="{% url 'password_reset' %}" class="link" id="forgotLink">Forgot password?</a>
+        </section>
+
+        <!-- Back Face: Forgot Password -->
+        <section class="card card-face back" aria-labelledby="forgot-title">
+          <div class="card-title" id="forgot-title">Reset Password</div>
+          <p style="font-size: 12px; margin-top: -4px; color:#475569;">
+            Enter your email address. If it exists, you’ll receive a reset link.
+          </p>
+
+          <form id="forgot-form" class="form" method="POST" action="{% url 'password_reset' %}" novalidate>
+            {% csrf_token %}
+            <div class="form-group">
+              <div class="input-wrap">
+                <input type="email" id="reset-email" name="email" class="form-control" placeholder=" " required autocomplete="email">
+                <label for="reset-email" class="float"><i class="fas fa-envelope"></i> Email address</label>
+              </div>
+              <span class="error" id="forgot-error" style="display:none;"></span>
+            </div>
+            <button type="submit" class="btn" id="forgotSubmit">Send Reset Link</button>
+          </form>
+
+          <a href="#" class="link" id="backToLogin">Back to sign in</a>
+        </section>
+      </div>
     </div>
   </div>
 
   <script>
-    $('#login-form').submit(function () {
-      $('.btn').prop('disabled', true).text('Signing in...');
+    // Submit guard for login
+    $('#login-form').on('submit', function () {
+      const $btn = $(this).find('.btn');
+      $btn.prop('disabled', true).text('Signing in...');
     });
+
+    // Password show/hide
+    (function () {
+      const pwd = document.getElementById('password');
+      const toggle = document.getElementById('togglePassword');
+      if (!pwd || !toggle) return;
+      toggle.addEventListener('click', function () {
+        const hidden = pwd.type === 'password';
+        pwd.type = hidden ? 'text' : 'password';
+        this.setAttribute('aria-pressed', String(hidden));
+        this.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
+        const icon = this.querySelector('i');
+        if (icon) {
+          icon.classList.toggle('fa-eye');
+          icon.classList.toggle('fa-eye-slash');
+        }
+        pwd.focus();
+      });
+    })();
+
+    // Flip logic (simplified: toggle class and swap panels visibility via CSS)
+    (function () {
+      const flipCard = document.getElementById('flipCard');
+      const forgotLink = document.getElementById('forgotLink');
+      const backToLogin = document.getElementById('backToLogin');
+
+      function flipToBack() {
+        if (flipCard) flipCard.classList.add('flipped');
+      }
+
+      function flipToFront() {
+        if (flipCard) flipCard.classList.remove('flipped');
+      }
+
+      if (forgotLink) {
+        forgotLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          flipToBack();
+        });
+      }
+
+      if (backToLogin) {
+        backToLogin.addEventListener('click', function (e) {
+          e.preventDefault();
+          flipToFront();
+        });
+      }
+
+      // Forgot form AJAX submit -> flip back and show toast
+      const forgotForm = document.getElementById('forgot-form');
+      const forgotBtn = document.getElementById('forgotSubmit');
+      const forgotErr = document.getElementById('forgot-error');
+      const toast = document.getElementById('toast');
+
+      function showToast(msg) {
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => {
+          toast.classList.remove('show');
+          toast.textContent = '';
+        }, 5500);
+      }
+
+      if (forgotForm && forgotBtn) {
+        forgotForm.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          if (forgotErr) { forgotErr.style.display = 'none'; forgotErr.textContent = ''; }
+
+          forgotBtn.disabled = true;
+          const originalText = forgotBtn.textContent;
+          forgotBtn.textContent = 'Sending...';
+
+          try {
+            const formData = new FormData(forgotForm);
+            const resp = await fetch(forgotForm.action, {
+              method: 'POST',
+              body: formData,
+              credentials: 'same-origin'
+            });
+
+            if (!resp.ok) {
+              throw new Error('Request failed with status ' + resp.status);
+            }
+
+            forgotForm.reset();
+            flipToFront();
+            showToast('If the email exists, a reset link has been sent.');
+          } catch (err) {
+            if (forgotErr) {
+              forgotErr.textContent = 'Unable to send reset link. Please try again.';
+              forgotErr.style.display = 'block';
+            }
+          } finally {
+            forgotBtn.disabled = false;
+            forgotBtn.textContent = originalText;
+          }
+        });
+      }
+    })();
   </script>
 </body>
 </html>

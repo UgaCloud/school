@@ -2397,6 +2397,20 @@ def class_assessment_combined_view(request):
         except (TypeError, ValueError):
             return None
 
+    def _is_grade_two(class_obj):
+        try:
+            name = (class_obj.Class.name or '').strip().lower()
+        except Exception:
+            name = ''
+        compact = name.replace(' ', '').replace('.', '')
+        if compact in {'p2', 'grade2', 'primary2', 'primarytwo'}:
+            return True
+        if 'grade' in name and '2' in name:
+            return True
+        if compact.startswith('p') and '2' in compact:
+            return True
+        return False
+
     # Read filters
     selected_year_id = to_int(request.GET.get('academic_year_id'))
     selected_term_id = to_int(request.GET.get('term_id'))
@@ -2444,8 +2458,16 @@ def class_assessment_combined_view(request):
         if not class_obj:
             messages.warning(request, "No Academic Class found for the selected Academic Year, Term and Class.")
         else:
-            # Selected assessment types (ordered by name for consistent columns)
-            selected_assessment_types = list(AssessmentType.objects.filter(id__in=selected_assessment_type_ids).order_by('name'))
+            # Selected assessment types (ordered by custom order for consistent columns)
+            assessment_order = Case(
+                When(name__iexact="BEGINNING OF TERM", then=Value(1)),
+                When(name__iexact="MID OF TERM", then=Value(2)),
+                When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
+                When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
+                default=Value(5),
+                output_field=IntegerField(),
+            )
+            selected_assessment_types = list(AssessmentType.objects.filter(id__in=selected_assessment_type_ids).order_by(assessment_order, 'name'))
             if not selected_assessment_types:
                 messages.warning(request, "Please choose at least one assessment type.")
             else:
@@ -2457,12 +2479,13 @@ def class_assessment_combined_view(request):
                 students = Student.objects.filter(current_class_id=selected_class_id).order_by('student_name')
 
                 # Subjects in scope (those that appear in assessments within this class and selected assessment types)
-                subjects = list(
-                    Subject.objects.filter(
-                        assessments__academic_class=class_obj,
-                        assessments__assessment_type_id__in=at_order
-                    ).distinct().order_by('name').values_list('name', flat=True)
-                )
+                _subjects_qs = Subject.objects.filter(
+                    assessments__academic_class=class_obj,
+                    assessments__assessment_type_id__in=at_order
+                ).distinct().order_by('name')
+                # Exclude القرآن for combined report
+                _subjects_qs = _subjects_qs.exclude(name__iexact='القرآن')
+                subjects = list(_subjects_qs.values_list('name', flat=True))
 
                 # Get all results in 1 query
                 results_qs = (
@@ -2543,6 +2566,20 @@ def class_assessment_combined_print(request):
         except (TypeError, ValueError):
             return None
 
+    def _is_grade_two(class_obj):
+        try:
+            name = (class_obj.Class.name or '').strip().lower()
+        except Exception:
+            name = ''
+        compact = name.replace(' ', '').replace('.', '')
+        if compact in {'p2', 'grade2', 'primary2', 'primarytwo'}:
+            return True
+        if 'grade' in name and '2' in name:
+            return True
+        if compact.startswith('p') and '2' in compact:
+            return True
+        return False
+
     # Read filters
     academic_year_id = to_int(request.GET.get('academic_year_id'))
     term_id = to_int(request.GET.get('term_id'))
@@ -2581,8 +2618,16 @@ def class_assessment_combined_print(request):
         return redirect('class_assessment_combined')
 
     # Selected assessment types (ordered for consistent column order)
+    assessment_order = Case(
+        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
+        When(name__iexact="MID OF TERM", then=Value(2)),
+        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
+        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
+        default=Value(5),
+        output_field=IntegerField(),
+    )
     selected_assessment_types = list(
-        AssessmentType.objects.filter(id__in=selected_assessment_type_ids).order_by('name')
+        AssessmentType.objects.filter(id__in=selected_assessment_type_ids).order_by(assessment_order, 'name')
     )
     if not selected_assessment_types:
         messages.error(request, "No valid assessment types selected.")
@@ -2671,7 +2716,8 @@ def class_assessment_combined_print(request):
     for student in students:
         # Subject set for this student (limit to those that appear in data)
         subj_map = data.get(student.id, {})
-        subjects = sorted(subj_map.keys())
+        # Exclude القرآن for combined report
+        subjects = sorted([n for n in subj_map.keys() if n != 'القرآن'])
 
         # Totals per assessment type for student (marks and points)
         assessment_totals = {at.name: {'marks': Decimal('0.0'), 'points': Decimal('0.0'), 'count': 0} for at in selected_assessment_types}

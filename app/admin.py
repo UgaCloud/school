@@ -1,11 +1,15 @@
-from django.contrib import admin
+from django.contrib import admin  
 from app.models.accounts import StaffAccount
 from app.models.classes import *
 from app.models.staffs import *
 from app.models.results import *
 from app.models.school_settings import *
 from app.models.students import *
+from app.models.fees_payment import BillItem, StudentBill, StudentBillItem, Payment, ClassBill, StudentCredit
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+from django.urls import reverse
+import json
 from .models import Classroom, TimeSlot, BreakPeriod, Timetable
 
 # admin.site.register(Staff)
@@ -76,6 +80,17 @@ class StaffAdmin(admin.ModelAdmin):
         return ", ".join([role.name for role in obj.roles.all()])
     display_roles.short_description = 'Roles'
 
+class StudentBillInline(admin.TabularInline):
+    model = StudentBill
+    extra = 0
+    fields = ('academic_class', 'bill_date', 'status', 'total_amount', 'amount_paid', 'balance', 'manage_payments')
+    readonly_fields = ('bill_date', 'total_amount', 'amount_paid', 'balance', 'manage_payments')
+
+    def manage_payments(self, obj):
+        url = reverse('admin:app_studentbill_change', args=[obj.pk])
+        return format_html('<a class="button" href="{}">Open bill</a>', url)
+    manage_payments.short_description = 'Payments'
+
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
     list_display = (
@@ -85,6 +100,7 @@ class StudentAdmin(admin.ModelAdmin):
     list_filter = ('gender', 'current_class', 'academic_year')
     search_fields = ('reg_no', 'student_name', 'guardian', 'contact')
     readonly_fields = ('photo_preview',)
+    inlines = [StudentBillInline]
 
     def photo_preview(self, obj):
         if obj.photo:
@@ -109,7 +125,10 @@ class AcademicClassAdmin(admin.ModelAdmin):
     list_display = ('Class', 'term', 'academic_year', 'fees_amount')
     list_filter = ('Class', 'academic_year', 'term')
     search_fields = ('Class__name', 'academic_year__name', 'term__term')  
-    readonly_fields = ('fees_amount',)
+    def get_readonly_fields(self, request, obj=None):
+        # Allow editing fees_amount when adding a new AcademicClass
+        # Keep it read-only on change to prevent accidental edits
+        return ('fees_amount',) if obj else ()
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -248,3 +267,222 @@ class ReportResultsAdmin(admin.ModelAdmin):
         return f"{total_score} / {total_points}"
     
     term_scores.short_description = "Total Scores"
+
+# AuditLog Admin (read-only)
+from app.models.audit import AuditLog
+
+
+class SystemEntriesFilter(admin.SimpleListFilter):
+    title = "System entries"
+    parameter_name = "show_system"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("hide", "Hide system entries (default)"),
+            ("show", "Show system entries"),
+        )
+
+    def queryset(self, request, queryset):
+        return queryset
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    # Enhanced columns
+    list_display = (
+        "timestamp",
+        "action_badge",
+        "actor",
+        "model_name",
+        "object_short",
+        "path_short",
+        "changed_fields_summary",
+        "ip_address",
+        "method",
+    )
+    list_filter = ("action", "content_type", "user", "method", "ip_address", SystemEntriesFilter)
+    search_fields = ("username", "object_repr", "object_id", "path", "ip_address", "user_agent")
+    readonly_fields = (
+        "timestamp",
+        "action",
+        "actor",
+        "content_type",
+        "object_id",
+        "object_repr",
+        "ip_address",
+        "method",
+        "path",
+        "user",
+        "username",
+        "user_agent",
+        "formatted_changes",
+        "formatted_extra",
+    )
+    date_hierarchy = "timestamp"
+    ordering = ("-timestamp",)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        show = request.GET.get("show_system")
+        if show != "show":
+            qs = qs.exclude(content_type__app_label__in=["sessions", "admin"])
+        return qs
+
+    def action_badge(self, obj):
+        action = (obj.action or "").lower()
+        color = {
+            "create": "success",
+            "update": "warning",
+            "delete": "danger",
+            "login": "primary",
+            "logout": "secondary",
+        }.get(action, "info")
+        label = (action or "-").capitalize()
+        return format_html('<span class="badge badge-{}">{}</span>', color, label)
+    action_badge.short_description = "Action"
+    action_badge.admin_order_field = "action"
+
+
+    def actor(self, obj):
+        if obj.user_id and obj.user:
+            if obj.username and obj.username != getattr(obj.user, "username", ""):
+                return f"{obj.user} ({obj.username})"
+            return str(obj.user)
+        return obj.username or "-"
+    actor.short_description = "Actor"
+
+    # Column: Model (App | Model)
+    def model_name(self, obj):
+        if obj.content_type_id and obj.content_type:
+            return f"{obj.content_type.app_label} | {obj.content_type.name}"
+        return "-"
+    model_name.short_description = "Content type"
+    model_name.admin_order_field = "content_type"
+
+    # Column: Object (short)
+    def object_short(self, obj):
+        text = obj.object_repr or obj.object_id or "-"
+        if text and len(text) > 60:
+            return f"{text[:57]}..."
+        return text
+    object_short.short_description = "Object"
+
+    # Column: Path (short)
+    def path_short(self, obj):
+        p = obj.path or "-"
+        if p != "-" and len(p) > 60:
+            return f"{p[:57]}..."
+        return p
+    path_short.short_description = "Path"
+    path_short.admin_order_field = "path"
+
+    # Column: Changed fields summary
+    def changed_fields_summary(self, obj):
+        data = obj.changes or {}
+        try:
+            if isinstance(data, dict):
+                if "new" in data or "old" in data:
+                    # create/delete style payload
+                    count = len(data.get("new") or data.get("old") or {})
+                    if (obj.action or "").lower() == "create":
+                        return f"Created: {count} fields"
+                    if (obj.action or "").lower() == "delete":
+                        return f"Deleted: {count} fields"
+                    return f"{count} fields"
+                # update style payload: { field: {old:..., new:...} }
+                keys = list(data.keys())
+                if not keys:
+                    return "-"
+                shown = ", ".join(keys[:5])
+                more = len(keys) - 5
+                return f"{shown}" + (f" +{more} more" if more > 0 else "")
+        except Exception:
+            pass
+        return "-"
+    changed_fields_summary.short_description = "Changed fields"
+
+    # Detail: formatted JSON for changes
+    def formatted_changes(self, obj):
+        try:
+            pretty = json.dumps(obj.changes, indent=2, ensure_ascii=False)
+        except Exception:
+            pretty = str(obj.changes)
+        return format_html(
+            '<pre style="white-space:pre-wrap;max-width:100%;overflow:auto;margin:0">{}</pre>',
+            pretty,
+        )
+    formatted_changes.short_description = "Changes"
+
+    # Detail: formatted JSON for extra
+    def formatted_extra(self, obj):
+        try:
+            pretty = json.dumps(obj.extra, indent=2, ensure_ascii=False)
+        except Exception:
+            pretty = str(obj.extra)
+        return format_html(
+            '<pre style="white-space:pre-wrap;max-width:100%;overflow:auto;margin:0">{}</pre>',
+            pretty,
+        )
+    formatted_extra.short_description = "Extra"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Fully read-only in admin
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        # Allow staff to view logs
+        return request.user.is_active and request.user.is_staff
+
+
+# Fees and Billing admin registrations
+
+@admin.register(BillItem)
+class BillItemAdmin(admin.ModelAdmin):
+    list_display = ('item_name', 'category', 'bill_duration')
+    search_fields = ('item_name', 'description')
+    list_filter = ('category', 'bill_duration')
+
+
+class StudentBillItemInline(admin.TabularInline):
+    model = StudentBillItem
+    extra = 1
+
+
+class PaymentInline(admin.TabularInline):
+    model = Payment
+    extra = 1
+
+
+@admin.register(StudentBill)
+class StudentBillAdmin(admin.ModelAdmin):
+    list_display = ('student', 'academic_class', 'bill_date', 'status', 'total_amount', 'amount_paid', 'balance')
+    list_filter = ('academic_class', 'status')
+    search_fields = ('student__student_name', 'student__reg_no', 'academic_class__Class__name')
+    inlines = [StudentBillItemInline, PaymentInline]
+    readonly_fields = ('total_amount', 'amount_paid', 'balance')
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('student', 'academic_class')
+
+
+@admin.register(ClassBill)
+class ClassBillAdmin(admin.ModelAdmin):
+    list_display = ('academic_class', 'bill_item', 'amount')
+    list_filter = ('academic_class', 'bill_item')
+    search_fields = ('academic_class__name', 'bill_item__item_name')
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ('bill', 'payment_date', 'amount', 'payment_method', 'reference_no', 'recorded_by')
+    list_filter = ('payment_method', 'payment_date')
+    search_fields = ('reference_no', 'recorded_by', 'bill__student__first_name', 'bill__student__last_name')
+    readonly_fields = ('bill',)
+

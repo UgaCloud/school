@@ -348,15 +348,24 @@ def edit_academic_class_details_view(request,id):
 @login_required
 def add_class_stream(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
-    class_stream_form = AcademicClassStreamForm(request.POST)
-    
-    if class_stream_form.is_valid():
-        class_stream_form.save()
-        
+    form = AcademicClassStreamForm(request.POST)
+
+    if form.is_valid():
+        cs = form.save(commit=False)
+        # Ensure the academic_class comes from the URL/id, not from the client
+        cs.academic_class = academic_class
+        cs.save()
         messages.success(request, SUCCESS_ADD_MESSAGE)
     else:
+        # Surface validation errors so the user knows what to fix
         messages.error(request, FAILURE_MESSAGE)
-        
+        try:
+            err_txt = form.errors.as_text()
+            if err_txt:
+                messages.error(request, err_txt)
+        except Exception:
+            pass
+
     return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
 
 @login_required
@@ -429,11 +438,10 @@ def class_bill_list_view(request):
         # Get all bills for this class
         class_bills = ClassBill.objects.filter(academic_class=academic_class).select_related('bill_item')
 
-        # Get all students in this class - use the most reliable method
-        students_in_class = Student.objects.filter(current_class=academic_class.Class)
+        # Get all active students
+        students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
         total_students = students_in_class.count()
 
-        # Debug logging removed
 
         # Calculate total billed amount including both ClassBills and individual StudentBillItems
         total_billed = 0
@@ -541,7 +549,7 @@ def add_class_bill_item_view(request, id):
             class_bill.academic_class = academic_class 
             class_bill.save()
             
-            students_in_class = Student.objects.filter(current_class=academic_class.Class)  
+            students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
             
             for student in students_in_class:
                 # Checking  if there's already an existing StudentBill for the student $ academic class
@@ -589,8 +597,8 @@ def edit_class_bill_item_view(request, id):
         if form.is_valid():
             updated_class_bill = form.save()  
 
-            # Update the StudentBillItems for all students in the academic class
-            students_in_class = Student.objects.filter(current_class=academic_class.Class)
+            # Update the StudentBillItems for all active students in the academic class
+            students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
 
             for student in students_in_class:
                 student_bill, created = StudentBill.objects.get_or_create(
@@ -601,14 +609,27 @@ def edit_class_bill_item_view(request, id):
 
                 
                 if updated_class_bill.bill_item.item_name != "School Fees":
-                    student_bill_item, created = StudentBillItem.objects.get_or_create(
+                    # Ensure a single StudentBillItem per (bill, bill_item); clean up duplicates if any
+                    qs = StudentBillItem.objects.filter(
                         bill=student_bill,
-                        bill_item=updated_class_bill.bill_item,
-                        description=updated_class_bill.bill_item.description,
-                    )
-
-                    student_bill_item.amount = updated_class_bill.amount 
-                    student_bill_item.save()
+                        bill_item=updated_class_bill.bill_item
+                    ).order_by('id')
+                    if qs.exists():
+                        student_bill_item = qs.first()
+                        # Remove duplicates if present
+                        if qs.count() > 1:
+                            qs.exclude(pk=student_bill_item.pk).delete()
+                        # Update fields to reflect the current class bill configuration
+                        student_bill_item.description = updated_class_bill.bill_item.description
+                        student_bill_item.amount = updated_class_bill.amount
+                        student_bill_item.save()
+                    else:
+                        StudentBillItem.objects.create(
+                            bill=student_bill,
+                            bill_item=updated_class_bill.bill_item,
+                            description=updated_class_bill.bill_item.description,
+                            amount=updated_class_bill.amount
+                        )
 
                 student_bill.save()
 
@@ -762,7 +783,7 @@ def bulk_create_class_bills(request):
                         bills_created += 1
 
                         # Create student bill items
-                        students_in_class = Student.objects.filter(current_class__id=class_id)
+                        students_in_class = Student.objects.filter(current_class__id=class_id, is_active=True)
                         for student in students_in_class:
                             student_bill, _ = StudentBill.objects.get_or_create(
                                 student=student,
@@ -771,14 +792,27 @@ def bulk_create_class_bills(request):
                             )
 
                             if bill_item.item_name != "School Fees":
-                                StudentBillItem.objects.get_or_create(
+                                # Ensure a single StudentBillItem per (bill, bill_item); clean up duplicates if any
+                                qs = StudentBillItem.objects.filter(
                                     bill=student_bill,
-                                    bill_item=bill_item,
-                                    defaults={
-                                        'description': bill_item.description,
-                                        'amount': amount
-                                    }
-                                )
+                                    bill_item=bill_item
+                                ).order_by('id')
+                                if qs.exists():
+                                    student_bill_item = qs.first()
+                                    # Remove duplicates if present
+                                    if qs.count() > 1:
+                                        qs.exclude(pk=student_bill_item.pk).delete()
+                                    # Update to current values
+                                    student_bill_item.description = bill_item.description
+                                    student_bill_item.amount = amount
+                                    student_bill_item.save()
+                                else:
+                                    StudentBillItem.objects.create(
+                                        bill=student_bill,
+                                        bill_item=bill_item,
+                                        description=bill_item.description,
+                                        amount=amount
+                                    )
 
                             students_affected += 1
 
@@ -824,8 +858,8 @@ def bulk_create_class_bills(request):
             # Check if class already has bills
             existing_bills = ClassBill.objects.filter(academic_class=ac).count()
 
-            # Get actual student count for this class
-            student_count = Student.objects.filter(current_class=ac.Class).count()
+            # Get actual active student count for this class
+            student_count = Student.objects.filter(current_class=ac.Class, is_active=True).count()
 
             available_classes.append({
                 'id': ac.Class.id,
