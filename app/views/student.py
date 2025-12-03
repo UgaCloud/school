@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.urls import reverse
 import csv
 from django.db import IntegrityError
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from app.constants import *
 import app.selectors.students as student_selectors
 import app.forms.student as student_forms
@@ -26,12 +27,26 @@ from app.models import ClassRegister, AcademicClassStream
 @login_required
 def manage_student_view(request):
     status = request.GET.get("status", "active")
+    page_number = request.GET.get("page", 1)
+    per_page = request.GET.get("per_page", 25)
+    
+    # Get students based on status
     if status == "inactive":
-        students = student_selectors.get_inactive_students()
+        students_list = student_selectors.get_inactive_students()
     elif status == "all":
-        students = student_selectors.get_all_students()
+        students_list = student_selectors.get_all_students()
     else:
-        students = student_selectors.get_active_students()
+        students_list = student_selectors.get_active_students()
+    
+    # Paginate the students
+    paginator = Paginator(students_list, per_page)
+    
+    try:
+        students = paginator.page(page_number)
+    except PageNotAnInteger:
+        students = paginator.page(1)
+    except EmptyPage:
+        students = paginator.page(paginator.num_pages)
     
     student_form = student_forms.StudentForm()
     csv_form = student_forms.StudentRegistrationCSVForm()
@@ -44,6 +59,7 @@ def manage_student_view(request):
         "total_active": student_selectors.get_active_students().count(),
         "total_inactive": student_selectors.get_inactive_students().count(),
         "total_all": student_selectors.get_all_students().count(),
+        "per_page": int(per_page),
     }
     
     return render(request, "student/manage_students.html", context)
