@@ -197,6 +197,14 @@
             color: #4a4a4a;
         }
 
+        .remark-input:focus {
+            background-color: #fffacd;
+        }
+        
+        .save-comment-btn:hover {
+            background-color: #45a049;
+        }
+        
         @media print {
             body {
                 margin: 0;
@@ -204,8 +212,14 @@
                 print-color-adjust: exact;
             }
             .print-btn,
-            .top-actions {
-                display: none;
+            .top-actions,
+            .no-print,
+            .save-comment-btn {
+                display: none !important;
+            }
+            .remark-input {
+                border: none !important;
+                background: transparent !important;
             }
             .content-wrapper {
                 border: 3px solid var(--border-color);
@@ -334,42 +348,66 @@
             </table>
 
             <div class="conduct-section">
-                <table style="width:100%; border-collapse:collapse;">
-                    <tr>
-                        <td colspan="2"></td>
-                        <td style="text-align:center; font-weight:bold;">Signature</td>
-                    </tr>
+                <form method="POST" class="comment-form" data-student-id="{{ rep.student.id }}" data-term-id="{{ rep.term_id }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="student_id" value="{{ rep.student.id }}">
+                    <input type="hidden" name="term_id" value="{{ rep.term_id }}">
+                    
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td colspan="2"></td>
+                            <td style="text-align:center; font-weight:bold;">Signature</td>
+                        </tr>
 
-                    <tr>
-                        <td class="label" style="width:20%;">Class Teacher's Remarks:</td>
-                        <td contenteditable="true" style="width:40%; border-bottom: 1px solid #000;"></td>
+                        <tr>
+                            <td class="label" style="width:20%;">Class Teacher's Remarks:</td>
+                            <td style="width:40%; border-bottom: 1px solid #000; padding: 4px;">
+                                <textarea name="class_teacher_remark"
+                                          class="remark-input"
+                                          style="width:100%; border:none; outline:none; resize:vertical; min-height:30px; font-family: inherit; font-size: inherit;"
+                                          placeholder="Enter class teacher's remarks...">{{ rep.class_teacher_remark }}</textarea>
+                            </td>
 
-                        <td style="width:40%; text-align:right; border-bottom: 1px solid #000;">
-                            {% if rep.class_teacher_signature and rep.class_teacher_signature.url %}
-                                <img src="{{ rep.class_teacher_signature.url }}" 
-                                     alt="Class Teacher Signature" 
-                                     style="height:30px; object-fit:contain;" />
-                            {% else %}
-                                
-                            {% endif %}
-                        </td>
-                    </tr>
+                            <td style="width:40%; text-align:right; border-bottom: 1px solid #000;">
+                                {% if rep.class_teacher_signature and rep.class_teacher_signature.url %}
+                                    <img src="{{ rep.class_teacher_signature.url }}"
+                                         alt="Class Teacher Signature"
+                                         style="height:30px; object-fit:contain;" />
+                                {% else %}
+                                    
+                                {% endif %}
+                            </td>
+                        </tr>
 
-                    <tr>
-                        <td class="label">Head Teacher's Remarks:</td>
-                        <td contenteditable="true" style="border-bottom: 1px solid #000;"></td>
+                        <tr>
+                            <td class="label">Head Teacher's Remarks:</td>
+                            <td style="border-bottom: 1px solid #000; padding: 4px;">
+                                <textarea name="head_teacher_remark"
+                                          class="remark-input"
+                                          style="width:100%; border:none; outline:none; resize:vertical; min-height:30px; font-family: inherit; font-size: inherit;"
+                                          placeholder="Enter head teacher's remarks...">{{ rep.head_teacher_remark }}</textarea>
+                            </td>
 
-                        <td style="text-align:right; border-bottom: 1px solid #000;">
-                            {% if rep.head_teacher_signature and rep.head_teacher_signature.signature %}
-                                 <img src="{{ rep.head_teacher_signature.signature.url }}" 
-                                      alt="Head Teacher Signature" 
-                                      style="height:30px; object-fit:contain;" />
-                            {% else %}
-                                .
-                            {% endif %}
-                        </td>
-                    </tr>
-                </table>
+                            <td style="text-align:right; border-bottom: 1px solid #000;">
+                                {% if rep.head_teacher_signature and rep.head_teacher_signature.signature %}
+                                     <img src="{{ rep.head_teacher_signature.signature.url }}"
+                                          alt="Head Teacher Signature"
+                                          style="height:30px; object-fit:contain;" />
+                                {% else %}
+                                    .
+                                {% endif %}
+                            </td>
+                        </tr>
+                        
+                        <tr class="no-print">
+                            <td colspan="3" style="text-align:right; padding-top:10px;">
+                                <button type="submit" class="save-comment-btn" style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 9pt;">
+                                    Save Comments
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
+                </form>
             </div>
 
 

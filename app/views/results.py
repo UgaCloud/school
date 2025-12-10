@@ -2559,6 +2559,42 @@ def class_assessment_combined_view(request):
 
 @login_required
 def class_assessment_combined_print(request):
+    # Handle comment submission
+    if request.method == "POST":
+        student_id = request.POST.get('student_id')
+        term_id = request.POST.get('term_id')
+        class_teacher_remark = request.POST.get('class_teacher_remark', '').strip()
+        head_teacher_remark = request.POST.get('head_teacher_remark', '').strip()
+        
+        if student_id and term_id:
+            from app.models.results import ReportRemark
+            try:
+                student = get_object_or_404(Student, id=student_id)
+                term = get_object_or_404(Term, id=term_id)
+                
+                # Get or create the remark
+                remark, created = ReportRemark.objects.get_or_create(
+                    student=student,
+                    term=term,
+                    defaults={
+                        'class_teacher_remark': class_teacher_remark,
+                        'head_teacher_remark': head_teacher_remark,
+                        'created_by': request.user
+                    }
+                )
+                
+                if not created:
+                    # Update existing remark
+                    remark.class_teacher_remark = class_teacher_remark
+                    remark.head_teacher_remark = head_teacher_remark
+                    remark.save()
+                
+                messages.success(request, f"Comments saved for {student.student_name}")
+            except Exception as e:
+                messages.error(request, f"Error saving comments: {str(e)}")
+            
+            # Redirect back to the same page with GET parameters
+            return HttpResponseRedirect(request.get_full_path().split('?')[0] + '?' + request.GET.urlencode())
   
     def to_int(val):
         try:
@@ -2798,17 +2834,30 @@ def class_assessment_combined_print(request):
         except Exception:
             pass
 
+        # Get existing remarks for this student and term
+        from app.models.results import ReportRemark
+        try:
+            remark = ReportRemark.objects.get(student=student, term=class_obj.term)
+            class_teacher_remark = remark.class_teacher_remark or ''
+            head_teacher_remark = remark.head_teacher_remark or ''
+        except ReportRemark.DoesNotExist:
+            class_teacher_remark = ''
+            head_teacher_remark = ''
+        
         reports.append({
             'student': student,
             'report_data': report_rows,
             'assessment_types': selected_assessment_types,
             'term': class_obj.term.term,
+            'term_id': class_obj.term.id,
             'academic_year': class_obj.academic_year.academic_year,
             'assessment_totals': assessment_totals,
             'assessment_divisions': assessment_divisions,
             'next_term_start_date': next_term_start_date,
             'head_teacher_signature': head_teacher_signature,
             'class_teacher_signature': class_teacher_signature,
+            'class_teacher_remark': class_teacher_remark,
+            'head_teacher_remark': head_teacher_remark,
         })
 
     context = {

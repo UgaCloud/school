@@ -1,0 +1,128 @@
+{% load static %}
+
+<script src="{% static 'vendors/jquery/dist/jquery.min.js' %}"></script>
+<!-- Bootstrap -->
+<script src="{% static 'vendors/bootstrap/dist/js/bootstrap.bundle.min.js' %}"></script>
+<!-- FastClick -->
+<script src="{% static 'vendors/fastclick/lib/fastclick.js' %}"></script>
+<!-- NProgress -->
+<script src="{% static 'vendors/nprogress/nprogress.js' %}"></script>
+<!-- Chart.js -->
+<script src="{% static 'vendors/Chart.js/dist/Chart.min.js' %}"></script>
+<!-- gauge.js -->
+<script src="{% static 'vendors/gauge.js/dist/gauge.min.js' %}"></script>
+<!-- bootstrap-progressbar -->
+<script src="{% static 'vendors/bootstrap-progressbar/bootstrap-progressbar.min.js' %}"></script>
+<!-- iCheck -->
+<script src="{% static 'vendors/iCheck/icheck.min.js' %}"></script>
+<!-- Skycons -->
+<script src="{% static 'vendors/skycons/skycons.js' %}"></script>
+<!-- Flot -->
+<script src="{% static 'vendors/Flot/jquery.flot.js' %}"></script>
+<script src="{% static 'vendors/Flot/jquery.flot.pie.js' %}"></script>
+<script src="{% static 'vendors/Flot/jquery.flot.time.js' %}"></script>
+<script src="{% static 'vendors/Flot/jquery.flot.stack.js' %}"></script>
+<script src="{% static 'vendors/Flot/jquery.flot.resize.js' %}"></script>
+<!-- Flot plugins -->
+<script src="{% static 'vendors/flot.orderbars/js/jquery.flot.orderBars.js' %}"></script>
+<script src="{% static 'vendors/flot-spline/js/jquery.flot.spline.min.js' %}"></script>
+<script src="{% static 'vendors/flot.curvedlines/curvedLines.js' %}"></script>
+<!-- DateJS -->
+<script src="{% static 'vendors/DateJS/build/date.js' %}"></script>
+<!-- JQVMap -->
+<script src="{% static 'vendors/jqvmap/dist/jquery.vmap.js' %}"></script>
+<script src="{% static 'vendors/jqvmap/dist/maps/jquery.vmap.world.js' %}"></script>
+<script src="{% static 'vendors/jqvmap/examples/js/jquery.vmap.sampledata.js' %}"></script>
+<!-- bootstrap-daterangepicker -->
+<script src="{% static 'vendors/moment/min/moment.min.js' %}"></script>
+<script src="{% static 'vendors/bootstrap-daterangepicker/daterangepicker.js' %}"></script>
+
+<!-- Custom Theme Scripts -->
+<script src="{% static 'build/js/custom.min.js' %}"></script>
+<!-- At the end of base.html, before </body> -->
+<!-- DataTables and Dependencies -->
+<script src="{% static 'vendors/datatables.net/js/jquery.dataTables.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-bs/js/dataTables.bootstrap.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-buttons/js/dataTables.buttons.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-buttons-bs/js/buttons.bootstrap.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-buttons/js/buttons.flash.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-buttons/js/buttons.html5.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-buttons/js/buttons.print.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-fixedheader/js/dataTables.fixedHeader.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-keytable/js/dataTables.keyTable.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-responsive-bs/js/responsive.bootstrap.js' %}"></script>
+<script src="{% static 'vendors/datatables.net-scroller/js/dataTables.scroller.min.js' %}"></script>
+<script src="{% static 'vendors/jszip/dist/jszip.min.js' %}"></script>
+<script src="{% static 'vendors/pdfmake/build/pdfmake.min.js' %}"></script>
+<script src="{% static 'vendors/pdfmake/build/vfs_fonts.js' %}"></script>
+
+<script>
+    $(document).ready(function () {
+        // Initialize DataTables only for tables with .datatable class that aren't already initialized
+        $('.datatable').each(function () {
+            if (!$.fn.dataTable.isDataTable(this)) {
+                var $table = $(this).DataTable({
+                    responsive: true,
+                    paging: true,
+                    searching: true,
+                    ordering: true,
+                    fixedHeader: true,
+                    stateSave: true,                 // Persist sort/search/page across reloads
+                    pageLength: 10,
+                    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+                    buttons: [
+                        { extend: 'csv', text: 'Export CSV', className: 'btn btn-outline-primary btn-sm' },
+                        { extend: 'pdf', text: 'Export PDF', className: 'btn btn-outline-primary btn-sm' },
+                        { extend: 'print', text: 'Print', className: 'btn btn-outline-primary btn-sm' }
+                    ],
+                    language: {
+                        search: "_INPUT_",
+                        searchPlaceholder: "Search...",
+                        lengthMenu: "Show _MENU_ entries per page"
+                    },
+                    columnDefs: [
+                        { orderable: false, targets: -1 } // Disable sorting on last column (e.g., Action)
+                    ],
+                    dom:
+                        '<"row align-items-center mb-2"' +
+                        '<"col-sm-12 col-md-4"l>' +
+                        '<"col-sm-12 col-md-4 text-center"B>' +
+                        '<"col-sm-12 col-md-4"f>' +
+                        '>' +
+                        '<"row"<"col-sm-12"tr>>' +
+                        '<"row align-items-center mt-2"' +
+                        '<"col-sm-12 col-md-5"i>' +
+                        '<"col-sm-12 col-md-7"p>' +
+                        '>'
+                });
+
+                // Optional: ensure buttons container has consistent spacing
+                $table.buttons().container().addClass('dt-buttons-wrap');
+            }
+        });
+    });
+</script>
+
+<script>
+    (function () {
+        // Toggle selected styling when card is clicked
+        document.addEventListener('click', function (e) {
+            var card = e.target.closest('.role-card');
+            if (!card) return;
+            var label = card.closest('label');
+            if (!label) return;
+            var radio = label.querySelector('input.role-radio');
+            if (!radio) return;
+
+            // Unselect others
+            document.querySelectorAll('#switchRoleModal .role-card').forEach(function (el) {
+                el.classList.remove('selected');
+            });
+
+            // Select current
+            card.classList.add('selected');
+            radio.checked = true;
+        }, false);
+    })();
+</script>

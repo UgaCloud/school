@@ -1,0 +1,89 @@
+{% load static %}
+<div class="col-md-3 left_col">
+    <div class="left_col scroll-view">
+        <div class="navbar nav_title" style="border: 0;">
+            <a href="" class="site_title"><i class="fa fa-paw"></i> <span>{{school_settings.school_name}}</span></a>
+        </div>
+
+        <div class="clearfix"></div>
+
+        <!-- menu profile quick info -->
+        <div class="profile clearfix d-flex align-items-center">
+            <!-- Profile Picture -->
+            <div class="profile_pic">
+                {% if request.user.is_authenticated and request.user.staff_account.staff.staff_photo %}
+                <img src="{{ request.user.staff_account.staff.staff_photo.url }}" alt="Profile Picture"
+                    class="img-circle profile_img" style="max-width: 60px; max-height: 60px;">
+                {% else %}
+                <img src="{% static 'images/default_profile.jpg' %}" alt="Default Profile Picture"
+                    class="img-circle profile_img" style="max-width: 60px; max-height: 60px;">
+                {% endif %}
+            </div>
+
+
+            <!-- Profile Information -->
+            <div class="profile_info ml-3">
+                <span class="text-white font-weight-bold" style="font-size: 1.2rem;">
+                    Welcome,
+                </span><br>
+                <span class="text-white font-weight-bold"
+                    style="font-size: 1.4rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);">
+                    {{ user.username }}
+                </span>
+            </div>
+        </div>
+
+        <!-- /menu profile quick info -->
+
+        <br />
+
+        <!-- sidebar menu -->
+        <div id="sidebar-menu" class="main_menu_side hidden-print main_menu">
+            <div class="menu_section">
+                {% if user.is_authenticated %}
+                <p class="" style="font-size: 1.0rem;">
+                    User role:
+                    <span class="text-white" style="font-size: 1.0rem;">
+                        {{ active_role|default:user.staff_account.role.name }}
+                    </span>
+                </p>
+                <!-- Debugging output -->
+                {% if active_role == "Admin" %}
+                {% include 'admin_dashboard.html' %}
+                {% elif active_role == "Teacher" %}
+                {% include 'teacher_dashboard.html' %}
+                {% elif active_role == "Bursar" %}
+                {% include 'bursar_dashboard.html' %}
+                {% elif active_role == "Director of Studies" %}
+                {% include 'dos_dashboard.html' %}
+                {% elif active_role == "Head Teacher" %}
+                {% include 'headteacher_dashboard.html' %}
+                {% elif active_role == "Class Teacher" %}
+                {% include 'class_teacher_dashboard.html' %}
+                {% else %}
+                <p>No dashboard available for your role.</p>
+                {% endif %}
+                {% else %}
+                <p>Please log in to access your dashboard.</p>
+                {% endif %}
+            </div>
+        </div>
+        <!-- /sidebar menu -->
+        <!-- /menu footer buttons -->
+        <div class="sidebar-footer hidden-small">
+            <a data-toggle="tooltip" data-placement="top" title="Settings">
+                <span class="glyphicon glyphicon-cog" aria-hidden="true"></span>
+            </a>
+            <a data-toggle="tooltip" data-placement="top" title="FullScreen">
+                <span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span>
+            </a>
+            <a data-toggle="tooltip" data-placement="top" title="Lock">
+                <span class="glyphicon glyphicon-eye-close" aria-hidden="true"></span>
+            </a>
+            <a data-toggle="tooltip" data-placement="top" title="Logout" href="{% url 'logout' %}">
+                <span class="glyphicon glyphicon-off" aria-hidden="true"></span>
+            </a>
+        </div>
+        <!-- /menu footer buttons -->
+    </div>
+</div>
