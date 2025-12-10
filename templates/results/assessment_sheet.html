@@ -229,6 +229,16 @@
     <!-- Filter and Table Section -->
     <form class="filter-container" method="GET" action="" style="display: {% if not show_selection %}flex{% else %}none{% endif %};">
         <div>
+            <label for="year_id">Academic Year:</label>
+            <select name="year_id" id="year_id" onchange="this.form.submit()">
+                {% for year in academic_years %}
+                    <option value="{{ year.id }}" {% if year.id|stringformat:"s" == selected_year_id %}selected{% endif %}>
+                        {{ year.academic_year }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
             <label for="grade">Class:</label>
             <select name="grade" id="grade" onchange="this.form.submit()">
                 {% for grade in grades %}
@@ -263,6 +273,7 @@
 
     <div class="button-group" style="display: {% if not show_selection %}flex{% else %}none{% endif %};">
         <form method="GET" action="">
+            <input type="hidden" name="year_id" value="{{ selected_year_id }}">
             <input type="hidden" name="grade" value="{{ selected_grade }}">
             <input type="hidden" name="term_id" value="{{ selected_term_id }}">
             <input type="hidden" name="assessment_type_id" value="{{ selected_assessment_type_id }}">
@@ -270,6 +281,7 @@
             <button type="submit" class="export-btn">Export to PDF</button>
         </form>
         <form method="GET" action="">
+            <input type="hidden" name="year_id" value="{{ selected_year_id }}">
             <input type="hidden" name="grade" value="{{ selected_grade }}">
             <input type="hidden" name="term_id" value="{{ selected_term_id }}">
             <input type="hidden" name="assessment_type_id" value="{{ selected_assessment_type_id }}">

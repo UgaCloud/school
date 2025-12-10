@@ -1646,15 +1646,31 @@ def assessment_sheet_view(request):
     unique_grades = Class.objects.values_list("name", flat=True).distinct()
     selected_grade = request.GET.get("grade")
 
-    # Current academic year
-    current_academic_year = AcademicYear.objects.filter(is_current=True).first()
-    if not current_academic_year:
+    # Get all academic years for the filter
+    academic_years = AcademicYear.objects.all().order_by('-id')
+    selected_year_id = request.GET.get("year_id")
+    
+    # Default to current academic year if not selected
+    if not selected_year_id:
+        current_academic_year = AcademicYear.objects.filter(is_current=True).first()
+        if current_academic_year:
+            selected_year_id = str(current_academic_year.id)
+    
+    if not selected_year_id:
         messages.error(request, "No current academic year configured.")
+        return redirect("student_performance_view")
+    
+    # Get the selected academic year object
+    current_academic_year = AcademicYear.objects.filter(id=selected_year_id).first()
+    if not current_academic_year:
+        messages.error(request, "Selected academic year not found.")
         return redirect("student_performance_view")
 
     # Initial context for class selection
     context = {
         "grades": unique_grades,
+        "academic_years": academic_years,
+        "selected_year_id": selected_year_id,
         "school_name": request.session.get('school_name', 'Bayan Learning Center'),
         "show_selection": not selected_grade or selected_grade not in unique_grades,
     }
