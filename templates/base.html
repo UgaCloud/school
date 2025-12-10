@@ -1,664 +1,314 @@
 <!DOCTYPE html>
 {% load static %}
 <html lang="en">
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <!-- Meta, title, CSS, favicons, etc. -->
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-	<link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/ico" />
 
-    <title>School MIS</title>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/ico" />
+  <title>School MIS</title>
 
-    <!-- Bootstrap -->
-    <link href="{% static 'vendors/bootstrap/dist/css/bootstrap.min.css' %}" rel="stylesheet">
-   <link href="{% static 'css/custom_overrides.css' %}" rel="stylesheet">
+  <!-- Bootstrap -->
+  <link href="{% static 'vendors/bootstrap/dist/css/bootstrap.min.css' %}" rel="stylesheet">
+  <link href="{% static 'css/custom_overrides.css' %}" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link href="{% static 'vendors/font-awesome/css/font-awesome.min.css' %}" rel="stylesheet">
+  <!-- NProgress -->
+  <link href="{% static 'vendors/nprogress/nprogress.css' %}" rel="stylesheet">
+  <!-- iCheck -->
+  <link href="{% static 'vendors/iCheck/skins/flat/green.css' %}" rel="stylesheet">
+  <!-- Other CSS vendors -->
+  <link href="{% static 'vendors/bootstrap-progressbar/css/bootstrap-progressbar-3.3.4.min.css' %}" rel="stylesheet">
+  <link href="{% static 'vendors/jqvmap/dist/jqvmap.min.css' %}" rel="stylesheet" />
+  <link href="{% static 'vendors/bootstrap-daterangepicker/daterangepicker.css' %}" rel="stylesheet">
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <!-- Datatables CSS -->
+  <link href="{% static '/vendors/datatables.net-bs/css/dataTables.bootstrap.min.css' %}" rel="stylesheet">
+  <link href="{% static '/vendors/datatables.net-buttons-bs/css/buttons.bootstrap.min.css' %}" rel="stylesheet">
+  <link href="{% static '/vendors/datatables.net-fixedheader-bs/css/fixedHeader.bootstrap.min.css' %}" rel="stylesheet">
+  <link href="{% static '/vendors/datatables.net-responsive-bs/css/responsive.bootstrap.min.css' %}" rel="stylesheet">
+  <link href="{% static '/vendors/datatables.net-scroller-bs/css/scroller.bootstrap.min.css' %}" rel="stylesheet">
 
-    <link href="{% static 'vendors/font-awesome/css/font-awesome.min.css' %}" rel="stylesheet">
-    <!-- NProgress -->
-    <link href="{% static 'vendors/nprogress/nprogress.css' %}" rel="stylesheet">
-    <!-- iCheck -->
-    <link href="{% static 'vendors/iCheck/skins/flat/green.css' %}" rel="stylesheet">
-	
-    <!-- bootstrap-progressbar -->
-    <link href="{% static 'vendors/bootstrap-progressbar/css/bootstrap-progressbar-3.3.4.min.css' %}" rel="stylesheet">
-    <!-- JQVMap -->
-    <link href="{% static 'vendors/jqvmap/dist/jqvmap.min.css' %}" rel="stylesheet"/>
-    <!-- bootstrap-daterangepicker -->
-    <link href="{% static 'vendors/bootstrap-daterangepicker/daterangepicker.css' %}" rel="stylesheet">
+  <!-- Custom Theme Style -->
+  <link href="{% static 'build/css/custom.min.css' %}" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.5.0/bootstrap3-editable/css/bootstrap-editable.css"
+    rel="stylesheet" />
 
-     <!-- Datatables -->
-    
-     <link href="{% static '/vendors/datatables.net-bs/css/dataTables.bootstrap.min.css' %}" rel="stylesheet">
-     <link href="{% static '/vendors/datatables.net-buttons-bs/css/buttons.bootstrap.min.css' %}" rel="stylesheet">
-     <link href="{% static '/vendors/datatables.net-fixedheader-bs/css/fixedHeader.bootstrap.min.css' %}" rel="stylesheet">
-     <link href="{% static '/vendors/datatables.net-responsive-bs/css/responsive.bootstrap.min.css' %}" rel="stylesheet">
-     <link href="{% static '/vendors/datatables.net-scroller-bs/css/scroller.bootstrap.min.css' %}" rel="stylesheet">
-
-    <!-- Custom Theme Style -->
-    <link href="{% static 'build/css/custom.min.css' %}" rel="stylesheet">
-
-    <link href="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.5.0/bootstrap3-editable/css/bootstrap-editable.css" rel="stylesheet"/>
-  </head>
-
-  <body class="nav-md">
-    <div class="container body">
-      <div class="main_container">
-        <div class="col-md-3 left_col">
-          <div class="left_col scroll-view">
-            <div class="navbar nav_title" style="border: 0;">
-              <a href="" class="site_title"><i class="fa fa-paw"></i> <span>{{school_settings.school_name}}</span></a>
-            </div>
-
-            <div class="clearfix"></div>
-
-            <!-- menu profile quick info -->
-            <div class="profile clearfix d-flex align-items-center">
-              <!-- Profile Picture -->
-              <div class="profile_pic">
-                {% if request.user.is_authenticated and request.user.staff_account.staff.staff_photo %}
-                    <img src="{{ request.user.staff_account.staff.staff_photo.url }}" alt="Profile Picture" class="img-circle profile_img" style="max-width: 60px; max-height: 60px;">
-                {% else %}
-                    <img src="" alt="Default Profile Picture" class="img-circle profile_img" style="max-width: 60px; max-height: 60px;">
-                {% endif %}
-            </div>
-            
-    
-              <!-- Profile Information -->
-              <div class="profile_info ml-3">
-                  <span class="text-white font-weight-bold" style="font-size: 1.2rem;">
-                      Welcome,
-                  </span><br>
-                  <span class="text-white font-weight-bold" style="font-size: 1.4rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);">
-                      {{ user.username }}
-                  </span>
-              </div>
-          </div>
-          
-            <!-- /menu profile quick info -->
-
-            <br />
-
-            <!-- sidebar menu -->
-            <div id="sidebar-menu" class="main_menu_side hidden-print main_menu">
-              <div class="menu_section"> 
-                {% if user.is_authenticated %}
-                <p class="" style="font-size: 1.0rem;">
-                  User role:
-                  <span class="text-white" style="font-size: 1.0rem;">
-                      {{ active_role|default:user.staff_account.role.name }}
-                  </span>
-              </p>
-              <!-- Debugging output -->
-                {% if active_role == "Admin" %}
-                    {% include 'admin_dashboard.html' %}
-                {% elif active_role == "Teacher" %}
-                    {% include 'teacher_dashboard.html' %}
-                {% elif active_role == "Bursar" %}
-                    {% include 'bursar_dashboard.html' %}
-                {% elif active_role == "Director of Studies" %}
-                    {% include 'dos_dashboard.html' %}
-                {% elif active_role == "Head Teacher" %}
-                    {% include 'headteacher_dashboard.html' %}
-                {% elif active_role == "Class Teacher" %}
-                    {% include 'class_teacher_dashboard.html' %}
-                {% else %}
-                    <p>No dashboard available for your role.</p>
-                {% endif %}
-              {% else %}
-                <p>Please log in to access your dashboard.</p>
-              {% endif %}
-                 </div>
-          </div>
-          <!-- /sidebar menu -->
-            <!-- /menu footer buttons -->
-            <div class="sidebar-footer hidden-small">
-              <a data-toggle="tooltip" data-placement="top" title="Settings">
-                <span class="glyphicon glyphicon-cog" aria-hidden="true"></span>
-              </a>
-              <a data-toggle="tooltip" data-placement="top" title="FullScreen">
-                <span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span>
-              </a>
-              <a data-toggle="tooltip" data-placement="top" title="Lock">
-                <span class="glyphicon glyphicon-eye-close" aria-hidden="true"></span>
-              </a>
-              <a data-toggle="tooltip" data-placement="top" title="Logout" href="{% url 'logout' %}">
-                <span class="glyphicon glyphicon-off" aria-hidden="true"></span>
-              </a>
-            </div>
-            <!-- /menu footer buttons -->
-          </div>
-        </div>
-
-        <!-- top navigation -->
-        <div class="top_nav">
-          <div class="nav_menu">
-              <div class="nav toggle">
-                <a id="menu_toggle"><i class="fa fa-bars"></i></a>
-              </div>
-              <nav class="nav navbar-nav">
-              <ul class=" navbar-right">
-                <li class="nav-item dropdown open" style="padding-left: 15px;">
-                  <a href="javascript:;" class="user-profile dropdown-toggle" aria-haspopup="true" id="navbarDropdown" data-toggle="dropdown" aria-expanded="false">
-                    {% if request.user.is_authenticated and request.user.staff_account.staff.staff_photo %}
-                        <img src="{{ request.user.staff_account.staff.staff_photo.url }}" alt="Profile Picture">
-                    {% else %}
-                        <img src="{% static 'images/default_profile.jpg' %}" alt="Default Profile Picture">
-                    {% endif %}
-                    {{ request.user.username }}
-                </a>
-                
-                <div class="dropdown-menu dropdown-usermenu pull-right" aria-labelledby="navbarDropdown">
-                  <a class="dropdown-item" href="{% url 'user_detail' request.user.id %}">Profile</a> 
-                  
-                  <a class="dropdown-item" href="javascript:;">
-                      <span class="badge bg-red pull-right">50%</span>
-                      <span>Settings</span>
-                  </a>
-                  
-                  <a class="dropdown-item" href="{% url 'password_change' %}">Change Password</a>  
-                  
-                  <a class="dropdown-item" href="#" data-toggle="modal" data-target="#switchRoleModal">Switch Role</a>
-                  
-                  <a class="dropdown-item" href="{% url 'logout' %}">  
-                      <i class="fa fa-sign-out pull-right"></i> Log Out
-                  </a>
-              </div>
-              
-                </li>
-               
-                
-                <li role="presentation" class="nav-item dropdown open">
-                  <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdown1" data-toggle="dropdown" aria-expanded="false">
-                    <i class="fa fa-envelope-o"></i>
-                    <span class="badge bg-green">6</span>
-                  </a>
-                  <!--  -->
-                </li>
-              </ul>
-            </nav>
-          </div>
-        </div>
-        <!-- /top navigation -->
-        <!-- page content -->
-        <div class="right_col" role="main">
-            <div class="">
-              <div class="page-title">
-                <div class="title_left">
-                  
-                  <h3>
-                    {% block page_title %}
-                    {% endblock page_title %}
-                  </h3>
-                
-                </div>
-  
-                <div class="title_right">
-                  <div class="col-md-5 col-sm-5   form-group pull-right top_search">
-                    <div class="input-group">
-                      <input type="text" class="form-control" placeholder="Search for...">
-                      <span class="input-group-btn">
-                        <button class="btn btn-secondary" type="button">Go!</button>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-<!-- Messages -->
-            {% if messages %}
-              <div class="custom-messages-container">
-                {% for message in messages %}
-                  <div class="custom-message-card {% if message.tags == 'success' %} success {% elif message.tags == 'error' %} error {% else %} info {% endif %}">
-                    <div class="icon">
-                      <div class="circle"></div>
-                      {% if message.tags == 'success' %}
-                        <i class="fa fa-check"></i>
-                      {% elif message.tags == 'error' %}
-                        <i class="fa fa-times"></i>
-                      {% else %}
-                        <i class="fa fa-info"></i>
-                      {% endif %}
-                    </div>
-                    <div class="message-text">
-                      <strong>
-                        {% if message.level == DEFAULT_MESSAGE_LEVELS.ERROR %} Error
-                        {% else %} {{ message.tags|title }}
-                        {% endif %}!
-                      </strong> {{ message }}
-                    </div>
-                  </div>
-                {% endfor %}
-              </div>
-            {% endif %}
-            <style>
-              .custom-messages-container {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 1050;
-              }
-              
-              .custom-message-card {
-                background: #fff;
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                padding: 15px 20px;
-                margin-bottom: 15px;
-                display: flex;
-                align-items: center;
-                min-width: 300px;
-                max-width: 350px;
-                animation: fadeIn 0.5s ease;
-              }
-              
-              .custom-message-card.success .icon {
-                color: #28a745;
-              }
-              
-              .custom-message-card.error .icon {
-                color: #dc3545;
-              }
-              
-              .custom-message-card.info .icon {
-                color: #17a2b8;
-              }
-              
-              .icon {
-                position: relative;
-                width: 45px;
-                height: 45px;
-                margin-right: 15px;
-                font-size: 26px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-              
-              .circle {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                border: 3px solid currentColor;
-                border-top-color: transparent;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-                top: 0;
-                left: 0;
-              }
-              
-              .message-text {
-                flex: 1;
-                font-size: 15px;
-                color: #333;
-              }
-              
-              /* Animations */
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-              
-              @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-10px); }
-                to { opacity: 1; transform: translateY(0); }
-              }
-              </style>
-              
-            <script>
-              setTimeout(function() {
-                document.querySelectorAll('.custom-message-card').forEach(function(card) {
-                  card.style.opacity = '0';
-                  setTimeout(() => { card.remove(); }, 500);
-                });
-              }, 3000);
-            </script>
-            
-
-          <!-- Content Block -->
-          {% block content %}{% endblock content %}
-         
-
-     
-        
-        
-
-        <!-- footer content -->
-        <footer>
-          <div class="pull-right">
-            School MIS by <a href="https://uga-cloud.com">UGACloud</a>
-          </div>
-          <div class="clearfix"></div>
-        </footer>
-        <!-- /footer content -->
-      </div>
-    </div>
-  </div>  
-
-    <!-- jQuery -->
-    <script src="{% static 'vendors/jquery/dist/jquery.min.js' %}"></script>
-    <!-- Bootstrap -->
-    <script src="{% static 'vendors/bootstrap/dist/js/bootstrap.bundle.min.js' %}"></script>
-    <!-- FastClick -->
-    <script src="{% static 'vendors/fastclick/lib/fastclick.js' %}"></script>
-    <!-- NProgress -->
-    <script src="{% static 'vendors/nprogress/nprogress.js' %}"></script>
-    <!-- Chart.js -->
-    <script src="{% static 'vendors/Chart.js/dist/Chart.min.js' %}"></script>
-    <!-- gauge.js -->
-    <script src="{% static 'vendors/gauge.js/dist/gauge.min.js' %}"></script>
-    <!-- bootstrap-progressbar -->
-    <script src="{% static 'vendors/bootstrap-progressbar/bootstrap-progressbar.min.js' %}"></script>
-    <!-- iCheck -->
-    <script src="{% static 'vendors/iCheck/icheck.min.js' %}"></script>
-    <!-- Skycons -->
-    <script src="{% static 'vendors/skycons/skycons.js' %}"></script>
-    <!-- Flot -->
-    <script src="{% static 'vendors/Flot/jquery.flot.js' %}"></script>
-    <script src="{% static 'vendors/Flot/jquery.flot.pie.js' %}"></script>
-    <script src="{% static 'vendors/Flot/jquery.flot.time.js' %}"></script>
-    <script src="{% static 'vendors/Flot/jquery.flot.stack.js' %}"></script>
-    <script src="{% static 'vendors/Flot/jquery.flot.resize.js' %}"></script>
-    <!-- Flot plugins -->
-    <script src="{% static 'vendors/flot.orderbars/js/jquery.flot.orderBars.js' %}"></script>
-    <script src="{% static 'vendors/flot-spline/js/jquery.flot.spline.min.js' %}"></script>
-    <script src="{% static 'vendors/flot.curvedlines/curvedLines.js' %}"></script>
-    <!-- DateJS -->
-    <script src="{% static 'vendors/DateJS/build/date.js' %}"></script>
-    <!-- JQVMap -->
-    <script src="{% static 'vendors/jqvmap/dist/jquery.vmap.js' %}"></script>
-    <script src="{% static 'vendors/jqvmap/dist/maps/jquery.vmap.world.js' %}"></script>
-    <script src="{% static 'vendors/jqvmap/examples/js/jquery.vmap.sampledata.js' %}"></script>
-    <!-- bootstrap-daterangepicker -->
-    <script src="{% static 'vendors/moment/min/moment.min.js' %}"></script>
-    <script src="{% static 'vendors/bootstrap-daterangepicker/daterangepicker.js' %}"></script>
-
-    <!-- Custom Theme Scripts -->
-    <script src="{% static 'build/js/custom.min.js' %}"></script>
-<!-- At the end of base.html, before </body> -->
-<!-- DataTables and Dependencies -->
-<script src="{% static 'vendors/datatables.net/js/jquery.dataTables.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-bs/js/dataTables.bootstrap.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-buttons/js/dataTables.buttons.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-buttons-bs/js/buttons.bootstrap.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-buttons/js/buttons.flash.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-buttons/js/buttons.html5.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-buttons/js/buttons.print.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-fixedheader/js/dataTables.fixedHeader.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-keytable/js/dataTables.keyTable.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-responsive/js/dataTables.responsive.min.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-responsive-bs/js/responsive.bootstrap.js' %}"></script>
-<script src="{% static 'vendors/datatables.net-scroller/js/dataTables.scroller.min.js' %}"></script>
-<script src="{% static 'vendors/jszip/dist/jszip.min.js' %}"></script>
-<script src="{% static 'vendors/pdfmake/build/pdfmake.min.js' %}"></script>
-<script src="{% static 'vendors/pdfmake/build/vfs_fonts.js' %}"></script>
-
-<style>
+  <style>
     /* Unified Table Styling */
     .table {
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 0 15px rgba(39, 41, 93, 0.1);
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: #ffffff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(39, 41, 93, 0.1);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
     }
 
     .table th,
     .table td {
-        border: 1px solid #e5e7eb;
-        padding: 0.75rem;
-        text-align: left;
-        vertical-align: middle;
+      border: 1px solid #e5e7eb;
+      padding: 0.75rem;
+      text-align: left;
+      vertical-align: middle;
     }
 
     .table th {
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        text-align: center;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      text-align: center;
     }
 
     .table tbody tr:nth-child(even) {
-        background: #f9fafb;
+      background: #f9fafb;
     }
 
     .table tbody tr:hover {
-        background: #eff6ff;
-        transition: background 0.2s ease;
+      background: #eff6ff;
+      transition: background 0.2s ease;
     }
 
     .dataTables_wrapper .dataTables_paginate .paginate_button {
-        border-radius: 4px;
-        margin: 0 2px;
-        padding: 0.25rem 0.5rem;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        color:  #2c3e50;
+      border-radius: 4px;
+      margin: 0 2px;
+      padding: 0.25rem 0.5rem;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      color: #2c3e50;
     }
 
     .dataTables_wrapper .dataTables_paginate .paginate_button.current,
     .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-        background: #2c3e50;
-        color: #ffffff;
-        border: 1px solid  #2c3e50;
+      background: #2c3e50;
+      color: #ffffff;
+      border: 1px solid #2c3e50;
     }
 
     .dataTables_wrapper .dataTables_filter input {
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        padding: 0.5rem;
-        font-size: 0.875rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 0.5rem;
+      font-size: 0.875rem;
     }
 
     .dataTables_wrapper .dataTables_length select {
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        padding: 0.25rem;
-        font-size: 0.875rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 0.25rem;
+      font-size: 0.875rem;
     }
 
     .dt-buttons .btn {
-        border-radius: 4px;
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-        margin-right: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      margin-right: 0.5rem;
     }
 
     @media print {
-        .table {
-            box-shadow: none;
-            border: 1px solid #d1d5db;
-        }
-        .table tbody tr:hover {
-            background: inherit;
-        }
-        .dataTables_wrapper .dataTables_paginate,
-        .dataTables_wrapper .dataTables_filter,
-        .dataTables_wrapper .dataTables_length,
-        .dt-buttons {
-            display: none;
-        }
+      .table {
+        box-shadow: none;
+        border: 1px solid #d1d5db;
+      }
+
+      .table tbody tr:hover {
+        background: inherit;
+      }
+
+      .dataTables_wrapper .dataTables_paginate,
+      .dataTables_wrapper .dataTables_filter,
+      .dataTables_wrapper .dataTables_length,
+      .dt-buttons {
+        display: none;
+      }
     }
 
     @media screen and (max-width: 768px) {
-        .table {
-            font-size: 0.75rem;
-            display: block;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        .table th,
-        .table td {
-            padding: 0.5rem;
-            min-width: 100px;
-        }
-        .dataTables_wrapper .dataTables_paginate .paginate_button {
-            padding: 0.2rem 0.4rem;
-            font-size: 0.65rem;
-        }
-        .dataTables_wrapper .dataTables_filter input,
-        .dataTables_wrapper .dataTables_length select {
-            font-size: 0.75rem;
-        }
+      .table {
+        font-size: 0.75rem;
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .table th,
+      .table td {
+        padding: 0.5rem;
+        min-width: 100px;
+      }
+
+      .dataTables_wrapper .dataTables_paginate .paginate_button {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.65rem;
+      }
+
+      .dataTables_wrapper .dataTables_filter input,
+      .dataTables_wrapper .dataTables_length select {
+        font-size: 0.75rem;
+      }
     }
-</style>
 
-<script>
-$(document).ready(function() {
-    // Initialize DataTables only for tables with .datatable class that aren't already initialized
-    $('.datatable').each(function() {
-        if (!$.fn.dataTable.isDataTable(this)) {
-            var $table = $(this).DataTable({
-                responsive: true,
-                paging: true,
-                searching: true,
-                ordering: true,
-                fixedHeader: true,
-                stateSave: true,                 // Persist sort/search/page across reloads
-                pageLength: 10,
-                lengthMenu: [[10, 25, 50, 100, -1],[10, 25, 50, 100, "All"]],
-                buttons: [
-                    { extend: 'csv',  text: 'Export CSV',  className: 'btn btn-outline-primary btn-sm' },
-                    { extend: 'pdf',  text: 'Export PDF',  className: 'btn btn-outline-primary btn-sm' },
-                    { extend: 'print',text: 'Print',       className: 'btn btn-outline-primary btn-sm' }
-                ],
-                language: {
-                    search: "_INPUT_",
-                    searchPlaceholder: "Search...",
-                    lengthMenu: "Show _MENU_ entries per page"
-                },
-                columnDefs: [
-                    { orderable: false, targets: -1 } // Disable sorting on last column (e.g., Action)
-                ],
-                dom:
-                    '<"row align-items-center mb-2"' +
-                        '<"col-sm-12 col-md-4"l>' +
-                        '<"col-sm-12 col-md-4 text-center"B>' +
-                        '<"col-sm-12 col-md-4"f>' +
-                    '>' +
-                    '<"row"<"col-sm-12"tr>>' +
-                    '<"row align-items-center mt-2"' +
-                        '<"col-sm-12 col-md-5"i>' +
-                        '<"col-sm-12 col-md-7"p>' +
-                    '>'
-            });
+    /* Modal Styles */
+    .role-card {
+      transition: all .2s ease;
+      cursor: pointer;
+      background: #fff;
+    }
 
-            // Optional: ensure buttons container has consistent spacing
-            $table.buttons().container().addClass('dt-buttons-wrap');
-        }
-    });
-});
-</script>
+    .role-card.hover-elevate:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .08);
+    }
 
-<!-- Switch Role Modal -->
-<div class="modal fade" id="switchRoleModal" tabindex="-1" role="dialog" aria-labelledby="switchRoleLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-md" role="document">
-    <div class="modal-content border-0 shadow-lg">
-      <div class="modal-header bg-dark text-white">
-        <h5 class="modal-title d-flex align-items-center" id="switchRoleLabel">
-          <i class="fa fa-user-shield mr-2"></i> Switch Role
-        </h5>
-        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
+    .role-card.selected {
+      border-color: #28a745;
+      box-shadow: 0 0 0 2px rgba(40, 167, 69, .15);
+    }
 
-      <form method="post" action="{% url 'switch_role' %}">
-        {% csrf_token %}
-        <div class="modal-body">
-          <div class="mb-3">
-            <small class="text-muted d-block">Current role</small>
-            <div class="h5 mb-0">
-              {{ active_role|default:user.staff_account.role.name }}
+    .role-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #f0f2f5;
+      color: #2c3e50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-header.bg-dark {
+      background: #2c3e50 !important;
+    }
+  </style>
+
+</head>
+
+<body class="nav-md">
+  <div class="container body">
+    <div class="main_container">
+
+      {% include 'includes/sidebar.html' %}
+
+      {% include 'includes/top_nav.html' %}
+
+      <!-- page content -->
+      <div class="right_col" role="main">
+        <div class="">
+          <div class="page-title">
+            <div class="title_left">
+              <h3>
+                {% block page_title %}
+                {% endblock page_title %}
+              </h3>
             </div>
-          </div>
 
-          <div class="mb-2">
-            <small class="text-muted">Select a role to activate</small>
-          </div>
-
-          <div class="container-fluid px-0">
-            <div class="row">
-              {% for role in user.staff_account.staff.roles.all %}
-              <div class="col-12 mb-2">
-                <label class="w-100 m-0">
-                  <input type="radio" name="role" class="d-none role-radio" value="{{ role.id }}" {% if active_role == role.name %}checked{% endif %}>
-                  <div class="role-card d-flex align-items-center justify-content-between p-3 border rounded hover-elevate {% if active_role == role.name %}selected{% endif %}">
-                    <div class="d-flex align-items-center">
-                      <div class="role-icon mr-3">
-                        <i class="fa fa-id-badge"></i>
-                      </div>
-                      <div class="role-info">
-                        <div class="font-weight-bold">{{ role.name }}</div>
-                        <small class="text-muted">Click to select</small>
-                      </div>
-                    </div>
-                    <div>
-                      <span class="badge badge-pill {% if active_role == role.name %}badge-success{% else %}badge-secondary{% endif %}">
-                        {% if active_role == role.name %}Active{% else %}Available{% endif %}
-                      </span>
-                    </div>
-                  </div>
-                </label>
-              </div>
-              {% empty %}
-              <div class="col-12">
-                <div class="alert alert-warning mb-0">
-                  No roles assigned to your account. Please contact an administrator.
+            <div class="title_right">
+              <div class="col-md-5 col-sm-5   form-group pull-right top_search">
+                <div class="input-group">
+                  <input type="text" class="form-control" placeholder="Search for...">
+                  <span class="input-group-btn">
+                    <button class="btn btn-secondary" type="button">Go!</button>
+                  </span>
                 </div>
               </div>
-              {% endfor %}
             </div>
           </div>
         </div>
 
-        <div class="modal-footer bg-light">
-          <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
-          <button type="submit" class="btn btn-dark">
-            <i class="fa fa-sync mr-1"></i> Apply Role
-          </button>
-        </div>
-      </form>
+        {% include 'includes/messages.html' %}
+
+        <!-- Content Block -->
+        {% block content %}{% endblock content %}
+
+        {% include 'includes/footer.html' %}
+
+      </div>
     </div>
   </div>
-</div>
 
-<style>
-  .role-card { transition: all .2s ease; cursor: pointer; background: #fff; }
-  .role-card.hover-elevate:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
-  .role-card.selected { border-color: #28a745; box-shadow: 0 0 0 2px rgba(40,167,69,.15); }
-  .role-icon { width: 36px; height: 36px; border-radius: 8px; background: #f0f2f5; color: #2c3e50;
-               display: flex; align-items: center; justify-content: center; }
-  .modal-header.bg-dark { background: #2c3e50 !important; }
-</style>
+  {% include 'includes/scripts.html' %}
 
-<script>
-  (function() {
-    // Toggle selected styling when card is clicked
-    document.addEventListener('click', function(e) {
-      var card = e.target.closest('.role-card');
-      if (!card) return;
-      var label = card.closest('label');
-      if (!label) return;
-      var radio = label.querySelector('input.role-radio');
-      if (!radio) return;
+  {% if request.user.is_authenticated %}
+  <!-- Switch Role Modal -->
+  <div class="modal fade" id="switchRoleModal" tabindex="-1" role="dialog" aria-labelledby="switchRoleLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md" role="document">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-dark text-white">
+          <h5 class="modal-title d-flex align-items-center" id="switchRoleLabel">
+            <i class="fa fa-user-shield mr-2"></i> Switch Role
+          </h5>
+          <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
 
-      // Unselect others
-      document.querySelectorAll('#switchRoleModal .role-card').forEach(function(el) {
-        el.classList.remove('selected');
-      });
+        <form method="post" action="{% url 'switch_role' %}">
+          {% csrf_token %}
+          <div class="modal-body">
+            <div class="mb-3">
+              <small class="text-muted d-block">Current role</small>
+              <div class="h5 mb-0">
+                {{ active_role|default:user.staff_account.role.name }}
+              </div>
+            </div>
 
-      // Select current
-      card.classList.add('selected');
-      radio.checked = true;
-    }, false);
-  })();
-</script>
+            <div class="mb-2">
+              <small class="text-muted">Select a role to activate</small>
+            </div>
+
+            <div class="container-fluid px-0">
+              <div class="row">
+                {% for role in user.staff_account.staff.roles.all %}
+                <div class="col-12 mb-2">
+                  <label class="w-100 m-0">
+                    <input type="radio" name="role" class="d-none role-radio" value="{{ role.id }}" {% if active_role == role.name %}checked{% endif %}>
+                    <div
+                      class="role-card d-flex align-items-center justify-content-between p-3 border rounded hover-elevate {% if active_role == role.name %}selected{% endif %}">
+                      <div class="d-flex align-items-center">
+                        <div class="role-icon mr-3">
+                          <i class="fa fa-id-badge"></i>
+                        </div>
+                        <div class="role-info">
+                          <div class="font-weight-bold">{{ role.name }}</div>
+                          <small class="text-muted">Click to select</small>
+                        </div>
+                      </div>
+                      <div>
+                        <span
+                          class="badge badge-pill {% if active_role == role.name %}badge-success{% else %}badge-secondary{% endif %}">
+                          {% if active_role == role.name %}Active{% else %}Available{% endif %}
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                  <div class="alert alert-warning mb-0">
+                    No roles assigned to your account. Please contact an administrator.
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-dark">
+              <i class="fa fa-sync mr-1"></i> Apply Role
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
 </body>
+
 </html>

@@ -76,8 +76,7 @@ class AcademicClassStream(models.Model):
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name="class_streams")
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
     class_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
-    class_teacher_signature = models.ImageField(upload_to="signatures",height_field=None,width_field=None,max_length=None,blank=True,null=True)
-
+    class_teacher_signature = models.ImageField(upload_to="signatures", height_field=None, width_field=None, max_length=None)
     
 
     class Meta:
@@ -107,4 +106,3 @@ class ClassSubjectAllocation(models.Model):
 
     def get_absolute_url(self):
         return reverse("classsubjectallocation_detail", kwargs={"pk": self.pk})
-
