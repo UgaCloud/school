@@ -4,124 +4,187 @@
 {% block page_title %}Staff Details{% endblock page_title %}
 
 {% block content %}
-<div class="x_content">
-  <div class="col-md-3 col-sm-3 profile_left">
-    <div class="profile_img">
-      <div id="crop-avatar">
-        <img class="img-responsive img-fluid" src="{{ staff.staff_photo.url }}" alt="Staff Photo">
+<div class="clearfix"></div>
+
+<div class="row">
+  <div class="col-md-12 col-sm-12 col-xs-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-user"></i> Staff Details</h2>
+        <ul class="nav navbar-right panel_toolbox">
+          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+          <li><a class="close-link"><i class="fa fa-close"></i></a></li>
+        </ul>
+        <div class="clearfix"></div>
       </div>
-    </div>
-    <h3>{{ staff }}</h3>
-
-    <ul class="list-unstyled user_data">
-      <li><i class="fa fa-map-marker user-profile-icon"></i> {{ staff.address }}</li>
-      <li><i class="fa fa-briefcase user-profile-icon"></i> {{ staff.department }}</li>
-      <li><i class="fa fa-phone user-profile-icon"></i> {{ staff.contacts }}</li>
-      <li><i class="fa fa-envelope user-profile-icon"></i> {{ staff.email }}</li>
-    </ul>
-
-    {% if user.staff_account.role.name == "Admin" %}
-      <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-primary btn-xs">
-        <i class="fa fa-edit"></i> Edit
-      </a>
-      <a href="{% url 'delete_staff_page' staff.id %}" class="btn btn-danger btn-xs" onclick="return confirm('Delete this record?')">
-        <i class="fa fa-trash-o"></i> Delete
-      </a>
-    {% endif %}
-  </div>
-
-  <div class="col-md-9 col-sm-9">
-    <div class="profile_title">
-      <h2>Assigned Classes & Subjects</h2>
-    </div>
-
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Class</th>
-          <th>Subject</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for assignment in teaching_assignments %}
-          <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ assignment.academic_class_stream }}</td>
-            <td>{{ assignment.subject }}</td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="3">No assignments found.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-    <div class="tab-content mt-4">
-      <ul class="nav nav-tabs">
-        <li class="active"><a href="#qualifications" data-toggle="tab">Qualifications</a></li>
-        <li><a href="#documents" data-toggle="tab">Documents</a></li>
-      </ul>
-
-      <div class="tab-content">
-        <!-- Qualifications -->
-        <div class="tab-pane active" id="qualifications">
-          <ul class="messages">
-            <li>
-              <div class="message_wrapper">
-                <h4 class="heading">{{ staff.qualification }}</h4>
-                <blockquote class="message">Further qualifications or certifications can be added here.</blockquote>
+      <div class="x_content">
+        <div class="row">
+          <div class="col-md-3 col-sm-4 col-xs-12 profile_left">
+            <div class="profile_img">
+              <div id="crop-avatar">
+                <img class="img-responsive avatar-view" src="{{ staff.staff_photo.url }}" alt="Staff Photo" style="width: 100%; height: auto;">
               </div>
-            </li>
-          </ul>
-        </div>
+            </div>
+            <h3>{{ staff }}</h3>
 
-        <!-- Documents -->
-        <div class="tab-pane" id="documents">
-          <h4>Documents</h4>
-          {% if staff_documents %}
-              <ul class="list-group">
-                  {% for document in staff_documents %}
-                      <li class="list-group-item d-flex justify-content-between align-items-center">
-                          <span>{{ document.document_type }}</span>
-                          <div>
-                            <a href="{{ document.file.url }}" target="_blank" class="btn btn-sm btn-info">
-                                <i class="fa fa-paperclip"></i> View
-                            </a>
-                            {% if user.staff_account.role.name == "Admin" %}
-                              <a href="{% url 'delete_staff_document' document.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this document?');">
-                                  <i class="fa fa-trash-o"></i> Delete
-                              </a>
-                            {% endif %}
-                          </div>
+            <ul class="list-unstyled user_data">
+              <li><i class="fa fa-map-marker user-profile-icon"></i> {{ staff.address|default:"Not specified" }}</li>
+              <li><i class="fa fa-briefcase user-profile-icon"></i> {{ staff.department|default:"Not specified" }}</li>
+              <li><i class="fa fa-phone user-profile-icon"></i> {{ staff.contacts|default:"Not specified" }}</li>
+              <li><i class="fa fa-envelope user-profile-icon"></i> {{ staff.email|default:"Not specified" }}</li>
+            </ul>
+
+            {% if user.staff_account.role.name == "Admin" %}
+              <div class="mt-3">
+                <a href="{% url 'edit_staff_details_page' staff.id %}" class="btn btn-info btn-sm">
+                  <i class="fa fa-edit"></i>
+                </a>
+                <a href="{% url 'delete_staff_page' staff.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this staff member?')">
+                  <i class="fa fa-trash"></i> 
+                </a>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-9 col-sm-8 col-xs-12">
+            <div class="profile_title">
+              <div class="col-md-6">
+                <h2><i class="fa fa-book"></i> Assigned Classes & Subjects</h2>
+              </div>
+              <div class="col-md-6">
+                <div class="pull-right">
+                  <a href="{% url 'staff_page' %}" class="btn btn-default btn-sm">
+                    <i class="fa fa-arrow-left"></i> Back to Staff List
+                  </a>
+                </div>
+              </div>
+              <div class="clearfix"></div>
+            </div>
+
+            <div class="ln_solid"></div>
+
+            {% if teaching_assignments %}
+              <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                  <thead class="thead-light">
+                    <tr>
+                      <th style="width: 5%">#</th>
+                      <th>Class Stream</th>
+                      <th>Subject</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for assignment in teaching_assignments %}
+                      <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ assignment.academic_class_stream }}</strong></td>
+                        <td>{{ assignment.subject }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="alert alert-warning" role="alert">
+                <i class="fa fa-exclamation-triangle"></i> No teaching assignments found for this staff member.
+              </div>
+            {% endif %}
+
+            <div class="x_panel mt-4">
+              <div class="x_title">
+                <h2>Additional Information</h2>
+                <div class="clearfix"></div>
+              </div>
+              <div class="x_content">
+                <div class="row">
+                  <div class="col-md-12">
+                    <ul class="nav nav-tabs" id="staffTabs" role="tablist">
+                      <li class="nav-item">
+                        <a class="nav-link active" id="qualifications-tab" data-toggle="tab" href="#qualifications" role="tab" aria-controls="qualifications" aria-selected="true">
+                          <i class="fa fa-graduation-cap"></i> Qualifications
+                        </a>
                       </li>
-                  {% endfor %}
-              </ul>
-          {% else %}
-              <p>No documents uploaded.</p>
-          {% endif %}
-          
-          <hr>
+                      <li class="nav-item">
+                        <a class="nav-link" id="documents-tab" data-toggle="tab" href="#documents" role="tab" aria-controls="documents" aria-selected="false">
+                          <i class="fa fa-file"></i> Documents
+                        </a>
+                      </li>
+                    </ul>
+                    <div class="tab-content" id="staffTabContent">
+                      <!-- Qualifications -->
+                      <div class="tab-pane fade show active" id="qualifications" role="tabpanel" aria-labelledby="qualifications-tab">
+                        <div class="mt-3">
+                          {% if staff.qualification %}
+                            <div class="message_wrapper">
+                              <h4 class="heading"><i class="fa fa-certificate"></i> {{ staff.qualification }}</h4>
+                              <blockquote class="message">Further qualifications or certifications can be added here.</blockquote>
+                            </div>
+                          {% else %}
+                            <p class="text-muted">No qualifications specified.</p>
+                          {% endif %}
+                        </div>
+                      </div>
 
-          <!-- Upload Form -->
-          {% if user.staff_account.role.name == "Admin" %}
-            <h5>Upload New Document</h5>
-            <form method="post" action="{% url 'upload_staff_document' staff.id %}" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label for="document_type">Document Type:</label>
-                    <input type="text" class="form-control" name="document_type" required>
+                      <!-- Documents -->
+                      <div class="tab-pane fade" id="documents" role="tabpanel" aria-labelledby="documents-tab">
+                        <div class="mt-3">
+                          <h4><i class="fa fa-folder-open"></i> Staff Documents</h4>
+                          {% if staff_documents %}
+                            <ul class="list-group">
+                              {% for document in staff_documents %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                  <span><i class="fa fa-file-o"></i> {{ document.document_type }}</span>
+                                  <div>
+                                    <a href="{{ document.file.url }}" target="_blank" class="btn btn-info btn-sm">
+                                      <i class="fa fa-eye"></i> View
+                                    </a>
+                                    {% if user.staff_account.role.name == "Admin" %}
+                                      <a href="{% url 'delete_staff_document' document.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this document?');">
+                                        <i class="fa fa-trash"></i> Delete
+                                      </a>
+                                    {% endif %}
+                                  </div>
+                                </li>
+                              {% endfor %}
+                            </ul>
+                          {% else %}
+                            <p class="text-muted">No documents uploaded yet.</p>
+                          {% endif %}
+
+                          <hr>
+
+                          <!-- Upload Form -->
+                          {% if user.staff_account.role.name == "Admin" %}
+                            <h5><i class="fa fa-upload"></i> Upload New Document</h5>
+                            <form method="post" action="{% url 'upload_staff_document' staff.id %}" enctype="multipart/form-data" class="mt-3">
+                              {% csrf_token %}
+                              <div class="row">
+                                <div class="col-md-6">
+                                  <div class="form-group">
+                                    <label for="document_type">Document Type:</label>
+                                    <input type="text" class="form-control" name="document_type" placeholder="e.g., CV, Certificate" required>
+                                  </div>
+                                </div>
+                                <div class="col-md-6">
+                                  <div class="form-group">
+                                    <label for="file">Select File:</label>
+                                    <input type="file" class="form-control" name="file" accept=".pdf,.doc,.docx,.jpg,.png" required>
+                                  </div>
+                                </div>
+                              </div>
+                              <button type="submit" class="btn btn-success">
+                                <i class="fa fa-upload"></i> Upload Document
+                              </button>
+                            </form>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="form-group">
-                    <label for="file">Upload File:</label>
-                    <input type="file" class="form-control" name="file" required>
-                </div>
-                <button type="submit" class="btn btn-success mt-2">
-                    <i class="fa fa-upload"></i> Upload Document
-                </button>
-            </form>
-          {% endif %}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
