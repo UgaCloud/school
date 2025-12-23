@@ -14,9 +14,11 @@ from app.models.classes import *
 from app.models.school_settings import AcademicYear
 
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import cm
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import cm, inch
 from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from io import BytesIO
 from django.utils import timezone
 
@@ -317,79 +319,6 @@ def student_fees_status_view(request):
             "bill_id": bill.id,
         })
 
-    if request.GET.get("download_pdf"):
-        buffer = BytesIO()
-        p = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-
-        # Margins and title
-        left_margin = 2 * cm
-        top_margin = height - 2 * cm
-        bottom_margin = 2 * cm
-        row_height = 1 * cm
-
-        p.setFont("Helvetica-Bold", 16)
-        title = "Student Fees Payment Status"
-        title_width = p.stringWidth(title, "Helvetica-Bold", 16)
-        p.drawString((width - title_width) / 2, top_margin, title)
-        y = top_margin - 1.5 * cm
-
-        headers = ["Class", "Student", "Total Fees", "Amount Paid", "Balance", "Status"]
-        col_widths = [3 * cm, 5 * cm, 3 * cm, 3 * cm, 3 * cm, 4 * cm]
-
-        def draw_table_row(values, y_pos, is_header=False, shade=False):
-            x = left_margin
-            p.setStrokeColor(colors.black)
-
-            if shade:
-                p.setFillColor(colors.lightgrey)
-                p.rect(left_margin, y_pos - row_height + 0.2 * cm, sum(col_widths), row_height, fill=1, stroke=0)
-
-            p.setFillColor(colors.black)
-            p.setFont("Helvetica-Bold", 10 if is_header else 9)
-
-            for i, value in enumerate(values):
-                p.drawString(x + 0.2 * cm, y_pos, str(value))
-                x += col_widths[i]
-
-            # Draw horizontal lines
-            p.line(left_margin, y_pos + 0.2 * cm, left_margin + sum(col_widths), y_pos + 0.2 * cm)
-            p.line(left_margin, y_pos - row_height + 0.2 * cm, left_margin + sum(col_widths), y_pos - row_height + 0.2 * cm)
-
-            # Draw vertical lines
-            x = left_margin
-            for w in col_widths:
-                p.line(x, y_pos + 0.2 * cm, x, y_pos - row_height + 0.2 * cm)
-                x += w
-            p.line(x, y_pos + 0.2 * cm, x, y_pos - row_height + 0.2 * cm)
-
-        draw_table_row(headers, y, is_header=True)
-        y -= row_height
-
-        for idx, row in enumerate(student_fees_data):
-            if y < bottom_margin + row_height:
-                p.showPage()
-                y = top_margin
-                p.setFont("Helvetica-Bold", 16)
-                p.drawString((width - title_width) / 2, y, title)
-                y -= 1.5 * cm
-                draw_table_row(headers, y, is_header=True)
-                y -= row_height
-
-            values = [
-                str(row["academic_class"]),
-                row["student"].student_name,
-                f"{row['total_amount']:,}",
-                f"{row['amount_paid']:,}",
-                f"{row['balance_label']} {row['balance']:,}" if row["balance_label"] else f"{row['balance']:,}",
-                row["payment_status"],
-            ]
-            draw_table_row(values, y, shade=(idx % 2 == 0))
-            y -= row_height
-
-        p.save()
-        buffer.seek(0)
-        return HttpResponse(buffer, content_type="application/pdf")
 
     # Fallback: if no rows for selected term, try latest term WITH data in the selected year
     if not student_fees_data:
@@ -458,6 +387,120 @@ def student_fees_status_view(request):
     total_fees = sum(row["total_amount"] for row in student_fees_data)
     total_paid = sum(row["amount_paid"] for row in student_fees_data)
     total_balance = sum(row["balance"] for row in student_fees_data if row.get("balance_label") != "CR")
+
+    if request.GET.get("download_pdf"):
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.units import inch
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
+                               rightMargin=72, leftMargin=72,
+                               topMargin=72, bottomMargin=72)
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=1,  # Center alignment
+            textColor=colors.darkblue
+        )
+
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Normal'],
+            fontSize=12,
+            spaceAfter=20,
+            alignment=1,
+            textColor=colors.darkgrey
+        )
+
+        normal_style = styles['Normal']
+
+        # Build the PDF content
+        content = []
+
+        # Title
+        content.append(Paragraph("Student Fees Payment Status Report", title_style))
+        content.append(Spacer(1, 12))
+
+        # Report details
+        report_info = f"""
+        <b>Report Generated:</b> {timezone.now().strftime('%B %d, %Y at %I:%M %p')}<br/>
+        <b>Academic Year:</b> {selected_year.academic_year if selected_year else 'All Years'}<br/>
+        <b>Term:</b> {term_obj.term if term_obj else 'All Terms'}<br/>
+        <b>Class Filter:</b> {AcademicClass.objects.filter(id=selected_academic_class).first().Class.name if selected_academic_class else 'All Classes'}<br/>
+        <b>Total Students:</b> {len(student_fees_data)}<br/>
+        <b>Total Fees:</b> UGX {total_fees:,.0f}<br/>
+        <b>Total Paid:</b> UGX {total_paid:,.0f}<br/>
+        <b>Outstanding Balance:</b> UGX {total_balance:,.0f}
+        """
+        content.append(Paragraph(report_info, normal_style))
+        content.append(Spacer(1, 20))
+
+        # Table data
+        table_data = [['#', 'Class', 'Student Name', 'Reg. No.', 'Total Fees', 'Amount Paid', 'Balance', 'Status']]
+
+        for idx, row in enumerate(student_fees_data, 1):
+            balance_str = f"{row['balance_label']} {row['balance']:,.0f}" if row["balance_label"] else f"{row['balance']:,.0f}"
+            table_data.append([
+                str(idx),
+                str(row["academic_class"]),
+                row["student"].student_name,
+                row["student"].reg_no,
+                f"UGX {row['total_amount']:,.0f}",
+                f"UGX {row['amount_paid']:,.0f}",
+                balance_str,
+                row["payment_status"]
+            ])
+
+        # Create table
+        table = Table(table_data, repeatRows=1)
+
+        # Table style
+        table_style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('ALIGN', (0, 1), (-1, 1), 'CENTER'),
+            ('ALIGN', (4, 1), (6, -1), 'RIGHT'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ])
+
+        # Alternate row colors
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                table_style.add('BACKGROUND', (0, i), (-1, i), colors.lightgrey)
+
+        table.setStyle(table_style)
+        content.append(table)
+
+        # Footer
+        content.append(Spacer(1, 30))
+        footer_text = f"""
+        <i>This report was generated by the School Management System on {timezone.now().strftime('%B %d, %Y')}.</i><br/>
+        <i>For any inquiries, please contact the school administration.</i>
+        """
+        content.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=styles['Normal'], fontSize=8, alignment=1, textColor=colors.grey)))
+
+        # Build PDF
+        doc.build(content)
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="student_fees_status_{timezone.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        return response
 
     context = {
         "academic_years": academic_years,

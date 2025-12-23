@@ -6,22 +6,29 @@
 {% block content %}
 <div class="clearfix"></div>
 
-<!-- Header Section -->
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h2 class="mb-1"><i class="fa fa-money-bill-wave text-success"></i> Bill Items Management</h2>
-                <p class="text-muted mb-0">Manage all billing items and categories</p>
+<div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+        <div class="x_panel">
+            <div class="x_title">
+                <h2><i class="fa fa-money-bill-wave"></i> Bill Items Management</h2>
+                <ul class="nav navbar-right panel_toolbox">
+                    <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+                    <li><a class="close-link"><i class="fa fa-close"></i></a></li>
+                </ul>
+                <div class="clearfix"></div>
             </div>
-            <div>
-                <button type="button" class="btn btn-success btn-lg shadow-sm" data-toggle="modal" data-target="#addBillItemModal">
-                    <i class="fa fa-plus-circle"></i> Add New Item
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+            <div class="x_content">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <p class="text-muted">Manage all billing items and categories for the school.</p>
+                    </div>
+                    <div class="col-md-6 text-right">
+                        <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addBillItemModal">
+                            <i class="fa fa-plus-circle"></i> Add New Item
+                        </button>
+                    </div>
+                </div>
+                <div class="ln_solid"></div>
 
 <!-- Statistics Cards -->
 <div class="row mb-4">
@@ -296,6 +303,10 @@
     </div>
 </div>
 
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 <style>

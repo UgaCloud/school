@@ -7,7 +7,11 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/ico" />
+  {% if school_settings and school_settings.school_logo %}
+    <link rel="icon" href="{{ school_settings.school_logo.url }}" type="image/x-icon" />
+  {% else %}
+    <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon" />
+  {% endif %}
   <title>School MIS</title>
 
   <!-- Bootstrap -->
