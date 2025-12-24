@@ -20,7 +20,7 @@
             <div class="x_content">
                 <div class="row mb-4">
                     <div class="col-md-6">
-                        <p class="text-muted">Monitor student fee payments and outstanding balances for {{ current_term.term }} {{ current_year.academic_year }}</p>
+                        <p class="text-muted">Monitor student fee payments and outstanding balances for Term:{{ current_term.term }} {{ current_year.academic_year }}</p>
                     </div>
                     <div class="col-md-6 text-right">
                         <form method="get" action="{% url 'fees_status' %}" style="display: inline;">

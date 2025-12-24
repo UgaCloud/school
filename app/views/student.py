@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, HttpResponseRedirect, HttpResponse
+from django.shortcuts import render, redirect, HttpResponseRedirect, HttpResponse, get_object_or_404
 from django.contrib import messages
 from django.urls import reverse
 import csv
@@ -10,7 +10,7 @@ import app.forms.student as student_forms
 from app.services.students import register_student, bulk_student_registration, delete_all_csv_files
 from app.selectors.model_selectors import *
 from app.forms.student import StudentForm
-from app.models.students import Student
+from app.models.students import Student, StudentDocument
 import app.forms.student as student_forms
 import app.selectors.students as student_selectors
 import app.selectors.classes as class_selectors
@@ -238,3 +238,33 @@ def bulk_register_students(request):
     return render(request, "student/bulk_register_students.html", {
         "unregistered_students": unregistered_students,
     })
+
+
+@login_required
+def upload_student_document(request, id):
+    student = get_object_or_404(Student, id=id)
+
+    if request.method == "POST":
+        document_type = request.POST.get('document_type')
+        file = request.FILES.get('file')
+
+        if document_type and file:
+            StudentDocument.objects.create(
+                student=student,
+                document_type=document_type,
+                file=file
+            )
+            messages.success(request, "Document uploaded successfully!")
+        else:
+            messages.error(request, "Please provide both document type and file.")
+
+    return redirect('student_details_page', id=student.id)
+
+
+@login_required
+def delete_student_document(request, id):
+    document = get_object_or_404(StudentDocument, id=id)
+    student_id = document.student.id
+    document.delete()
+    messages.success(request, "Document deleted successfully.")
+    return redirect('student_details_page', id=student_id)

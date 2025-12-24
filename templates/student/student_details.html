@@ -4,104 +4,300 @@
 {% block page_title %}Student Details{% endblock page_title %}
 
 {% block content %}
-<div class="row">
-  <!-- Profile Sidebar -->
-  <div class="col-md-3 col-sm-4">
-    <div class="x_panel">
-      <div class="x_content text-center">
-        <img src="{{ student.photo.url }}" alt="Student Photo" class="img-fluid img-circle img-thumbnail mb-3" style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%;">
-        <h3 class="mt-2">{{ student.student_name }}</h3>
-        <hr>
-        <ul class="list-unstyled user_data text-left pl-2">
-          <li><i class="fa fa-id-card mr-1"></i><strong> Reg No:</strong> {{ student.reg_no }}</li>
-          <li><i class="fa fa-venus-mars mr-1"></i><strong> Gender:</strong> {{ student.gender }}</li>
-          <li><i class="fa fa-birthday-cake mr-1"></i><strong> Birthdate:</strong> {{ student.birthdate }}</li>
-          <li><i class="fa fa-globe mr-1"></i><strong> Nationality:</strong> {{ student.nationality }}</li>
-          <li><i class="fa fa-praying-hands mr-1"></i><strong> Religion:</strong> {{ student.religion }}</li>
-        </ul>
-      </div>
-    </div>
-  </div>
+<div class="container p-3">
 
-  <!-- Profile Details -->
-  <div class="col-md-9 col-sm-8">
-    <!-- Academic Information -->
-    <div class="x_panel">
-      <div class="x_title">
-        <h2><i class="fa fa-graduation-cap"></i> Academic Information</h2>
-        <div class="clearfix"></div>
-      </div>
-      <div class="x_content">
-        <table class="table table-hover">
+  <a href="{% url 'student_page' %}" class="btn btn-danger mb-3">&larr; Go Back</a>
+
+  <div class="row g-3">
+
+    <!-- LEFT: PROFILE -->
+    <div class="col-md-4">
+      <div class="profile-card text-center">
+        <div class="profile-photo mb-3">
+          {% if student.photo %}
+            <img src="{{ student.photo.url }}" alt="Student Photo" />
+          {% else %}
+            <img src="/static/images/default_student.png" alt="Default Student Photo" />
+          {% endif %}
+        </div>
+
+        <h5 class="fw-bold">{{ student.student_name }}</h5>
+        <small class="text-success d-block mb-3">Username: {{ student.reg_no }}</small>
+
+        <table class="table table-sm">
           <tbody>
-            <tr>
-              <th>Current Class</th>
-              <td>{{ student.current_class }}</td>
-            </tr>
-            <tr>
-              <th>Stream</th>
-              <td>{{ student.stream }}</td>
-            </tr>
-            <tr>
-              <th>Academic Year</th>
-              <td>{{ student.academic_year }}</td>
-            </tr>
-            <tr>
-              <th>Term</th>
-              <td>{{ student.term }}</td>
-            </tr>
+            <tr><th>Email</th><td>{{ student.email|default:"-" }}</td></tr>
+            <tr><th>DOB</th><td>{{ student.birthdate|date:"M d, Y"|default:"-" }}</td></tr>
+            <tr><th>Registered session</th><td>{{ student.academic_year.academic_year|default:"-" }}</td></tr>
+            <tr><th>Class</th><td>{{ student.current_class|default:"-" }}</td></tr>
+            <tr><th>Gender</th><td>{{ student.get_gender_display|default:student.gender }}</td></tr>
+            <tr><th>Current address</th><td>{{ student.address|default:"-" }}</td></tr>
+            <tr><th>Guardian name</th><td>{{ student.guardian|default:"-" }}</td></tr>
+            <tr><th>Guardian contact</th><td>{{ student.contact|default:"-" }}</td></tr>
+            <tr><th>Active</th><td>{% if student.is_active %}Yes{% else %}No{% endif %}</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Guardian Info -->
-    <div class="x_panel">
-      <div class="x_title">
-        <h2><i class="fa fa-user-shield"></i> Guardian Information</h2>
-        <div class="clearfix"></div>
-      </div>
-      <div class="x_content">
-        <table class="table table-hover">
-          <tbody>
-            <tr>
-              <th>Guardian Name</th>
-              <td>{{ student.guardian }}</td>
-            </tr>
-            <tr>
-              <th>Relationship</th>
-              <td>{{ student.relationship }}</td>
-            </tr>
-            <tr>
-              <th>Contact</th>
-              <td>{{ student.contact }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <!-- RIGHT: CONTENT -->
+    <div class="col-md-8">
 
-    <!-- Documents -->
-    <div class="x_panel">
-      <div class="x_title">
-        <h2><i class="fa fa-folder-open"></i> Documents</h2>
-        <div class="clearfix"></div>
+      <!-- NAV TILES -->
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <div class="nav-tile docs active" onclick="showSection('docs')">Docs</div>
+        <div class="nav-tile exam" onclick="showSection('exam')">Exam Reports</div>
+        <div class="nav-tile library" onclick="showSection('library')">Library History</div>
+        <div class="nav-tile extra" onclick="showSection('extra')">Extra Activities</div>
+        <div class="nav-tile payments" onclick="showSection('payments')">Payments</div>
+        <div class="nav-tile attendance" onclick="showSection('attendance')">Attendance</div>
       </div>
-      <div class="x_content">
-        {% if student.documents.all %}
-          <ul class="list-group">
-            {% for doc in student.documents.all %}
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                {{ doc.title }}
-                <a href="{{ doc.file.url }}" class="btn btn-sm btn-primary" target="_blank"><i class="fa fa-download"></i> View</a>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-muted">No documents uploaded yet.</p>
+
+      <!-- DOCS SECTION -->
+      <div id="docs-section" class="content-section">
+      <div class="profile-card">
+
+        <h6 class="fw-bold mb-2">General Documents</h6>
+
+        {% if user.staff_account.role.name == "Admin" %}
+        <div class="mb-3">
+          <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#uploadDocumentModal">
+            <i class="fa fa-plus"></i> Upload Document
+          </button>
+        </div>
         {% endif %}
+
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th width="60">S.No</th>
+              <th>Filename</th>
+              <th width="120">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for doc in student.documents.all %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>{{ doc.document_type }}</td>
+              <td>
+                <a href="{{ doc.file.url }}" class="btn btn-sm btn-primary" target="_blank">View</a>
+                {% if user.staff_account.role.name == "Admin" %}
+                <a href="{% url 'delete_student_document' doc.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this document?');">Delete</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="3">No documents available</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
       </div>
+      </div>
+
+      <!-- PAYMENTS SECTION -->
+      <div id="payments-section" class="content-section" style="display: none;">
+      <div class="profile-card">
+        <h6 class="fw-bold mb-2">Payment History</h6>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th>Bill #</th>
+              <th>Amount</th>
+              <th>Payment Method</th>
+              <th>Reference</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for bill in student.bills.all %}
+              {% for payment in bill.payments.all %}
+              <tr>
+                <td>{{ forloop.parentloop.counter }}.{{ forloop.counter }}</td>
+                <td>{{ bill.id }}</td>
+                <td>{{ payment.amount }}</td>
+                <td>{{ payment.payment_method }}</td>
+                <td>{{ payment.reference_no }}</td>
+                <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+              </tr>
+              {% empty %}
+              {% if forloop.first %}
+              <tr>
+                <td colspan="6">No payment records available</td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            {% empty %}
+            <tr>
+              <td colspan="6">No bills found</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      </div>
+
+      <!-- PLACEHOLDER SECTIONS -->
+      <div id="exam-section" class="content-section" style="display: none;">
+      <div class="profile-card">
+        <h6 class="fw-bold mb-2">Exam Reports</h6>
+        <p>Exam reports content will be displayed here.</p>
+      </div>
+      </div>
+
+      <div id="library-section" class="content-section" style="display: none;">
+      <div class="profile-card">
+        <h6 class="fw-bold mb-2">Library History</h6>
+        <p>Library history content will be displayed here.</p>
+      </div>
+      </div>
+
+      <div id="extra-section" class="content-section" style="display: none;">
+      <div class="profile-card">
+        <h6 class="fw-bold mb-2">Extra Activities</h6>
+        <p>Extra activities content will be displayed here.</p>
+      </div>
+      </div>
+
+      <div id="attendance-section" class="content-section" style="display: none;">
+      <div class="profile-card">
+        <h6 class="fw-bold mb-2">Attendance</h6>
+        <p>Attendance content will be displayed here.</p>
+      </div>
+      </div>
+
+      <!-- Upload Modal -->
+      {% if user.staff_account.role.name == "Admin" %}
+      <div class="modal fade" id="uploadDocumentModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">
+                <i class="fa fa-cloud-upload"></i> Upload Document for {{ student.student_name }}
+              </h5>
+              <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <form method="post" action="{% url 'upload_student_document' student.id %}" enctype="multipart/form-data">
+              {% csrf_token %}
+              <div class="modal-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label>
+                        <i class="fa fa-tag text-primary"></i> Document Type *
+                      </label>
+                      <input type="text" class="form-control" name="document_type" placeholder="Birth Certificate, Transcript" required>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-group">
+                      <label>
+                        <i class="fa fa-file text-success"></i> Select File *
+                      </label>
+                      <input type="file" class="form-control" name="file" accept=".pdf,.doc,.docx,.jpg,.png,.jpeg" required>
+                    </div>
+                  </div>
+                </div>
+                <div class="alert alert-info">
+                  <strong>Guidelines:</strong>
+                  <ul class="mb-0 mt-2">
+                    <li>Max size: 3MB</li>
+                    <li>Use clear file names</li>
+                    <li>Ensure readability</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                  <i class="fa fa-times"></i> Cancel
+                </button>
+                <button type="submit" class="btn btn-success">
+                  <i class="fa fa-cloud-upload"></i> Upload
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
     </div>
   </div>
 </div>
+
+<script>
+function showSection(section) {
+  // Hide all sections
+  const sections = document.querySelectorAll('.content-section');
+  sections.forEach(sec => sec.style.display = 'none');
+
+  // Remove active class from all tiles
+  const tiles = document.querySelectorAll('.nav-tile');
+  tiles.forEach(tile => tile.classList.remove('active'));
+
+  // Show selected section
+  document.getElementById(section + '-section').style.display = 'block';
+
+  // Add active class to clicked tile
+  event.target.classList.add('active');
+}
+</script>
+<style>
+body {
+  background: #f5f7fa;
+}
+
+.profile-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.05);
+}
+
+.profile-photo img {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #fff;
+  box-shadow: 0 5px 15px rgba(0,0,0,.15);
+}
+
+.nav-tile {
+  padding: 12px 15px;
+  border-radius: 8px;
+  color: #fff;
+  text-align: center;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+  border: none;
+  display: inline-block;
+  min-width: 120px;
+  margin: 0 5px 5px 0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.nav-tile:hover, .nav-tile.active {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.docs { background:#00b3ff; }
+.exam { background:#2196f3; }
+.library { background:#673ab7; }
+.extra { background:#4caf50; }
+.payments { background:#ff9800; }
+.attendance { background:#f44336; }
+
+.table td, .table th {
+  vertical-align: middle;
+}
+</style>
+
+
 {% endblock content %}
