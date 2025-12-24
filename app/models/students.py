@@ -1,7 +1,7 @@
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
-from app.constants import *
+from app.constants import GENDERS, NATIONALITIES, RELIGIONS, DOCUMENT_TYPES
 
 class Student(models.Model):
     reg_no = models.CharField(max_length=30, unique=True)
@@ -84,8 +84,27 @@ class StudentRegistrationCSV(models.Model):
     def __str__(self):
         return f"File ID: {self.id}"
     
+class StudentDocument(models.Model):
+    student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='documents')
+    bill = models.ForeignKey("app.StudentBill", on_delete=models.CASCADE, null=True, blank=True, related_name='documents')
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPES)
+    file = models.FileField(upload_to='student_documents/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = ("Student Document")
+        verbose_name_plural = ("Student Documents")
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"{self.document_type} - {self.student.student_name}"
+
+    def get_absolute_url(self):
+        return reverse("student_document_detail", kwargs={"pk": self.pk})
+
+
 class ClassRegister(models.Model):
-    
+
     academic_class_stream = models.ForeignKey("app.AcademicClassStream", on_delete=models.CASCADE)
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE)
     payment_status = models.CharField(max_length=10, default=0)

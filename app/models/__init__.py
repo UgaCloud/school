@@ -1,5 +1,5 @@
 from .classes import *
-from .students import *
+from .students import Student, StudentRegistrationCSV, ClassRegister, StudentDocument
 from .fees_payment import *
 from .school_settings import *
 from .subjects import *

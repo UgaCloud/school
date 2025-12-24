@@ -98,6 +98,108 @@
         background: linear-gradient(90deg, #2980b9, #3498db);
         border-color: #3498db;
     }
+
+    /* Receipt Styles */
+    *{ box-sizing:border-box; }
+    .receipt-wrapper{
+      max-width:900px;
+      margin:30px auto;
+      background:#fff;
+      border-radius:10px;
+      padding:25px 35px;
+      box-shadow:0 10px 25px rgba(0,0,0,.07);
+    }
+
+    .header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      border-bottom:2px solid #eaeaea;
+      padding-bottom:15px;
+    }
+
+    .brand h2{
+      margin:0;
+      color:#1885b0;
+      letter-spacing:1px;
+    }
+    .brand small{ color:#666; }
+
+    .right-info{
+      text-align:right;
+      font-size:13px;
+      color:#555;
+    }
+
+    .title{
+      text-align:center;
+      margin:25px 0 10px;
+      font-weight:700;
+      font-size:22px;
+      letter-spacing:1px;
+      color:#1c7798;
+    }
+
+    .invoice-to{
+      margin:10px 0 15px;
+      font-size:14px;
+      line-height:1.4;
+    }
+
+    .receipt-wrapper table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:15px;
+      font-size:14px;
+    }
+    .receipt-wrapper thead{
+      background:#0b7da2;
+      color:#fff;
+    }
+    .receipt-wrapper th, .receipt-wrapper td{
+      padding:10px 8px;
+      border:1px solid #d7d7d7;
+      text-align:left;
+    }
+    .receipt-wrapper th:nth-child(1), .receipt-wrapper td:nth-child(1){
+      width:60px;
+      text-align:center;
+    }
+    .receipt-wrapper td.amount{
+      text-align:right;
+    }
+
+    .summary{
+      margin-top:18px;
+      width:320px;
+      margin-left:auto;
+      font-size:14px;
+    }
+    .summary div{
+      display:flex;
+      justify-content:space-between;
+      padding:6px 0;
+    }
+    .summary .total{
+      font-weight:700;
+      font-size:16px;
+      border-top:2px solid #ddd;
+      margin-top:5px;
+      padding-top:10px;
+    }
+
+    .notes{
+      margin-top:15px;
+      font-size:13px;
+      color:#555;
+    }
+
+    .footer{
+      margin-top:25px;
+      font-size:12px;
+      text-align:center;
+      color:#777;
+    }
 </style>
 
 <div class="x_content">
@@ -296,8 +398,15 @@
                         <div class="x_content">
                             <div class="alert alert-secondary">
                                 <i class="fa fa-file"></i>
-                                <strong>Document Management:</strong> Student documents and certificates will be listed here.
+                                <strong>Document Management:</strong> Student fees receipt  will be listed here.
                             </div>
+                            {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
+                            <div class="mb-3">
+                                <a class="btn btn-primary" data-toggle="modal" data-target=".document-modal-lg">
+                                    <i class="fa fa-plus"></i> Upload Document
+                                </a>
+                            </div>
+                            {% endif %}
                             <table class="table table-striped table-bordered">
                                 <thead>
                                     <tr>
@@ -309,18 +418,93 @@
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {% for doc in bill_documents %}
+                                    <tr>
+                                        <td>{{ doc.get_document_type_display }}</td>
+                                        <td>{{ doc.file.name|slice:":30" }}{% if doc.file.name|length > 30 %}...{% endif %}</td>
+                                        <td>{{ doc.uploaded_at|date:"M d, Y" }}</td>
+                                        <td><span class="badge badge-success">Active</span></td>
+                                        <td>
+                                            <a href="{{ doc.file.url }}" class="btn btn-sm btn-primary" target="_blank">View</a>
+                                            {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
+                                            <a href="{% url 'delete_bill_document' doc.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this document?');">Delete</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% empty %}
                                     <tr>
                                         <td colspan="5" class="text-center text-muted">
                                             <i class="fa fa-file fa-2x"></i>
                                             <br>No documents uploaded yet
                                         </td>
                                     </tr>
+                                    {% endfor %}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Document Upload Modal -->
+<div class="modal fade document-modal-lg no-print" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+            <div class="modal-header" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; border-radius: 12px 12px 0 0; border: none;">
+                <h5 class="modal-title">
+                    <i class="fa fa-cloud-upload"></i> Upload Document for {{ student_bill.student.student_name }}
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" style="opacity: 0.8;">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{% url 'upload_bill_document' student_bill.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body" style="padding: 25px;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>
+                                    <i class="fa fa-tag text-primary"></i> Document Type *
+                                </label>
+                                <select class="form-control" name="document_type" required>
+                                    <option value="">Select Document Type</option>
+                                    {% for code, display in document_type_choices %}
+                                    <option value="{{ code }}">{{ display }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>
+                                    <i class="fa fa-file text-success"></i> Select File *
+                                </label>
+                                <input type="file" class="form-control" name="file" accept=".pdf,.doc,.docx,.jpg,.png,.jpeg" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <strong>Guidelines:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Max size: 3MB</li>
+                            <li>Use clear file names</li>
+                            <li>Ensure readability</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border: none; padding: 20px 25px;">
+                    <button type="button" class="btn btn-secondary btn-modern" data-dismiss="modal">
+                        <i class="fa fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-info btn-modern">
+                        <i class="fa fa-cloud-upload"></i> Upload
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -384,191 +568,251 @@
     </div>
 </div>
 
-<!-- Professional Printable Receipt -->
-<div id="printableReceipt" style="display:none; font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
-    <!-- Header -->
-    <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px;">
-        <h1 style="color: #333; margin: 0; font-size: 28px;">STUDENT PAYMENT RECEIPT</h1>
-        <p style="color: #666; margin: 5px 0; font-size: 14px;">{{ school_name|default:"School Management System" }}</p>
-        <p style="color: #666; margin: 5px 0; font-size: 12px;">Generated on {{ now|date:"F d, Y" }}</p>
-    </div>
-
-    <!-- Student Information -->
-    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-        <h3 style="color: #333; margin-top: 0; border-bottom: 1px solid #dee2e6; padding-bottom: 10px;">Student Information</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold; width: 150px;">Student Name:</td>
-                <td style="padding: 8px 0;">{{ student_bill.student.student_name }}</td>
-            </tr>
-            <tr style="background: #fff;">
-                <td style="padding: 8px 0; font-weight: bold;">Registration No:</td>
-                <td style="padding: 8px 0;">{{ student_bill.student.reg_no }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Class:</td>
-                <td style="padding: 8px 0;">{{ student_bill.student.current_class.code }}</td>
-            </tr>
-            <tr style="background: #fff;">
-                <td style="padding: 8px 0; font-weight: bold;">Stream:</td>
-                <td style="padding: 8px 0;">{{ student_bill.student.stream }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; font-weight: bold;">Academic Year:</td>
-                <td style="padding: 8px 0;">{{ student_bill.academic_class.academic_year }}</td>
-            </tr>
-            <tr style="background: #fff;">
-                <td style="padding: 8px 0; font-weight: bold;">Term:</td>
-                <td style="padding: 8px 0;">{{ student_bill.academic_class.term }}</td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- Billed Items -->
-    <div style="margin-bottom: 25px;">
-        <h3 style="color: #333; border-bottom: 1px solid #dee2e6; padding-bottom: 10px;">Billed Items</h3>
-        <table style="width: 100%; border-collapse: collapse; border: 1px solid #dee2e6;">
-            <thead>
-                <tr style="background: #f8f9fa;">
-                    <th style="border: 1px solid #dee2e6; padding: 12px; text-align: left; font-weight: bold;">#</th>
-                    <th style="border: 1px solid #dee2e6; padding: 12px; text-align: left; font-weight: bold;">Item</th>
-                    <th style="border: 1px solid #dee2e6; padding: 12px; text-align: left; font-weight: bold;">Description</th>
-                    <th style="border: 1px solid #dee2e6; padding: 12px; text-align: right; font-weight: bold;">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in student_bill.items.all %}
-                <tr>
-                    <td style="border: 1px solid #dee2e6; padding: 10px;">{{ forloop.counter }}</td>
-                    <td style="border: 1px solid #dee2e6; padding: 10px;">{{ item.bill_item.item_name }}</td>
-                    <td style="border: 1px solid #dee2e6; padding: 10px;">{{ item.description }}</td>
-                    <td style="border: 1px solid #dee2e6; padding: 10px; text-align: right;">UGX {{ item.amount|intcomma }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr style="background: #f8f9fa; font-weight: bold;">
-                    <td colspan="3" style="border: 1px solid #dee2e6; padding: 12px; text-align: right;">TOTAL AMOUNT:</td>
-                    <td style="border: 1px solid #dee2e6; padding: 12px; text-align: right;">UGX {{ student_bill.total_amount|intcomma }}</td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-
-    <!-- Payment Summary -->
-    <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-        <h3 style="color: #333; margin-top: 0; border-bottom: 1px solid #dee2e6; padding-bottom: 10px;">Payment Summary</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-                <td style="padding: 10px 0; font-weight: bold; width: 200px;">Total Amount:</td>
-                <td style="padding: 10px 0;">UGX {{ student_bill.total_amount|intcomma }}</td>
-            </tr>
-            <tr style="background: #f8f9fa;">
-                <td style="padding: 10px 0; font-weight: bold;">Amount Paid:</td>
-                <td style="padding: 10px 0; color: #28a745; font-weight: bold;">UGX {{ student_bill.amount_paid|intcomma }}</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px 0; font-weight: bold;">Outstanding Balance:</td>
-                <td style="padding: 10px 0; color: {% if balance > 0 %}#dc3545{% else %}#28a745{% endif %}; font-weight: bold;">
-                    UGX {{ balance|intcomma }}
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- Payment History -->
-    {% if student_bill.payments.all %}
-    <div style="margin-bottom: 25px;">
-        <h3 style="color: #333; border-bottom: 1px solid #dee2e6; padding-bottom: 10px;">Payment History</h3>
-        <table style="width: 100%; border-collapse: collapse; border: 1px solid #dee2e6;">
-            <thead>
-                <tr style="background: #f8f9fa;">
-                    <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left; font-weight: bold;">#</th>
-                    <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left; font-weight: bold;">Date</th>
-                    <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left; font-weight: bold;">Payment Method</th>
-                    <th style="border: 1px solid #dee2e6; padding: 10px; text-align: left; font-weight: bold;">Reference No</th>
-                    <th style="border: 1px solid #dee2e6; padding: 10px; text-align: right; font-weight: bold;">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for payment in student_bill.payments.all %}
-                <tr>
-                    <td style="border: 1px solid #dee2e6; padding: 8px;">{{ forloop.counter }}</td>
-                    <td style="border: 1px solid #dee2e6; padding: 8px;">{{ payment.payment_date|date:"M d, Y" }}</td>
-                    <td style="border: 1px solid #dee2e6; padding: 8px;">{{ payment.payment_method }}</td>
-                    <td style="border: 1px solid #dee2e6; padding: 8px;">{{ payment.reference_no }}</td>
-                    <td style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">UGX {{ payment.amount|intcomma }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div id="printableReceipt" style="display:none;">
+<div class="receipt-wrapper" style="position: relative;">
+  <!-- Watermark (must be ABOVE wrapper background but BELOW content) -->
+  <div class="watermark">
+    {% if school_settings and school_settings.school_logo %}
+      <img src="{{ school_settings.school_logo.url }}" alt="School Logo Watermark">
+    {% else %}
+      <span>{{ school_settings.school_name|default:"SCHOOL NAME" }}</span>
     {% endif %}
-
-    <!-- Footer -->
-    <div style="border-top: 1px solid #dee2e6; padding-top: 20px; margin-top: 30px; text-align: center; color: #666; font-size: 12px;">
-        <p>This is a computer-generated receipt. No signature required.</p>
-        <p>For any queries, please contact the school administration.</p>
+  </div>
+  <div class="header">
+    <div class="brand">
+      <h2>{{ school_settings.school_name|default:"SCHOOL NAME" }}</h2>
+      <small>{{ school_settings.school_motto|default:"Tagline goes here" }}</small>
     </div>
+
+    <div class="right-info">
+      <div><strong>Receipt No:</strong> #{{ student_bill.id }}</div>
+      <div><strong>Receipt Date:</strong> {% now "m/d/Y" %}</div>
+    </div>
+  </div>
+
+  <h3 class="title">FEE RECEIPT</h3>
+
+  <div class="invoice-to">
+    <strong>Student Details:</strong><br>
+    {{ student_bill.student.student_name }}<br>
+    Reg No: {{ student_bill.student.reg_no }}<br>
+    Class: {{ student_bill.student.current_class.code }}<br>
+    Academic Year: {{ student_bill.academic_class.academic_year.academic_year }}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>No.</th>
+        <th>Fee Description</th>
+        <th class="amount">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in student_bill.items.all %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ item.bill_item.item_name }} - {{ item.description }}</td>
+        <td class="amount">UGX {{ item.amount|intcomma }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="summary">
+    <div><span>Total Amount</span><span>UGX {{ student_bill.total_amount|intcomma }}</span></div>
+    <div><span>Amount Paid</span><span>UGX {{ student_bill.amount_paid|intcomma }}</span></div>
+    <div><span>Outstanding Balance</span><span>UGX {{ balance|intcomma }}</span></div>
+    <div class="total"><span>Net Balance</span><span>UGX {{ balance|intcomma }}</span></div>
+  </div>
+
+  <div class="notes">
+    <strong>Payment History:</strong><br>
+    {% for payment in student_bill.payments.all %}
+    - {{ payment.payment_date|date:"M d, Y" }}: UGX {{ payment.amount|intcomma }} via {{ payment.payment_method }} (Ref: {{ payment.reference_no }})<br>
+    {% empty %}
+    No payments recorded yet.<br>
+    {% endfor %}
+    <br>
+
+    <strong>Terms & Conditions:</strong><br>
+    This receipt is system generated and valid for fee payment confirmation.
+  </div>
+
+  <div class="footer">
+    Thank you for your payment — keep this receipt for your records.
+  </div>
+</div>
 </div>
 
 
 <script>
-// Simple Print Function
+// Professional Print Function
 function printReceipt() {
-    const receipt = document.getElementById("printableReceipt").innerHTML;
+    const receiptElement = document.getElementById("printableReceipt");
+    const receipt = receiptElement.innerHTML;
     const printWindow = window.open('', '_blank', 'height=800,width=1000,scrollbars=yes');
 
     printWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Student Payment Receipt - {{ student_bill.student.student_name }}</title>
+            <title>Fee Receipt - {{ student_bill.student.student_name }}</title>
             <meta charset="utf-8">
             <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    margin: 20px;
-                    color: #333;
-                    line-height: 1.6;
+                *{ box-sizing:border-box; }
+                body{
+                  font-family: Arial, Helvetica, sans-serif;
+                  margin:0;
+                  background:#f4f7fb;
+                  padding: 20px;
+                  position: relative;
                 }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 20px;
+
+                .receipt-wrapper{
+                  max-width:900px;
+                  margin:0 auto;
+                  background:#fff;
+                  border-radius:10px;
+                  padding:25px 35px;
+                  box-shadow:0 10px 25px rgba(0,0,0,.07);
+                  position: relative;
                 }
-                th, td {
-                    border: 1px solid #ddd;
-                    padding: 10px;
-                    text-align: left;
+
+                /* Watermark Styles */
+                .watermark {
+                  position: absolute;
+                  top: 50%;
+                  left: 50%;
+                  transform: translate(-50%, -50%) rotate(-45deg);
+                  z-index: 0;
+                  opacity: 0.2;
+                  pointer-events: none;
+                  width: 100%;
+                  height: 100%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: #666;
+                  font-size: 32px;
+                  font-weight: bold;
                 }
-                th {
-                    background-color: #f5f5f5;
-                    font-weight: bold;
+
+                .watermark img {
+                  max-width: 400px;
+                  max-height: 400px;
+                  opacity: 0.3;
                 }
-                .header-section {
-                    text-align: center;
-                    border-bottom: 2px solid #333;
-                    padding-bottom: 20px;
-                    margin-bottom: 20px;
+
+                .header{
+                  display:flex;
+                  justify-content:space-between;
+                  align-items:flex-start;
+                  border-bottom:2px solid #eaeaea;
+                  padding-bottom:15px;
+                  position: relative;
+                  z-index: 1;
                 }
-                .summary-section {
-                    background: #f9f9f9;
-                    padding: 15px;
-                    border-radius: 5px;
-                    margin: 15px 0;
+
+                .brand h2{
+                  margin:0;
+                  color:#1885b0;
+                  letter-spacing:1px;
                 }
-                .footer-section {
-                    border-top: 1px solid #ddd;
-                    padding-top: 15px;
-                    margin-top: 20px;
-                    text-align: center;
-                    color: #666;
-                    font-size: 11px;
+                .brand small{ color:#666; }
+
+                .right-info{
+                  text-align:right;
+                  font-size:13px;
+                  color:#555;
                 }
+
+                .title{
+                  text-align:center;
+                  margin:25px 0 10px;
+                  font-weight:700;
+                  font-size:22px;
+                  letter-spacing:1px;
+                  color:#1c7798;
+                  position: relative;
+                  z-index: 1;
+                }
+
+                .invoice-to{
+                  margin:10px 0 15px;
+                  font-size:14px;
+                  line-height:1.4;
+                  position: relative;
+                  z-index: 1;
+                }
+
+                table{
+                  width:100%;
+                  border-collapse:collapse;
+                  margin-top:15px;
+                  font-size:14px;
+                  position: relative;
+                  z-index: 1;
+                }
+                thead{
+                  background:#0b7da2;
+                  color:#fff;
+                }
+                th, td{
+                  padding:10px 8px;
+                  border:1px solid #d7d7d7;
+                  text-align:left;
+                }
+                th:nth-child(1), td:nth-child(1){
+                  width:60px;
+                  text-align:center;
+                }
+                td.amount{
+                  text-align:right;
+                }
+
+                .summary{
+                  margin-top:18px;
+                  width:320px;
+                  margin-left:auto;
+                  font-size:14px;
+                  position: relative;
+                  z-index: 1;
+                }
+                .summary div{
+                  display:flex;
+                  justify-content:space-between;
+                  padding:6px 0;
+                }
+                .summary .total{
+                  font-weight:700;
+                  font-size:16px;
+                  border-top:2px solid #ddd;
+                  margin-top:5px;
+                  padding-top:10px;
+                }
+
+                .notes{
+                  margin-top:15px;
+                  font-size:13px;
+                  color:#555;
+                  position: relative;
+                  z-index: 1;
+                }
+
+                .footer{
+                  margin-top:25px;
+                  font-size:12px;
+                  text-align:center;
+                  color:#777;
+                  position: relative;
+                  z-index: 1;
+                }
+
                 @media print {
-                    body { margin: 0; }
-                    .no-print { display: none; }
+                    body { margin: 0; padding: 10px; }
+                    .receipt-wrapper { box-shadow: none; }
+                    .watermark { opacity: 0.1; }
                 }
             </style>
         </head>
