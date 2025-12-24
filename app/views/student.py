@@ -98,7 +98,10 @@ def add_student_view(request):
 def student_details_view(request, id):
     student = student_selectors.get_student(id)
     context = {
-        "student": student,  
+        "student": student,
+        "general_documents": student.documents.filter(bill__isnull=True),
+        "bill_documents": student.documents.filter(bill__isnull=False),
+        "document_type_choices": DOCUMENT_TYPES,
     }
     return render(request, "student/student_details.html", context)
 

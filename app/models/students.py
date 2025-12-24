@@ -1,7 +1,7 @@
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
-from app.constants import *
+from app.constants import GENDERS, NATIONALITIES, RELIGIONS, DOCUMENT_TYPES
 
 class Student(models.Model):
     reg_no = models.CharField(max_length=30, unique=True)
@@ -86,7 +86,8 @@ class StudentRegistrationCSV(models.Model):
     
 class StudentDocument(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='documents')
-    document_type = models.CharField(max_length=50)
+    bill = models.ForeignKey("app.StudentBill", on_delete=models.CASCADE, null=True, blank=True, related_name='documents')
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPES)
     file = models.FileField(upload_to='student_documents/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
 

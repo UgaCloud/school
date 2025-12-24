@@ -127,7 +127,6 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'Payment of {self.amount} for Bill #{self.bill.id} on {self.payment_date}'
-
 class StudentCredit(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='credits')
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -143,5 +142,5 @@ class StudentCredit(models.Model):
 
     class Meta:
         ordering = ['-created_date']
-    
+
     

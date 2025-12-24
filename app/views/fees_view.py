@@ -12,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 from app.models.students import *
 from app.models.classes import *
 from app.models.school_settings import AcademicYear
+from app.models.students import StudentDocument
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, landscape
@@ -180,6 +181,11 @@ def manage_student_bill_details_view(request, id):
     student = context["student_bill"].student
     context["academic_year"] = student.academic_year
     context["term"] = student.term
+    context["bill_documents"] = student.documents.filter(bill=context["student_bill"])
+    context["document_type_choices"] = DOCUMENT_TYPES
+    # School settings for receipt
+    from app.models.school_settings import SchoolSetting
+    context["school_settings"] = SchoolSetting.load()
 
     return render(request, "fees/student_bill_details.html", context)
 
@@ -517,8 +523,39 @@ def student_fees_status_view(request):
         "current_term": term_obj if 'term_obj' in locals() and term_obj else current_term,
         "current_year": selected_year,
     }
-
     return render(request, "fees/student_fees_status.html", context)
+
+
+@login_required
+def upload_bill_document(request, id):
+    bill = get_student_bill(id)
+
+    if request.method == "POST":
+        document_type = request.POST.get('document_type')
+        file = request.FILES.get('file')
+
+        if document_type and file:
+            StudentDocument.objects.create(
+                student=bill.student,
+                bill=bill,
+                document_type=document_type,
+                file=file
+            )
+            messages.success(request, SUCCESS_ADD_MESSAGE)
+        else:
+            messages.error(request, "Document type and file are required.")
+
+    return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill.id]))
+
+
+@login_required
+def delete_bill_document(request, id):
+    document = get_object_or_404(StudentDocument, id=id)
+    bill_id = document.bill.id
+    document.delete()
+    messages.success(request, DELETE_MESSAGE)
+    return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill_id]))
+
 
 
 
