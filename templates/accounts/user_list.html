@@ -5,6 +5,260 @@
 {% block page_title %}User Accounts Management{% endblock %}
 
 {% block content %}
+<style>
+    /* Gentellela Theme Colors */
+    :root {
+        --primary-color: #3498DB;
+        --primary-hover: #2980B9;
+        --success-color: #26B99A;
+        --warning-color: #F0AD4E;
+        --danger-color: #E74C3C;
+        --info-color: #3498DB;
+        --text-primary: #444444;
+        --text-secondary: #73879C;
+        --bg-light: #F7F7F7;
+        --bg-card: #ffffff;
+        --border-color: #D9DEE4;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --transition-fast: 0.15s ease-in-out;
+        --transition-normal: 0.3s ease-in-out;
+    }
+
+    /* Enhanced KPI Cards */
+    .kpi-card {
+        background: linear-gradient(135deg, var(--bg-card), #f8fafc);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        text-align: center;
+        transition: var(--transition-normal);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .kpi-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        font-size: 1.5rem;
+        color: white;
+    }
+
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .kpi-label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+
+    /* User Cards */
+    .user-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        transition: var(--transition-normal);
+        overflow: hidden;
+    }
+
+    .user-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .user-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+        color: white;
+        padding: 1.5rem;
+        position: relative;
+    }
+
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        object-fit: cover;
+    }
+
+    .user-badge {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        font-size: 0.875rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .user-body {
+        padding: 1.5rem;
+    }
+
+    .user-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .user-info-row:last-child {
+        border-bottom: none;
+    }
+
+    .user-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+
+    .user-value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .user-footer {
+        background: var(--bg-light);
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid var(--border-color);
+    }
+
+    .status-active {
+        background: rgba(38, 185, 154, 0.1);
+        color: var(--success-color);
+        border-color: rgba(38, 185, 154, 0.3);
+    }
+
+    .status-inactive {
+        background: rgba(231, 76, 60, 0.1);
+        color: var(--danger-color);
+        border-color: rgba(231, 76, 60, 0.3);
+    }
+
+    .status-staff {
+        background: rgba(52, 152, 219, 0.1);
+        color: var(--info-color);
+        border-color: rgba(52, 152, 219, 0.3);
+    }
+
+    /* Enhanced Buttons */
+    .btn-gentellela {
+        border-radius: var(--radius-md);
+        font-weight: 600;
+        transition: var(--transition-fast);
+        border: none;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-primary-gentellela {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+        color: white;
+    }
+
+    .btn-primary-gentellela:hover {
+        background: linear-gradient(135deg, var(--primary-hover), var(--primary-color));
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    }
+
+    .btn-success-gentellela {
+        background: linear-gradient(135deg, var(--success-color), #15803d);
+        color: white;
+    }
+
+    .btn-warning-gentellela {
+        background: linear-gradient(135deg, var(--warning-color), #d97706);
+        color: white;
+    }
+
+    .btn-danger-gentellela {
+        background: linear-gradient(135deg, var(--danger-color), #b91c1c);
+        color: white;
+    }
+
+    /* Search and Filter */
+    .search-container {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+    }
+
+    .search-input {
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        transition: var(--transition-fast);
+    }
+
+    .search-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        outline: none;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .kpi-card {
+            margin-bottom: 1rem;
+        }
+        
+        .user-header {
+            padding: 1rem;
+        }
+        
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+        }
+        
+        .kpi-value {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+
 <div class="clearfix"></div>
 
 <!-- Page Header -->
@@ -16,8 +270,8 @@
                 <p class="text-muted mb-0">Manage system users and their access permissions</p>
             </div>
             <div>
-                <button id="openModalBtn" class="btn btn-success btn-lg shadow-sm">
-                    <i class="fa fa-plus-circle"></i> Create Staff Account
+                <button id="openModalBtn" class="btn btn-success-gentellela btn-lg">
+                    <i class="fa fa-plus-circle me-2"></i> Create Staff Account
                 </button>
             </div>
         </div>
@@ -27,70 +281,46 @@
 <!-- Summary Cards -->
 <div class="row mb-4">
     <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
-        <div class="card border-left-primary shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-grow-1">
-                        <h6 class="text-primary mb-1"><i class="fa fa-users"></i> Total Users</h6>
-                        <h3 class="mb-0 font-weight-bold">{{ total_users }}</h3>
-                        <small class="text-muted">Registered accounts</small>
-                    </div>
-                    <div class="text-primary">
-                        <i class="fa fa-users fa-2x"></i>
-                    </div>
-                </div>
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));">
+                <i class="fa fa-users"></i>
             </div>
+            <div class="kpi-value">{{ total_users }}</div>
+            <div class="kpi-label">Total Users</div>
+            <small class="text-muted">Registered accounts</small>
         </div>
     </div>
 
     <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
-        <div class="card border-left-success shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-grow-1">
-                        <h6 class="text-success mb-1"><i class="fa fa-user-check"></i> Active Users</h6>
-                        <h3 class="mb-0 font-weight-bold">{{ active_users }}</h3>
-                        <small class="text-muted">Enabled accounts</small>
-                    </div>
-                    <div class="text-success">
-                        <i class="fa fa-user-check fa-2x"></i>
-                    </div>
-                </div>
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background: linear-gradient(135deg, var(--success-color), #15803d);">
+                <i class="fa fa-user-check"></i>
             </div>
+            <div class="kpi-value">{{ active_users }}</div>
+            <div class="kpi-label">Active Users</div>
+            <small class="text-muted">Enabled accounts</small>
         </div>
     </div>
 
     <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
-        <div class="card border-left-info shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-grow-1">
-                        <h6 class="text-info mb-1"><i class="fa fa-user-shield"></i> Staff Accounts</h6>
-                        <h3 class="mb-0 font-weight-bold">{{ staff_users }}</h3>
-                        <small class="text-muted">With staff privileges</small>
-                    </div>
-                    <div class="text-info">
-                        <i class="fa fa-user-shield fa-2x"></i>
-                    </div>
-                </div>
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background: linear-gradient(135deg, var(--info-color), var(--primary-hover));">
+                <i class="fa fa-user-shield"></i>
             </div>
+            <div class="kpi-value">{{ staff_users }}</div>
+            <div class="kpi-label">Staff Accounts</div>
+            <small class="text-muted">With staff privileges</small>
         </div>
     </div>
 
     <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
-        <div class="card border-left-warning shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="flex-grow-1">
-                        <h6 class="text-warning mb-1"><i class="fa fa-clock"></i> Recent Activity</h6>
-                        <h3 class="mb-0 font-weight-bold">{{ recent_logins }}</h3>
-                        <small class="text-muted">Active in last 30 days</small>
-                    </div>
-                    <div class="text-warning">
-                        <i class="fa fa-clock fa-2x"></i>
-                    </div>
-                </div>
+        <div class="kpi-card">
+            <div class="kpi-icon" style="background: linear-gradient(135deg, var(--warning-color), #d97706);">
+                <i class="fa fa-clock"></i>
             </div>
+            <div class="kpi-value">{{ recent_logins }}</div>
+            <div class="kpi-label">Recent Activity</div>
+            <small class="text-muted">Active in last 30 days</small>
         </div>
     </div>
 </div>
@@ -98,35 +328,32 @@
 <!-- Search and Filters -->
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fa fa-search"></i> Search & Filter Users</h5>
-            </div>
-            <div class="card-body">
-                <form method="get" action="{% url 'user_list' %}" class="row g-3">
-                    <div class="col-md-8">
-                        <label for="search" class="form-label">Search Users</label>
-                        <div class="input-group">
-                            <input type="text" name="search" id="search" class="form-control"
-                                       placeholder="Search by username, first name, last name, or email..."
-                                       value="{{ search_query }}">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fa fa-search"></i> Search
-                            </button>
-                        </div>
+        <div class="search-container">
+            <h5 class="mb-3"><i class="fa fa-search me-2"></i> Search & Filter Users</h5>
+            <form method="get" action="{% url 'user_list' %}" class="row g-3">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text" style="background: var(--bg-light); border: 1px solid var(--border-color);">
+                            <i class="fa fa-search text-muted"></i>
+                        </span>
+                        <input type="text" name="search" id="search" class="search-input"
+                               placeholder="Search by username, first name, last name, or email..."
+                               value="{{ search_query }}" style="flex: 1;">
+                        <button type="submit" class="btn btn-primary-gentellela">
+                            <i class="fa fa-search me-2"></i> Search
+                        </button>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">&nbsp;</label>
-                        <div class="d-grid">
-                            {% if request.GET.search %}
-                            <a href="{% url 'user_list' %}" class="btn btn-outline-secondary">
-                                <i class="fa fa-times"></i> Clear Search
-                            </a>
-                            {% endif %}
-                        </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-2">
+                        {% if request.GET.search %}
+                        <a href="{% url 'user_list' %}" class="btn btn-warning-gentellela">
+                            <i class="fa fa-times me-2"></i> Clear Search
+                        </a>
+                        {% endif %}
                     </div>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -135,96 +362,122 @@
 <div class="row">
     {% for user in users %}
     <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
-        <div class="card shadow-sm h-100 user-card">
-            <div class="card-header bg-gradient-primary text-white d-flex align-items-center">
+        <div class="user-card h-100">
+            <!-- User Header -->
+            <div class="user-header">
                 <div class="d-flex align-items-center">
                     {% if user.staff_account and user.staff_account.staff.staff_photo %}
                         <img src="{{ user.staff_account.staff.staff_photo.url }}" alt="Profile Photo"
-                             class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover; border: 2px solid white;">
+                             class="user-avatar" style="width: 60px; height: 60px; object-fit: cover;">
                     {% else %}
-                        <div class="bg-light text-primary rounded-circle d-flex align-items-center justify-content-center me-3"
-                             style="width: 40px; height: 40px; border: 2px solid white; font-size: 18px; font-weight: bold;">
+                        <div class="user-avatar d-flex align-items-center justify-content-center"
+                             style="background: rgba(255, 255, 255, 0.2); border: 3px solid rgba(255, 255, 255, 0.3);">
                             {{ user.first_name|first|default:user.username|first|upper }}
                         </div>
                     {% endif %}
-                    <div>
-                        <h6 class="mb-0">{{ user.get_full_name|default:user.username }}</h6>
-                        <small class="text-white-50">@{{ user.username }}</small>
+                    <div class="ms-3 flex-grow-1">
+                        <h5 class="mb-1">{{ user.get_full_name|default:user.username }}</h5>
+                        <p class="mb-0 opacity-75">@{{ user.username }}</p>
                     </div>
+                    <span class="user-badge">{{ user.id }}</span>
                 </div>
-                <span class="badge bg-light text-dark ms-auto">{{ user.id }}</span>
             </div>
 
-            <div class="card-body">
+            <!-- User Body -->
+            <div class="user-body">
                 <!-- User Info -->
-                <div class="mb-3">
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <div class="border-end">
-                                <small class="text-muted d-block">Username</small>
-                                <strong class="text-primary">{{ user.username }}</strong>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted d-block">Status</small>
-                            {% if user.is_active %}
-                                <span class="text-success fw-bold">Active</span>
-                            {% else %}
-                                <span class="text-danger fw-bold">Inactive</span>
-                            {% endif %}
-                        </div>
+                <div class="user-info-row">
+                    <div>
+                        <span class="user-label">Username</span>
+                        <div class="user-value">{{ user.username }}</div>
+                    </div>
+                    <div>
+                        <span class="user-label">Status</span>
+                        {% if user.is_active %}
+                            <span class="status-badge status-active">
+                                <i class="fa fa-circle"></i> Active
+                            </span>
+                        {% else %}
+                            <span class="status-badge status-inactive">
+                                <i class="fa fa-circle"></i> Inactive
+                            </span>
+                        {% endif %}
                     </div>
                 </div>
 
                 <!-- Contact Info -->
-                <div class="mb-3">
-                    <small class="text-muted d-block">
-                        <i class="fa fa-envelope me-1"></i> {{ user.email|default:"No email" }}
-                    </small>
-                    {% if user.last_login %}
-                    <small class="text-muted d-block">
-                        <i class="fa fa-clock me-1"></i> Last login: {{ user.last_login|date:"M d, Y H:i" }}
-                    </small>
-                    {% else %}
-                    <small class="text-muted d-block">
-                        <i class="fa fa-clock me-1"></i> Never logged in
-                    </small>
-                    {% endif %}
+                <div class="user-info-row">
+                    <div>
+                        <span class="user-label">Email</span>
+                        <div class="user-value">{{ user.email|default:"No email" }}</div>
+                    </div>
+                    <div>
+                        <span class="user-label">Role</span>
+                        {% if user.is_superuser %}
+                            <span class="status-badge" style="background: rgba(231, 76, 60, 0.1); color: var(--danger-color); border-color: rgba(231, 76, 60, 0.3);">
+                                <i class="fa fa-crown"></i> Superuser
+                            </span>
+                        {% elif user.is_staff %}
+                            <span class="status-badge status-staff">
+                                <i class="fa fa-user-shield"></i> Staff
+                            </span>
+                        {% else %}
+                            <span class="status-badge" style="background: rgba(119, 136, 153, 0.1); color: #73879C; border-color: rgba(119, 136, 153, 0.3);">
+                                <i class="fa fa-user"></i> Regular
+                            </span>
+                        {% endif %}
+                    </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="d-grid gap-2">
-                    <a href="{% url 'user_detail' user.id %}" class="btn btn-primary btn-sm">
-                        <i class="fa fa-eye me-1"></i> View Details
-                    </a>
-                    <form action="{% url 'delete_user' user.id %}" method="post" style="display:inline;" onsubmit="return confirmDelete('{{ user.username }}')">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-danger btn-sm">
-                            <i class="fa fa-trash me-1"></i> 
-                        </button>
-                    </form>
+                <!-- Last Activity -->
+                <div class="user-info-row">
+                    <div>
+                        <span class="user-label">Last Activity</span>
+                        {% if user.last_login %}
+                            <div class="user-value">{{ user.last_login|date:"M d, Y H:i" }}</div>
+                        {% else %}
+                            <div class="user-value text-muted">Never logged in</div>
+                        {% endif %}
+                    </div>
+                    {% if user.date_joined %}
+                    <div>
+                        <span class="user-label">Joined</span>
+                        <div class="user-value">{{ user.date_joined|date:"M Y" }}</div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
-            <!-- Card Footer with Status -->
-            <div class="card-footer bg-light">
-                {% if user.is_superuser %}
-                    <span class="text-danger fw-bold">Superuser</span>
-                {% elif user.is_staff %}
-                    <span class="text-info fw-bold">Staff</span>
-                {% else %}
-                    <span class="text-secondary fw-bold">Regular User</span>
-                {% endif %}
-                {% if user.date_joined %}
-                <small class="text-muted float-end">Joined {{ user.date_joined|date:"M Y" }}</small>
-                {% endif %}
+            <!-- User Footer -->
+            <div class="user-footer">
+                <div>
+                    <span class="text-muted">Account Type: </span>
+                    {% if user.is_superuser %}
+                        <span class="badge bg-danger">Superuser</span>
+                    {% elif user.is_staff %}
+                        <span class="badge bg-info">Staff</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Regular</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'user_detail' user.id %}" class="btn btn-primary-gentellela btn-sm">
+                        <i class="fa fa-eye me-2"></i> View Details
+                    </a>
+                    <form action="{% url 'delete_user' user.id %}" method="post" style="display:inline;" onsubmit="return confirmDelete('{{ user.username }}')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger-gentellela btn-sm">
+                            <i class="fa fa-trash me-2"></i> Delete
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
     {% empty %}
     <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-body text-center py-5">
+        <div class="user-card">
+            <div class="user-body text-center py-5">
                 <i class="fa fa-users fa-4x text-muted mb-3"></i>
                 <h4 class="text-muted">No Users Found</h4>
                 <p class="text-muted mb-4">
@@ -235,8 +488,8 @@
                     {% endif %}
                 </p>
                 {% if request.GET.search %}
-                <a href="{% url 'user_list' %}" class="btn btn-outline-primary">
-                    <i class="fa fa-times"></i> Clear Search
+                <a href="{% url 'user_list' %}" class="btn btn-warning-gentellela">
+                    <i class="fa fa-times me-2"></i> Clear Search
                 </a>
                 {% endif %}
             </div>
@@ -249,15 +502,17 @@
 {% if is_paginated %}
 <div class="d-flex justify-content-center mt-4">
     <nav aria-label="User list pagination">
-        <ul class="pagination">
+        <ul class="pagination" style="margin: 0;">
             {% if page_obj.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">
+                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}"
+                       style="border-radius: var(--radius-md); margin: 0 2px; border: 1px solid var(--border-color); color: var(--text-primary);">
                         <i class="fa fa-angle-double-left"></i> First
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       style="border-radius: var(--radius-md); margin: 0 2px; border: 1px solid var(--border-color); color: var(--text-primary);">
                         <i class="fa fa-angle-left"></i> Previous
                     </a>
                 </li>
@@ -266,23 +521,30 @@
             {% for num in page_obj.paginator.page_range %}
                 {% if page_obj.number == num %}
                     <li class="page-item active">
-                        <span class="page-link">{{ num }}</span>
+                        <span class="page-link" style="background: linear-gradient(135deg, var(--primary-color), var(--primary-hover)); border: none; border-radius: var(--radius-md); margin: 0 2px; color: white;">
+                            {{ num }}
+                        </span>
                     </li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                           style="border-radius: var(--radius-md); margin: 0 2px; border: 1px solid var(--border-color); color: var(--text-primary);">
+                            {{ num }}
+                        </a>
                     </li>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       style="border-radius: var(--radius-md); margin: 0 2px; border: 1px solid var(--border-color); color: var(--text-primary);">
                         Next <i class="fa fa-angle-right"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}"
+                       style="border-radius: var(--radius-md); margin: 0 2px; border: 1px solid var(--border-color); color: var(--text-primary);">
                         Last <i class="fa fa-angle-double-right"></i>
                     </a>
                 </li>
@@ -322,96 +584,26 @@
         </div>
     </div>
     
-    <!-- Custom Styles -->
+    <!-- Modal Styles -->
     <style>
-    .bg-gradient-primary {
-        background: linear-gradient(135deg, #337ab7 0%, #4e73df 100%);
-    }
-    
-    .border-left-primary {
-        border-left: 4px solid #337ab7 !important;
-    }
-
-    .border-left-success {
-        border-left: 4px solid #5cb85c !important;
-    }
-
-    .border-left-info {
-        border-left: 4px solid #5bc0de !important;
-    }
-
-    .border-left-warning {
-        border-left: 4px solid #f0ad4e !important;
-    }
-    
-    .card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        border-radius: 10px;
-    }
-    
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-    }
-    
-    .user-card {
+    /* Modal Enhancement */
+    .modal-content {
+        border-radius: var(--radius-lg);
         border: none;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: var(--shadow-lg);
     }
     
-    .user-card:hover {
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    .modal-header {
+        border-bottom: 1px solid var(--border-color);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     }
     
-    .btn {
-        border-radius: 6px;
-        font-weight: 500;
-        transition: all 0.2s ease;
+    .modal-footer {
+        border-top: 1px solid var(--border-color);
+        border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     }
     
-    .btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    
-    .badge {
-        font-size: 0.75em;
-        padding: 0.375em 0.75em;
-        border-radius: 20px;
-    }
-    
-    .input-group .form-control:focus {
-        border-color: #337ab7;
-        box-shadow: 0 0 0 0.2rem rgba(51, 122, 183, 0.25);
-    }
-
-    .pagination .page-link {
-        border-radius: 6px !important;
-        margin: 0 2px;
-        border: 1px solid #dee2e6;
-    }
-
-    .pagination .page-item.active .page-link {
-        background-color: #337ab7;
-        border-color: #337ab7;
-    }
-    
-    @media (max-width: 768px) {
-        .card-body {
-            padding: 1rem;
-        }
-    
-        .btn-group {
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-    
-        .btn-group .btn {
-            border-radius: 4px !important;
-        }
-    }
-    
-    /* Loading animation */
+    /* Loading Animation */
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
@@ -421,26 +613,13 @@
         animation: fadeIn 0.3s ease-out;
     }
     
-    /* Search input enhancement */
-    .input-group .btn {
-        border-radius: 0 6px 6px 0;
+    /* Enhanced hover effects */
+    .user-card:hover {
+        transform: translateY(-4px);
     }
     
-    /* Status indicators */
-    .status-indicator {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 5px;
-    }
-    
-    .status-active {
-        background-color: #28a745;
-    }
-    
-    .status-inactive {
-        background-color: #dc3545;
+    .btn-gentellela:hover {
+        transform: translateY(-2px);
     }
     </style>
     
@@ -454,27 +633,27 @@
     
         document.getElementById('openModalBtn').addEventListener('click', function() {
             createModal.show();
-    
+
             // Load form content
             fetch("{% url 'create_account' %}")
                 .then(response => response.text())
                 .then(html => {
                     document.getElementById('modalFormContent').innerHTML = html;
-    
+
                     // Attach submit event to the loaded form
                     const form = document.querySelector("#modalFormContent form");
                     if (form) {
                         form.addEventListener('submit', function(event) {
                             event.preventDefault();
-    
+
                             const formData = new FormData(form);
                             const submitBtn = form.querySelector('button[type="submit"]');
                             const originalText = submitBtn.innerHTML;
-    
+
                             // Show loading state
-                            submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Creating...';
+                            submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i>Creating...';
                             submitBtn.disabled = true;
-    
+
                             fetch("{% url 'create_account' %}", {
                                 method: 'POST',
                                 headers: {
