@@ -1,7 +1,16 @@
 from django.db import models
 from django.urls import reverse
+from django.core.exceptions import ValidationError
 from app.constants import *
-from app.constants import GENDERS, EMPLOYEE_STATUS, TYPE_CHOICES, MARITAL_STATUS, ROLE_CHOICES
+from app.constants import GENDERS, EMPLOYEE_STATUS, TYPE_CHOICES, MARITAL_STATUS, ROLE_CHOICES,DOCUMENT_TYPES
+
+
+def validate_nin(value):
+    """Validate NIN format only if a value is provided"""
+    if value:  
+        import re
+        if not re.match(r'^[A-Z0-9]{14}$', value):
+            raise ValidationError("NIN must be 14 characters long, uppercase letters and numbers only.")
 
 class Role(models.Model):
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
@@ -12,7 +21,8 @@ class Role(models.Model):
         
     def __str__(self):
         return self.name
-    
+
+
 class Staff(models.Model):
     first_name = models.CharField(max_length=20)
     last_name = models.CharField(max_length=20)
@@ -23,6 +33,7 @@ class Staff(models.Model):
     contacts = models.CharField(max_length=20)
     email = models.EmailField(max_length=254)
     qualification = models.CharField(max_length=100)
+    nin_no = models.CharField(max_length=14, blank=True, null=True, validators=[validate_nin], verbose_name="NIN")
     hire_date = models.DateField()
     department = models.CharField(max_length=30,choices=TYPE_CHOICES)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
@@ -66,9 +77,9 @@ class BankDetail(models.Model):
         return reverse("bankdetail_detail", kwargs={"pk": self.pk})
 
 class StaffDocument(models.Model):
-    
+
     staff = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
-    document_type = models.CharField(max_length=50)
+    document_type = models.CharField(max_length=50,choices=DOCUMENT_TYPES)
     file = models.FileField(upload_to="Staff/Documents", max_length=100)
 
     class Meta:

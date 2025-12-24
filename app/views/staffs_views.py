@@ -55,7 +55,7 @@ def staff_details_view(request, id):
                 file=file
             )
             messages.success(request, "Document uploaded successfully!")
-            return redirect('staff_details_page', id=staff.id)  # <-- Fixed here
+            return redirect('staff_details_page', id=staff.id)  
         else:
             messages.error(request, "Both fields are required.")
 

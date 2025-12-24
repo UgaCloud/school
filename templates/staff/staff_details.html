@@ -153,7 +153,7 @@
 
                           <hr>
 
-                          <!-- Upload Form -->
+                         <!-- Upload Form -->
                           {% if user.staff_account.role.name == "Admin" %}
                             <h5><i class="fa fa-upload"></i> Upload New Document</h5>
                             <form method="post" action="{% url 'upload_staff_document' staff.id %}" enctype="multipart/form-data" class="mt-3">
