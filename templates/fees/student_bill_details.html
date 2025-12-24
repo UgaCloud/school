@@ -569,7 +569,15 @@
 </div>
 
 <div id="printableReceipt" style="display:none;">
-<div class="receipt-wrapper">
+<div class="receipt-wrapper" style="position: relative;">
+  <!-- Watermark (must be ABOVE wrapper background but BELOW content) -->
+  <div class="watermark">
+    {% if school_settings and school_settings.school_logo %}
+      <img src="{{ school_settings.school_logo.url }}" alt="School Logo Watermark">
+    {% else %}
+      <span>{{ school_settings.school_name|default:"SCHOOL NAME" }}</span>
+    {% endif %}
+  </div>
   <div class="header">
     <div class="brand">
       <h2>{{ school_settings.school_name|default:"SCHOOL NAME" }}</h2>
@@ -641,7 +649,8 @@
 <script>
 // Professional Print Function
 function printReceipt() {
-    const receipt = document.getElementById("printableReceipt").innerHTML;
+    const receiptElement = document.getElementById("printableReceipt");
+    const receipt = receiptElement.innerHTML;
     const printWindow = window.open('', '_blank', 'height=800,width=1000,scrollbars=yes');
 
     printWindow.document.write(`
@@ -657,6 +666,7 @@ function printReceipt() {
                   margin:0;
                   background:#f4f7fb;
                   padding: 20px;
+                  position: relative;
                 }
 
                 .receipt-wrapper{
@@ -666,6 +676,32 @@ function printReceipt() {
                   border-radius:10px;
                   padding:25px 35px;
                   box-shadow:0 10px 25px rgba(0,0,0,.07);
+                  position: relative;
+                }
+
+                /* Watermark Styles */
+                .watermark {
+                  position: absolute;
+                  top: 50%;
+                  left: 50%;
+                  transform: translate(-50%, -50%) rotate(-45deg);
+                  z-index: 0;
+                  opacity: 0.2;
+                  pointer-events: none;
+                  width: 100%;
+                  height: 100%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: #666;
+                  font-size: 32px;
+                  font-weight: bold;
+                }
+
+                .watermark img {
+                  max-width: 400px;
+                  max-height: 400px;
+                  opacity: 0.3;
                 }
 
                 .header{
@@ -674,6 +710,8 @@ function printReceipt() {
                   align-items:flex-start;
                   border-bottom:2px solid #eaeaea;
                   padding-bottom:15px;
+                  position: relative;
+                  z-index: 1;
                 }
 
                 .brand h2{
@@ -696,12 +734,16 @@ function printReceipt() {
                   font-size:22px;
                   letter-spacing:1px;
                   color:#1c7798;
+                  position: relative;
+                  z-index: 1;
                 }
 
                 .invoice-to{
                   margin:10px 0 15px;
                   font-size:14px;
                   line-height:1.4;
+                  position: relative;
+                  z-index: 1;
                 }
 
                 table{
@@ -709,6 +751,8 @@ function printReceipt() {
                   border-collapse:collapse;
                   margin-top:15px;
                   font-size:14px;
+                  position: relative;
+                  z-index: 1;
                 }
                 thead{
                   background:#0b7da2;
@@ -732,6 +776,8 @@ function printReceipt() {
                   width:320px;
                   margin-left:auto;
                   font-size:14px;
+                  position: relative;
+                  z-index: 1;
                 }
                 .summary div{
                   display:flex;
@@ -750,6 +796,8 @@ function printReceipt() {
                   margin-top:15px;
                   font-size:13px;
                   color:#555;
+                  position: relative;
+                  z-index: 1;
                 }
 
                 .footer{
@@ -757,11 +805,14 @@ function printReceipt() {
                   font-size:12px;
                   text-align:center;
                   color:#777;
+                  position: relative;
+                  z-index: 1;
                 }
 
                 @media print {
                     body { margin: 0; padding: 10px; }
                     .receipt-wrapper { box-shadow: none; }
+                    .watermark { opacity: 0.1; }
                 }
             </style>
         </head>
