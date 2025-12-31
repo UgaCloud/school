@@ -61,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app.middleware.update_jazzmin.UpdateJazzminMiddleware',
+    'app.middleware.dynamic_jazzmin.DynamicJazzminMiddleware',
     'core.middleware.AutoLogoutMiddleware',
 
 ]

@@ -1,7 +1,10 @@
 from app.models.school_settings import *
 
 def get_current_academic_year():
-    return AcademicYear.objects.get(is_current=True)
+    try:
+        return AcademicYear.objects.get(is_current=True)
+    except AcademicYear.DoesNotExist:
+        return None
 
 def get_sections():
     return Section.objects.all()

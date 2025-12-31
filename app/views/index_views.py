@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Q, F, ExpressionWrapper, DecimalField
 from django.utils import timezone
+from django.contrib import messages
 from datetime import datetime, timedelta
 from app.models.classes import Class, AcademicClass, Term
 from app.models.school_settings import AcademicYear
@@ -56,6 +57,18 @@ def index_view(request):
     if user_role in academic_roles or user_role in finance_roles:
         current_year = get_current_academic_year()
         current_term = Term.objects.filter(is_current=True).first()
+        
+        # Show a user-friendly message if no academic year is set
+        if current_year is None:
+            messages.error(request, "No academic year has been set. Please set an academic year to view this page.")
+            return render(request, "index.html", {
+                'user_role': user_role,
+                'is_admin': user_role in admin_roles,
+                'is_finance': user_role in finance_roles,
+                'is_academic': user_role in academic_roles,
+                'is_teacher': user_role in teacher_roles,
+                'is_support': user_role == 'Support Staff',
+            })
     else:
         current_year = current_term = None
 
