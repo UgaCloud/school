@@ -19,7 +19,7 @@ pymysql.install_as_MySQLdb()
 
 
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
@@ -45,8 +45,7 @@ INSTALLED_APPS = [
     'crispy_bootstrap4',
     'widget_tweaks',
     'app',
-   
-] 
+]
 
 CRISPY_TEMPLATE_PACK = "bootstrap4"
 
@@ -62,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app.middleware.update_jazzmin.UpdateJazzminMiddleware',
+    'app.middleware.dynamic_jazzmin.DynamicJazzminMiddleware',
     'core.middleware.AutoLogoutMiddleware',
 
 ]
