@@ -76,7 +76,7 @@ class AcademicClassStream(models.Model):
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name="class_streams")
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
     class_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
-    class_teacher_signature = models.ImageField(upload_to="signatures", height_field=None, width_field=None, max_length=None)
+    class_teacher_signature = models.ImageField(upload_to="signatures", blank=True ,null=True)
     
 
     class Meta:
