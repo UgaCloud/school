@@ -15,9 +15,9 @@
       <div class="profile-card text-center">
         <div class="profile-photo mb-3">
           {% if student.photo %}
-            <img src="{{ student.photo.url }}" alt="Student Photo" />
+          <img src="{{ student.photo.url }}" alt="Student Photo" />
           {% else %}
-            <img src="/static/images/default_student.png" alt="Default Student Photo" />
+          <img src="/static/images/default_student.png" alt="Default Student Photo" />
           {% endif %}
         </div>
 
@@ -26,15 +26,42 @@
 
         <table class="table table-sm">
           <tbody>
-            <tr><th>Email</th><td>{{ student.email|default:"-" }}</td></tr>
-            <tr><th>DOB</th><td>{{ student.birthdate|date:"M d, Y"|default:"-" }}</td></tr>
-            <tr><th>Registered session</th><td>{{ student.academic_year.academic_year|default:"-" }}</td></tr>
-            <tr><th>Class</th><td>{{ student.current_class|default:"-" }}</td></tr>
-            <tr><th>Gender</th><td>{{ student.get_gender_display|default:student.gender }}</td></tr>
-            <tr><th>Current address</th><td>{{ student.address|default:"-" }}</td></tr>
-            <tr><th>Guardian name</th><td>{{ student.guardian|default:"-" }}</td></tr>
-            <tr><th>Guardian contact</th><td>{{ student.contact|default:"-" }}</td></tr>
-            <tr><th>Active</th><td>{% if student.is_active %}Yes{% else %}No{% endif %}</td></tr>
+            <tr>
+              <th>Email</th>
+              <td>{{ student.email|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th>DOB</th>
+              <td>{{ student.birthdate|date:"M d, Y"|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th>Registered session</th>
+              <td>{{ student.academic_year.academic_year|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th>Class</th>
+              <td>{{ student.current_class|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th>Gender</th>
+              <td>{{ student.get_gender_display|default:student.gender }}</td>
+            </tr>
+            <tr>
+              <th>Current address</th>
+              <td>{{ student.address|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th>Guardian name</th>
+              <td>{{ student.guardian|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th>Guardian contact</th>
+              <td>{{ student.contact|default:"-" }}</td>
+            </tr>
+            <tr>
+              <th>Active</th>
+              <td>{% if student.is_active %}Yes{% else %}No{% endif %}</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -45,82 +72,90 @@
 
       <!-- NAV TILES -->
       <div class="d-flex gap-2 mb-3 flex-wrap">
-        <div class="nav-tile docs active" onclick="showSection('docs')">Docs</div>
-        <div class="nav-tile exam" onclick="showSection('exam')">Exam Reports</div>
-        <div class="nav-tile library" onclick="showSection('library')">Library History</div>
-        <div class="nav-tile extra" onclick="showSection('extra')">Extra Activities</div>
-        <div class="nav-tile payments" onclick="showSection('payments')">Payments</div>
-        <div class="nav-tile attendance" onclick="showSection('attendance')">Attendance</div>
+        <div class="nav-tile docs {% if active_tab == 'docs' %}active{% endif %}" onclick="showSection('docs')">Docs
+        </div>
+        <div class="nav-tile exam {% if active_tab == 'exam' %}active{% endif %}" onclick="showSection('exam')">Exam
+          Reports</div>
+        <div class="nav-tile library {% if active_tab == 'library' %}active{% endif %}"
+          onclick="showSection('library')">Library History</div>
+        <div class="nav-tile extra {% if active_tab == 'extra' %}active{% endif %}" onclick="showSection('extra')">Extra
+          Activities</div>
+        <div class="nav-tile payments {% if active_tab == 'payments' %}active{% endif %}"
+          onclick="showSection('payments')">Payments</div>
+        <div class="nav-tile attendance {% if active_tab == 'attendance' %}active{% endif %}"
+          onclick="showSection('attendance')">Attendance</div>
       </div>
 
       <!-- DOCS SECTION -->
-      <div id="docs-section" class="content-section">
-      <div class="profile-card">
+      <div id="docs-section" class="content-section"
+        style="display: {% if active_tab == 'docs' %}block{% else %}none{% endif %};">
+        <div class="profile-card">
 
-        <h6 class="fw-bold mb-2">General Documents</h6>
+          <h6 class="fw-bold mb-2">General Documents</h6>
 
-        {% if user.staff_account.role.name == "Admin" %}
-        <div class="mb-3">
-          <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#uploadDocumentModal">
-            <i class="fa fa-plus"></i> Upload Document
-          </button>
+          {% if user.staff_account.role.name == "Admin" %}
+          <div class="mb-3">
+            <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#uploadDocumentModal">
+              <i class="fa fa-plus"></i> Upload Document
+            </button>
+          </div>
+          {% endif %}
+
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th width="80">S.No</th>
+                <th>Document Type</th>
+                <th>Upload Date</th>
+                <th width="200">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for doc in general_documents %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ doc.get_document_type_display }}</td>
+                <td>{{ doc.uploaded_at|date:"M d, Y" }}</td>
+                <td>
+                  <a href="{{ doc.file.url }}" class="btn btn-sm btn-primary me-2" target="_blank">
+                    <i class="fa fa-eye"></i>
+                  </a>
+                  {% if user.staff_account.role.name == "Admin" %}
+                  <a href="{% url 'delete_student_document' doc.id %}" class="btn btn-sm btn-danger"
+                    onclick="return confirm('Are you sure you want to delete this document?');">
+                    <i class="fa fa-trash"></i>
+                  </a>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4">No documents available</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
         </div>
-        {% endif %}
-
-        <table class="table table-bordered">
-          <thead>
-            <tr>
-              <th width="80">S.No</th>
-              <th>Document Type</th>
-              <th>Upload Date</th>
-              <th width="200">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for doc in general_documents %}
-            <tr>
-              <td>{{ forloop.counter }}</td>
-              <td>{{ doc.get_document_type_display }}</td>
-              <td>{{ doc.uploaded_at|date:"M d, Y" }}</td>
-              <td>
-                <a href="{{ doc.file.url }}" class="btn btn-sm btn-primary me-2" target="_blank">
-                  <i class="fa fa-eye"></i> 
-                </a>
-                {% if user.staff_account.role.name == "Admin" %}
-                <a href="{% url 'delete_student_document' doc.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this document?');">
-                  <i class="fa fa-trash"></i> 
-                </a>
-                {% endif %}
-              </td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="4">No documents available</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-
-      </div>
       </div>
 
       <!-- PAYMENTS SECTION -->
       <div id="payments-section" class="content-section" style="display: none;">
-      <div class="profile-card">
-        <h6 class="fw-bold mb-2">Payment History</h6>
-        <table class="table table-bordered">
-          <thead>
-            <tr>
-              <th>S.No</th>
-              <th>Bill #</th>
-              <th>Amount</th>
-              <th>Payment Method</th>
-              <th>Reference</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for bill in student.bills.all %}
+        <div class="profile-card">
+          <h6 class="fw-bold mb-2">Payment History</h6>
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>S.No</th>
+                <th>Bill #</th>
+                <th>Amount</th>
+                <th>Payment Method</th>
+                <th>Reference</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bill in student.bills.all %}
               {% for payment in bill.payments.all %}
               <tr>
                 <td>{{ forloop.parentloop.counter }}.{{ forloop.counter }}</td>
@@ -137,29 +172,29 @@
               </tr>
               {% endif %}
               {% endfor %}
-            {% empty %}
-            <tr>
-              <td colspan="6">No bills found</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+              {% empty %}
+              <tr>
+                <td colspan="6">No bills found</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
 
-        <hr>
+          <hr>
 
-        <h6 class="fw-bold mb-2">Fee Receipts</h6>
+          <h6 class="fw-bold mb-2">Fee Receipts</h6>
 
-        <table class="table table-bordered">
-          <thead>
-            <tr>
-              <th>S.No</th>
-              <th>Document Type</th>
-              <th>Upload Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for doc in bill_documents %}
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>S.No</th>
+                <th>Document Type</th>
+                <th>Upload Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for doc in bill_documents %}
               {% if doc.document_type == "FEE_RECEIPT" %}
               <tr>
                 <td>{{ forloop.counter }}</td>
@@ -168,48 +203,176 @@
                 <td>
                   <a href="{{ doc.file.url }}" class="btn btn-sm btn-primary" target="_blank">View</a>
                   {% if user.staff_account.role.name == "Admin" %}
-                  <a href="{% url 'delete_student_document' doc.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this document?');">Delete</a>
+                  <a href="{% url 'delete_student_document' doc.id %}" class="btn btn-sm btn-danger"
+                    onclick="return confirm('Are you sure you want to delete this document?');">Delete</a>
                   {% endif %}
                 </td>
               </tr>
               {% endif %}
-            {% empty %}
-            <tr>
-              <td colspan="4">No fee receipts available</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+              {% empty %}
+              <tr>
+                <td colspan="4">No fee receipts available</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- PLACEHOLDER SECTIONS -->
-      <div id="exam-section" class="content-section" style="display: none;">
-      <div class="profile-card">
-        <h6 class="fw-bold mb-2">Exam Reports</h6>
-        <p>Exam reports content will be displayed here.</p>
-      </div>
+      <!-- EXAM REPORTS SECTION -->
+      <div id="exam-section" class="content-section"
+        style="display: {% if active_tab == 'exam' %}block{% else %}none{% endif %};">
+        <div class="profile-card">
+          <h6 class="fw-bold mb-3">Exam Reports</h6>
+
+          <!-- Filters -->
+          <div class="mb-3">
+            <form method="get" class="row g-3">
+              <input type="hidden" name="tab" value="exam">
+              <div class="col-md-4">
+                <label for="academic_year" class="form-label small">Academic Year</label>
+                <select class="form-select form-select-sm" id="academic_year" name="academic_year" onchange="this.form.submit()">
+                  <option value="">All Years</option>
+                  {% for year in academic_years %}
+                  <option value="{{ year.id }}" {% if selected_academic_year == year.id|stringformat:"s" %}selected{% endif %}>{{ year.academic_year }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label for="term" class="form-label small">Term</label>
+                <select class="form-select form-select-sm" id="term" name="term" onchange="this.form.submit()">
+                  <option value="">All Terms</option>
+                  {% for term in terms %}
+                  <option value="{{ term.id }}" {% if selected_term == term.id|stringformat:"s" %}selected{% endif %}>{{ term.get_term_display }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label for="assessment_type" class="form-label small">Assessment Type</label>
+                <select class="form-select form-select-sm" id="assessment_type" name="assessment_type" onchange="this.form.submit()">
+                  <option value="">All Types</option>
+                  {% for atype in assessment_types %}
+                  <option value="{{ atype.id }}" {% if selected_assessment_type == atype.id|stringformat:"s" %}selected{% endif %}>{{ atype.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </form>
+          </div>
+
+          {% if selected_academic_year or selected_term or selected_assessment_type %}
+          <div class="alert alert-info mb-3">
+            <strong>Showing results for:</strong>
+            {% if selected_academic_year %}
+              Academic Year: {% for year in academic_years %}{% if year.id|stringformat:"s" == selected_academic_year %}{{ year.academic_year }}{% endif %}{% endfor %}
+            {% endif %}
+            {% if selected_term %}
+              {% if selected_academic_year %}, {% endif %}Term: {% for term in terms %}{% if term.id|stringformat:"s" == selected_term %}{{ term.get_term_display }}{% endif %}{% endfor %}
+            {% endif %}
+            {% if selected_assessment_type %}
+              {% if selected_academic_year or selected_term %}, {% endif %}Assessment Type: {% for atype in assessment_types %}{% if atype.id|stringformat:"s" == selected_assessment_type %}{{ atype.name }}{% endif %}{% endfor %}
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if exam_reports %}
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>S.No</th>
+                  <th>Subject</th>
+                  {% if not selected_academic_year %}<th>Academic Year</th>{% endif %}
+                  {% if not selected_term %}<th>Term</th>{% endif %}
+                  {% if not selected_assessment_type %}<th>Assessment Type</th>{% endif %}
+                  <th>Date</th>
+                  <th>Score</th>
+                  <th>Grade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for report in exam_reports %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ report.assessment.subject.name }}</td>
+                  {% if not selected_academic_year %}<td>{{ report.assessment.academic_class.academic_year.academic_year }}</td>{% endif %}
+                  {% if not selected_term %}<td>{{ report.assessment.academic_class.term.get_term_display }}</td>{% endif %}
+                  {% if not selected_assessment_type %}<td>{{ report.assessment.assessment_type.name }}</td>{% endif %}
+                  <td>{{ report.assessment.date|date:"M d, Y" }}</td>
+                  <td>{{ report.score }}</td>
+                  <td>{{ report.grade }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="{% if selected_academic_year and selected_term and selected_assessment_type %}5{% elif selected_academic_year and selected_term %}6{% elif selected_academic_year and selected_assessment_type %}6{% elif selected_term and selected_assessment_type %}6{% elif selected_academic_year %}7{% elif selected_term %}7{% elif selected_assessment_type %}7{% else %}8{% endif %}" class="text-center">No exam reports available</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-center text-muted">No exam reports available</p>
+          {% endif %}
+
+          {% if exam_reports %}
+          <hr>
+          <h6 class="fw-bold mb-3">Performance Summary</h6>
+          <div class="mb-3">
+            <strong>Overall Average Score: {{ overall_avg|floatformat:1 }}%</strong>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <h6 class="text-primary">Average by Assessment Type</h6>
+              {% for perf in assessment_performance %}
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span>{{ perf.assessment__assessment_type__name }}</span>
+                <div>
+                  <span style="color: {% if perf.avg_score >= 70 %}green{% elif perf.avg_score >= 50 %}orange{% else %}red{% endif %};">{{ perf.avg_score|floatformat:1 }}%</span>
+                  <small class="text-muted ms-2">{% if perf.avg_score >= 70 %}{% elif perf.avg_score >= 50 %}{% else %}{% endif %}</small>
+                </div>
+              </div>
+              {% empty %}
+              <p class="text-muted">No data</p>
+              {% endfor %}
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-primary">Average by Subject</h6>
+              {% for perf in subject_performance %}
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span>{{ perf.assessment__subject__name }}</span>
+                <div>
+                  <span style="color: {% if perf.avg_score >= 70 %}green{% elif perf.avg_score >= 50 %}orange{% else %}red{% endif %};">{{ perf.avg_score|floatformat:1 }}%</span>
+                  <small class="text-muted ms-2">{% if perf.avg_score >= 70 %}{% elif perf.avg_score >= 50 %}{% else %}Poor{% endif %}</small>
+                </div>
+              </div>
+              {% empty %}
+              <p class="text-muted">No data</p>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
       </div>
 
       <div id="library-section" class="content-section" style="display: none;">
-      <div class="profile-card">
-        <h6 class="fw-bold mb-2">Library History</h6>
-        <p>Library history content will be displayed here.</p>
-      </div>
+        <div class="profile-card">
+          <h6 class="fw-bold mb-2">Library History</h6>
+          <p>Library history content will be displayed here.</p>
+        </div>
       </div>
 
       <div id="extra-section" class="content-section" style="display: none;">
-      <div class="profile-card">
-        <h6 class="fw-bold mb-2">Extra Activities</h6>
-        <p>Extra activities content will be displayed here.</p>
-      </div>
+        <div class="profile-card">
+          <h6 class="fw-bold mb-2">Extra Activities</h6>
+          <p>Extra activities content will be displayed here.</p>
+        </div>
       </div>
 
       <div id="attendance-section" class="content-section" style="display: none;">
-      <div class="profile-card">
-        <h6 class="fw-bold mb-2">Attendance</h6>
-        <p>Attendance content will be displayed here.</p>
-      </div>
+        <div class="profile-card">
+          <h6 class="fw-bold mb-2">Attendance</h6>
+          <p>Attendance content will be displayed here.</p>
+        </div>
       </div>
 
       <!-- Upload Modal -->
@@ -245,7 +408,8 @@
                       <label>
                         <i class="fa fa-file text-success"></i> Select File *
                       </label>
-                      <input type="file" class="form-control" name="file" accept=".pdf,.doc,.docx,.jpg,.png,.jpeg" required>
+                      <input type="file" class="form-control" name="file" accept=".pdf,.doc,.docx,.jpg,.png,.jpeg"
+                        required>
                     </div>
                   </div>
                 </div>
@@ -277,73 +441,92 @@
 </div>
 
 <script>
-function showSection(section) {
-  // Hide all sections
-  const sections = document.querySelectorAll('.content-section');
-  sections.forEach(sec => sec.style.display = 'none');
+  function showSection(section) {
+    // Hide all sections
+    const sections = document.querySelectorAll('.content-section');
+    sections.forEach(sec => sec.style.display = 'none');
 
-  // Remove active class from all tiles
-  const tiles = document.querySelectorAll('.nav-tile');
-  tiles.forEach(tile => tile.classList.remove('active'));
+    // Remove active class from all tiles
+    const tiles = document.querySelectorAll('.nav-tile');
+    tiles.forEach(tile => tile.classList.remove('active'));
 
-  // Show selected section
-  document.getElementById(section + '-section').style.display = 'block';
+    // Show selected section
+    document.getElementById(section + '-section').style.display = 'block';
 
-  // Add active class to clicked tile
-  event.target.classList.add('active');
-}
+    // Add active class to clicked tile
+    event.target.classList.add('active');
+  }
 </script>
 <style>
-body {
-  background: #f5f7fa;
-}
+  body {
+    background: #f5f7fa;
+  }
 
-.profile-card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 10px 25px rgba(0,0,0,.05);
-}
+  .profile-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, .05);
+  }
 
-.profile-photo img {
-  width: 130px;
-  height: 130px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 4px solid #fff;
-  box-shadow: 0 5px 15px rgba(0,0,0,.15);
-}
+  .profile-photo img {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #fff;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, .15);
+  }
 
-.nav-tile {
-  padding: 12px 15px;
-  border-radius: 8px;
-  color: #fff;
-  text-align: center;
-  font-size: 14px;
-  cursor: pointer;
-  font-weight: 600;
-  border: none;
-  display: inline-block;
-  min-width: 120px;
-  margin: 0 5px 5px 0;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
+  .nav-tile {
+    padding: 12px 15px;
+    border-radius: 8px;
+    color: #fff;
+    text-align: center;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+    border: none;
+    display: inline-block;
+    min-width: 120px;
+    margin: 0 5px 5px 0;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
 
-.nav-tile:hover, .nav-tile.active {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
+  .nav-tile:hover,
+  .nav-tile.active {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
 
-.docs { background:#00b3ff; }
-.exam { background:#2196f3; }
-.library { background:#673ab7; }
-.extra { background:#4caf50; }
-.payments { background:#ff9800; }
-.attendance { background:#f44336; }
+  .docs {
+    background: #00b3ff;
+  }
 
-.table td, .table th {
-  vertical-align: middle;
-}
+  .exam {
+    background: #2196f3;
+  }
+
+  .library {
+    background: #673ab7;
+  }
+
+  .extra {
+    background: #4caf50;
+  }
+
+  .payments {
+    background: #ff9800;
+  }
+
+  .attendance {
+    background: #f44336;
+  }
+
+  .table td,
+  .table th {
+    vertical-align: middle;
+  }
 </style>
 
 
