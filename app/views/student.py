@@ -97,11 +97,71 @@ def add_student_view(request):
 @login_required
 def student_details_view(request, id):
     student = student_selectors.get_student(id)
+    
+    # Fetch exam reports (results) for the student with filtering
+    from app.models.results import Result
+    from app.models import AcademicYear, Term, AssessmentType
+    
+    # Get filter parameters from request
+    academic_year_id = request.GET.get('academic_year')
+    term_id = request.GET.get('term')
+    assessment_type_id = request.GET.get('assessment_type')
+    
+    # Start with base queryset
+    exam_reports = Result.objects.filter(student=student).select_related(
+        'assessment__subject',
+        'assessment__assessment_type',
+        'assessment__academic_class__term',
+        'assessment__academic_class__academic_year'
+    ).order_by('-assessment__date')
+    
+    # Apply filters if provided
+    if academic_year_id:
+        exam_reports = exam_reports.filter(assessment__academic_class__academic_year_id=academic_year_id)
+    if term_id:
+        exam_reports = exam_reports.filter(assessment__academic_class__term_id=term_id)
+    if assessment_type_id:
+        exam_reports = exam_reports.filter(assessment__assessment_type_id=assessment_type_id)
+    
+    # Get distinct academic years, terms, and assessment types for filters
+    from django.db.models import Q
+    
+    # Get academic years
+    academic_years = AcademicYear.objects.filter(
+        id__in=Result.objects.filter(student=student).values('assessment__academic_class__academic_year')
+    ).distinct().order_by('-academic_year')
+    
+    # Get terms
+    terms = Term.objects.filter(
+        id__in=Result.objects.filter(student=student).values('assessment__academic_class__term')
+    ).distinct().order_by('term')
+    
+    # Get assessment types
+    assessment_types = AssessmentType.objects.filter(
+        id__in=Result.objects.filter(student=student).values('assessment__assessment_type')
+    ).distinct().order_by('name')
+    
+    # Performance analysis
+    from django.db.models import Avg
+    overall_avg = exam_reports.aggregate(avg=Avg('score'))['avg'] or 0
+    assessment_performance = exam_reports.values('assessment__assessment_type__name').annotate(avg_score=Avg('score')).order_by('assessment__assessment_type__name')
+    subject_performance = exam_reports.values('assessment__subject__name').annotate(avg_score=Avg('score')).order_by('assessment__subject__name')
+
     context = {
         "student": student,
         "general_documents": student.documents.filter(bill__isnull=True),
         "bill_documents": student.documents.filter(bill__isnull=False),
         "document_type_choices": DOCUMENT_TYPES,
+        "exam_reports": exam_reports,
+        "academic_years": academic_years,
+        "terms": terms,
+        "assessment_types": assessment_types,
+        "selected_academic_year": academic_year_id,
+        "selected_term": term_id,
+        "selected_assessment_type": assessment_type_id,
+        "active_tab": request.GET.get('tab') or ("exam" if (academic_year_id or term_id or assessment_type_id) else "docs"),
+        "assessment_performance": assessment_performance,
+        "subject_performance": subject_performance,
     }
     return render(request, "student/student_details.html", context)
 
@@ -138,11 +198,10 @@ def bulk_student_registration_view(request):
             csv_object = csv_form.save()
 
             try:
-                bulk_student_registration(csv_object)  # Now no `request` parameter is passed here
+                bulk_student_registration(csv_object) 
                 messages.success(request, SUCCESS_BULK_ADD_MESSAGE)
             except ValueError as e:
-                # Catch the ValueError raised from `bulk_student_registration`
-                messages.error(request, str(e))  # Display the error message
+                messages.error(request, str(e))  
             except IntegrityError:
                 messages.error(request, INTEGRITY_ERROR_MESSAGE)
         else:
@@ -271,3 +330,47 @@ def delete_student_document(request, id):
     document.delete()
     messages.success(request, "Document deleted successfully.")
     return redirect('student_details_page', id=student_id)
+
+
+@login_required
+def download_student_exam_report(request, id):
+    from app.models.results import Result
+    from app.utils.pdf_utils import generate_student_report_pdf
+    from django.http import HttpResponse
+    
+    student = student_selectors.get_student(id)
+    exam_reports = Result.objects.filter(student=student).select_related(
+        'assessment__subject',
+        'assessment__assessment_type',
+        'assessment__academic_class__term'
+    ).order_by('-assessment__date')
+    
+    # Generate PDF
+    pdf_buffer = generate_student_report_pdf(student, exam_reports)
+    
+    # Create HTTP response with PDF
+    response = HttpResponse(pdf_buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{student.student_name}_Exam_Report.pdf"'
+    return response
+
+
+@login_required
+def view_student_exam_report(request, id):
+    from app.models.results import Result
+    from app.utils.pdf_utils import generate_student_report_pdf
+    from django.http import HttpResponse
+    
+    student = student_selectors.get_student(id)
+    exam_reports = Result.objects.filter(student=student).select_related(
+        'assessment__subject',
+        'assessment__assessment_type',
+        'assessment__academic_class__term'
+    ).order_by('-assessment__date')
+    
+    # Generate PDF
+    pdf_buffer = generate_student_report_pdf(student, exam_reports)
+    
+    # Create HTTP response with PDF for inline viewing
+    response = HttpResponse(pdf_buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{student.student_name}_Exam_Report.pdf"'
+    return response
