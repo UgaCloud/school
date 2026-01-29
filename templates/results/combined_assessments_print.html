@@ -279,7 +279,7 @@
                 </div>
                 <div class="info-details">
                     <span><strong>NAME:</strong> {{ rep.student.student_name|default:'N/A' }}</span>
-                    <span><strong>CLASS:</strong> {{ rep.student.current_class.name|default:'N/A' }}</span>
+                    <span><strong>CLASS:</strong> {{ class_obj.Class.name|default:'N/A' }}</span>
                     <span><strong>REG. NO:</strong> {{ rep.student.reg_no|default:'N/A' }}</span>
                     <span><strong>TERM:</strong> {{ rep.term|default:"-" }}</span>
                 </div>
