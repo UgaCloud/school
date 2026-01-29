@@ -76,7 +76,7 @@ def add_results_view(request, assessment_id=None):
     # Get all registers for the class
     class_registers = ClassRegister.objects.filter(
         academic_class_stream__academic_class=academic_class
-    ).select_related('student')  # Preload students to avoid extra DB hits
+    ).select_related('student') 
 
     students = []
     broken_registers = []
@@ -886,8 +886,25 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     selected_term_id = request.GET.get('term_id', str(student.term.id) if getattr(student, 'term', None) else None)
     terms = Term.objects.filter(academic_year=student.academic_year) if student.academic_year else Term.objects.none()
 
+    academic_class = None
+    if selected_term_id:
+        academic_class = (
+            AcademicClass.objects.filter(
+                class_streams__classregister__student=student,
+                term_id=selected_term_id
+            )
+            .select_related('academic_year', 'Class', 'term')
+            .distinct()
+            .first()
+        )
+
     # Build per-student assessment-type report context (re-usable for bulk)
-    context = build_student_assessment_type_context(student, assessment_type_id, selected_term_id)
+    context = build_student_assessment_type_context(
+        student,
+        assessment_type_id,
+        selected_term_id,
+        academic_class=academic_class
+    )
 
     # Order assessment types like term report (for consistent UI)
     assessment_order = Case(
@@ -910,13 +927,25 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     return render(request, 'results/student_assessment_report.html', context)
 
 
-def build_student_assessment_type_context(student, assessment_type_id, selected_term_id):
+def build_student_assessment_type_context(student, assessment_type_id, selected_term_id, academic_class=None):
     """
     Builds the per-student report context for a specific assessment type.
     Preserves data and report format used by templates/results/student_assessment_report.html
     """
     school = SchoolSetting.load()
     assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
+
+    resolved_academic_class = academic_class
+    if not resolved_academic_class and selected_term_id:
+        resolved_academic_class = (
+            AcademicClass.objects.filter(
+                class_streams__classregister__student=student,
+                term_id=selected_term_id
+            )
+            .select_related('academic_year', 'Class', 'term')
+            .distinct()
+            .first()
+        )
 
     # Base queryset
     results = (
@@ -930,6 +959,8 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
     )
     if selected_term_id:
         results = results.filter(assessment__academic_class__term_id=selected_term_id)
+    if resolved_academic_class:
+        results = results.filter(assessment__academic_class=resolved_academic_class)
 
     # Handle fallback to latest term with results if none in selected term
     no_results_message = None
@@ -948,6 +979,16 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
         )
         if fallback_term:
             selected_term_id = str(fallback_term.id)
+            if not resolved_academic_class:
+                resolved_academic_class = (
+                    AcademicClass.objects.filter(
+                        class_streams__classregister__student=student,
+                        term_id=fallback_term.id
+                    )
+                    .select_related('academic_year', 'Class', 'term')
+                    .distinct()
+                    .first()
+                )
             results = (
                 Result.objects
                 .filter(
@@ -961,6 +1002,8 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
                     'assessment__academic_class__term'
                 )
             )
+            if resolved_academic_class:
+                results = results.filter(assessment__academic_class=resolved_academic_class)
             term_label = fallback_term.term
             no_results_message = "No results in selected term. Showing latest term with data."
         else:
@@ -1000,17 +1043,24 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
     overall_grade, overall_points = get_grade_and_points(overall_average)
     selected_division = get_division(int(total_aggregates)) if total_aggregates else "-"
 
-    academic_year = student.academic_year.academic_year if student.academic_year else "-"
+    academic_year_source = (
+        resolved_academic_class.academic_year
+        if resolved_academic_class
+        else student.academic_year
+    )
+    academic_year = academic_year_source.academic_year if academic_year_source else "-"
 
     # Signatures
     head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
     class_teacher_signature = None
     try:
-        academic_class = AcademicClass.objects.filter(
-            Class=student.current_class,
-            academic_year=student.academic_year,
-            term_id=selected_term_id
-        ).first() if selected_term_id else None
+        academic_class = resolved_academic_class
+        if not academic_class and selected_term_id:
+            academic_class = AcademicClass.objects.filter(
+                Class=student.current_class,
+                academic_year=student.academic_year,
+                term_id=selected_term_id
+            ).first()
 
         if academic_class:
             class_stream = AcademicClassStream.objects.filter(
@@ -1075,7 +1125,23 @@ def student_term_report(request, student_id):
         messages.error(request, "No terms available for this student.")
         return redirect('student_performance_view', student_id=student_id)
 
-    context = build_student_report_context(student, selected_term_id)
+    academic_class = None
+    if selected_term_id:
+        academic_class = (
+            AcademicClass.objects.filter(
+                class_streams__classregister__student=student,
+                term_id=selected_term_id
+            )
+            .select_related('academic_year', 'Class', 'term')
+            .distinct()
+            .first()
+        )
+
+    context = build_student_report_context(
+        student,
+        selected_term_id,
+        academic_class=academic_class
+    )
 
     
     context['terms'] = terms
@@ -1083,10 +1149,26 @@ def student_term_report(request, student_id):
 
     return render(request, 'results/student_term_report.html', context)
 
-def build_student_report_context(student, term_id):
+def build_student_report_context(student, term_id, academic_class=None):
     school = SchoolSetting.load()
-    academic_year = student.academic_year
-    term = get_object_or_404(Term, id=term_id, academic_year=academic_year)
+    term = get_object_or_404(Term, id=term_id)
+
+    resolved_academic_class = academic_class
+    if not resolved_academic_class:
+        resolved_academic_class = (
+            AcademicClass.objects.filter(
+                class_streams__classregister__student=student,
+                term_id=term_id
+            )
+            .select_related('academic_year', 'Class', 'term')
+            .distinct()
+            .first()
+        )
+    academic_year = (
+        resolved_academic_class.academic_year
+        if resolved_academic_class
+        else term.academic_year
+    )
 
     # ---- Custom order definition for assessment types ----
     assessment_order = Case(
@@ -1114,7 +1196,10 @@ def build_student_report_context(student, term_id):
     results = Result.objects.filter(
         student=student,
         assessment__academic_class__term_id=term_id
-    ).select_related(
+    )
+    if resolved_academic_class:
+        results = results.filter(assessment__academic_class=resolved_academic_class)
+    results = results.select_related(
         'assessment__subject',
         'assessment__assessment_type',
         'assessment__academic_class__term'
@@ -1211,7 +1296,7 @@ def build_student_report_context(student, term_id):
         if assessment_totals[at.name]['count'] > 0
     )
 
-    academic_year_str = student.academic_year.academic_year if student.academic_year else "-"
+    academic_year_str = academic_year.academic_year if academic_year else "-"
     term_name = term.term if term else "-"
 
     # --- Find next term ---
@@ -1231,12 +1316,14 @@ def build_student_report_context(student, term_id):
     head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
     class_teacher_signature = None
     try:
-        # Resolve the academic class for this student in the given term
-        academic_class_obj = AcademicClass.objects.filter(
-            Class=student.current_class,
-            academic_year=student.academic_year,
-            term=term
-        ).first()
+        academic_class_obj = resolved_academic_class
+        if not academic_class_obj:
+            # Resolve the academic class for this student in the given term
+            academic_class_obj = AcademicClass.objects.filter(
+                Class=student.current_class,
+                academic_year=student.academic_year,
+                term=term
+            ).first()
         if academic_class_obj:
             class_stream = AcademicClassStream.objects.filter(
                 academic_class=academic_class_obj,
@@ -1285,11 +1372,17 @@ def class_bulk_reports(request):
         Class_id=class_id
     )
 
-    students = Student.objects.filter(current_class_id=class_id).order_by('student_name')
+    # Use ClassRegister to get students who were enrolled in this academic class
+    # This ensures promoted students still appear in historical reports
+    student_ids = ClassRegister.objects.filter(
+        academic_class_stream__academic_class=academic_class
+    ).values_list('student_id', flat=True).distinct()
+    
+    students = Student.objects.filter(id__in=student_ids).order_by('student_name')
     school = SchoolSetting.load()
    
 
-    reports = [build_student_report_context(student, term_id) for student in students]
+    reports = [build_student_report_context(student, term_id, academic_class=academic_class) for student in students]
     head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
 
     context = {
@@ -1320,15 +1413,20 @@ def class_assessment_type_bulk_reports(request):
         Class_id=class_id
     )
 
-    # Students in the class (ordered)
-    students = Student.objects.filter(current_class_id=class_id).order_by('student_name')
+    # Use ClassRegister to get students who were enrolled in this academic class
+    # This ensures promoted students still appear in historical reports
+    student_ids = ClassRegister.objects.filter(
+        academic_class_stream__academic_class=academic_class
+    ).values_list('student_id', flat=True).distinct()
+    
+    students = Student.objects.filter(id__in=student_ids).order_by('student_name')
 
     school = SchoolSetting.load()
     assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id)
 
     # Build per-student contexts (preserving template format)
     reports = [
-        build_student_assessment_type_context(student, assessment_type_id, term_id)
+        build_student_assessment_type_context(student, assessment_type_id, term_id, academic_class=academic_class)
         for student in students
     ]
 
@@ -2491,8 +2589,13 @@ def class_assessment_combined_view(request):
                 weights = {a.id: (a.weight or 1) for a in selected_assessment_types}
                 at_order = [a.id for a in selected_assessment_types]
 
-                # Students in class (ordered)
-                students = Student.objects.filter(current_class_id=selected_class_id).order_by('student_name')
+                # Use ClassRegister to get students who were enrolled in this academic class
+                # This ensures promoted students still appear in historical reports
+                student_ids = ClassRegister.objects.filter(
+                    academic_class_stream__academic_class=class_obj
+                ).values_list('student_id', flat=True).distinct()
+                
+                students = Student.objects.filter(id__in=student_ids).order_by('student_name')
 
                 # Subjects in scope (those that appear in assessments within this class and selected assessment types)
                 _subjects_qs = Subject.objects.filter(
@@ -2692,7 +2795,13 @@ def class_assessment_combined_print(request):
 
     # Load data
     school = SchoolSetting.load()
-    students = Student.objects.filter(current_class_id=class_id).order_by('student_name')
+    # Use ClassRegister to get students who were enrolled in this academic class
+    # This ensures promoted students still appear in historical reports
+    student_ids = ClassRegister.objects.filter(
+        academic_class_stream__academic_class=class_obj
+    ).values_list('student_id', flat=True).distinct()
+
+    students = Student.objects.filter(id__in=student_ids).order_by('student_name')
 
     # Get all results in 1 query (within scope)
     results_qs = (
