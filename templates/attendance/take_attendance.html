@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% load get_item %}
+{% load static %}
+
+{% block page_title %}Take Attendance{% endblock page_title %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-pencil-square-o"></i> Take Attendance</h2>
+        <ul class="nav navbar-right panel_toolbox">
+          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+        </ul>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        
+        <!-- Filter Section -->
+        <form method="get" class="form-inline mb-3" id="attendanceFilterForm">
+          <div class="form-group mr-2">
+            <label for="class_stream"><strong>Class:</strong></label>
+            <select name="class_stream" id="class_stream" class="form-control ml-2" onchange="this.form.submit()">
+              <option value="">-- Select Class --</option>
+              {% for stream in class_streams %}
+              <option value="{{ stream.id }}" {% if request.GET.class_stream == stream.id|stringformat:"s" %}selected{% endif %}>{{ stream }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group mr-2">
+            <label for="subject"><strong>Subject:</strong></label>
+            <select name="subject" id="subject" class="form-control ml-2" onchange="this.form.submit()">
+              <option value="">-- Select Subject --</option>
+              {% for subject in subjects %}
+              <option value="{{ subject.id }}" {% if request.GET.subject == subject.id|stringformat:"s" %}selected{% endif %}>
+                {{ subject.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group mr-2">
+            <label for="quick_date"><strong>Quick Date:</strong></label>
+            <select name="quick_date" id="quick_date" class="form-control ml-2" onchange="quickDateSelect(this.value)">
+              <option value="">-- Select --</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="this_week">This Week</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <i class="fa fa-search"></i> Load
+          </button>
+        </form>
+
+        {% if request.GET.class_stream and request.GET.subject %}
+
+        <!-- Locked Warning - Only shown to admins -->
+        {% if is_locked and can_unlock %}
+        <div class="alert alert-warning d-flex align-items-center justify-content-between">
+          <div>
+            <i class="fa fa-lock mr-2"></i> 
+            <strong>This attendance session is locked.</strong> No further edits are allowed.
+          </div>
+          {% if session %}
+          <a href="{% url 'unlock_attendance' session.id %}" class="btn btn-sm btn-danger"
+            onclick="return confirm('Unlock this attendance session for editing?');">
+            <i class="fa fa-unlock"></i> Unlock
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Attendance Form -->
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="class_stream" value="{{ request.GET|get_item:'class_stream'|default:'' }}">
+          <input type="hidden" name="subject" value="{{ request.GET|get_item:'subject'|default:'' }}">
+
+          <!-- Date and Time -->
+          <div class="row mb-3">
+            <div class="col-md-2">
+              <div class="form-group">
+                <label><strong>Date</strong></label>
+                {{ session_form.date }}
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="form-group">
+                <label><strong>Time Slot</strong></label>
+                {{ session_form.time_slot }}
+              </div>
+            </div>
+            <div class="col-md-7 text-right">
+              <div class="mt-4">
+                <span class="badge bg-primary fs-6">{{ students|length }} Students</span>
+              </div>
+            </div>
+          </div>
+
+          {% if students %}
+          <!-- Students Table with Photos -->
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered" style="background: white;">
+              <thead class="thead-dark">
+                <tr>
+                  <th width="50">#</th>
+                  <th width="60">Photo</th>
+                  <th>Student Name</th>
+                  <th>Reg No</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for reg in students %}
+                {% with rec=records|get_item:reg.student.id %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>
+                    {% if reg.student.photo %}
+                    <img src="{{ reg.student.photo.url }}" alt="{{ reg.student.student_name }}" 
+                         class="rounded-circle" width="40" height="40" style="object-fit: cover;">
+                    {% else %}
+                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" 
+                         style="width: 40px; height: 40px;">
+                      <i class="fa fa-user text-white"></i>
+                    </div>
+                    {% endif %}
+                  </td>
+                  <td><strong>{{ reg.student.student_name }}</strong></td>
+                  <td>{{ reg.student.reg_no }}</td>
+                  <td>
+                    <div class="custom-control custom-checkbox">
+                      <input type="checkbox" class="custom-control-input attendance-present" 
+                             id="student_{{ reg.student.id }}" 
+                             data-student="{{ reg.student.id }}"
+                             {% if rec and rec.status == "present" %}checked{% endif %} 
+                             {% if is_locked and not can_unlock %}disabled{% endif %}>
+                      <label class="custom-control-label text-success font-weight-bold" for="student_{{ reg.student.id }}">
+                        Present
+                      </label>
+                    </div>
+                  </td>
+                  <td>
+                    <input type="text" class="form-control form-control-sm attendance-remarks" 
+                           data-student="{{ reg.student.id }}"
+                           placeholder="Enter remarks"
+                           value="{{ rec.remarks|default:"" }}" 
+                           {% if is_locked and not can_unlock %}disabled{% endif %}>
+                  </td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <input type="hidden" name="attendance_payload" id="attendance_payload">
+          
+          <div class="mt-3">
+            {% if is_locked %}
+            {% if can_unlock %}
+            <span class="badge bg-warning"><i class="fa fa-lock"></i> Locked - Only admins can edit</span>
+            {% else %}
+            <span class="badge bg-secondary"><i class="fa fa-lock"></i> Attendance Locked - View Only</span>
+            {% endif %}
+            {% else %}
+            <button type="button" class="btn btn-outline-success" onclick="toggleAllPresent(true)">
+              <i class="fa fa-check-square"></i> Mark All Present
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="toggleAllPresent(false)">
+              <i class="fa fa-square"></i> Unmark All
+            </button>
+            <button type="submit" class="btn btn-success btn-lg" onclick="prepareAttendancePayload(); return true;">
+              <i class="fa fa-save"></i> Save Attendance
+            </button>
+            {% endif %}
+            <span class="ml-3 text-muted">
+              <i class="fa fa-info-circle"></i> Check the students who are present
+            </span>
+          </div>
+          {% else %}
+          <div class="alert alert-warning">No students found for this class stream.</div>
+          {% endif %}
+        </form>
+        {% else %}
+        <div class="alert alert-info">
+          <i class="fa fa-info-circle mr-2"></i> 
+          Select a class stream and subject to load the attendance list.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function quickDateSelect(value) {
+  if (!value) return;
+  
+  const today = new Date();
+  let dateStr;
+  
+  switch(value) {
+    case 'today':
+      dateStr = today.toISOString().split('T')[0];
+      break;
+    case 'yesterday':
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      dateStr = yesterday.toISOString().split('T')[0];
+      break;
+    case 'this_week':
+      const dayOfWeek = today.getDay();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - dayOfWeek);
+      dateStr = monday.toISOString().split('T')[0];
+      break;
+  }
+  
+  const dateInput = document.querySelector('input[name="date"]');
+  if (dateInput) {
+    dateInput.value = dateStr;
+  }
+}
+
+function toggleAllPresent(checked) {
+  document.querySelectorAll('.attendance-present').forEach(function(checkbox) {
+    checkbox.checked = checked;
+  });
+}
+
+function prepareAttendancePayload() {
+  var payload = {};
+  document.querySelectorAll('.attendance-present').forEach(function(checkbox) {
+    var studentId = checkbox.getAttribute('data-student');
+    var remarks = document.querySelector('.attendance-remarks[data-student="' + studentId + '"]');
+    payload[studentId] = {
+      status: checkbox.checked ? 'present' : 'absent',
+      remarks: remarks ? remarks.value : ''
+    };
+  });
+  document.getElementById('attendance_payload').value = JSON.stringify(payload);
+}
+</script>
+{% endblock content %}

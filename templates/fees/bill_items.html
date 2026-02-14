@@ -18,29 +18,29 @@
                 <div class="clearfix"></div>
             </div>
             <div class="x_content">
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <p class="text-muted">Manage all billing items and categories for the school.</p>
+                <div class="comm-header">
+                    <div class="comm-intro">
+                        <div class="comm-title">Manage all billing items and categories for the school.</div>
+                        <div class="text-muted">Keep pricing and durations consistent across classes.</div>
                     </div>
-                    <div class="col-md-6 text-right">
+                    <div class="comm-actions">
                         <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addBillItemModal">
                             <i class="fa fa-plus-circle"></i> Add New Item
                         </button>
                     </div>
                 </div>
-                <div class="ln_solid"></div>
 
 <!-- Statistics Cards -->
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card border-left-primary shadow-sm">
+        <div class="stat-card">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
-                        <h6 class="text-primary mb-1">Total Items</h6>
+                        <h6 class="stat-label">Total Items</h6>
                         <h3 class="mb-0">{{ bill_items|length }}</h3>
                     </div>
-                    <div class="text-primary">
+                    <div class="stat-icon primary">
                         <i class="fa fa-list fa-2x"></i>
                     </div>
                 </div>
@@ -48,14 +48,14 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-left-success shadow-sm">
+        <div class="stat-card">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
-                        <h6 class="text-success mb-1">Active Items</h6>
+                        <h6 class="stat-label">Active Items</h6>
                         <h3 class="mb-0">{{ bill_items|length }}</h3>
                     </div>
-                    <div class="text-success">
+                    <div class="stat-icon success">
                         <i class="fa fa-check-circle fa-2x"></i>
                     </div>
                 </div>
@@ -63,14 +63,14 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-left-info shadow-sm">
+        <div class="stat-card">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
-                        <h6 class="text-info mb-1">Categories</h6>
+                        <h6 class="stat-label">Categories</h6>
                         <h3 class="mb-0">{{ bill_items|length|add:"2" }}</h3>
                     </div>
-                    <div class="text-info">
+                    <div class="stat-icon info">
                         <i class="fa fa-tags fa-2x"></i>
                     </div>
                 </div>
@@ -78,14 +78,14 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card border-left-warning shadow-sm">
+        <div class="stat-card">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
-                        <h6 class="text-warning mb-1">Monthly Items</h6>
+                        <h6 class="stat-label">Monthly Items</h6>
                         <h3 class="mb-0">{{ bill_items|length }}</h3>
                     </div>
-                    <div class="text-warning">
+                    <div class="stat-icon warning">
                         <i class="fa fa-calendar-alt fa-2x"></i>
                     </div>
                 </div>
@@ -97,7 +97,7 @@
 <!-- Search and Filters -->
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card shadow-sm">
+        <div class="card shadow-sm filter-card">
             <div class="card-header bg-light">
                 <h5 class="mb-0"><i class="fa fa-filter"></i> Filters & Search</h5>
             </div>
@@ -112,7 +112,7 @@
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <select class="form-select" id="categoryFilter">
+                        <select class="form-control" id="categoryFilter">
                             <option value="all">All Categories</option>
                             <option value="tuition">Tuition</option>
                             <option value="uniform">Uniform</option>
@@ -122,7 +122,7 @@
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <select class="form-select" id="durationFilter">
+                        <select class="form-control" id="durationFilter">
                             <option value="all">All Durations</option>
                             <option value="monthly">Monthly</option>
                             <option value="termly">Termly</option>
@@ -140,13 +140,13 @@
 <div class="row" id="billItemsContainer">
     {% for item in bill_items %}
     <div class="col-xl-3 col-lg-4 col-md-6 mb-4 bill-item-card" data-category="{{ item.category|lower|default:'other' }}" data-duration="{{ item.bill_duration|lower|default:'monthly' }}" data-name="{{ item.item_name|lower }}">
-        <div class="card shadow-sm h-100 border-0">
-            <div class="card-header" style="background: linear-gradient(135deg, #337ab7 0%, #286090 100%); color: white;">
+        <div class="card shadow-sm h-100 border-0 bill-card">
+            <div class="card-header bill-card-header">
                 <div class="d-flex justify-content-between align-items-center">
                     <h6 class="mb-0 fw-bold">
                         <i class="fa fa-money-bill-wave me-2"></i>{{ item.item_name }}
                     </h6>
-                    <span class="badge bg-light text-dark">{{ item.bill_duration|title }}</span>
+                    <span class="badge badge-default">{{ item.bill_duration|title }}</span>
                 </div>
             </div>
 
@@ -168,10 +168,10 @@
 
                 <div class="d-flex justify-content-end">
                     <div class="btn-group btn-group-sm">
-                        <a href="{% url 'edit_bill_item_page' item.id %}" class="btn btn-outline-primary btn-sm" title="Edit Item">
+                        <a href="{% url 'edit_bill_item_page' item.id %}" class="btn btn-primary btn-sm" title="Edit Item">
                             <i class="fa fa-edit"></i>
                         </a>
-                        <button class="btn btn-outline-danger btn-sm" onclick="confirmDelete({{ item.id }}, '{{ item.item_name }}')" title="Delete Item">
+                        <button class="btn btn-danger btn-sm" onclick='confirmDelete({{ item.id }}, "{{ item.item_name|escapejs }}")' title="Delete Item">
                             <i class="fa fa-trash"></i>
                         </button>
                     </div>
@@ -218,7 +218,7 @@
 <div class="modal fade" id="addBillItemModal" tabindex="-1" aria-labelledby="addBillItemModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header" style="background: linear-gradient(135deg, #337ab7 0%, #286090 100%); color: white;">
+            <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="addBillItemModalLabel">
                     <i class="fa fa-plus-circle me-2"></i>Add New Bill Item
                 </h5>
@@ -309,27 +309,40 @@
 </div>
 {% endblock %}
 
-<style>
+  <style>
 /* Gentellela Color Scheme */
 .bg-gradient-primary {
     background: linear-gradient(135deg, #337ab7 0%, #286090 100%);
 }
 
-.border-left-primary {
-    border-left: 4px solid #337ab7 !important;
-}
+  .comm-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    background:#f8fafc;
+    border:1px solid #e6edf5;
+    border-radius:12px;
+    padding:14px 16px;
+    margin-bottom:14px;
+  }
+  .comm-title{font-weight:600;color:#334155;margin-bottom:4px;}
+  .comm-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
 
-.border-left-success {
-    border-left: 4px solid #5cb85c !important;
-}
+  .stat-card{background:#fff;border:1px solid #e6edf5;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 16px rgba(0,0,0,0.04);}    
+  .stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;}
+  .stat-icon.primary{background:#2563eb;}
+  .stat-icon.success{background:#22c55e;}
+  .stat-icon.info{background:#38bdf8;}
+  .stat-icon.warning{background:#f59e0b;}
+  .stat-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
 
-.border-left-info {
-    border-left: 4px solid #5bc0de !important;
-}
+  .filter-card{border-radius:12px;border:1px solid #e6edf5;}
+  .filter-card .card-header{background:#f8fafc;border-bottom:1px solid #e6edf5;}
 
-.border-left-warning {
-    border-left: 4px solid #f0ad4e !important;
-}
+  .bill-card{border-radius:12px;box-shadow:0 8px 18px rgba(0,0,0,0.05);}    
+  .bill-card-header{background:linear-gradient(135deg,#2563eb 0%,#1e40af 100%);color:#fff;border-radius:12px 12px 0 0;}
 
 /* Card Styling */
 .card {

@@ -2,31 +2,33 @@
     /* Student Information Section */
     .student-info-section {
         margin-top: 1cm;
-        padding: 0.5cm;
+        padding: 0.6cm;
         background: #ffffff;
-        border: 1px solid #e0e6ed;
-        border-radius: 4px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
         break-inside: avoid;
     }
 
     .student-info-header {
         display: inline-flex;
         align-items: center;
-        padding: 0.3cm 0.8cm;
+        padding: 0.32cm 0.9cm;
         font-size: 0.9rem;
         font-weight: 700;
-        background: #1a3c5e;
+        background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
         color: #fff;
-        border-radius: 4px;
+        border-radius: 999px;
         text-transform: uppercase;
         margin-bottom: 0.5cm;
         cursor: pointer;
-        transition: background 0.2s, transform 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 8px 16px rgba(29, 78, 216, 0.2);
     }
 
     .student-info-header:hover {
-        background: #2a4b7c;
-        transform: scale(1.02);
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(29, 78, 216, 0.25);
     }
 
     .student-info-header i {
@@ -47,18 +49,19 @@
     .print-button {
         font-size: 0.75rem;
         font-weight: 600;
-        padding: 0.2cm 0.5cm;
-        background: #1a3c5e;
+        padding: 0.22cm 0.55cm;
+        background: #1d4ed8;
         color: #fff;
         border: none;
-        border-radius: 4px;
+        border-radius: 10px;
         text-decoration: none;
-        transition: background 0.2s;
+        transition: background 0.2s, transform 0.2s;
     }
 
     .print-button:hover {
-        background: #2a4b7c;
+        background: #1e40af;
         color: #fff;
+        transform: translateY(-1px);
     }
 
     .print-button i {
@@ -71,8 +74,8 @@
         height: 2.2cm;
         border-radius: 50%;
         object-fit: cover;
-        border: 1px solid #ffffff;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: 2px solid #ffffff;
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.15);
     }
 
     .online-indicator {
@@ -81,7 +84,7 @@
         right: 0.1cm;
         width: 0.4cm;
         height: 0.4cm;
-        background: #28a745;
+        background: #22c55e;
         border: 1px solid #fff;
         border-radius: 50%;
     }
@@ -94,7 +97,7 @@
     .student-name {
         font-size: 1.3rem;
         font-weight: 700;
-        color: #1a3c5e;
+        color: #0f172a;
         margin-bottom: 0.2cm;
         display: flex;
         align-items: center;
@@ -104,9 +107,9 @@
     .class-badge {
         font-size: 0.75rem;
         font-weight: 600;
-        padding: 0.2cm 0.5cm;
-        background: #1a3c5e;
-        color: #fff;
+        padding: 0.2cm 0.55cm;
+        background: #e0f2fe;
+        color: #075985;
         border-radius: 4px;
     }
 
@@ -115,17 +118,17 @@
         flex-wrap: wrap;
         gap: 0.5cm;
         font-size: 0.8rem;
-        color: #333;
+        color: #334155;
         margin-bottom: 0.4cm;
     }
 
     .basic-info i {
-        color: #1a3c5e;
+        color: #2563eb;
         margin-right: 0.2cm;
     }
 
     .info-divider {
-        border-top: 1px solid #e0e6ed;
+        border-top: 1px solid #e2e8f0;
         margin: 0.4cm 0;
     }
 
@@ -136,11 +139,11 @@
     }
 
     .info-box {
-        background: #f9fafb;
-        padding: 0.4cm;
-        border: 1px solid #e0e6ed;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        background: #f8fafc;
+        padding: 0.45cm;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
     }
 
     .info-box ul {
@@ -157,20 +160,20 @@
     }
 
     .info-box i {
-        color: #1a3c5e;
+        color: #2563eb;
         font-size: 0.9rem;
         margin-top: 0.1cm;
     }
 
     .info-box small {
         font-size: 0.7rem;
-        color: #555;
+        color: #64748b;
     }
 
     .info-box strong {
         font-size: 0.8rem;
         font-weight: 600;
-        color: #1a3c5e;
+        color: #0f172a;
     }
 
     @media print {
@@ -182,7 +185,7 @@
             cursor: default;
         }
         .student-info-header:hover {
-            background: #1a3c5e;
+            background: #1d4ed8;
             transform: none;
         }
         .student-info-header i {
@@ -199,7 +202,7 @@
         }
         .info-box {
             background: #ffffff !important;
-            border: 1px solid #e0e6ed;
+            border: 1px solid #e2e8f0;
             box-shadow: none !important;
         }
     }

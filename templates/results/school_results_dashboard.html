@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load verification_tags %}
 
 {% block title %}School Results Dashboard{% endblock %}
 
@@ -22,23 +23,29 @@
 
 <style>
   :root{
-    --primary:#2A3F54;--accent:#26B99A;--muted:#73879C;--bg:#fff;--shadow:0 8px 24px rgba(0,0,0,.08);
+    --primary:#1f4ed8;
+    --accent:#0ea5e9;
+    --muted:#64748b;
+    --bg:#ffffff;
+    --border:#e2e8f0;
+    --shadow:0 8px 24px rgba(15,23,42,.08);
   }
-  .dash-card{background:var(--bg);border-radius:12px;box-shadow:var(--shadow);padding:16px;border:1px solid rgba(0,0,0,.04);}
+  .dash-card{background:var(--bg);border-radius:12px;box-shadow:var(--shadow);padding:16px;border:1px solid var(--border);}
   .grid{display:grid;gap:16px;}
   .grid.kpi{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}
-  .kpi .item{text-align:center;padding:14px;border-radius:12px;border:1px solid rgba(0,0,0,.04);background:#fff;}
+  .kpi .item{text-align:center;padding:14px;border-radius:12px;border:1px solid var(--border);background:#f8fafc;}
   .kpi .title{font-size:.9rem;color:var(--muted);margin:4px 0;}
-  .kpi .value{font-size:1.6rem;font-weight:700;color:#222;}
+  .kpi .value{font-size:1.6rem;font-weight:700;color:#0f172a;}
   .toolbar{display:flex;gap:6px;}
-  .toolbar .btn-xs{padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;background:#f8fafc;color:#334155;}
+  .toolbar .btn-xs{padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:#f8fafc;color:#1f2937;}
   .section-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .section-h h4{color:var(--primary);}
   canvas{width:100%!important;height:240px!important;}
   @media(max-width:768px){.grid.two{grid-template-columns:1fr;}}
   .heatmap-cell { padding: 8px 10px; text-align: center; color: #fff; border-radius: 6px; font-weight: 600; }
-  .heatmap-high { background-color: #009E73; }   /* High = green */
-  .heatmap-medium { background-color: #E69F00; } /* Medium = orange */
-  .heatmap-low { background-color: #D55E00; }    /* Low = red */
+  .heatmap-high { background-color: #16a34a; }   /* High = green */
+  .heatmap-medium { background-color: #f59e0b; } /* Medium = orange */
+  .heatmap-low { background-color: #ef4444; }    /* Low = red */
 </style>
 
 <div class="dash-card" style="margin-bottom:16px;">
@@ -74,6 +81,8 @@
   </form>
 </div>
 
+{% pending_verification_count as pending_count %}
+
 <div class="grid kpi" style="margin-bottom:16px;">
   <div class="item">
     <div class="title">Total Students</div>
@@ -90,6 +99,15 @@
   <div class="item">
     <div class="title">Assessments</div>
     <div class="value">{{ kpi.total_assessments|default:0 }}</div>
+  </div>
+  <div class="item">
+    <div class="title">Pending Verifications</div>
+    <div class="value">{{ pending_count|default:0 }}</div>
+    <div style="margin-top:6px;">
+      <a class="btn btn-xs btn-danger" href="{% url 'verification_overview' %}">
+        Open Queue
+      </a>
+    </div>
   </div>
   <div class="item">
     <div class="title">Classes</div>

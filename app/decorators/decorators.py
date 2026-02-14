@@ -23,4 +23,4 @@ def role_required(role, function=None, redirect_to="/"):
 # Adjusted specific role decorators
 admin_required = lambda function=None, redirect_to="/": role_required("admin", function, redirect_to)
 teacher_required = lambda function=None, redirect_to="/": role_required("teacher", function, redirect_to)
-# Continue similarly for other roles...
+

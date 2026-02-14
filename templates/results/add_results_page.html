@@ -14,9 +14,26 @@
                     <p class="text-muted mb-0">
                         {{ assessment.academic_class }} • Date: {{ assessment.date }} • 
                         Mode: <span class="badge bg-info text-dark">{{ current_mode }}</span>
+                        • Batch: <span class="badge bg-warning text-dark">{{ batch.status }}</span>
                     </p>
                 </div>
-                <div>
+                <div class="d-flex align-items-center">
+                    <form method="post" class="mr-2">
+                        {% csrf_token %}
+                        {% if all_results_entered and batch.status == "DRAFT" and not can_view_verification_queue %}
+                            <button type="submit" name="submit_batch" class="btn btn-primary">
+                                <i class="fa fa-check-square"></i> Submit for Verification
+                            </button>
+                        {% elif batch.status == "PENDING" %}
+                            <span class="badge bg-info text-dark">Submitted for verification</span>
+                        {% elif batch.status == "VERIFIED" %}
+                            <span class="badge bg-success">Verified</span>
+                        {% elif batch.status == "FLAGGED" %}
+                            <span class="badge bg-danger">Flagged</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Draft</span>
+                        {% endif %}
+                    </form>
                     <button type="button" class="btn btn-secondary" onclick="showKeyboardShortcuts()">
                         <i class="fa fa-keyboard-o"></i> Shortcuts
                     </button>
@@ -24,6 +41,20 @@
             </div>
         </div>
     </div>
+
+    {% if batch.status == "FLAGGED" and batch.rejection_reason %}
+        <div class="alert alert-danger">
+            <i class="fa fa-exclamation-circle"></i>
+            Verification rejected: {{ batch.rejection_reason }}
+        </div>
+    {% endif %}
+
+    {% if all_results_entered and batch.status == "DRAFT" %}
+        <div class="alert alert-warning">
+            <i class="fa fa-exclamation-circle"></i>
+            All results are entered. Submit this batch for verification.
+        </div>
+    {% endif %}
 
     <!-- Search and Filter Bar -->
     <div class="row mb-3">
@@ -68,9 +99,10 @@
     <!-- Existing Results Section -->
     {% if existing_results %}
         <div class="card mb-4">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h4 class="mb-0"><i class="fa fa-check-square-o"></i> Existing Results</h4>
-                <div>
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="fa fa-check-square-o"></i> Existing Results</h4>
+                    <div>
+                    {% if batch.status in "DRAFT,FLAGGED" and not can_view_verification_queue %}
                     <button type="button" id="bulkEditBtn" class="btn btn-sm btn-light" onclick="toggleBulkEdit()">
                         <i class="fa fa-edit"></i> Bulk Edit
                     </button>
@@ -80,9 +112,10 @@
                     <button type="button" id="bulkCancelBtn" class="btn btn-sm btn-secondary d-none" onclick="cancelBulkEdit()">
                         <i class="fa fa-times"></i> Cancel
                     </button>
+                    {% endif %}
+                    </div>
                 </div>
-            </div>
-            <div class="card-body">
+<div class="card-body">
                 <form method="post" id="editForm">
                     {% csrf_token %}
                     <div class="table-responsive">
@@ -131,9 +164,13 @@
                                     <td class="points-display">{{ result.points }}</td>
                                     <td><span class="badge bg-success">Completed</span></td>
                                     <td class="action-column">
-                                        <button type="submit" name="edit_result" value="{{ result.id }}" class="btn btn-sm btn-primary edit-single-btn">
-                                            <i class="fa fa-save"></i> Update
+                                        {% if batch.status in "DRAFT,FLAGGED" and not can_view_verification_queue %}
+                                        <button type="submit" name="edit_result" value="{{ result.id }}" class="btn btn-sm btn-primary edit-single-btn" onclick="return enableSingleEdit(this);">
+                                            <i class="fa fa-edit"></i> Edit
                                         </button>
+                                        {% else %}
+                                        <span class="text-muted">Locked</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -176,6 +213,7 @@
                                     <td>{{ student.reg_no }}</td>
                                     <td>{{ student.student_name }}</td>
                                     <td>
+                                        {% if batch.status == "DRAFT" or batch.status == "FLAGGED" %}
                                         <input 
                                             type="number" 
                                             name="score_{{ student.id }}" 
@@ -189,6 +227,20 @@
                                             aria-label="Score for {{ student.student_name }}"
                                             aria-describedby="error_{{ student.id }}"
                                         >
+                                        {% else %}
+                                        <input 
+                                            type="number" 
+                                            name="score_{{ student.id }}" 
+                                            class="form-control form-control-sm score-input new-score" 
+                                            style="max-width: 120px;" 
+                                            min="0"
+                                            max="{{ assessment.out_of }}"
+                                            step="0.01"
+                                            disabled
+                                            aria-label="Score for {{ student.student_name }}"
+                                            aria-describedby="error_{{ student.id }}"
+                                        >
+                                        {% endif %}
                                         <small id="error_{{ student.id }}" class="text-danger error-message small"></small>
                                     </td>
                                     <td><span class="badge bg-warning text-dark">Pending</span></td>
@@ -198,12 +250,16 @@
                         </table>
                     </div>
                     <div class="mt-3">
-                        <button type="submit" name="add_results" class="btn btn-success btn-lg" id="saveNewBtn">
+                        {% if batch.status in "DRAFT,FLAGGED" and not can_view_verification_queue %}
+                        <button type="submit" name="add_results" class="btn btn-success btn-lg" id="saveNewBtn" onclick="isSubmitting = true;">
                             <i class="fa fa-save"></i> Save All New Results
                         </button>
                         <button type="button" class="btn btn-outline-secondary" onclick="clearDraft()">
                             <i class="fa fa-trash"></i> Clear All
                         </button>
+                        {% else %}
+                        <span class="text-muted">Locked</span>
+                        {% endif %}
                     </div>
                 </form>
             </div>
@@ -302,6 +358,7 @@ kbd {
 <script>
 // Global variables
 let bulkEditMode = false;
+let isSubmitting = false;
 const maxScore = {{ assessment.out_of }};
 
 // Input validation
@@ -417,6 +474,7 @@ function saveBulkEdits() {
     // Add bulk edit indicator
     formData.append('bulk_edit', 'true');
     
+    isSubmitting = true;
     fetch(window.location.href, {
         method: 'POST',
         body: formData,
@@ -439,6 +497,30 @@ function saveBulkEdits() {
         hideProgress();
         showToast('Error saving results. Please try again.', 'error');
     });
+}
+
+function enableSingleEdit(button) {
+    const row = button.closest('tr');
+    const input = row ? row.querySelector('.score-input') : null;
+    if (!input) {
+        isSubmitting = true;
+        return true;
+    }
+
+    if (input.disabled) {
+        input.disabled = false;
+        input.focus();
+        button.innerHTML = '<i class="fa fa-save"></i> Save';
+        return false;
+    }
+
+    if (!validateScore(input, maxScore)) {
+        input.focus();
+        return false;
+    }
+
+    isSubmitting = true;
+    return true;
 }
 
 // Keyboard shortcuts
@@ -559,6 +641,12 @@ function showKeyboardShortcuts() {
     
     // Auto-save every 30 seconds
     setInterval(saveDraft, 30000);
+
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function() {
+            isSubmitting = true;
+        });
+    });
     
     // Focus first input for keyboard users
     const firstInput = document.querySelector('.score-input:not([disabled])');
@@ -570,8 +658,11 @@ function showKeyboardShortcuts() {
 
 // Warn before leaving if there's unsaved data
 window.addEventListener('beforeunload', function (e) {
+    if (isSubmitting) {
+        return;
+    }
     const hasUnsavedData = Array.from(document.querySelectorAll('.new-score')).some(input => input.value);
-    if (hasUnsavedData && !confirm('You have unsaved changes. Are you sure you want to leave?')) {
+    if (hasUnsavedData) {
         e.preventDefault();
         e.returnValue = '';
     }

@@ -25,9 +25,11 @@
         <!-- Top actions -->
         <div class="d-flex justify-content-between align-items-center">
           <small class="text-muted">Use filters to narrow assessments. Create directly via the button.</small>
+          {% if not is_teacher_role %}
           <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#createAssessmentModal">
             <i class="fa fa-plus"></i> Create Assessment
           </button>
+          {% endif %}
         </div>
       </div>
 
@@ -104,6 +106,17 @@
               </select>
             </div>
 
+            <div class="col-md-3 col-sm-6 mb-10">
+              <label for="verification_status" class="small text-muted">Verification</label>
+              <select id="verification_status" name="verification_status" class="form-control">
+                <option value="" {% if verification_status == "" %}selected{% endif %}>All</option>
+                <option value="PENDING_OR_DRAFT" {% if verification_status == "PENDING_OR_DRAFT" %}selected{% endif %}>Pending + Draft</option>
+                <option value="PENDING" {% if verification_status == "PENDING" %}selected{% endif %}>Pending</option>
+                <option value="VERIFIED" {% if verification_status == "VERIFIED" %}selected{% endif %}>Verified</option>
+                <option value="FLAGGED" {% if verification_status == "FLAGGED" %}selected{% endif %}>Flagged</option>
+              </select>
+            </div>
+
             <div class="col-md-2 col-sm-6 mb-10">
               <label for="date_from" class="small text-muted">Date From</label>
               <input type="date" id="date_from" name="date_from" value="{{ date_from }}" class="form-control" />
@@ -134,12 +147,16 @@
               <div class="chips-scroll">
                 {% for at in assessment_types %}
                   <a class="chip chip-alt {% if selected_assessment_type_id == at.id|stringformat:"s" %}active{% endif %}"
-                     href="?assessment_type_id={{ at.id }}{% if selected_year_id %}&year_id={{ selected_year_id }}{% endif %}{% if selected_term_id %}&term_id={{ selected_term_id }}{% endif %}">
+                     href="?assessment_type_id={{ at.id }}{% if selected_year_id %}&year_id={{ selected_year_id }}{% endif %}{% if selected_term_id %}&term_id={{ selected_term_id }}{% endif %}{% if verification_status %}&verification_status={{ verification_status }}{% endif %}">
                     {{ at.name }}
                   </a>
                 {% endfor %}
-                <a class="chip {% if selected_is_done == 'yes' %}active{% endif %}" href="?is_done=yes">Done</a>
-                <a class="chip {% if selected_is_done == 'no' %}active{% endif %}" href="?is_done=no">Not Done</a>
+                <a class="chip {% if selected_is_done == 'yes' %}active{% endif %}" href="?is_done=yes{% if verification_status %}&verification_status={{ verification_status }}{% endif %}">Done</a>
+                <a class="chip {% if selected_is_done == 'no' %}active{% endif %}" href="?is_done=no{% if verification_status %}&verification_status={{ verification_status }}{% endif %}">Not Done</a>
+                <a class="chip {% if verification_status == 'PENDING_OR_DRAFT' %}active{% endif %}" href="?verification_status=PENDING_OR_DRAFT">Pending + Draft</a>
+                <a class="chip {% if verification_status == 'PENDING' %}active{% endif %}" href="?verification_status=PENDING">Pending</a>
+                <a class="chip {% if verification_status == 'VERIFIED' %}active{% endif %}" href="?verification_status=VERIFIED">Verified</a>
+                <a class="chip {% if verification_status == 'FLAGGED' %}active{% endif %}" href="?verification_status=FLAGGED">Flagged</a>
               </div>
             </div>
           </div>
@@ -155,7 +172,9 @@
               <th>Date</th>
               <th>Out Of</th>
               <th>Done</th>
+              {% if not is_teacher_role %}
               <th style="width:160px;">Actions</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody>
@@ -173,6 +192,7 @@
                     <span class="badge badge-secondary">No</span>
                   {% endif %}
                 </td>
+                {% if not is_teacher_role %}
                 <td class="text-center">
                   <div class="btn-group btn-group-sm" role="group" aria-label="Actions">
                     <a href="{% url 'edit_assessment_page' assessment.id %}" class="btn btn-warning" title="Edit Assessment">
@@ -183,6 +203,7 @@
                     </a>
                   </div>
                 </td>
+                {% endif %}
               </tr>
             {% empty %}
               <tr>
@@ -209,9 +230,32 @@
         </button>
       </div>
       <div class="modal-body">
+        <div class="alert alert-info" role="alert" style="margin-bottom: 12px;">
+          <strong>Tip:</strong> Use <em>Bulk Subjects</em> to create one assessment type for multiple subjects in a single action.
+        </div>
+
         <form method="post" class="form-horizontal form-label-left" action="{% url 'assessment_create' %}">
           {% csrf_token %}
-          {{ form|crispy }}
+
+          <div class="form-group">
+            <label class="control-label col-md-4 col-sm-4 col-xs-12">Creation Mode</label>
+            <div class="col-md-8 col-sm-8 col-xs-12">
+              <div class="btn-group" role="group" aria-label="Creation Mode">
+                <button type="button" class="btn btn-dark" id="modeSingleBtn">Single Subject</button>
+                <button type="button" class="btn btn-default" id="modeBulkBtn">Bulk Subjects</button>
+              </div>
+              <input type="hidden" name="bulk_subjects" id="bulk_subjects" value="0" />
+            </div>
+          </div>
+
+          <div id="singleAssessmentSection">
+            {{ form|crispy }}
+          </div>
+
+          <div id="bulkAssessmentSection" style="display:none;">
+            {{ bulk_form|crispy }}
+          </div>
+
           <div class="ln_solid"></div>
           <div class="form-group">
             <div class="col-md-6 col-sm-6 col-xs-12">
@@ -281,6 +325,64 @@
         if (elAC) elAC.value = ac;
       }
     } catch (e) {}
+  })();
+</script>
+<script>
+  (function() {
+    var singleBtn = document.getElementById('modeSingleBtn');
+    var bulkBtn = document.getElementById('modeBulkBtn');
+    var singleSection = document.getElementById('singleAssessmentSection');
+    var bulkSection = document.getElementById('bulkAssessmentSection');
+    var bulkFlag = document.getElementById('bulk_subjects');
+
+    if (!singleBtn || !bulkBtn || !singleSection || !bulkSection || !bulkFlag) {
+      return;
+    }
+
+    function toggleSectionInputs(section, disabled) {
+      var inputs = section.querySelectorAll('input, select, textarea, button');
+      inputs.forEach(function(el) {
+        if (el.type === 'hidden') {
+          return;
+        }
+        el.disabled = disabled;
+      });
+    }
+
+    function setMode(mode) {
+      if (mode === 'bulk') {
+        singleSection.style.display = 'none';
+        bulkSection.style.display = 'block';
+        bulkFlag.value = '1';
+        toggleSectionInputs(singleSection, true);
+        toggleSectionInputs(bulkSection, false);
+        bulkBtn.classList.add('btn-dark');
+        bulkBtn.classList.remove('btn-default');
+        singleBtn.classList.add('btn-default');
+        singleBtn.classList.remove('btn-dark');
+      } else {
+        singleSection.style.display = 'block';
+        bulkSection.style.display = 'none';
+        bulkFlag.value = '0';
+        toggleSectionInputs(singleSection, false);
+        toggleSectionInputs(bulkSection, true);
+        singleBtn.classList.add('btn-dark');
+        singleBtn.classList.remove('btn-default');
+        bulkBtn.classList.add('btn-default');
+        bulkBtn.classList.remove('btn-dark');
+      }
+    }
+
+    singleBtn.addEventListener('click', function() { setMode('single'); });
+    bulkBtn.addEventListener('click', function() { setMode('bulk'); });
+
+    var params = new URLSearchParams(window.location.search);
+    var openModal = params.get('open_modal');
+    if (openModal === 'bulk') {
+      setMode('bulk');
+    } else {
+      setMode('single');
+    }
   })();
 </script>
 {% endblock content %}

@@ -281,6 +281,7 @@ def delete_user_view(request, id):
     return HttpResponseRedirect(reverse('user_list'))
 
 
+@login_required
 def password_change_view(request):
     if request.method == 'POST':
         form = PasswordChangeForm(request.user, request.POST)

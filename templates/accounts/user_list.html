@@ -14,19 +14,32 @@
         --warning-color: #F0AD4E;
         --danger-color: #E74C3C;
         --info-color: #3498DB;
-        --text-primary: #444444;
-        --text-secondary: #73879C;
-        --bg-light: #F7F7F7;
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        --bg-light: #f5f7fb;
         --bg-card: #ffffff;
-        --border-color: #D9DEE4;
-        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --border-color: #e2e8f0;
+        --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+        --shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08);
+        --shadow-lg: 0 12px 24px rgba(15, 23, 42, 0.12);
         --radius-sm: 6px;
         --radius-md: 8px;
         --radius-lg: 12px;
         --transition-fast: 0.15s ease-in-out;
         --transition-normal: 0.3s ease-in-out;
+    }
+
+    .accounts-page {
+        background: var(--bg-light);
+        border-radius: var(--radius-lg);
+        padding: 12px;
+    }
+
+    .section-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
     }
 
     /* Enhanced KPI Cards */
@@ -56,6 +69,7 @@
         margin: 0 auto 1rem;
         font-size: 1.5rem;
         color: white;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
     }
 
     .kpi-value {
@@ -80,6 +94,17 @@
         border-radius: var(--radius-lg);
         transition: var(--transition-normal);
         overflow: hidden;
+        position: relative;
+    }
+
+    .user-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color), var(--success-color));
     }
 
     .user-card:hover {
@@ -88,8 +113,8 @@
     }
 
     .user-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-        color: white;
+        background: #f8fafc;
+        color: var(--text-primary);
         padding: 1.5rem;
         position: relative;
     }
@@ -98,14 +123,14 @@
         width: 60px;
         height: 60px;
         border-radius: 50%;
-        border: 3px solid rgba(255, 255, 255, 0.3);
+        border: 3px solid #e2e8f0;
         object-fit: cover;
     }
 
     .user-badge {
-        background: rgba(255, 255, 255, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        color: white;
+        background: #e2e8f0;
+        border: 1px solid #cbd5f5;
+        color: #1e293b;
         font-size: 0.875rem;
         padding: 0.25rem 0.75rem;
         border-radius: 20px;
@@ -218,9 +243,6 @@
 
     /* Search and Filter */
     .search-container {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-lg);
         padding: 1.5rem;
     }
 
@@ -261,10 +283,11 @@
 
 <div class="clearfix"></div>
 
+<div class="accounts-page">
 <!-- Page Header -->
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="section-card p-3 d-flex justify-content-between align-items-center">
             <div>
                 <h2 class="mb-1"><i class="fa fa-users text-primary"></i> User Accounts Management</h2>
                 <p class="text-muted mb-0">Manage system users and their access permissions</p>
@@ -328,7 +351,7 @@
 <!-- Search and Filters -->
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="search-container">
+        <div class="search-container section-card">
             <h5 class="mb-3"><i class="fa fa-search me-2"></i> Search & Filter Users</h5>
             <form method="get" action="{% url 'user_list' %}" class="row g-3">
                 <div class="col-md-8">
@@ -376,8 +399,8 @@
                         </div>
                     {% endif %}
                     <div class="ms-3 flex-grow-1">
-                        <h5 class="mb-1">{{ user.get_full_name|default:user.username }}</h5>
-                        <p class="mb-0 opacity-75">@{{ user.username }}</p>
+                        <h5 class="mb-1" style="color: var(--text-primary);">{{ user.get_full_name|default:user.username }}</h5>
+                        <p class="mb-0" style="color: var(--text-secondary);">@{{ user.username }}</p>
                     </div>
                     <span class="user-badge">{{ user.id }}</span>
                 </div>
@@ -414,7 +437,7 @@
                     <div>
                         <span class="user-label">Role</span>
                         {% if user.is_superuser %}
-                            <span class="status-badge" style="background: rgba(231, 76, 60, 0.1); color: var(--danger-color); border-color: rgba(231, 76, 60, 0.3);">
+                            <span class="status-badge" style="background: rgba(239, 68, 68, 0.1); color: #dc2626; border-color: rgba(239, 68, 68, 0.3);">
                                 <i class="fa fa-crown"></i> Superuser
                             </span>
                         {% elif user.is_staff %}
@@ -422,7 +445,7 @@
                                 <i class="fa fa-user-shield"></i> Staff
                             </span>
                         {% else %}
-                            <span class="status-badge" style="background: rgba(119, 136, 153, 0.1); color: #73879C; border-color: rgba(119, 136, 153, 0.3);">
+                            <span class="status-badge" style="background: rgba(100, 116, 139, 0.1); color: #64748b; border-color: rgba(100, 116, 139, 0.3);">
                                 <i class="fa fa-user"></i> Regular
                             </span>
                         {% endif %}
@@ -451,14 +474,14 @@
             <!-- User Footer -->
             <div class="user-footer">
                 <div>
-                    <span class="text-muted">Account Type: </span>
-                    {% if user.is_superuser %}
-                        <span class="badge bg-danger">Superuser</span>
-                    {% elif user.is_staff %}
-                        <span class="badge bg-info">Staff</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Regular</span>
-                    {% endif %}
+                         <span class="text-muted">Account Type: </span>
+                         {% if user.is_superuser %}
+                         <span class="badge" style="background:#fee2e2; color:#dc2626; border:1px solid #fecaca;">Superuser</span>
+                         {% elif user.is_staff %}
+                         <span class="badge" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd;">Staff</span>
+                         {% else %}
+                         <span class="badge" style="background:#e2e8f0; color:#475569; border:1px solid #cbd5f5;">Regular</span>
+                         {% endif %}
                 </div>
                 <div class="d-flex gap-2">
                     <a href="{% url 'user_detail' user.id %}" class="btn btn-primary-gentellela btn-sm">
@@ -496,6 +519,7 @@
         </div>
     </div>
     {% endfor %}
+
 </div>
 
 <!-- Pagination -->

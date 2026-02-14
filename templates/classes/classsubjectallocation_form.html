@@ -19,9 +19,13 @@
                 <div class="x_content">
                     <div class="row">
                         <div class="col-md-6">
+                            {% if is_dos or is_admin %}
                             <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addClassSubjectModal">
                                 <i class="fa fa-plus-circle"></i> Add New Allocation
                             </button>
+                            {% else %}
+                            <p class="text-muted">Only Admin or the Director of Studies can add allocations.</p>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
                             <div class="input-group">
@@ -43,7 +47,9 @@
                                         <th>Class Stream</th>
                                         <th>Subject</th>
                                         <th>Subject Teacher</th>
+                                        {% if is_dos or is_admin %}
                                         <th style="width: 15%">Actions</th>
+                                        {% endif %}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -53,6 +59,7 @@
                                             <td><strong>{{ allocation.academic_class_stream }}</strong></td>
                                             <td>{{ allocation.subject }}</td>
                                             <td>{{ allocation.subject_teacher }}</td>
+                                            {% if is_dos or is_admin %}
                                             <td>
                                                 <a href="{% url 'edit_subject_allocation_page' allocation.id %}" class="btn btn-info btn-sm" title="Edit Allocation">
                                                     <i class="fa fa-edit"></i> 
@@ -61,6 +68,7 @@
                                                     <i class="fa fa-trash"></i>
                                                 </a>
                                             </td>
+                                            {% endif %}
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -81,6 +89,7 @@
     </div>
 
     <!-- Add Allocation Modal -->
+    {% if is_dos or is_admin %}
     <div class="modal fade" id="addClassSubjectModal" tabindex="-1" role="dialog" aria-labelledby="addClassSubjectModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -107,6 +116,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <script>
         $(document).ready(function() {

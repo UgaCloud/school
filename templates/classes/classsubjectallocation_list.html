@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load static %}
 
 {% block page_title %}Class Subject Allocations{% endblock page_title %}
 {% block content %}
@@ -9,19 +10,12 @@
         <div class="col-md-12 col-sm-12 col-xs-12">
             <div class="x_panel">
                 <div class="x_title">
-                    <h2><i class="fa fa-link"></i> Class Subject Allocations</h2>
-                    <ul class="nav navbar-right panel_toolbox">
-                        <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
-                        <li><a class="close-link"><i class="fa fa-close"></i></a></li>
-                    </ul>
-                    <div class="clearfix"></div>
-                </div>
-                <div class="x_content">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p class="text-muted">View and manage subject allocations to class streams and teachers.</p>
+                    <div class="row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div class="col-md-8 col-sm-8 col-xs-12">
+                            <h2 style="margin:0;"><i class="fa fa-link"></i> Class Subject Allocations</h2>
+                            <p class="text-muted" style="margin:6px 0 0;">View subject allocations for your assigned class streams.</p>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4 col-sm-4 col-xs-12" style="margin-top:6px;">
                             <div class="input-group">
                                 <input type="text" class="form-control" placeholder="Search allocations..." id="allocationSearch">
                                 <span class="input-group-btn">
@@ -30,12 +24,17 @@
                             </div>
                         </div>
                     </div>
-                    <div class="ln_solid"></div>
-
+                    <ul class="nav navbar-right panel_toolbox">
+                        <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+                        <li><a class="close-link"><i class="fa fa-close"></i></a></li>
+                    </ul>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="x_content">
                     {% if allocations %}
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover table-bordered" id="allocationsTable" style="width:100%">
-                                <thead class="thead-dark">
+                            <table class="table table-striped table-hover jambo_table" id="allocationsTable" style="width:100%">
+                                <thead>
                                     <tr>
                                         <th style="width: 5%">#</th>
                                         <th>Class Stream</th>
@@ -47,20 +46,34 @@
                                     {% for allocation in allocations %}
                                         <tr>
                                             <td>{{ forloop.counter }}</td>
-                                            <td><strong>{{ allocation.academic_class_stream }}</strong></td>
-                                            <td>{{ allocation.subject }}</td>
-                                            <td>{{ allocation.subject_teacher }}</td>
+                                            <td>
+                                                <div style="font-weight:600;">{{ allocation.academic_class_stream }}</div>
+                                                <div class="text-muted" style="font-size:12px;">Allocated stream</div>
+                                            </td>
+                                            <td>
+                                                <span class="label label-primary" style="font-size:12px;">{{ allocation.subject }}</span>
+                                            </td>
+                                            <td>
+                                                <div style="display:flex;align-items:center;gap:8px;">
+                                                    {% if allocation.subject_teacher.staff_photo %}
+                                                        <img src="{{ allocation.subject_teacher.staff_photo.url }}" alt="Teacher" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+                                                    {% else %}
+                                                        <img src="{% static 'images/default_profile.jpg' %}" alt="Teacher" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+                                                    {% endif %}
+                                                    <span>{{ allocation.subject_teacher }}</span>
+                                                </div>
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
                     {% else %}
-                        <div class="text-center">
-                            <div class="alert alert-info" role="alert">
+                        <div class="text-center" style="padding:24px 0;">
+                            <div class="alert alert-info" role="alert" style="margin:0;">
                                 <i class="fa fa-info-circle fa-2x"></i>
-                                <h4>No Allocations Found</h4>
-                                <p>There are currently no subject allocations. Allocate subjects to classes and teachers to get started.</p>
+                                <h4 style="margin-top:10px;">No Allocations Found</h4>
+                                <p style="margin-bottom:0;">There are currently no subject allocations for your class streams.</p>
                             </div>
                         </div>
                     {% endif %}
@@ -71,7 +84,6 @@
 
     <script>
         $(document).ready(function() {
-            // Simple search functionality
             $('#allocationSearch').on('keyup', function() {
                 var value = $(this).val().toLowerCase();
                 $('#allocationsTable tbody tr').filter(function() {

@@ -41,6 +41,17 @@ class SchoolSetting(SingletonModel):
     )
     school_logo = models.ImageField(upload_to="logo", height_field=None, width_field=None, max_length=None)
     app_name = models.CharField(max_length=20, default="E-School")
+    division_critical_subjects = models.ManyToManyField(
+        "Subject",
+        blank=True,
+        related_name="division_critical_for",
+        help_text="Subjects that can lower a student's division if grade is F9."
+    )
+    division_f9_cap = models.CharField(
+        max_length=12,
+        default="Division 3",
+        help_text="Maximum division allowed when a critical subject has F9 (e.g., Division 2 or Division 3)."
+    )
 
     
    

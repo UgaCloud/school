@@ -31,21 +31,67 @@
 {% endif %}
 
 <style>
+  :root{
+    --primary:#1d4ed8;
+    --accent:#0ea5e9;
+    --muted:#64748b;
+    --border:#e2e8f0;
+    --panel-bg:#ffffff;
+  }
   @media print {
     .no-print { display: none !important; }
     .x_panel { box-shadow: none !important; border: 1px solid #ddd !important; }
     a[href]:after { content: "" !important; }
   }
-  .filter-bar .form-group { margin-right: 12px; margin-bottom: 8px; }
-  .sticky-header th { position: sticky; top: 0; background: #f7f7f7; z-index: 1; }
+  .page-title h3{font-weight:700;color:#0f172a;}
+  .filter-panel{
+    border:1px solid var(--border);
+    border-radius:14px;
+    box-shadow:0 10px 24px rgba(15,23,42,0.08);
+    background:var(--panel-bg);
+  }
+  .filter-title{
+    font-weight:700;
+    color:#0f172a;
+  }
+  .filter-bar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px 16px;
+    align-items:flex-end;
+  }
+  .filter-bar .form-group{margin:0;}
+  .filter-bar label{font-weight:600;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.04em;}
+  .filter-bar .form-control{
+    min-width:200px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:#f8fafc;
+  }
+  .filter-actions .btn{border-radius:10px;}
+  .assessment-box{
+    max-height:160px;
+    overflow:auto;
+    min-width:280px;
+    margin-bottom:0;
+    background:#f8fafc;
+    border:1px solid var(--border);
+    border-radius:10px;
+  }
+  .assessment-item{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;color:#0f172a;}
+  .assessment-item input{accent-color:var(--primary);}
+  .assessment-weight{color:var(--muted);font-size:12px;}
+  .sticky-header th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
   .table-compact td, .table-compact th { padding: 6px 8px !important; font-size: 12px; }
-  .student-card-title { margin: 0; font-weight: 600; font-size: 14px; }
-  .muted { color: #888; }
+  .student-card-title { margin: 0; font-weight: 600; font-size: 14px; color:#0f172a; }
+  .muted { color: var(--muted); }
+  .assessment-pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#075985;border:1px solid #bae6fd;font-size:11px;margin-right:4px;}
+  .helper-note{background:#f8fafc;border:1px dashed var(--border);padding:12px;border-radius:12px;color:#475569;}
 </style>
 
-<div class="x_panel">
+<div class="x_panel filter-panel">
   <div class="x_title">
-    <h2>Filters</h2>
+    <h2 class="filter-title">Filters</h2>
     <div class="clearfix"></div>
   </div>
   <div class="x_content">
@@ -88,22 +134,23 @@
 
       <div class="form-group">
         <label>Assessment Types</label><br/>
-        <div class="well well-sm" style="max-height:140px; overflow:auto; min-width: 280px; margin-bottom:0;">
+        <div class="well well-sm assessment-box">
           {% for at in assessment_types %}
-            <label class="checkbox" style="display:block; margin-bottom:6px;">
+            <label class="checkbox assessment-item">
               <input
                 type="checkbox"
                 name="assessment_type_ids"
                 value="{{ at.id }}"
                 {% if at.id|stringformat:"s" in selected_assessment_type_ids %}checked{% endif %}
               />
-              {{ at.name }} {% if at.weight %}<span class="muted">(w={{ at.weight }})</span>{% endif %}
+              <span>{{ at.name }}</span>
+              {% if at.weight %}<span class="assessment-weight">(w={{ at.weight }})</span>{% endif %}
             </label>
           {% endfor %}
         </div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group filter-actions">
         <button type="submit" class="btn btn-primary">
           <i class="fa fa-filter"></i> Apply
         </button>
@@ -123,7 +170,7 @@
         <small>
           &mdash; Assessments:
           {% for at in selected_assessment_types %}
-            <span class="label label-default" style="margin-right:4px;">{{ at.name }}</span>
+            <span class="assessment-pill">{{ at.name }}</span>
           {% endfor %}
         </small>
       </h2>
@@ -192,9 +239,9 @@
     </div>
   </div>
 {% else %}
-  <div class="x_panel">
+  <div class="x_panel filter-panel">
     <div class="x_content">
-      <p class="muted">
+      <p class="helper-note">
         Select Academic Year, Term, Class and at least two Assessment Types (e.g., BEGINNING OF TERM and MID OF TERM) then click Apply to render a print-ready report.
       </p>
     </div>

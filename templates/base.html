@@ -42,6 +42,50 @@
     rel="stylesheet" />
 
   <style>
+    :root{
+      --bg-app:#f5f7fb;
+      --panel-bg:#ffffff;
+      --panel-border:#e6edf5;
+      --text-dark:#1f2a44;
+      --text-muted:#64748b;
+      --primary:#2563eb;
+      --success:#22c55e;
+      --warning:#f59e0b;
+      --danger:#ef4444;
+    }
+
+    body{background:var(--bg-app);color:var(--text-dark);}    
+    .right_col{background:var(--bg-app);}    
+    .x_panel{
+      background:var(--panel-bg);
+      border:1px solid var(--panel-border);
+      border-radius:12px;
+      box-shadow:0 6px 16px rgba(0,0,0,0.04);
+    }
+    .x_title{border-bottom:1px solid var(--panel-border);}    
+    .x_title h2{font-weight:700;color:var(--text-dark);}    
+    .text-muted{color:var(--text-muted) !important;}
+
+    .btn{border-radius:10px;}
+    .btn-primary{background:var(--primary);border-color:var(--primary);}    
+    .btn-success{background:var(--success);border-color:var(--success);}    
+    .btn-warning{background:var(--warning);border-color:var(--warning);}    
+    .btn-danger{background:var(--danger);border-color:var(--danger);}    
+
+    .form-control{
+      border-radius:10px;
+      border:1px solid #e2e8f0;
+      background:#fff;
+      box-shadow:none;
+    }
+    .input-group .form-control{border-radius:10px 0 0 10px;}
+    .input-group-btn .btn{border-radius:0 10px 10px 0;}
+
+    .label{border-radius:999px;padding:4px 8px;font-weight:600;}
+    .badge{border-radius:999px;}
+    html, body { height: 100%; }
+    .right_col { display: flex; flex-direction: column; min-height: 100vh; }
+    .content-wrapper { flex: 1 1 auto; }
     /* Unified Table Styling */
     .table {
       border-radius: 10px;
@@ -73,6 +117,60 @@
     .table tbody tr:hover {
       background: #eff6ff;
       transition: background 0.2s ease;
+    }
+
+    .dataTables_wrapper{
+      background:#fff;
+      border:1px solid #e6edf5;
+      border-radius:12px;
+      padding:12px;
+      box-shadow:0 6px 16px rgba(0,0,0,0.04);
+    }
+
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter{
+      margin-bottom:8px;
+    }
+
+    .dataTables_wrapper .dataTables_length label,
+    .dataTables_wrapper .dataTables_filter label{
+      font-weight:600;
+      color:#334155;
+    }
+
+    .dataTables_wrapper .dataTables_filter input,
+    .dataTables_wrapper .dataTables_length select{
+      border:1px solid #e2e8f0;
+      border-radius:8px;
+      padding:0.45rem 0.6rem;
+      font-size:0.85rem;
+      background:#f8fafc;
+    }
+
+    .dataTables_wrapper .dataTables_info{
+      color:#64748b;
+      font-size:0.85rem;
+      padding-top:10px;
+    }
+
+    .dataTables_wrapper .dataTables_paginate{
+      padding-top:6px;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button{
+      border-radius:8px;
+      margin:0 2px;
+      padding:0.35rem 0.6rem;
+      background:#f8fafc;
+      border:1px solid #e2e8f0;
+      color:#1f2a44 !important;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover{
+      background:#2563eb !important;
+      color:#ffffff !important;
+      border:1px solid #2563eb;
     }
 
     .dataTables_wrapper .dataTables_paginate .paginate_button {
@@ -200,7 +298,7 @@
 
       <!-- page content -->
       <div class="right_col" role="main">
-        <div class="">
+        <div class="content-wrapper">
           <div class="page-title">
             <div class="title_left">
               <h3>
@@ -220,12 +318,12 @@
               </div>
             </div>
           </div>
-        </div>
 
         {% include 'includes/messages.html' %}
 
         <!-- Content Block -->
         {% block content %}{% endblock content %}
+        </div>
 
         {% include 'includes/footer.html' %}
 
@@ -233,6 +331,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   {% include 'includes/scripts.html' %}
 
   {% if request.user.is_authenticated %}

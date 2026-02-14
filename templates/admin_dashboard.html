@@ -44,8 +44,36 @@
   
     <li><a href="javascript:;"><i class="fa fa-book"></i> Human Resource <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
-        <li><a href="{% url 'staff_page' %}">Manage Staff</a></li>
-        <li><a href="#">Attendance</a></li>
+      <li><a href="{% url 'staff_page' %}">Manage Staff</a></li>
+      <li><a href="{% url 'attendance_dashboard' %}">Attendance Dashboard</a></li>
+      <li><a href="{% url 'take_attendance' %}">Take Attendance</a></li>
+      <li><a href="{% url 'attendance_analysis' %}">Attendance Analysis</a></li>
+      <li><a href="{% url 'student_attendance_report' %}">Student Report</a></li>
+      <li><a href="{% url 'class_attendance_report' %}">Class Report</a></li>
+      </ul>
+    </li>
+
+    <li><a href="javascript:;"><i class="fa fa-bullhorn"></i> Communications
+        {% if comm_unread_count > 0 %}
+        <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_count }}</span>
+        {% endif %}
+        <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+        <li><a href="{% url 'announcement_list' %}">Announcements
+          {% if comm_unread_breakdown.announcements > 0 %}
+          <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.announcements }}</span>
+          {% endif %}
+        </a></li>
+        <li><a href="{% url 'event_list' %}">Events
+          {% if comm_unread_breakdown.events > 0 %}
+          <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.events }}</span>
+          {% endif %}
+        </a></li>
+        <li><a href="{% url 'message_inbox' %}">Messages
+          {% if comm_unread_breakdown.messages > 0 %}
+          <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.messages }}</span>
+          {% endif %}
+        </a></li>
       </ul>
     </li>
   
@@ -59,8 +87,9 @@
     {% with url_name=request.resolver_match.url_name %}
     <li class="{% if url_name == 'timetable_center' or url_name == 'teacher_timetable' %}active{% endif %}">
       <a href="javascript:;" {% if url_name == 'timetable_center' or url_name == 'teacher_timetable' %}class="active" aria-expanded="true"{% endif %}><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
-      <ul class="nav child_menu" {% if url_name == 'timetable_center' or url_name == 'teacher_timetable' %}style="display:block"{% endif %}>
+      <ul class="nav child_menu" {% if url_name == 'timetable_center' or url_name == 'teacher_timetable' or url_name == 'exam_timetable' %}style="display:block"{% endif %}>
           <li><a href="{% url 'timetable_center' %}">Set Timetable</a></li>
+          <li><a href="{% url 'exam_timetable' %}">Exam Timetable</a></li>
           {% if request.user.is_authenticated and request.user.staff_account and request.user.staff_account.role.name == "Teacher" %}
           <li><a href="{% url 'teacher_timetable' %}">Teacher Timetable</a></li>
           {% endif %}
@@ -133,7 +162,7 @@
     <li><a href="javascript:;"><i class="fa fa-graduation-cap"></i>Results Center<span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
         <!-- Quick Access -->
-        <li><a href="{% url 'class_performance_summary' %}"><i class="fa fa-tachometer"></i> Results Dashboard</a></li>
+        <!-- <li><a href="{% url 'class_performance_summary' %}"><i class="fa fa-tachometer"></i></a></li> -->
         <li><a href="{% url 'school_results_dashboard' %}"><i class="fa fa-university"></i> School Results Overview</a></li>
      
       
@@ -166,7 +195,7 @@
           <a href="javascript:;"><i class="fa fa-calendar"></i> Scheduling <span class="fa fa-chevron-down"></span></a>
           <ul class="nav child_menu">
             <li><a href="{% url 'assessment_create' %}">Create Exams</a></li>
-            <li><a href="{% url 'assessment_list' %}">Exam Timetables</a></li>
+            <li><a href="{% url 'exam_timetable' %}">Exam Timetables</a></li>
           </ul>
         </li>
 
@@ -176,7 +205,6 @@
           <ul class="nav child_menu">
             <li><a href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
             <li><a href="{% url 'class_performance_summary' %}">Performance Analytics</a></li>
-            <li><a href="{% url 'class_performance_summary' %}">Subject Analysis</a></li>
              <li><a href="{% url 'class_assessment_combined' %}">Combined Assessments</a></li>
              <li><a href="{% url 'assessment_sheet' %}">Assessment Sheet</a></li>
           </ul>

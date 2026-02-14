@@ -1,5 +1,6 @@
 {% load static %}
- 
+{% load verification_tags %}
+
 <div class="top_nav">
     <div class="nav_menu">
         <div class="nav toggle">
@@ -41,13 +42,156 @@
                 </li>
 
 
+
                 <li role="presentation" class="nav-item dropdown open">
+                    {% pending_verification_count as p_count %}
                     <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdown1"
                         data-toggle="dropdown" aria-expanded="false">
                         <i class="fa fa-envelope-o"></i>
-                        <span class="badge bg-green">6</span>
+                        {% if p_count > 0 %}
+                        <span class="badge bg-green">{{ p_count }}</span>
+                        {% endif %}
                     </a>
-                    <!--  -->
+                    <ul class="dropdown-menu list-unstyled msg_list" role="menu" aria-labelledby="navbarDropdown1">
+                        {% get_pending_verifications as pending_list %}
+                        {% for batch in pending_list %}
+                        <li class="nav-item">
+                            <a class="dropdown-item" href="{% url 'verification_queue' batch.assessment.id %}">
+                                <span class="image"><img src="{{ request.user.staff_account.staff.staff_photo.url }}" 
+                                        alt="Profile Image" /></span>
+                                <span>
+                                    <span>{{ batch.assessment.subject.name }}</span>
+                                    <span class="time">{{ batch.submitted_at|timesince }} ago</span>
+                                </span>
+                                <span class="message">
+                                    {{ batch.assessment.academic_class }} - {{ batch.assessment.assessment_type.name }}
+                                </span>
+                            </a>
+                        </li>
+                        {% empty %}
+                        <li class="nav-item">
+                            <div class="text-center">
+                                <span>No pending verifications</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                        <li class="nav-item">
+                            <div class="text-center">
+                                <!-- <a class="dropdown-item"
+                                    href="{% url 'assessment_create' %}?verification_status=PENDING">
+                                    <strong>See All Alerts</strong>
+                                    <i class="fa fa-angle-right"></i>
+                                </a> -->
+                            </div>
+                        </li>
+                    </ul>
+                </li>
+
+                <li role="presentation" class="nav-item dropdown open">
+                    <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdownComm"
+                        data-toggle="dropdown" aria-expanded="false">
+                        <i class="fa fa-bell"></i>
+                        <span class="badge bg-green" id="commBellBadge" {% if comm_unread_count == 0 %}style="display:none;"{% endif %}>{{ comm_unread_count }}</span>
+                    </a>
+                    <ul class="dropdown-menu list-unstyled msg_list" role="menu" aria-labelledby="navbarDropdownComm" data-comm-dropdown="true">
+                        <li class="nav-item" style="padding:6px 10px;">
+                            <strong>Announcements</strong>
+                            {% if comm_unread_breakdown.announcements > 0 %}
+                            <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.announcements }}</span>
+                            {% endif %}
+                        </li>
+                        {% for item in comm_notifications.announcements %}
+                        <li class="nav-item">
+                            <a class="dropdown-item" href="{% url 'announcement_list' %}">
+                                <span class="image"><i class="fa fa-bullhorn"></i></span>
+                                <span>
+                                    <span>{{ item.title }}</span>
+                                    <span class="time">{{ item.starts_at|timesince }} ago</span>
+                                </span>
+                                <span class="message">{{ item.body|truncatechars:80 }}</span>
+                            </a>
+                        </li>
+                        {% empty %}
+                        <li class="nav-item">
+                            <div class="text-center">
+                                <span>No announcements</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+
+                        <li class="nav-item" style="padding:6px 10px;">
+                            <strong>Events</strong>
+                            {% if comm_unread_breakdown.events > 0 %}
+                            <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.events }}</span>
+                            {% endif %}
+                        </li>
+                        {% for item in comm_notifications.events %}
+                        <li class="nav-item">
+                            <a class="dropdown-item" href="{% url 'event_list' %}">
+                                <span class="image"><i class="fa fa-calendar"></i></span>
+                                <span>
+                                    <span>{{ item.title }}</span>
+                                    <span class="time">{{ item.start_datetime|date:"M d, H:i" }}</span>
+                                </span>
+                                <span class="message">{{ item.location|default:"" }}</span>
+                            </a>
+                        </li>
+                        {% empty %}
+                        <li class="nav-item">
+                            <div class="text-center">
+                                <span>No upcoming events</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+
+                        <li class="nav-item" style="padding:6px 10px;">
+                            <strong>Messages</strong>
+                            {% if comm_unread_breakdown.messages > 0 %}
+                            <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.messages }}</span>
+                            {% endif %}
+                        </li>
+                        {% for thread in comm_notifications.messages %}
+                        <li class="nav-item">
+                            <a class="dropdown-item" href="{% url 'message_thread' thread.id %}">
+                                <span class="image"><i class="fa fa-envelope"></i></span>
+                                <span>
+                                    <span>{{ thread.subject|default:"(No subject)" }}</span>
+                                    <span class="time">{{ thread.updated_at|timesince }} ago</span>
+                                </span>
+                                <span class="message">Latest activity</span>
+                            </a>
+                        </li>
+                        {% empty %}
+                        <li class="nav-item">
+                            <div class="text-center">
+                                <span>No recent messages</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <script>
+                        (function () {
+                            var dropdown = document.querySelector('[data-comm-dropdown="true"]');
+                            if (!dropdown) return;
+                            var isBound = dropdown.getAttribute('data-comm-bound');
+                            if (isBound) return;
+                            dropdown.setAttribute('data-comm-bound', 'true');
+
+                            $('#navbarDropdownComm').on('click', function () {
+                                try {
+                                    var nowIso = new Date().toISOString();
+                                    document.cookie = 'comm_seen_at=' + nowIso + '; path=/';
+                                    var badge = document.getElementById('commBellBadge');
+                                    if (badge) {
+                                        badge.textContent = '0';
+                                        badge.style.display = 'none';
+                                    }
+                                } catch (e) {
+                                    // no-op
+                                }
+                            });
+                        })();
+                    </script>
                 </li>
             </ul>
         </nav>

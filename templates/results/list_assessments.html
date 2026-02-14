@@ -36,7 +36,7 @@
             <i class="fa fa-arrow-left"></i> Back to Classes
           </a>
           <div>
-            {% if user.is_superuser %}
+            {% if user.is_superuser and not is_teacher_role %}
               <a
                 href="{% url 'assessment_create' %}?open_modal=1
                   &year_id={{ academic_class.academic_year.id }}
@@ -135,7 +135,7 @@
                 <th>Type</th>
                 <th>Date</th>
                 <th>Out Of</th>
-                <th style="width:200px;">Actions</th>
+                <th style="width:260px;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -152,19 +152,37 @@
                   <td>{{ assessment.date|date:"M j, Y" }}</td>
                   <td><span class="badge badge-dark">{{ assessment.out_of }}</span></td>
                   <td class="text-center">
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Actions">
-                      {% if can_add_results %}
-                        <a href="{% url 'add_results' assessment.id %}" class="btn btn-primary" title="Add or Edit Results">
-                          <i class="fa fa-plus-square"></i> Results
-                        </a>
-                      {% endif %}
-                      {% if user.is_superuser %}
-                        <a href="{% url 'edit_assessment_page' assessment.id %}" class="btn btn-warning" title="Edit Assessment">
-                          <i class="fa fa-edit"></i>
-                        </a>
-                        <a href="{% url 'delete_assessment' assessment.id %}" class="btn btn-danger" title="Delete Assessment">
-                          <i class="fa fa-trash"></i>
-                        </a>
+                      <div class="btn-group btn-group-sm" role="group" aria-label="Actions">
+                        {% if is_teacher_role %}
+                          {% if assessment.result_batch and assessment.result_batch.status == "VERIFIED" %}
+                            <span class="badge badge-secondary">Locked</span>
+                          {% else %}
+                            <a href="{% url 'add_results' assessment.id %}" class="btn btn-primary" title="Add or Edit Results">
+                              <i class="fa fa-plus-square"></i> Results
+                            </a>
+                          {% endif %}
+                        {% else %}
+                          {% if can_add_results %}
+                            <a href="{% url 'add_results' assessment.id %}" class="btn btn-primary" title="Add or Edit Results">
+                              <i class="fa fa-plus-square"></i> Results
+                            </a>
+                          {% endif %}
+                          {% if can_view_verification_queue %}
+                            <a href="{% url 'verification_queue' assessment.id %}" class="btn btn-info" title="Verification Queue">
+                              <i class="fa fa-check-square"></i> Verify
+                            </a>
+                            <a href="{% url 'verification_report' assessment.id %}" class="btn btn-success" title="Verification Report">
+                              <i class="fa fa-file-text-o"></i> Report
+                            </a>
+                          {% endif %}
+                          {% if user.is_superuser %}
+                            <a href="{% url 'edit_assessment_page' assessment.id %}" class="btn btn-warning" title="Edit Assessment">
+                              <i class="fa fa-edit"></i>
+                            </a>
+                          <a href="{% url 'delete_assessment' assessment.id %}" class="btn btn-danger" title="Delete Assessment">
+                            <i class="fa fa-trash"></i>
+                          </a>
+                        {% endif %}
                       {% endif %}
                     </div>
                   </td>

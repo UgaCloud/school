@@ -23,47 +23,56 @@
                 <div class="x_content">
 
                     {% if dashboard_data %}
+                    <div class="comm-header">
+                        <div class="comm-intro">
+                            <div class="comm-title">Financial Dashboard</div>
+                            <div class="text-muted">Track collections, budgets, and outstanding balances.</div>
+                        </div>
+                        <div class="comm-actions">
+                            <a href="#" onclick="refreshDashboard()" class="btn btn-default"><i class="fa fa-refresh"></i> Refresh</a>
+                            <a href="#" data-toggle="modal" data-target="#sendRemindersModal" class="btn btn-warning"><i class="fa fa-bell"></i> Send Reminders</a>
+                        </div>
+                    </div>
+
                     <!-- KPI Cards -->
                     <div class="row" style="margin-bottom: 30px;">
                         <div class="col-md-3">
-                            <div class="card border-left-success">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Collection Rate</h5>
-                                    <h2 class="text-success">{{ dashboard_data.collection_rate }}%</h2>
-                                    <div class="progress mt-2" style="height: 10px;">
-                                        <div class="progress-bar bg-success" style="width: {{ dashboard_data.collection_rate }}%"></div>
-                                    </div>
-                                    <small class="text-muted">Of total fees billed</small>
+                            <div class="stat-card">
+                                <div class="stat-icon success"><i class="fa fa-percentage"></i></div>
+                                <div>
+                                    <div class="stat-label">Collection Rate</div>
+                                    <div class="stat-value">{{ dashboard_data.collection_rate }}%</div>
+                                    <div class="stat-note">Of total fees billed</div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card border-left-warning">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Budget Utilization</h5>
-                                    <h2 class="text-warning">{{ dashboard_data.budget_utilization }}%</h2>
-                                    <div class="progress mt-2" style="height: 10px;">
-                                        <div class="progress-bar bg-warning" style="width: {{ dashboard_data.budget_utilization }}%"></div>
-                                    </div>
-                                    <small class="text-muted">Of allocated budget</small>
+                            <div class="stat-card">
+                                <div class="stat-icon warning"><i class="fa fa-chart-pie"></i></div>
+                                <div>
+                                    <div class="stat-label">Budget Utilization</div>
+                                    <div class="stat-value">{{ dashboard_data.budget_utilization }}%</div>
+                                    <div class="stat-note">Of allocated budget</div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card border-left-info">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Total Collected</h5>
-                                    <h2 class="text-info">UGX {{ dashboard_data.total_collected|intcomma }}</h2>
-                                    <small class="text-muted">{{ dashboard_data.current_term }} - {{ dashboard_data.current_year }}</small>
+                            <div class="stat-card">
+                                <div class="stat-icon info"><i class="fa fa-money"></i></div>
+                                <div>
+                                    <div class="stat-label">Total Collected</div>
+                                    <div class="stat-value">UGX {{ dashboard_data.total_collected|intcomma }}</div>
+                                    <div class="stat-note">{{ dashboard_data.current_term }} - {{ dashboard_data.current_year }}</div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card border-left-danger">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Outstanding</h5>
-                                    <h2 class="text-danger">UGX {{ dashboard_data.total_billed|subtract:dashboard_data.total_collected|intcomma }}</h2>
-                                    <small class="text-muted">Fees pending</small>
+                            <div class="stat-card">
+                                <div class="stat-icon danger"><i class="fa fa-exclamation-triangle"></i></div>
+                                <div>
+                                    <div class="stat-label">Outstanding</div>
+                                    <div class="stat-value">UGX {{ dashboard_data.total_billed|subtract:dashboard_data.total_collected|intcomma }}</div>
+                                    <div class="stat-note">Fees pending</div>
                                 </div>
                             </div>
                         </div>
@@ -266,6 +275,22 @@
             </div>
         </div>
     </div>
+
+    <style>
+        .comm-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;background:#f8fafc;border:1px solid #e6edf5;border-radius:12px;padding:14px 16px;margin-bottom:14px;}
+        .comm-title{font-weight:600;color:#334155;margin-bottom:4px;}
+        .comm-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+
+        .stat-card{background:#fff;border:1px solid #e6edf5;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 16px rgba(0,0,0,0.04);}    
+        .stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;}
+        .stat-icon.success{background:#22c55e;}
+        .stat-icon.warning{background:#f59e0b;}
+        .stat-icon.info{background:#38bdf8;}
+        .stat-icon.danger{background:#ef4444;}
+        .stat-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+        .stat-value{font-size:16px;font-weight:700;color:#1f2a44;line-height:1.2;}
+        .stat-note{font-size:11px;color:#94a3b8;}
+    </style>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>

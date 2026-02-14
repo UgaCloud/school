@@ -1,28 +1,31 @@
 <style>
     /* Performance Overview Section */
     .performance-overview-section {
-        margin-top: 1.5cm;
-        padding-top: 0.8cm;
-        border-top: 1px solid #e0e0e0;
+        margin-top: 1.2cm;
+        padding-top: 0.6cm;
+        border-top: 1px solid #e2e8f0;
         break-inside: avoid;
     }
 
     .performance-overview-header {
-        display: inline-block;
-        padding: 0.3cm 0.8cm;
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3cm 0.9cm;
         font-size: 0.9rem;
-        font-weight: 600;
-        background: #2c3e50;
+        font-weight: 700;
+        background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
         color: #fff;
-        border-radius: 3px;
+        border-radius: 999px;
         text-transform: uppercase;
-        margin-bottom: 0.8cm;
+        margin-bottom: 0.7cm;
         cursor: pointer;
-        transition: background 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 8px 16px rgba(29, 78, 216, 0.2);
     }
 
     .performance-overview-header:hover {
-        background: #34495e;
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(29, 78, 216, 0.25);
     }
 
     .performance-overview-header i {
@@ -40,13 +43,13 @@
 
     /* Filter Section */
     .assessment-filter {
-        margin-bottom: 0.8cm;
+        margin-bottom: 0.7cm;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 0.3cm;
+        gap: 0.3cm 0.5cm;
         font-size: 0.8rem;
-        color: #2c3e50;
+        color: #334155;
     }
 
     .assessment-filter label {
@@ -57,18 +60,19 @@
     .assessment-filter select {
         font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
         font-size: 0.75rem;
-        padding: 0.2cm 0.4cm;
-        border: 1px solid #e0e0e0;
-        border-radius: 3px;
-        background: #f8f9fa;
-        color: #333;
+        padding: 0.22cm 0.45cm;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #0f172a;
         max-width: 8cm;
-        transition: border-color 0.2s;
+        transition: border-color 0.2s, box-shadow 0.2s;
     }
 
     .assessment-filter select:focus {
         outline: none;
-        border-color: #2c3e50;
+        border-color: #1d4ed8;
+        box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
         background: #ffffff;
     }
 
@@ -78,20 +82,18 @@
 
     /* Metric Cards */
     .metric-container {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(4.5cm, 1fr));
         gap: 0.5cm;
-        justify-content: space-between;
     }
 
     .metric-card {
-        flex: 1 1 calc(33.33% - 0.34cm); /* 3 cards per row, accounting for gap */
-        max-width: 5cm;
         background: #ffffff;
-        border: 1px solid #e0e0e0;
-        border-radius: 3px;
-        padding: 0.3cm;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.35cm;
         text-align: center;
+        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.06);
         break-inside: avoid;
     }
 
@@ -101,22 +103,23 @@
         justify-content: center;
         width: 1.2cm;
         height: 1.2cm;
-        background: #2c3e50;
+        background: #1d4ed8;
         color: #fff;
         border-radius: 50%;
         margin-bottom: 0.3cm;
+        box-shadow: 0 6px 12px rgba(29, 78, 216, 0.2);
     }
 
     .metric-card h4 {
         font-size: 1rem;
-        font-weight: 600;
-        color: #2c3e50;
+        font-weight: 700;
+        color: #0f172a;
         margin: 0;
     }
 
     .metric-card p {
         font-size: 0.75rem;
-        color: #555;
+        color: #64748b;
         margin: 0;
     }
 
@@ -128,7 +131,7 @@
             cursor: default;
         }
         .performance-overview-header:hover {
-            background: #2c3e50;
+            background: #1d4ed8;
         }
         .performance-overview-header i {
             display: none; /* Hide chevron in print */

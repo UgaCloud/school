@@ -10,43 +10,73 @@
   <!-- Page Header / Breadcrumbs -->
   <div class="row">
     <div class="col-md-12">
-      <div class="x_panel">
+      <div class="x_panel header-panel">
         <div class="x_title d-flex align-items-center justify-content-between">
-          <h2 class="mb-0">
-            <i class="fa fa-graduation-cap"></i>
-            {{ academic_class.Class.name|default:academic_class.Class.code }}
-            <small class="d-block text-muted" style="font-size:.9rem;">
-              TERM: {{ academic_class.term.term }} &mdash; {{ academic_class.academic_year.academic_year }} &middot;
-              Section: {{ academic_class.section }}
-            </small>
-          </h2>
+          <div>
+            <h2 class="mb-0">
+              <i class="fa fa-graduation-cap"></i>
+              {{ academic_class.Class.name|default:academic_class.Class.code }}
+            </h2>
+            <div class="text-muted header-subtitle">
+              Term {{ academic_class.term.term }} &middot; {{ academic_class.academic_year.academic_year }}
+              <span class="dot">•</span> Section {{ academic_class.section }}
+            </div>
+          </div>
           <div class="btn-group">
             <a href="{% url 'academic_class_page' %}" class="btn btn-default btn-sm">
               <i class="fa fa-arrow-left"></i> Back to Classes
             </a>
-            {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
+            {% if user.staff_account.role.name == "Admin" and active_role != "Class Teacher" %}
               <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addStreamModal">
                 <i class="fa fa-plus-circle"></i> Add Stream
               </button>
             {% endif %}
           </div>
-          <div class="clearfix"></div>
         </div>
 
-        <!-- KPI Tiles -->
         <div class="x_content">
-          <div class="row tile_count">
-            <div class="col-md-4 col-sm-4 col-xs-12 tile_stats_count">
-              <span class="count_top"><i class="fa fa-users"></i> Total</span>
-              <div class="count">{{ total_students|default:0 }}</div>
+          <div class="summary-grid">
+            <div class="summary-card accent-blue">
+              <div class="summary-icon"><i class="fa fa-users"></i></div>
+              <div class="summary-body">
+                <div class="summary-label">Students</div>
+                <div class="summary-value">{{ total_students|default:0 }}</div>
+              </div>
             </div>
-            <div class="col-md-4 col-sm-4 col-xs-12 tile_stats_count">
-              <span class="count_top"><i class="fa fa-mars"></i> Male</span>
-              <div class="count">{{ male_students|default:0 }}</div>
+            <div class="summary-card accent-indigo">
+              <div class="summary-icon"><i class="fa fa-mars"></i></div>
+              <div class="summary-body">
+                <div class="summary-label">Male</div>
+                <div class="summary-value">{{ male_students|default:0 }}</div>
+              </div>
             </div>
-            <div class="col-md-4 col-sm-4 col-xs-12 tile_stats_count">
-              <span class="count_top"><i class="fa fa-venus"></i> Female</span>
-              <div class="count">{{ female_students|default:0 }}</div>
+            <div class="summary-card accent-rose">
+              <div class="summary-icon"><i class="fa fa-venus"></i></div>
+              <div class="summary-body">
+                <div class="summary-label">Female</div>
+                <div class="summary-value">{{ female_students|default:0 }}</div>
+              </div>
+            </div>
+            <div class="summary-card muted">
+              <div class="summary-icon"><i class="fa fa-university"></i></div>
+              <div class="summary-body">
+                <div class="summary-label">Section</div>
+                <div class="summary-value">{{ academic_class.section }}</div>
+              </div>
+            </div>
+            <div class="summary-card muted">
+              <div class="summary-icon"><i class="fa fa-clock-o"></i></div>
+              <div class="summary-body">
+                <div class="summary-label">Term</div>
+                <div class="summary-value">{{ academic_class.term.term }}</div>
+              </div>
+            </div>
+            <div class="summary-card muted">
+              <div class="summary-icon"><i class="fa fa-calendar"></i></div>
+              <div class="summary-body">
+                <div class="summary-label">Year</div>
+                <div class="summary-value">{{ academic_class.academic_year.academic_year }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -54,84 +84,59 @@
     </div>
   </div>
 
-  <!-- Details + Overview -->
+  <!-- Details + Overview (Admins only) -->
+  {% if user.staff_account.role.name == "Admin" %}
   <div class="row">
-    <!-- Class Details -->
-    <div class="col-md-6">
-      <div class="x_panel">
+    <div class="col-md-12">
+      <div class="x_panel details-panel">
         <div class="x_title">
           <h2><i class="fa fa-info-circle"></i> Class Details</h2>
           <ul class="nav navbar-right panel_toolbox">
-            {% if user.staff_account.role.name == "Admin" %}
-              <li>
-                <a href="{% url 'edit_academic_class_details_page' academic_class.id %}" title="Edit Class"><i class="fa fa-edit"></i></a>
-              </li>
-            {% endif %}
+            <li>
+              <a href="{% url 'edit_academic_class_details_page' academic_class.id %}" title="Edit Class"><i class="fa fa-edit"></i></a>
+            </li>
             <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
           </ul>
           <div class="clearfix"></div>
         </div>
         <div class="x_content">
-          <div class="row">
-            <div class="col-sm-6">
-              <ul class="list-unstyled">
-                <li><i class="fa fa-graduation-cap"></i> <strong>Class:</strong> {{ academic_class.Class.name|default:academic_class.Class.code }}</li>
-                <li><i class="fa fa-calendar-o"></i> <strong>Academic Year:</strong> {{ academic_class.academic_year.academic_year }}</li>
-                <li><i class="fa fa-clock-o"></i> <strong>Term:</strong> {{ academic_class.term.term }}</li>
-              </ul>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Class</span>
+              <span class="detail-value">{{ academic_class.Class.name|default:academic_class.Class.code }}</span>
             </div>
-            <div class="col-sm-6">
-              <ul class="list-unstyled">
-                <li><i class="fa fa-university"></i> <strong>Section:</strong> {{ academic_class.section }}</li>
-                {% if user.staff_account.role.name == "Admin" %}
-                <li><i class="fa fa-money"></i> <strong>Fees:</strong> UGX {{ academic_class.fees_amount|intcomma }}</li>
-                {% endif %}
-              </ul>
+            <div class="detail-item">
+              <span class="detail-label">Academic Year</span>
+              <span class="detail-value">{{ academic_class.academic_year.academic_year }}</span>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Student Overview -->
-    <div class="col-md-6">
-      <div class="x_panel">
-        <div class="x_title">
-          <h2><i class="fa fa-users"></i> Student Overview</h2>
-          <ul class="nav navbar-right panel_toolbox">
-            <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
-          </ul>
-          <div class="clearfix"></div>
-        </div>
-        <div class="x_content">
-          <div class="row text-center">
-            <div class="col-xs-4">
-              <div class="h2">{{ total_students|default:0 }}</div>
-              <small class="text-muted">Total</small>
+            <div class="detail-item">
+              <span class="detail-label">Term</span>
+              <span class="detail-value">{{ academic_class.term.term }}</span>
             </div>
-            <div class="col-xs-4">
-              <div class="h2 text-info">{{ male_students|default:0 }}</div>
-              <small class="text-muted">Male</small>
+            <div class="detail-item">
+              <span class="detail-label">Section</span>
+              <span class="detail-value">{{ academic_class.section }}</span>
             </div>
-            <div class="col-xs-4">
-              <div class="h2 text-success">{{ female_students|default:0 }}</div>
-              <small class="text-muted">Female</small>
+            <div class="detail-item">
+              <span class="detail-label">Fees</span>
+              <span class="detail-value">UGX {{ academic_class.fees_amount|intcomma }}</span>
             </div>
           </div>
         </div>
       </div>
     </div>
   </div>
+  {% endif %}
 
   <!-- Streams & Teachers -->
   <div class="row">
     <div class="col-md-12">
-      <div class="x_panel">
+      <div class="x_panel streams-panel">
         <div class="x_title d-flex align-items-center justify-content-between">
           <h2 class="mb-0">
             <i class="fa fa-stream"></i> Class Streams & Teachers
           </h2>
-          {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
+          {% if user.staff_account.role.name == "Admin" and active_role != "Class Teacher" %}
             <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addStreamModal">
               <i class="fa fa-plus"></i> Add Stream
             </button>
@@ -143,7 +148,7 @@
             <div class="row">
               {% for stream in class_streams %}
                 <div class="col-lg-4 col-md-6 col-sm-6">
-                  <div class="x_panel" style="position:relative;">
+                  <div class="x_panel stream-card" style="position:relative;">
                     {% if stream.class_teacher %}
                       <span class="status-ribbon ribbon-success">Assigned</span>
                     {% else %}
@@ -152,7 +157,7 @@
                     <div class="x_title">
                       <h2 class="mb-0"><i class="fa fa-stream"></i> {{ stream.stream }}</h2>
                       <ul class="nav navbar-right panel_toolbox">
-                        {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
+                        {% if user.staff_account.role.name == "Admin" and active_role != "Class Teacher" %}
                           <li><a href="{% url 'edit_class_stream' stream.id %}" title="Edit"><i class="fa fa-edit"></i></a></li>
                         {% endif %}
                         <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
@@ -190,7 +195,7 @@
               <i class="fa fa-stream fa-3x text-muted"></i>
               <h4 class="text-muted" style="margin-top:10px;">No Streams Found</h4>
               <p class="text-muted">This class doesn't have any streams assigned yet.</p>
-              {% if user.staff_account.role.name == "Admin" or user.staff_account.role.name == "Class Teacher" %}
+              {% if user.staff_account.role.name == "Admin" and active_role != "Class Teacher" %}
                 <button class="btn btn-primary" data-toggle="modal" data-target="#addStreamModal">
                   <i class="fa fa-plus"></i> Add First Stream
                 </button>
@@ -205,7 +210,7 @@
   <!-- Class Register & Attendance -->
   <div class="row">
     <div class="col-md-12">
-      <div class="x_panel" id="classRegisterPanel">
+      <div class="x_panel register-panel" id="classRegisterPanel">
         <div class="x_title">
           <h2><i class="fa fa-calendar-check-o"></i> Class Register & Attendance</h2>
           <ul class="nav navbar-right panel_toolbox">
@@ -249,7 +254,170 @@
   </div>
 </div>
 
-<style>
+  <style>
+  .header-panel {
+    border: 1px solid #eef1f4;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 6px 18px rgba(18, 38, 63, 0.06);
+  }
+
+  .header-panel .x_title{border-bottom:0;margin-bottom:6px;}
+  .header-panel h2{font-weight:700;color:#1f2a44;}
+
+  .header-panel .header-subtitle {
+    margin-top: 4px;
+  }
+
+  .header-panel .dot {
+    margin: 0 6px;
+    color: #b0b7bf;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .summary-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #eef1f4;
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-align: left;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  .summary-card.muted {
+    background: #ffffff;
+  }
+
+  .summary-card.accent-blue {
+    background: rgba(52, 152, 219, 0.08);
+    border-color: rgba(52, 152, 219, 0.2);
+  }
+
+  .summary-card.accent-indigo {
+    background: rgba(46, 134, 193, 0.08);
+    border-color: rgba(46, 134, 193, 0.2);
+  }
+
+  .summary-card.accent-rose {
+    background: rgba(231, 76, 60, 0.08);
+    border-color: rgba(231, 76, 60, 0.2);
+  }
+
+  .summary-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    color: #6c7a89;
+    border: 1px solid #e6ebf1;
+  }
+
+  .summary-card.accent-blue .summary-icon {
+    color: #3498db;
+    border-color: rgba(52, 152, 219, 0.3);
+  }
+
+  .summary-card.accent-indigo .summary-icon {
+    color: #2e86c1;
+    border-color: rgba(46, 134, 193, 0.3);
+  }
+
+  .summary-card.accent-rose .summary-icon {
+    color: #e74c3c;
+    border-color: rgba(231, 76, 60, 0.3);
+  }
+
+  .summary-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .summary-label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8a97a5;
+    margin-bottom: 6px;
+  }
+
+  .summary-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+
+  .details-panel .x_title h2{font-weight:700;}
+  .details-panel .x_content{background:#f8fafc;border-radius:12px;border:1px solid #e6edf5;padding:14px;}
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .detail-item {
+    border: 1px dashed #e2e6ea;
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.04);
+  }
+
+  .detail-label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8a97a5;
+    margin-bottom: 6px;
+  }
+
+  .detail-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #34495e;
+  }
+
+  .streams-panel .x_title h2{font-weight:700;}
+  .stream-card {
+    border: 1px solid #eef1f4;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .stream-card .x_title{background:#f8fafc;border-bottom:1px solid #eef1f4;border-radius:12px 12px 0 0;}
+  .stream-card .x_content{padding-top:6px;}
+
+  .register-panel .x_title h2{font-weight:700;}
+  .register-panel .x_content{background:#fff;border-radius:12px;border:1px solid #e6edf5;padding:14px;}
+
+  @media (max-width: 1200px) {
+    .summary-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .detail-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 768px) {
+    .summary-grid,
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+  }
   .status-ribbon {
     position: absolute;
     right: -38px;

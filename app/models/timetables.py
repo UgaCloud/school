@@ -26,11 +26,24 @@ class TimeSlot(models.Model):
     end_time = models.TimeField()
 
     class Meta:
-        ordering = ['start_time']
+        ordering = ['start_time', 'end_time', 'id']
         unique_together = ('start_time', 'end_time')
 
     def __str__(self):
         return f'{self.start_time.strftime("%H:%M")} - {self.end_time.strftime("%H:%M")}'
+
+    def clean(self):
+        if self.start_time >= self.end_time:
+            raise ValidationError("Start time must be before end time.")
+
+        overlap = (
+            TimeSlot.objects
+            .exclude(pk=self.pk)
+            .filter(start_time__lt=self.end_time, end_time__gt=self.start_time)
+            .exists()
+        )
+        if overlap:
+            raise ValidationError("This time slot overlaps with an existing time slot. Please adjust the time range.")
 
 class BreakPeriod(models.Model):
     

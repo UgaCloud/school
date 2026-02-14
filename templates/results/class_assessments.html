@@ -24,20 +24,19 @@
 
       <div class="x_content">
         <!-- Page actions -->
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="small text-muted">
-            Use filters to narrow down classes by Academic Year and Term. Click a row to view assessments.
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="small text-muted">
+              Use filters to narrow down classes by Academic Year and Term. Click a row to view assessments.
+            </div>
+            <div>
+              {% if user.is_superuser and not is_teacher_role %}
+                <a href="{% url 'assessment_create' %}" class="btn btn-success btn-sm">
+                  <i class="fa fa-plus"></i> New Assessment
+                </a>
+              {% endif %}
+            </div>
           </div>
-          <div>
-            {% if user.is_superuser %}
-              <a href="{% url 'assessment_create' %}" class="btn btn-success btn-sm">
-                <i class="fa fa-plus"></i> New Assessment
-              </a>
-            {% endif %}
-          </div>
-        </div>
-
-        <form method="get" class="form-horizontal form-label-left" id="filtersForm">
+<form method="get" class="form-horizontal form-label-left" id="filtersForm">
           <div class="row filter-toolbar sticky">
             <div class="col-md-4 col-sm-6 mb-10">
               <label for="year_id" class="small text-muted">Academic Year</label>

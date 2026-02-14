@@ -46,7 +46,34 @@
     <li><a><i class="fa fa-book"></i> Human Resource <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
         <li><a href="{% url 'staff_page' %}">Manage Staff</a></li>
-        <li><a href="#">Attendance</a></li>
+        <li><a href="{% url 'attendance_dashboard' %}">Attendance Dashboard</a></li>
+        <li><a href="{% url 'attendance_analysis' %}">Attendance Analysis</a></li>
+        <li><a href="{% url 'student_attendance_report' %}">Student Report</a></li>
+        <li><a href="{% url 'class_attendance_report' %}">Class Report</a></li>
+      </ul>
+    </li>
+
+    <li><a><i class="fa fa-bullhorn"></i> Communications
+        {% if comm_unread_count > 0 %}
+        <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_count }}</span>
+        {% endif %}
+        <span class="fa fa-chevron-down"></span></a>
+      <ul class="nav child_menu">
+        <li><a href="{% url 'announcement_list' %}">Announcements
+          {% if comm_unread_breakdown.announcements > 0 %}
+          <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.announcements }}</span>
+          {% endif %}
+        </a></li>
+        <li><a href="{% url 'event_list' %}">Events
+          {% if comm_unread_breakdown.events > 0 %}
+          <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.events }}</span>
+          {% endif %}
+        </a></li>
+        <li><a href="{% url 'message_inbox' %}">Messages
+          {% if comm_unread_breakdown.messages > 0 %}
+          <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.messages }}</span>
+          {% endif %}
+        </a></li>
       </ul>
     </li>
   
@@ -59,10 +86,8 @@
     <!-- Timetable -->
     <li><a><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
       <ul class="nav child_menu">
-        <li><a href="#">School Timetable</a></li>
-        <li><a href="#">Class Timetable</a></li>
-        <li><a href="#">Teacher Timetable</a></li>
-        <li><a href="#">Classrooms</a></li>
+        <li><a href="{% url 'school_timetable' %}">School Timetable</a></li>
+        <li><a href="{% url 'class_timetable' %}">Class Timetable</a></li>
       </ul>
     </li>
   
@@ -99,7 +124,7 @@
           <ul class="nav child_menu">
             <li><a href="{% url 'bank_reconciliation' %}">Bank Reconciliation</a></li>
             <li><a href="{% url 'expenditure_page' %}">Expenditure</a></li>
-            <li><a href="{% url 'approval_workflow' %}">Approvals</a></li>
+            <!-- <li><a href="{% url 'approval_workflow' %}">Approvals</a></li> -->
           </ul>
         </li>
 

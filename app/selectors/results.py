@@ -1,4 +1,5 @@
 from app.models.results import *
+from app.models.school_settings import SchoolSetting
 from django.db.models import Sum
 from decimal import Decimal
 
@@ -45,6 +46,7 @@ def get_performance_metrics(assessments):
         'ordered_assessments': ordered_assessments
     }
 
+
 def get_grade_from_average(score):
     grading = GradingSystem.objects.filter(min_score__lte=score, max_score__gte=score).first()
     return grading.grade if grading else "N/A"
@@ -89,7 +91,7 @@ def calculate_weighted_subject_averages(assessments):
     return averages
 
 
-def get_division(total_aggregates):
+def _base_division(total_aggregates):
     if 4 <= total_aggregates <= 12:
         return "Division 1"
     elif 13 <= total_aggregates <= 24:
@@ -97,7 +99,115 @@ def get_division(total_aggregates):
     elif 25 <= total_aggregates <= 28:
         return "Division 3"
     elif 29 <= total_aggregates <= 32:
-        return "Division 4" 
+        return "Division 4"
     else:
-        return "U"  
+        return "U"
 
+
+def _division_rank(division_label):
+    mapping = {
+        "Division 1": 1,
+        "Division 2": 2,
+        "Division 3": 3,
+        "Division 4": 4,
+        "U": 5,
+        None: 99,
+        "-": 99,
+    }
+    return mapping.get(division_label, 99)
+
+
+def _cap_division(division_label, cap_label):
+    if not division_label or not cap_label:
+        return division_label
+    if _division_rank(division_label) > _division_rank(cap_label):
+        return division_label
+    return cap_label
+
+
+def _extract_grade_and_points(subject_grade_value):
+    if isinstance(subject_grade_value, dict):
+        grade = str(subject_grade_value.get("grade", "")).strip().upper()
+        points = subject_grade_value.get("points")
+        return grade, points
+    if subject_grade_value is None:
+        return "", None
+    grade_str = str(subject_grade_value).strip().upper()
+    return grade_str, None
+
+
+def _is_f9(grade_value, points_value):
+    if points_value is not None:
+        try:
+            return int(points_value) == 9
+        except (TypeError, ValueError):
+            pass
+    grade_value = (grade_value or "").strip().upper()
+    return grade_value in {"F9", "9"} or "F9" in grade_value
+
+
+def get_division(total_aggregates, subject_grades=None):
+    base_division = _base_division(total_aggregates)
+
+    if not subject_grades:
+        return base_division
+
+    try:
+        settings = SchoolSetting.load()
+    except Exception:
+        return base_division
+
+    critical_subjects = {
+        name.strip().lower()
+        for name in settings.division_critical_subjects.values_list("name", flat=True)
+    } if settings else set()
+
+    if not critical_subjects:
+        return base_division
+
+    f9_subjects = []
+    for subject, grade_value in subject_grades.items():
+        subject_key = str(subject).strip().lower()
+        grade, points = _extract_grade_and_points(grade_value)
+        if subject_key in critical_subjects and _is_f9(grade, points):
+            f9_subjects.append(subject)
+
+    if not f9_subjects:
+        return base_division
+
+    cap_label = getattr(settings, "division_f9_cap", None) or "Division 3"
+    return _cap_division(base_division, cap_label)
+
+
+def get_division_with_override(total_aggregates, subject_grades=None):
+    base_division = _base_division(total_aggregates)
+    selected_division = get_division(total_aggregates, subject_grades)
+
+    if selected_division == base_division:
+        return selected_division, None
+
+    try:
+        settings = SchoolSetting.load()
+        critical_subjects = {
+            name.strip().lower()
+            for name in settings.division_critical_subjects.values_list("name", flat=True)
+        } if settings else set()
+    except Exception:
+        critical_subjects = set()
+
+    if not critical_subjects or not subject_grades:
+        return selected_division, None
+
+    f9_subjects = []
+    for subject, grade_value in subject_grades.items():
+        subject_key = str(subject).strip().lower()
+        grade, points = _extract_grade_and_points(grade_value)
+        if subject_key in critical_subjects and _is_f9(grade, points):
+            f9_subjects.append(subject)
+
+    if not f9_subjects:
+        return selected_division, None
+
+    cap_label = getattr(settings, "division_f9_cap", None) or "Division 3"
+    note = f"Division capped at {cap_label} due to F9 in: {', '.join(f9_subjects)}"
+    return selected_division, note

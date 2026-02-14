@@ -20,6 +20,27 @@
         text-align: center;
     }
 
+    .header-info h2 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin: 0 0 0.4rem;
+        color: #0f172a;
+    }
+
+    .header-info h3 {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin: 0 0 0.35rem;
+        color: #1f2937;
+    }
+
+    .header-info p {
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin: 0;
+        color: #475569;
+    }
+
     .selection-container {
         max-width: 600px;
         margin: 2rem auto;
@@ -199,7 +220,7 @@
 
 <div class="table-container">
     <div class="header-info">
-        <h2>{{ school_name|default:"Bayan Learning Center" }}</h2>
+        <h2>{{ school_name|default:school_settings.school_name|default:"Bayan Learning Center" }}</h2>
         <h3>
             {% if selected_assessment_type_name %}
                 ASSESSMENT SHEET FOR {{ selected_assessment_type_name|upper }} EXAMINATIONS
@@ -212,7 +233,7 @@
 
     <!-- Class Selection Form -->
     <div class="selection-container" style="display: {% if show_selection %}block{% else %}none{% endif %};">
-        <h2>{{ school_name|default:"Bayan Learning Center" }}</h2>
+        <h2>{{ school_name|default:school_settings.school_name|default:"Bayan Learning Center" }}</h2>
         <h3>Select a Class</h3>
         <form method="GET" action="">
             <select name="grade" id="grade" onchange="this.form.submit()">

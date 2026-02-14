@@ -26,17 +26,30 @@ from app.models import ClassRegister, AcademicClassStream
 
 @login_required
 def manage_student_view(request):
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    is_class_teacher = (role_name == "Class Teacher" or active_role == "Class Teacher")
     status = request.GET.get("status", "active")
     page_number = request.GET.get("page", 1)
     per_page = request.GET.get("per_page", 25)
     
     # Get students based on status
-    if status == "inactive":
-        students_list = student_selectors.get_inactive_students()
-    elif status == "all":
-        students_list = student_selectors.get_all_students()
+    if is_class_teacher:
+        class_streams = AcademicClassStream.objects.filter(class_teacher=staff_account.staff).select_related(
+            "academic_class", "academic_class__Class", "stream"
+        )
+        class_stream_ids = class_streams.values_list("id", flat=True)
+        students_list = Student.objects.filter(
+            classregister__academic_class_stream_id__in=class_stream_ids
+        ).select_related("current_class", "stream")
     else:
-        students_list = student_selectors.get_active_students()
+        if status == "inactive":
+            students_list = student_selectors.get_inactive_students()
+        elif status == "all":
+            students_list = student_selectors.get_all_students()
+        else:
+            students_list = student_selectors.get_active_students()
     
     # Paginate the students
     paginator = Paginator(students_list, per_page)
@@ -56,9 +69,9 @@ def manage_student_view(request):
         "student_form": student_form,
         "csv_form": csv_form,
         "status": status,
-        "total_active": student_selectors.get_active_students().count(),
-        "total_inactive": student_selectors.get_inactive_students().count(),
-        "total_all": student_selectors.get_all_students().count(),
+        "total_active": student_selectors.get_active_students().count() if not is_class_teacher else students_list.filter(is_active=True).count(),
+        "total_inactive": student_selectors.get_inactive_students().count() if not is_class_teacher else students_list.filter(is_active=False).count(),
+        "total_all": student_selectors.get_all_students().count() if not is_class_teacher else students_list.count(),
         "per_page": int(per_page),
     }
     
@@ -98,24 +111,22 @@ def add_student_view(request):
 def student_details_view(request, id):
     student = student_selectors.get_student(id)
     
-    # Fetch exam reports (results) for the student with filtering
+    # Fetch exam reports 
     from app.models.results import Result
     from app.models import AcademicYear, Term, AssessmentType
     
-    # Get filter parameters from request
     academic_year_id = request.GET.get('academic_year')
     term_id = request.GET.get('term')
     assessment_type_id = request.GET.get('assessment_type')
     
-    # Start with base queryset
+
     exam_reports = Result.objects.filter(student=student).select_related(
         'assessment__subject',
         'assessment__assessment_type',
         'assessment__academic_class__term',
         'assessment__academic_class__academic_year'
     ).order_by('-assessment__date')
-    
-    # Apply filters if provided
+
     if academic_year_id:
         exam_reports = exam_reports.filter(assessment__academic_class__academic_year_id=academic_year_id)
     if term_id:
@@ -123,10 +134,8 @@ def student_details_view(request, id):
     if assessment_type_id:
         exam_reports = exam_reports.filter(assessment__assessment_type_id=assessment_type_id)
     
-    # Get distinct academic years, terms, and assessment types for filters
     from django.db.models import Q
     
-    # Get academic years
     academic_years = AcademicYear.objects.filter(
         id__in=Result.objects.filter(student=student).values('assessment__academic_class__academic_year')
     ).distinct().order_by('-academic_year')
