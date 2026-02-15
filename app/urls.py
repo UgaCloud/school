@@ -18,6 +18,7 @@ from app.views.attendance import *
 
 urlpatterns = [
     path('index/', index.index_view, name="index_page"),
+    path('coming-soon/', index.under_construction_view, name="under_construction"),
     
     # School Details
     path('settings/', settings_page,name="settings_page"),
@@ -265,13 +266,13 @@ urlpatterns = [
     path('timetable/classrooms/', classrooms_overview, name='classrooms'),
     path('teacher/timetable/', teacher_timetable_view, name='teacher_timetable'),
 
-    # Attendance
-    path('attendance/', attendance_dashboard, name='attendance_dashboard'),
-    path('attendance/take/', take_attendance, name='take_attendance'),
-    path('attendance/analysis/', attendance_analysis, name='attendance_analysis'),
-    path('attendance/unlock/<int:session_id>/', unlock_attendance, name='unlock_attendance'),
-    path('attendance/student-report/', student_attendance_report, name='student_attendance_report'),
-    path('attendance/class-report/', class_attendance_report, name='class_attendance_report'),
+    # Attendance - Under Construction
+    path('attendance/', index.under_construction_view, name='attendance_dashboard'),
+    path('attendance/take/', index.under_construction_view, name='take_attendance'),
+    path('attendance/analysis/', index.under_construction_view, name='attendance_analysis'),
+    path('attendance/unlock/<int:session_id>/', index.under_construction_view, name='unlock_attendance'),
+    path('attendance/student-report/', index.under_construction_view, name='student_attendance_report'),
+    path('attendance/class-report/', index.under_construction_view, name='class_attendance_report'),
 ]
 
 

@@ -1,120 +1,140 @@
-{% load static %}  
-  
+{% load static %}
+
 <style>
-  /* Limit submenu height and enable scrolling to avoid long, overflowing lists */
   .nav.child_menu {
     max-height: 360px;
     overflow-y: auto;
   }
-  /* Improve readability and alignment */
+
   .nav.child_menu > li > a {
     display: flex;
     align-items: center;
     gap: 8px;
-    white-space: nowrap; /* prevent awkward wrapping */
+    white-space: nowrap;
   }
+
   .nav.child_menu .nav.child_menu {
-    margin-left: 8px;
+    margin-left: 10px;
     padding-left: 10px;
-    border-left: 2px solid #f0f2f5; /* subtle visual grouping */
+    border-left: 2px solid #e4e7ea;
   }
 </style>
 
 <ul class="nav side-menu">
-  <li><a href="{% url 'index_page' %}"><i class="fa fa-dashboard"></i> Dashboard </a>
-    
+
+  <!-- DASHBOARD -->
+  <li>
+    <a href="{% url 'index_page' %}">
+      <i class="fa fa-dashboard"></i> Dashboard
+    </a>
   </li>
- 
-  <li><a><i class="fa fa-book"></i> Academics <span class="fa fa-chevron-down"></span></a>
+
+  <!-- MY CLASSES -->
+  <li>
+    <a>
+      <i class="fa fa-book"></i> My Classes
+      <span class="fa fa-chevron-down"></span>
+    </a>
     <ul class="nav child_menu">
-      <li><a href="{% url 'class_subject_allocation_page' %}">Subject Allocation</a></li>
       <li><a href="{% url 'academic_class_page' %}">Academic Classes</a></li>
-      <li><a href="{% url 'add_grading_system_page' %}">Grading Structure</a></li>
+      <li><a href="{% url 'class_subject_allocation_page' %}">Subject Allocation</a></li>
     </ul>
   </li>
-  <!-- Timetable -->
-  <li><a><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
+
+  <!-- TIMETABLE -->
+  <li>
+    <a>
+      <i class="fa fa-calendar"></i> Timetable
+      <span class="fa fa-chevron-down"></span>
+    </a>
     <ul class="nav child_menu">
       <li><a href="{% url 'teacher_timetable' %}">My Teaching Timetable</a></li>
       <li><a href="{% url 'exam_timetable' %}">Exam Timetable</a></li>
     </ul>
   </li>
 
-  <li><a><i class="fa fa-check-square-o"></i> Attendance <span class="fa fa-chevron-down"></span></a>
+  <!-- ATTENDANCE -->
+  <li>
+    <a>
+      <i class="fa fa-check-square-o"></i> Attendance
+      <span class="fa fa-chevron-down"></span>
+    </a>
     <ul class="nav child_menu">
-      <li><a href="{% url 'attendance_dashboard' %}">Attendance Dashboard</a></li>
+      <li><a href="{% url 'attendance_dashboard' %}">Attendance Overview</a></li>
       <li><a href="{% url 'take_attendance' %}">Take Attendance</a></li>
       <li><a href="{% url 'attendance_analysis' %}">Attendance Analysis</a></li>
-      <li><a href="{% url 'student_attendance_report' %}">Student Report</a></li>
-      <li><a href="{% url 'class_attendance_report' %}">Class Report</a></li>
+      <li><a href="{% url 'student_attendance_report' %}">Student Reports</a></li>
+      <li><a href="{% url 'class_attendance_report' %}">Class Reports</a></li>
     </ul>
   </li>
 
-  <li><a><i class="fa fa-bullhorn"></i> Communications
-      {% if comm_unread_count > 0 %}
-      <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_count }}</span>
-      {% endif %}
-      <span class="fa fa-chevron-down"></span></a>
+  <!-- RESULTS & ASSESSMENT -->
+  <li>
+    <a>
+      <i class="fa fa-graduation-cap"></i> Results & Assessment
+      <span class="fa fa-chevron-down"></span>
+    </a>
     <ul class="nav child_menu">
-      <li><a href="{% url 'announcement_list' %}">Announcements
-        {% if comm_unread_breakdown.announcements > 0 %}
-        <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.announcements }}</span>
-        {% endif %}
-      </a></li>
-      <li><a href="{% url 'event_list' %}">Events
-        {% if comm_unread_breakdown.events > 0 %}
-        <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.events }}</span>
-        {% endif %}
-      </a></li>
-      <li><a href="{% url 'message_inbox' %}">Messages
-        {% if comm_unread_breakdown.messages > 0 %}
-        <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.messages }}</span>
-        {% endif %}
-      </a></li>
+
+      <li>
+        <a>
+          <i class="fa fa-edit"></i> Result Entry
+          <span class="fa fa-chevron-down"></span>
+        </a>
+        <ul class="nav child_menu">
+          <li><a href="{% url 'add_results_page' %}">Enter Results</a></li>
+        </ul>
+      </li>
+
+      <li>
+        <a>
+          <i class="fa fa-chart-bar"></i> Reports
+          <span class="fa fa-chevron-down"></span>
+        </a>
+        <ul class="nav child_menu">
+          <li><a href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
+          <li><a href="{% url 'assessment_sheet' %}">Assessment Sheets</a></li>
+        </ul>
+      </li>
+
     </ul>
   </li>
 
-  <!--Results item-->
-
-<!-- Results Center -->
-    <li><a href="javascript:;"><i class="fa fa-graduation-cap"></i>Results Center<span class="fa fa-chevron-down"></span></a>
-      <ul class="nav child_menu">
-
-    
-
-        <!-- Operations -->
-        <li>
-          <a href="javascript:;"><i class="fa fa-edit"></i>Enter Results <span class="fa fa-chevron-down"></span></a>
-          <ul class="nav child_menu">
-            <li><a href="{% url 'add_results_page' %}">Enter Results</a></li>
-<!--            
-            <li><a href="">Bulk Exam Import</a></li>
-            
-            <li><a href="{% url 'add_grading_system_page' %}">Grade Adjustments</a></li> -->
-          </ul>
-        </li>
-
-        <!-- Scheduling -->
-        
-
-        <!-- Analytics & Reports -->
-        <li>
-          <a href="javascript:;"><i class="fa fa-chart-bar"></i> Analysis & Reports <span class="fa fa-chevron-down"></span></a>
-          <ul class="nav child_menu">
-            <li><a href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
-            <!-- <li><a href="{% url 'class_performance_summary' %}">Performance Analytics</a></li>
-              <li><a href="{% url 'class_bulk_reports' %}">Result Cards Generator</a></li> -->
-            <!-- <li><a href="{% url 'class_performance_summary' %}">Subject Analysis</a></li>
-            <li><a href="{% url 'class_performance_summary' %}">Comparison Reports</a></li> -->
-             <li><a href="{% url 'assessment_sheet' %}">Assessment Sheet</a></li>
-          </ul>
-        </li>
-
-        <!-- Tools & Utilities -->
-        
-      </ul>
-    </li>
-  </ul>
+  <!-- COMMUNICATION -->
+  <li>
+    <a>
+      <i class="fa fa-bullhorn"></i> Communication
+      {% if comm_unread_count > 0 %}
+        <span class="badge bg-green">{{ comm_unread_count }}</span>
+      {% endif %}
+      <span class="fa fa-chevron-down"></span>
+    </a>
+    <ul class="nav child_menu">
+      <li>
+        <a href="{% url 'announcement_list' %}">
+          Announcements
+          {% if comm_unread_breakdown.announcements > 0 %}
+            <span class="badge bg-green">{{ comm_unread_breakdown.announcements }}</span>
+          {% endif %}
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'event_list' %}">
+          Events
+          {% if comm_unread_breakdown.events > 0 %}
+            <span class="badge bg-green">{{ comm_unread_breakdown.events }}</span>
+          {% endif %}
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'message_inbox' %}">
+          Messages
+          {% if comm_unread_breakdown.messages > 0 %}
+            <span class="badge bg-green">{{ comm_unread_breakdown.messages }}</span>
+          {% endif %}
+        </a>
+      </li>
+    </ul>
+  </li>
 
 </ul>
-           
