@@ -26,6 +26,8 @@ from app.models import ClassRegister, AcademicClassStream
 
 @login_required
 def manage_student_view(request):
+    from django.core.cache import cache
+    
     staff_account = getattr(request.user, "staff_account", None)
     role_name = staff_account.role.name if staff_account and staff_account.role else None
     active_role = request.session.get("active_role_name")
@@ -34,22 +36,43 @@ def manage_student_view(request):
     page_number = request.GET.get("page", 1)
     per_page = request.GET.get("per_page", 25)
     
-    # Get students based on status
+    # Get counts from cache or compute once
+    cache_key = 'student_counts'
+    cached_counts = cache.get(cache_key)
+    
+    if cached_counts is None:
+        # Single query to get all counts
+        total_all = Student.objects.count()
+        total_active = Student.objects.filter(is_active=True).count()
+        total_inactive = Student.objects.filter(is_active=False).count()
+        cached_counts = {'total_all': total_all, 'total_active': total_active, 'total_inactive': total_inactive}
+        cache.set(cache_key, cached_counts, 300)  # Cache for 5 minutes
+    
+    total_all = cached_counts['total_all']
+    total_active = cached_counts['total_active']
+    total_inactive = cached_counts['total_inactive']
+    
+    # Get students based on status - optimized query with select_related
     if is_class_teacher:
         class_streams = AcademicClassStream.objects.filter(class_teacher=staff_account.staff).select_related(
-            "academic_class", "academic_class__Class", "stream"
+            "academic_class", "stream"
         )
         class_stream_ids = class_streams.values_list("id", flat=True)
         students_list = Student.objects.filter(
             classregister__academic_class_stream_id__in=class_stream_ids
         ).select_related("current_class", "stream")
+        
+        if status == "inactive":
+            students_list = students_list.filter(is_active=False)
+        elif status == "active":
+            students_list = students_list.filter(is_active=True)
     else:
         if status == "inactive":
-            students_list = student_selectors.get_inactive_students()
+            students_list = Student.objects.filter(is_active=False).select_related("current_class", "stream")
         elif status == "all":
-            students_list = student_selectors.get_all_students()
+            students_list = Student.objects.all().select_related("current_class", "stream")
         else:
-            students_list = student_selectors.get_active_students()
+            students_list = Student.objects.filter(is_active=True).select_related("current_class", "stream")
     
     # Paginate the students
     paginator = Paginator(students_list, per_page)
@@ -69,9 +92,9 @@ def manage_student_view(request):
         "student_form": student_form,
         "csv_form": csv_form,
         "status": status,
-        "total_active": student_selectors.get_active_students().count() if not is_class_teacher else students_list.filter(is_active=True).count(),
-        "total_inactive": student_selectors.get_inactive_students().count() if not is_class_teacher else students_list.filter(is_active=False).count(),
-        "total_all": student_selectors.get_all_students().count() if not is_class_teacher else students_list.count(),
+        "total_active": total_active,
+        "total_inactive": total_inactive,
+        "total_all": total_all,
         "per_page": int(per_page),
     }
     
