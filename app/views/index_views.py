@@ -19,6 +19,11 @@ from app.models.communications import Announcement, Event
 from app.selectors.school_settings import get_current_academic_year
 
 
+def under_construction_view(request):
+    """Under construction / Coming soon page"""
+    return render(request, "under_construction.html")
+
+
 @login_required
 def index_view(request):
     try:

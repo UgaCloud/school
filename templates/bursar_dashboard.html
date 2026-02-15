@@ -1,131 +1,156 @@
 {% load static %}
-<!-- Sidebar UX tweaks for long dropdowns -->
+
 <style>
-  /* Limit submenu height and enable scrolling to avoid long, overflowing lists */
   .nav.child_menu {
     max-height: 360px;
     overflow-y: auto;
   }
-  /* Improve readability and alignment */
+
   .nav.child_menu > li > a {
     display: flex;
     align-items: center;
     gap: 8px;
-    white-space: nowrap; /* prevent awkward wrapping */
+    white-space: nowrap;
   }
+
   .nav.child_menu .nav.child_menu {
     margin-left: 8px;
     padding-left: 10px;
-    border-left: 2px solid #f0f2f5; /* subtle visual grouping */
+    border-left: 2px solid #1e3a8a; /* dark blue accent */
   }
 </style>
 
 <ul class="nav side-menu">
+
+    <!-- Dashboard -->
     <li>
         <a href="{% url 'index_page' %}">
             <i class="fa fa-dashboard"></i> Dashboard
         </a>
     </li>
 
+    <!-- Human Resource -->
     <li>
         <a>
-            <i class="fa fa-book"></i> Human Resource <span class="fa fa-chevron-down"></span>
+            <i class="fa fa-users"></i> Human Resource
+            <span class="fa fa-chevron-down"></span>
         </a>
         <ul class="nav child_menu">
-            <li><a href="{% url 'staff_page' %}">Manage Staff</a></li>
-            <li><a href="{% url 'attendance_dashboard' %}">Attendance Dashboard</a></li>
+            <li><a href="{% url 'staff_page' %}">Staff Management</a></li>
+            <li><a href="{% url 'attendance_dashboard' %}">Attendance</a></li>
         </ul>
     </li>
 
+    <!-- Communications -->
     <li>
         <a>
-            <i class="fa fa-bullhorn"></i> Communications
-            {% if comm_unread_count > 0 %}
-            <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_count }}</span>
+            <i class="fa fa-comments"></i> Communications
+            {% if comm_unread_count|default:0 > 0 %}
+            <span class="badge bg-green" style="margin-left:6px;">
+                {{ comm_unread_count }}
+            </span>
             {% endif %}
             <span class="fa fa-chevron-down"></span>
         </a>
         <ul class="nav child_menu">
-            <li><a href="{% url 'announcement_list' %}">Announcements
-              {% if comm_unread_breakdown.announcements > 0 %}
-              <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.announcements }}</span>
-              {% endif %}
-            </a></li>
-            <li><a href="{% url 'event_list' %}">Events
-              {% if comm_unread_breakdown.events > 0 %}
-              <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.events }}</span>
-              {% endif %}
-            </a></li>
-            <li><a href="{% url 'message_inbox' %}">Messages
-              {% if comm_unread_breakdown.messages > 0 %}
-              <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.messages }}</span>
-              {% endif %}
-            </a></li>
+            <li>
+                <a href="{% url 'announcement_list' %}">
+                    Announcements
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'event_list' %}">
+                    Events
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'message_inbox' %}">
+                    Messages
+                </a>
+            </li>
         </ul>
     </li>
 
-    <!-- Fees -->
+    <!-- Academic Billing -->
     <li>
         <a>
-            <i class="fa fa-money"></i> Fees Center <span class="fa fa-chevron-down"></span>
+            <i class="fa fa-file-invoice-dollar"></i> Billing
+            <span class="fa fa-chevron-down"></span>
         </a>
         <ul class="nav child_menu">
             <li><a href="{% url 'bill_item_page' %}">Bill Items</a></li>
-            <li><a href="{% url 'student_bill_page' %}">Student Bill</a></li>
-            <li><a href="{% url 'class_bill_list' %}">Class Bill</a></li>
+            <li><a href="{% url 'student_bill_page' %}">Student Bills</a></li>
+            <li><a href="{% url 'class_bill_list' %}">Class Bills</a></li>
             <li><a href="{% url 'bulk_create_class_bills' %}">Bulk Create Bills</a></li>
             <li><a href="{% url 'fees_status' %}">Fees Status</a></li>
         </ul>
     </li>
 
-    <!-- Finance -->
+    <!-- Finance & Accounting -->
     <li>
         <a>
-            <i class="fa fa-money"></i> Finance <span class="fa fa-chevron-down"></span>
+            <i class="fa fa-chart-line"></i> Finance & Accounting
+            <span class="fa fa-chevron-down"></span>
         </a>
-        <ul class="nav child_menu">
-            <!-- Quick Access -->
-            <li><a href="{% url 'financial_dashboard' %}"><i class="fa fa-tachometer"></i> Financial Dashboard</a></li>
 
-            <!-- Reports Group -->
+        <ul class="nav child_menu">
+
+            <!-- Overview -->
             <li>
-                <a><i class="fa fa-chart-bar"></i> Reports <span class="fa fa-chevron-down"></span></a>
-                <ul class="nav child_menu">
-                    <li><a href="{% url 'financial_summary_report' %}">Financial Summary</a></li>
-                    <li><a href="{% url 'income_statement' %}">Income Statement</a></li>
-                    <li><a href="{% url 'cash_flow' %}">Cash Flow Report</a></li>
-                    <li><a href="{% url 'vendor_report' %}">Vendor Payments</a></li>
-                </ul>
+                <a href="{% url 'financial_dashboard' %}">
+                    <i class="fa fa-tachometer-alt"></i> Overview
+                </a>
             </li>
 
-            <!-- Operations Group -->
+            <!-- Transactions -->
             <li>
-                <a><i class="fa fa-briefcase"></i> Operations <span class="fa fa-chevron-down"></span></a>
+                <a>
+                    <i class="fa fa-exchange-alt"></i> Transactions
+                    <span class="fa fa-chevron-down"></span>
+                </a>
                 <ul class="nav child_menu">
+                    <li><a href="{% url 'expenditure_page' %}">Expenditures</a></li>
                     <li><a href="{% url 'bank_reconciliation' %}">Bank Reconciliation</a></li>
-                    <li><a href="{% url 'expenditure_page' %}">Expenditure</a></li>
                     <li><a href="{% url 'approval_workflow' %}">Approvals</a></li>
                 </ul>
             </li>
 
-            <!-- Configuration Group -->
+            <!-- Reports -->
             <li>
-                <a><i class="fa fa-cogs"></i> Setup <span class="fa fa-chevron-down"></span></a>
+                <a>
+                    <i class="fa fa-chart-bar"></i> Reports
+                    <span class="fa fa-chevron-down"></span>
+                </a>
+                <ul class="nav child_menu">
+                    <li><a href="{% url 'financial_summary_report' %}">Financial Summary</a></li>
+                    <li><a href="{% url 'income_statement' %}">Income Statement</a></li>
+                    <li><a href="{% url 'cash_flow' %}">Cash Flow</a></li>
+                    <li><a href="{% url 'vendor_report' %}">Vendor Payments</a></li>
+                </ul>
+            </li>
+
+            <!-- Configuration -->
+            <li>
+                <a>
+                    <i class="fa fa-cogs"></i> Configuration
+                    <span class="fa fa-chevron-down"></span>
+                </a>
                 <ul class="nav child_menu">
                     <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
-                    <li><a href="{% url 'expense_page' %}">Expenses</a></li>
+                    <li><a href="{% url 'expense_page' %}">Expense Categories</a></li>
                     <li><a href="{% url 'budget_page' %}">Budget</a></li>
                     <li><a href="{% url 'vendor_page' %}">Vendors</a></li>
                 </ul>
             </li>
 
-            <!-- Integrations Group -->
+            <!-- Integrations -->
             <li>
-                <a><i class="fa fa-plug"></i> Integrations <span class="fa fa-chevron-down"></span></a>
-                <ul class="nav child_menu">
-                    <li><a href="{% url 'export_financial_data' %}?type=quickbooks">Export to Accounting</a></li>
-                </ul>
+                <a href="{% url 'export_financial_data' %}?type=quickbooks">
+                    <i class="fa fa-plug"></i> Export to Accounting
+                </a>
             </li>
+
         </ul>
     </li>
+
 </ul>
