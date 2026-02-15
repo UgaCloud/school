@@ -19,9 +19,13 @@
                 <div class="x_content">
                     <div class="row">
                         <div class="col-md-6">
+                            {% if is_dos %}
                             <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addStreamModal">
                                 <i class="fa fa-plus-circle"></i> Add New Stream
                             </button>
+                            {% else %}
+                            <p class="text-muted">.</p>
+                            {% endif %}
                         </div>
                         <div class="col-md-6">
                             <div class="input-group">
@@ -41,7 +45,9 @@
                                     <tr>
                                         <th style="width: 5%">#</th>
                                         <th>Stream Name</th>
+                                        {% if is_dos %}
                                         <th style="width: 15%">Actions</th>
+                                        {% endif %}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -51,6 +57,7 @@
                                             <td>
                                                 <strong>{{ stream.stream }}</strong>
                                             </td>
+                                            {% if is_dos %}
                                             <td>
                                                 <a href="{% url 'edit_stream' stream.id %}" class="btn btn-info btn-sm" title="Edit Stream">
                                                     <i class="fa fa-edit"></i>
@@ -59,6 +66,7 @@
                                                     <i class="fa fa-trash"></i> 
                                                 </a>
                                             </td>
+                                            {% endif %}
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -79,6 +87,7 @@
     </div>
 
     <!-- Add Stream Modal -->
+    {% if is_dos %}
     <div class="modal fade" id="addStreamModal" tabindex="-1" role="dialog" aria-labelledby="addStreamModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -105,6 +114,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <script>
         $(document).ready(function() {

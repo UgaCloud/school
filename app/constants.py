@@ -11,6 +11,21 @@ NOTIFICATION_TYPES = [
     ]
 
 
+
+AUDIENCE_CHOICES = [
+    ("all", "All Staff"),
+    ("teachers", "Teachers"),
+    ("head", "Head Teacher"),
+    ("bursar", "Bursar"),
+    ("dos", "Director of Studies"),
+    ("class_teacher", "Class Teacher"),
+    ("class_stream", "Class Stream Teachers"),
+]
+
+
+
+
+
 TRANSACTION_TYPE_CHOICES = [
         ('Income', 'Income'),
         ('Expense', 'Expense')

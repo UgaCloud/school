@@ -7,6 +7,647 @@
 {% block content %}
 <div class="clearfix"></div>
 
+{% if is_teacher_dashboard %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel teacher-dashboard-hero">
+      <div class="x_title">
+        <h2><i class="fa fa-chalkboard-teacher"></i> Teacher Dashboard Overview</h2>
+        <ul class="nav navbar-right panel_toolbox">
+          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+        </ul>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="row">
+          <div class="col-sm-8 col-xs-12">
+            <p class="text-muted">Welcome back, <strong>{{ user.get_full_name|default:user.username }}</strong>
+            {% if current_year and current_term %}
+              <span class="label label-info" style="margin-left:6px;">Term {{ current_term.term }} {{ current_year.academic_year }}</span>
+            {% endif %}
+            </p>
+            <small class="text-muted">Focus area: teaching, assessments, and class progress</small>
+          </div>
+          <div class="col-sm-4 col-xs-12 text-right">
+            <div class="btn-group">
+              <a href="{% url 'add_results_page' %}" class="btn btn-primary btn-sm"><i class="fa fa-edit"></i> Enter Results</a>
+              <a href="{% url 'teacher_timetable' %}" class="btn btn-info btn-sm"><i class="fa fa-calendar"></i> My Timetable</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row dashboard-stat-row teacher-tiles">
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon primary"><i class="fa fa-chalkboard"></i></div>
+      <div>
+        <div class="stat-label">My Class</div>
+        {% if class_streams %}
+        <div class="stat-value">{{ class_streams.0.academic_class.Class.name }}</div>
+        <div class="stat-note">Stream {{ class_streams.0.stream.stream }}</div>
+        {% else %}
+        <div class="stat-value">—</div>
+        <div class="stat-note">No class assigned</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon success"><i class="fa fa-users"></i></div>
+      <div>
+        <div class="stat-label">Total Students</div>
+        <div class="stat-value">{{ total_students|default:0 }}</div>
+        <div class="stat-note">In my class</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon info"><i class="fa fa-user-check"></i></div>
+      <div>
+        <div class="stat-label">Present Today</div>
+        <div class="stat-value">24</div>
+        <div class="stat-note">Attendance</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon danger"><i class="fa fa-user-times"></i></div>
+      <div>
+        <div class="stat-label">Absent Today</div>
+        <div class="stat-value">2</div>
+        <div class="stat-note">Attendance</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel" style="border-left:4px solid #17a2b8;">
+      <div class="x_title">
+        <h2><i class="fa fa-calendar"></i> Event Calendar</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if dashboard_events %}
+        <div class="list-group" style="margin:0;">
+          {% for event in dashboard_events %}
+          <div class="list-group-item event-card" style="display:flex;align-items:center;justify-content:space-between;border-radius:10px;margin-bottom:8px;box-shadow:0 4px 10px rgba(0,0,0,0.04);">
+            <div>
+              <div style="font-weight:700;">{{ event.title }}</div>
+              <div class="text-muted" style="font-size:12px;">{{ event.start_datetime|date:"M d, H:i" }}</div>
+            </div>
+            <span class="label label-info" style="font-size:11px;">Event</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted">No upcoming events.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel" style="border-left:4px solid #f0ad4e;">
+      <div class="x_title">
+        <h2><i class="fa fa-bullhorn"></i> Notice Board</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if dashboard_announcements %}
+        <div class="list-group" style="margin:0;">
+          {% for note in dashboard_announcements %}
+          <div class="list-group-item notice-card {% if note.priority == 'high' %}notice-high{% elif note.priority == 'low' %}notice-low{% else %}notice-normal{% endif %}" style="display:flex;align-items:center;justify-content:space-between;border-radius:10px;margin-bottom:8px;box-shadow:0 4px 10px rgba(0,0,0,0.04);">
+            <div>
+              <div style="font-weight:700;">{{ note.title }}</div>
+              <div class="text-muted" style="font-size:12px;">{{ note.starts_at|date:"M d" }}</div>
+            </div>
+            {% if note.priority == 'high' %}
+            <span class="label label-danger" style="font-size:11px;">High</span>
+            {% elif note.priority == 'low' %}
+            <span class="label label-default" style="font-size:11px;">Low</span>
+            {% else %}
+            <span class="label label-warning" style="font-size:11px;">Normal</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted">No announcements yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-8 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-tasks"></i> Today’s Tasks</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if class_teacher_tasks %}
+        <ul class="list-unstyled dashboard-tasks">
+          {% for task in class_teacher_tasks %}
+          <li>
+            <a href="{{ task.url }}" class="task-link">
+              <div class="task-text">
+                <div class="task-title">{{ task.label }}</div>
+                <div class="task-sub">Open details</div>
+              </div>
+              <span class="badge task-status {% if task.status == 'Alert' %}bg-danger{% elif task.status == 'Action' %}bg-warning{% else %}bg-info{% endif %}">{{ task.status }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No pending tasks for your class.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bolt"></i> Quick Actions</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="row">
+          <div class="col-xs-12" style="margin-bottom:8px;">
+            <a href="{% url 'teacher_timetable' %}" class="btn btn-primary btn-block"><i class="fa fa-calendar"></i> Take Attendance</a>
+          </div>
+          <div class="col-xs-12" style="margin-bottom:8px;">
+            <a href="{% url 'add_results_page' %}" class="btn btn-info btn-block"><i class="fa fa-edit"></i> Enter Results</a>
+          </div>
+          <div class="col-xs-12">
+            <a href="{% url 'student_page' %}" class="btn btn-default btn-block"><i class="fa fa-users"></i> View My Students</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-calendar-check-o"></i> Attendance Summary</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="stat-card" style="margin-bottom:12px;">
+          <div class="stat-icon success"><i class="fa fa-percent"></i></div>
+          <div>
+            <div class="stat-label">Today Attendance</div>
+            <div class="stat-value">89%</div>
+            <div class="stat-note">Demo data</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon warning"><i class="fa fa-user-times"></i></div>
+          <div>
+            <div class="stat-label">Chronic Absentees</div>
+            <div class="stat-value">5</div>
+            <div class="stat-note">Top 5 list</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bell"></i> Student Alerts</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <ul class="list-unstyled dashboard-list">
+          {% if class_teacher_birthdays %}
+            {% for student in class_teacher_birthdays %}
+            <li>
+              <span class="name"><i class="fa fa-birthday-cake text-success"></i> {{ student.student_name }}</span>
+              <span class="value text-success">Birthday today</span>
+            </li>
+            {% endfor %}
+          {% else %}
+            <li><span class="name">No birthdays today</span><span class="value">—</span></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="row">
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-credit-card"></i> Recent Finance Transactions</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if recent_payments %}
+        <ul class="list-unstyled dashboard-list">
+          {% for payment in recent_payments %}
+          <li>
+            <span class="name">{{ payment.bill.student.student_name }}</span>
+            <span class="value">UGX {{ payment.amount|intcomma }} • {{ payment.payment_date|date:"M d" }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No recent finance transactions.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-clipboard-check"></i> Pending Approvals</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if pending_approvals %}
+        <ul class="list-unstyled dashboard-list">
+          {% for approval in pending_approvals %}
+          <li>
+            <span class="name">{{ approval.expenditure.title|default:"Expenditure" }}</span>
+            <span class="value">UGX {{ approval.expenditure.total_amount|default:approval.expenditure.amount|intcomma }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No pending approvals.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-users"></i> Class Teachers Progress</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if class_teacher_progress %}
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Teacher</th>
+                <th>Subject</th>
+                <th>Class</th>
+                <th>Progress</th>
+                <th>Total</th>
+                <th>Marked</th>
+                <th>Pending</th>
+                <th>Batch Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in class_teacher_progress %}
+              <tr>
+                <td>{{ row.teacher }}</td>
+                <td>{{ row.subject }}</td>
+                <td>{{ row.class_name }} {{ row.stream }}</td>
+                <td>
+                  <div class="progress" style="height: 8px;">
+                    <div class="progress-bar" role="progressbar" style="width: {{ row.progress }}%;"></div>
+                  </div>
+                  <small class="text-muted">{{ row.progress }}%</small>
+                </td>
+                <td>{{ row.total }}</td>
+                <td>{{ row.marked }}</td>
+                <td>{{ row.pending }}</td>
+                <td>
+                  {% if row.batch_status == "VERIFIED" %}
+                  <span class="badge bg-success">VERIFIED</span>
+                  {% elif row.batch_status == "PENDING" %}
+                  <span class="badge bg-info">PENDING</span>
+                  {% else %}
+                  <span class="badge bg-warning">DRAFT</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-muted">No progress data available.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if class_distribution %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bar-chart"></i> Class Distribution</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="row">
+          {% for class_data in class_distribution %}
+          <div class="col-md-2 col-sm-3 col-xs-6">
+            <div class="well" style="text-align:center; margin-bottom:10px;">
+              <h5 class="text-info" style="margin:0 0 4px;">{{ class_data.current_class__name }}</h5>
+              <h3 style="margin:0;">{{ class_data.count }}</h3>
+              <small class="text-muted">Students</small>
+              {% if is_teacher_dashboard %}
+              <div class="small text-muted" style="margin-top:6px;">
+                <span class="label label-info">Male {{ class_data.male_count|default:0 }}</span>
+                <span class="label label-warning">Female {{ class_data.female_count|default:0 }}</span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% elif is_head_dashboard %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel head-dashboard-hero">
+      <div class="x_title">
+        <h2><i class="fa fa-school"></i> Head Master Overview</h2>
+        <ul class="nav navbar-right panel_toolbox">
+          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+        </ul>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="row">
+          <div class="col-sm-8 col-xs-12">
+            <p class="text-muted">Welcome back, <strong>{{ user.get_full_name|default:user.username }}</strong>
+            {% if current_year and current_term %}
+              <span class="label label-info" style="margin-left:6px;">Term {{ current_term.term }} {{ current_year.academic_year }}</span>
+            {% endif %}
+            </p>
+            <small class="text-muted">School performance and operational oversight</small>
+          </div>
+          <div class="col-sm-4 col-xs-12 text-right">
+            <div class="btn-group">
+              <a href="{% url 'staff_page' %}" class="btn btn-success btn-sm"><i class="fa fa-users"></i> View Staff</a>
+              <a href="{% url 'student_page' %}" class="btn btn-primary btn-sm"><i class="fa fa-graduation-cap"></i> View Students</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row dashboard-stat-row head-tiles">
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon primary"><i class="fa fa-users"></i></div>
+      <div>
+        <div class="stat-label">Total Staff</div>
+        <div class="stat-value">{{ total_staff|default:0 }}</div>
+        <div class="stat-note">Active members</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon success"><i class="fa fa-graduation-cap"></i></div>
+      <div>
+        <div class="stat-label">Total Students</div>
+        <div class="stat-value">{{ total_students|default:0 }}</div>
+        <div class="stat-note">Enrolled</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon info"><i class="fa fa-university"></i></div>
+      <div>
+        <div class="stat-label">Active Classes</div>
+        <div class="stat-value">{{ active_classes|default:0 }}</div>
+        <div class="stat-note">Running</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon warning"><i class="fa fa-percent"></i></div>
+      <div>
+        <div class="stat-label">Assessment Completion</div>
+        <div class="stat-value">{{ assessment_completion_rate|default:0 }}%</div>
+        <div class="stat-note">Current term</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-8 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bolt"></i> Key Highlights</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="stat-card" style="margin-bottom:12px;">
+          <div class="stat-icon info"><i class="fa fa-book"></i></div>
+          <div>
+            <div class="stat-label">Total Subjects</div>
+            <div class="stat-value">{{ total_subjects|default:0 }}</div>
+            <div class="stat-note">Active curriculum subjects</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon success"><i class="fa fa-check-circle"></i></div>
+          <div>
+            <div class="stat-label">Result Status</div>
+            <div class="stat-value">{{ assessment_completion_rate|default:0 }}%</div>
+            <div class="stat-note">Verified + pending</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bullhorn"></i> Notice Board</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if dashboard_announcements %}
+        <ul class="list-unstyled" style="margin:0;">
+          {% for note in dashboard_announcements %}
+          <li style="margin-bottom:8px;">
+            <i class="fa fa-circle text-info"></i> {{ note.title }}
+            <small class="text-muted">({{ note.starts_at|date:"M d" }})</small>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No announcements yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-users"></i> Recent Registrations</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if recent_registrations %}
+        <ul class="list-unstyled dashboard-list">
+          {% for student in recent_registrations %}
+          <li>
+            <span class="name">{{ student.student_name }}</span>
+            <span class="value">{{ student.current_class.name }} • Reg: {{ student.reg_no }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center">
+          <i class="fa fa-inbox fa-2x text-muted" style="margin-bottom:8px;"></i>
+          <div class="text-muted">No recent registrations</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bar-chart"></i> Class Distribution</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if class_distribution %}
+        <div class="row">
+          {% for class_data in class_distribution %}
+          <div class="col-md-4 col-sm-6 col-xs-12">
+            <div class="well" style="text-align:center; margin-bottom:10px;">
+              <h5 class="text-info" style="margin:0 0 4px;">{{ class_data.current_class__name }}</h5>
+              <h3 style="margin:0;">{{ class_data.count }}</h3>
+              <small class="text-muted">Students</small>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted">No class distribution data.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-money"></i> Financial Snapshot</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="row text-center">
+          <div class="col-xs-6">
+            <div class="well" style="margin-bottom:10px;">
+              <h4 class="green">UGX {{ total_fees_collected|intcomma }}</h4>
+              <small class="text-muted">Fees Collected</small>
+            </div>
+          </div>
+          <div class="col-xs-6">
+            <div class="well" style="margin-bottom:10px;">
+              <h4 class="red">UGX {{ total_fees_outstanding|intcomma }}</h4>
+              <small class="text-muted">Outstanding</small>
+            </div>
+          </div>
+        </div>
+        <hr/>
+        <div class="row text-center">
+          <div class="col-xs-6">
+            <div class="well" style="margin-bottom:10px;">
+              <h5 class="blue">UGX {{ budget_allocated|intcomma }}</h5>
+              <small class="text-muted">Budget Allocated</small>
+            </div>
+          </div>
+          <div class="col-xs-6">
+            <div class="well" style="margin-bottom:10px;">
+              <h5 class="green">UGX {{ budget_spent|intcomma }}</h5>
+              <small class="text-muted">Expenditure</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-line-chart"></i> Finance Trends</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-fees-trend" style="height:220px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-8 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-money"></i> Fees Collection vs Expected</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-fees-collection" style="height:260px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-pie-chart"></i> Expenses Breakdown</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-expenses-breakdown" style="height:260px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
 <div class="row">
   <div class="col-md-12">
     <div class="x_panel">
@@ -45,86 +686,277 @@
   </div>
 </div>
 
-<!-- KPI Tiles -->
-<div class="row tile_count">
+<div class="row dashboard-stat-row">
   {% if not is_support %}
-  <div class="col-md-3 col-sm-4 col-xs-6 tile_stats_count">
-    <span class="count_top"><i class="fa fa-users"></i> Total Staff</span>
-    <div class="count">{{ total_staff|default:0 }}</div>
-    <span class="count_bottom"><i class="green"><i class="fa fa-level-up"></i></i> Active members</span>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon primary"><i class="fa fa-users"></i></div>
+      <div>
+        <div class="stat-label">Total Staff</div>
+        <div class="stat-value">{{ total_staff|default:0 }}</div>
+        <div class="stat-note">Active members</div>
+      </div>
+    </div>
   </div>
   {% endif %}
   {% if is_academic %}
-  <div class="col-md-3 col-sm-4 col-xs-6 tile_stats_count">
-    <span class="count_top"><i class="fa fa-graduation-cap"></i> Total Students</span>
-    <div class="count">{{ total_students|default:0 }}</div>
-    <span class="count_bottom"><i class="blue"><i class="fa fa-info-circle"></i></i> Enrolled</span>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon success"><i class="fa fa-graduation-cap"></i></div>
+      <div>
+        <div class="stat-label">Total Students</div>
+        <div class="stat-value">{{ total_students|default:0 }}</div>
+        <div class="stat-note">Enrolled</div>
+      </div>
+    </div>
   </div>
-  <div class="col-md-3 col-sm-4 col-xs-6 tile_stats_count">
-    <span class="count_top"><i class="fa fa-university"></i> Active Classes</span>
-    <div class="count">{{ active_classes|default:0 }}</div>
-    <span class="count_bottom"><i class="blue"><i class="fa fa-info-circle"></i></i> Running</span>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon info"><i class="fa fa-university"></i></div>
+      <div>
+        <div class="stat-label">Active Classes</div>
+        <div class="stat-value">{{ active_classes|default:0 }}</div>
+        <div class="stat-note">Running</div>
+      </div>
+    </div>
   </div>
   {% endif %}
   {% if is_finance %}
-  <div class="col-md-3 col-sm-4 col-xs-6 tile_stats_count">
-    <span class="count_top"><i class="fa fa-exclamation-triangle"></i> Pending Tasks</span>
-    <div class="count">{{ pending_tasks|default:0 }}</div>
-    <span class="count_bottom"><i class="orange"><i class="fa fa-clock-o"></i></i> Requires attention</span>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="stat-card">
+      <div class="stat-icon warning"><i class="fa fa-exclamation-triangle"></i></div>
+      <div>
+        <div class="stat-label">Pending Tasks</div>
+        <div class="stat-value">{{ pending_tasks|default:0 }}</div>
+        <div class="stat-note">Requires attention</div>
+      </div>
+    </div>
   </div>
   {% endif %}
 </div>
 
 {% if is_academic or is_finance %}
 <div class="row">
-  <div class="col-md-12">
+  <div class="col-md-12 col-sm-12">
     <div class="x_panel">
       <div class="x_title">
-        <h2><i class="fa fa-bar-chart"></i> Performance Metrics</h2>
+        <h2><i class="fa fa-bolt"></i> Highlights</h2>
         <div class="clearfix"></div>
       </div>
       <div class="x_content">
-        <div class="row">
-          {% if is_academic %}
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <div class="dashboard-widget-content">
-              <h4 class="title">Assessment Completion</h4>
-              <div class="row">
-                <div class="col-xs-12">
-                  <h2 class="text-primary">{{ assessment_completion_rate|default:0 }}%</h2>
-                  <div class="progress progress_sm">
-                    <div class="progress-bar bg-blue" role="progressbar" data-transitiongoal="{{ assessment_completion_rate|default:0 }}"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {% if is_academic %}
+        <div class="stat-card" style="margin-bottom:12px;">
+          <div class="stat-icon success"><i class="fa fa-percent"></i></div>
+          <div>
+            <div class="stat-label">Assessment Completion</div>
+            <div class="stat-value">{{ assessment_completion_rate|default:0 }}%</div>
+            <div class="stat-note">Current term</div>
           </div>
-          {% endif %}
-          {% if is_finance %}
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <div class="dashboard-widget-content">
-              <h4 class="title">Fee Collection Rate</h4>
-              <div class="row">
-                <div class="col-xs-12">
-                  <h2 class="green">{{ fee_collection_rate|default:0 }}%</h2>
-                  <div class="progress progress_sm">
-                    <div class="progress-bar bg-green" role="progressbar" data-transitiongoal="{{ fee_collection_rate|default:0 }}"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          {% endif %}
-          {% if is_academic %}
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <div class="dashboard-widget-content">
-              <h4 class="title">Total Subjects</h4>
-              <h2 class="text-info">{{ total_subjects|default:0 }}</h2>
-              <p class="text-muted">Active curriculum subjects</p>
-            </div>
-          </div>
-          {% endif %}
         </div>
+        <div class="stat-card" style="margin-bottom:12px;">
+          <div class="stat-icon info"><i class="fa fa-book"></i></div>
+          <div>
+            <div class="stat-label">Total Subjects</div>
+            <div class="stat-value">{{ total_subjects|default:0 }}</div>
+            <div class="stat-note">Active curriculum subjects</div>
+          </div>
+        </div>
+        {% endif %}
+        {% if is_finance %}
+        <div class="stat-card">
+          <div class="stat-icon warning"><i class="fa fa-money"></i></div>
+          <div>
+            <div class="stat-label">Fee Collection Rate</div>
+            <div class="stat-value">{{ fee_collection_rate|default:0 }}%</div>
+            <div class="stat-note">Current term</div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if is_academic %}
+<div class="row">
+  <div class="col-md-8 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bar-chart"></i> Class & Subject Performance</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-class-subject" style="height:280px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-pie-chart"></i> Grade Distribution</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-grade-distribution" style="height:280px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-3 col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-trophy"></i> Top 5 Classes</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if top_classes %}
+        <ul class="list-unstyled dashboard-list">
+          {% for c in top_classes %}
+          <li>
+            <span class="name">{{ c.assessment__academic_class__Class__name }}</span>
+            <span class="value">Avg {{ c.avg_score|floatformat:1 }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No class data available.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-arrow-down"></i> Bottom 5 Classes</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if bottom_classes %}
+        <ul class="list-unstyled dashboard-list">
+          {% for c in bottom_classes %}
+          <li>
+            <span class="name">{{ c.assessment__academic_class__Class__name }}</span>
+            <span class="value">Avg {{ c.avg_score|floatformat:1 }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No class data available.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-star"></i> Top 5 Subjects</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if top_subjects %}
+        <ul class="list-unstyled dashboard-list">
+          {% for s in top_subjects %}
+          <li>
+            <span class="name">{{ s.assessment__subject__name }}</span>
+            <span class="value">Avg {{ s.avg_score|floatformat:1 }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No subject data available.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-arrow-down"></i> Bottom 5 Subjects</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if bottom_subjects %}
+        <ul class="list-unstyled dashboard-list">
+          {% for s in bottom_subjects %}
+          <li>
+            <span class="name">{{ s.assessment__subject__name }}</span>
+            <span class="value">Avg {{ s.avg_score|floatformat:1 }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No subject data available.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-line-chart"></i> Performance Trends</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-performance-trends" style="height:260px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-check-circle"></i> Result Processing Status</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-result-status" style="height:260px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+
+{% if is_finance %}
+<div class="row">
+  <div class="col-md-8 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-money"></i> Fees Collection vs Expected</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-fees-collection" style="height:280px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-pie-chart"></i> Expenses Breakdown</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-expenses-breakdown" style="height:280px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-line-chart"></i> Monthly Collections</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="chart-fees-trend" style="height:260px;"></div>
       </div>
     </div>
   </div>
@@ -207,39 +1039,54 @@
 {% endif %}
 
 <div class="row">
-  <div class="col-md-6 col-sm-6 col-xs-12">
+  <div class="col-md-6 col-sm-12">
     <div class="x_panel">
       <div class="x_title">
-        <h2><i class="fa fa-tasks"></i> Quick Actions</h2>
+        <h2><i class="fa fa-calendar"></i> Event Calendar</h2>
         <div class="clearfix"></div>
       </div>
       <div class="x_content">
-        <div class="row">
-          {% if is_academic %}
-          <div class="col-xs-12" style="margin-bottom:8px;">
-            <a href="{% url 'add_student' %}" class="btn btn-primary btn-block"><i class="fa fa-user-plus"></i> Add Student</a>
-          </div>
-          {% endif %}
-          {% if is_admin %}
-          <div class="col-xs-12" style="margin-bottom:8px;">
-            <a href="{% url 'add_staff' %}" class="btn btn-success btn-block"><i class="fa fa-user"></i> Add Staff</a>
-          </div>
-          {% endif %}
-          {% if is_finance %}
-          <div class="col-xs-12" style="margin-bottom:8px;">
-            <a href="{% url 'bill_item_page' %}" class="btn btn-warning btn-block"><i class="fa fa-money"></i> Create Bill</a>
-          </div>
-          {% endif %}
-          {% if is_academic %}
-          <div class="col-xs-12">
-            <a href="{% url 'student_page' %}" class="btn btn-info btn-block"><i class="fa fa-search"></i> Search Students</a>
-          </div>
-          {% endif %}
-        </div>
+        {% if dashboard_events %}
+        <ul class="list-unstyled dashboard-list">
+          {% for event in dashboard_events %}
+          <li>
+            <span class="name">{{ event.title }}</span>
+            <span class="value">{{ event.start_datetime|date:"M d, H:i" }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No upcoming events.</div>
+        {% endif %}
       </div>
     </div>
   </div>
-  <div class="col-md-6 col-sm-6 col-xs-12">
+  <div class="col-md-6 col-sm-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bullhorn"></i> Notice Board</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if dashboard_announcements %}
+        <ul class="list-unstyled dashboard-list">
+          {% for note in dashboard_announcements %}
+          <li>
+            <span class="name">{{ note.title }}</span>
+            <span class="value">{{ note.starts_at|date:"M d" }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-muted">No announcements yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12 col-sm-12">
     <div class="x_panel">
       <div class="x_title">
         <h2><i class="fa fa-clock-o"></i> Recent Activities</h2>
@@ -315,8 +1162,7 @@
   </div>
 </div>
 {% endif %}
-
-{% endblock %}
+{% endif %}
 
 <!-- Minimal dashboard-specific styles to complement Gentelella -->
 <style>
@@ -327,4 +1173,260 @@
 .red{color:#E74C3C;}
 .text-primary{color:#3498DB;}
 .text-info{color:#17a2b8;}
+
+/* Global dashboard polish */
+.x_panel{
+  border-radius:12px;
+  box-shadow:0 10px 24px rgba(0,0,0,0.06);
+  border:1px solid #eef1f6;
+}
+.x_title{
+  border-bottom:1px solid #eef1f6;
+}
+.x_title h2{
+  font-weight:700;
+  letter-spacing:0.2px;
+}
+.tile_count{
+  margin-top:8px;
+}
+.tile_stats_count{
+  background:#ffffff;
+  border:1px solid #eef1f6;
+  border-radius:12px;
+  padding:16px 18px;
+  box-shadow:0 6px 16px rgba(0,0,0,0.04);
+}
+.tile_stats_count .count_top{
+  font-weight:600;
+  color:#53627c;
+}
+.tile_stats_count .count{
+  color:#1f2a44;
+  font-weight:700;
+}
+.tile_stats_count .count_bottom{
+  color:#6b7a90;
+}
+.dashboard-widget-content{
+  background:#f9fbff;
+  border-radius:12px;
+  padding:16px;
+  border:1px solid #eef1f6;
+}
+
+.dashboard-stat-row{
+  margin-top:10px;
+}
+.stat-card{
+  background:#ffffff;
+  border:1px solid #e9edf5;
+  border-radius:14px;
+  padding:18px 20px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  box-shadow:0 6px 16px rgba(0,0,0,0.04);
+  height:100%;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.stat-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 22px rgba(0,0,0,0.08);
+  border-color:#dfe6f1;
+}
+.stat-icon{
+  width:48px;
+  height:48px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.5);
+}
+.stat-icon.primary{background:#e8f1ff;color:#2f6fed;}
+.stat-icon.success{background:#e9f7f2;color:#1abb9c;}
+.stat-icon.info{background:#e7f7fb;color:#17a2b8;}
+.stat-icon.warning{background:#fff4e5;color:#f0ad4e;}
+.stat-icon.danger{background:#fdecea;color:#e74c3c;}
+.stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#7b8798;font-weight:700;}
+.stat-value{font-size:24px;font-weight:700;color:#1f2a44;line-height:1.1;margin-top:2px;}
+.stat-note{font-size:12px;color:#8a97ad;margin-top:2px;}
+.apexcharts-canvas{margin:0 auto;}
+.chart-muted{color:#94a3b8;font-size:12px;}
+
+.dashboard-list{margin:0;padding:0;}
+.dashboard-list li{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eef1f6;}
+.dashboard-list li:last-child{border-bottom:none;}
+.dashboard-list .name{font-weight:600;color:#2c3e50;}
+.dashboard-list .value{font-size:12px;color:#6b7a90;background:#f5f7fb;padding:2px 8px;border-radius:999px;}
+
+.dashboard-tasks{margin:0;padding:0;}
+.dashboard-tasks li{margin-bottom:10px;}
+.dashboard-tasks .task-link{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid #eef1f6;border-radius:12px;background:#f9fbff;color:#2c3e50;text-decoration:none;transition:all .15s ease;}
+.dashboard-tasks .task-link:hover{background:#f0f5ff;border-color:#dfe6f1;box-shadow:0 4px 12px rgba(0,0,0,0.06);}
+.dashboard-tasks .task-title{font-weight:600;}
+.dashboard-tasks .task-sub{font-size:12px;color:#8a97ad;}
+
+.teacher-dashboard-hero{
+  border-left:4px solid #6f42c1;
+  background:linear-gradient(135deg,#ffffff 0%,#f8f5ff 100%);
+}
+.notice-card{border-left:4px solid #f0ad4e;}
+.notice-high{border-left-color:#e74c3c;}
+.notice-normal{border-left-color:#f0ad4e;}
+.notice-low{border-left-color:#95a5a6;}
+.event-card{border-left:4px solid #17a2b8;}
+.head-dashboard-hero{
+  border-left:4px solid #2f6fed;
+  background:linear-gradient(135deg,#ffffff 0%,#f1f6ff 100%);
+}
+.teacher-tiles .tile_stats_count{border-top:2px solid #6f42c1;}
+.teacher-tiles .count_top{color:#6f42c1;}
+.teacher-tiles .count{color:#2c3e50;}
+.teacher-dashboard-hero .btn-group .btn{margin-left:6px;}
+.purple{color:#6f42c1;}
 </style>
+
+<script id="dashboard-chart-data" type="application/json">{{ dashboard_chart_data|safe }}</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof ApexCharts === 'undefined') return;
+
+  var dashboardChartData = {};
+  var chartDataEl = document.getElementById('dashboard-chart-data');
+  if (chartDataEl) {
+    try {
+      dashboardChartData = JSON.parse(chartDataEl.textContent || '{}');
+    } catch (err) {
+      dashboardChartData = {};
+    }
+  }
+
+  var classSubjectEl = document.querySelector('#chart-class-subject');
+  if (classSubjectEl) {
+    var classSubjectOptions = {
+      chart: { type: 'bar', height: 280, toolbar: { show: false } },
+      series: [
+        { name: 'Class Average', data: dashboardChartData.class_performance_values || [] },
+        { name: 'Subject Average', data: dashboardChartData.subject_performance_values || [] }
+      ],
+      xaxis: { categories: dashboardChartData.class_performance_labels || [] },
+      colors: ['#2f6fed', '#1abb9c'],
+      plotOptions: { bar: { borderRadius: 6, columnWidth: '50%' } },
+      dataLabels: { enabled: false },
+      legend: { position: 'top' }
+    };
+    new ApexCharts(classSubjectEl, classSubjectOptions).render();
+  }
+
+  var teacherProgressEl = document.querySelector('#chart-teacher-progress');
+  if (teacherProgressEl) {
+    var teacherProgressOptions = {
+      chart: { type: 'line', height: 220, toolbar: { show: false } },
+      series: [{ name: 'Assessment Progress', data: [40, 55, 68, 72] }],
+      xaxis: { categories: ['Week 1', 'Week 2', 'Week 3', 'Week 4'] },
+      colors: ['#6f42c1'],
+      stroke: { curve: 'smooth', width: 3 },
+      dataLabels: { enabled: false }
+    };
+    new ApexCharts(teacherProgressEl, teacherProgressOptions).render();
+  }
+
+  var gradeEl = document.querySelector('#chart-grade-distribution');
+  if (gradeEl) {
+    var gradeOptions = {
+      chart: { type: 'donut', height: 280 },
+      series: dashboardChartData.grade_distribution_values || [],
+      labels: dashboardChartData.grade_distribution_labels || [],
+      colors: dashboardChartData.grade_distribution_colors || ['#1abb9c', '#2f6fed', '#f0ad4e', '#e67e22', '#e74c3c'],
+      legend: { position: 'bottom' }
+    };
+    new ApexCharts(gradeEl, gradeOptions).render();
+  }
+
+  var trendEl = document.querySelector('#chart-performance-trends');
+  if (trendEl) {
+    var trendOptions = {
+      chart: { type: 'line', height: 260, toolbar: { show: false } },
+      series: [{ name: 'Average Score', data: dashboardChartData.performance_trend_values || [] }],
+      xaxis: { categories: dashboardChartData.performance_trend_labels || [] },
+      colors: ['#2f6fed'],
+      stroke: { curve: 'smooth', width: 3 },
+      dataLabels: { enabled: false }
+    };
+    new ApexCharts(trendEl, trendOptions).render();
+  }
+
+  var statusEl = document.querySelector('#chart-result-status');
+  if (statusEl) {
+    var statusOptions = {
+      chart: { type: 'radialBar', height: 260 },
+      series: [dashboardChartData.result_status_percent || 0],
+      labels: ['Verified'],
+      colors: ['#1abb9c'],
+      plotOptions: { radialBar: { dataLabels: { value: { fontSize: '22px' } } } }
+    };
+    new ApexCharts(statusEl, statusOptions).render();
+  }
+
+  var feesEl = document.querySelector('#chart-fees-collection');
+  if (feesEl) {
+    var feesOptions = {
+      chart: { type: 'bar', height: 280, toolbar: { show: false } },
+      series: [
+        { name: 'Expected', data: dashboardChartData.fees_collection_expected || [] },
+        { name: 'Collected', data: dashboardChartData.fees_collection_collected || [] }
+      ],
+      xaxis: { categories: dashboardChartData.fees_collection_labels || [] },
+      colors: ['#94a3b8', '#2f6fed'],
+      plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
+      dataLabels: { enabled: false },
+      legend: { position: 'top' }
+    };
+    new ApexCharts(feesEl, feesOptions).render();
+  }
+
+  var expensesEl = document.querySelector('#chart-expenses-breakdown');
+  if (expensesEl) {
+    var expensesOptions = {
+      chart: { type: 'donut', height: 280 },
+      series: dashboardChartData.expenses_values || [],
+      labels: dashboardChartData.expenses_labels || [],
+      colors: ['#2f6fed', '#1abb9c', '#f0ad4e', '#e67e22', '#9b59b6'],
+      legend: { position: 'bottom' }
+    };
+    new ApexCharts(expensesEl, expensesOptions).render();
+  }
+
+  var feesTrendEl = document.querySelector('#chart-fees-trend');
+  if (feesTrendEl) {
+    var feesTrendOptions = {
+      chart: { type: 'line', height: 260, toolbar: { show: false } },
+      series: [{ name: 'Collected', data: dashboardChartData.fees_trend_values || [] }],
+      xaxis: { categories: dashboardChartData.fees_trend_labels || [] },
+      colors: ['#2f6fed'],
+      stroke: { curve: 'smooth', width: 3 },
+      dataLabels: { enabled: false }
+    };
+    new ApexCharts(feesTrendEl, feesTrendOptions).render();
+  }
+
+  var calendarEl = document.querySelector('#chart-calendar-overview');
+  if (calendarEl) {
+    var calendarOptions = {
+      chart: { type: 'bar', height: 200, toolbar: { show: false } },
+      series: [{ name: 'Events', data: [2, 1, 3, 0, 2, 1, 4] }],
+      xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+      colors: ['#1abb9c'],
+      plotOptions: { bar: { borderRadius: 6, columnWidth: '50%' } },
+      dataLabels: { enabled: false }
+    };
+    new ApexCharts(calendarEl, calendarOptions).render();
+  }
+});
+</script>
+
+{% endblock %}

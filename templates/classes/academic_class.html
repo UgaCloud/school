@@ -10,14 +10,18 @@
   <!-- Page Header -->
   <div class="row">
     <div class="col-md-12">
-      <div class="x_panel">
+      <div class="x_panel page-header-panel">
         <div class="x_title d-flex align-items-center justify-content-between">
           <h2 class="mb-0">
             <i class="fa fa-university mr-2"></i> Academic Classes
-            <small class="text-muted d-block" style="font-size:.9rem;">Manage and organize your academic classes efficiently</small>
+            {% if active_role == "Class Teacher" or user.staff_account.role.name == "Class Teacher" %}
+              <small class="text-muted d-block" style="font-size:.9rem;">Your assigned academic classes</small>
+            {% else %}
+              <small class="text-muted d-block" style="font-size:.9rem;">Manage and organize your academic classes efficiently</small>
+            {% endif %}
           </h2>
           <div class="btn-group">
-            {% if user.staff_account.role.name == "Admin" %}
+            {% if active_role == "Admin" %}
               <a href="{% url 'class_bill_list' %}" class="btn btn-default btn-sm">
                 <i class="fa fa-file-invoice-dollar"></i> Class Bills
               </a>
@@ -31,24 +35,31 @@
 
         {% if academic_classes %}
         <div class="x_content">
-          <div class="row tile_count">
-            <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
-              <span class="count_top"><i class="fa fa-graduation-cap"></i> Total Classes</span>
-              <div class="count">{{ total_classes }}</div>
+          {% if active_role == "Class Teacher" or user.staff_account.role.name == "Class Teacher" %}
+            <div class="alert alert-info" style="margin-bottom:0;">
+              <i class="fa fa-info-circle"></i>
+              Showing {{ total_classes }} assigned class{{ total_classes|pluralize }}.
             </div>
-            <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
-              <span class="count_top"><i class="fa fa-calendar"></i> Active Terms</span>
-              <div class="count">{{ distinct_terms }}</div>
+          {% else %}
+            <div class="row tile_count modern-tiles">
+              <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
+                <span class="count_top"><i class="fa fa-graduation-cap"></i> Total Classes</span>
+                <div class="count">{{ total_classes }}</div>
+              </div>
+              <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
+                <span class="count_top"><i class="fa fa-calendar"></i> Active Terms</span>
+                <div class="count">{{ distinct_terms }}</div>
+              </div>
+              <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
+                <span class="count_top"><i class="fa fa-calendar-o"></i> Academic Years</span>
+                <div class="count">{{ academic_years_count }}</div>
+              </div>
+              <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
+                <span class="count_top"><i class="fa fa-university"></i> Sections</span>
+                <div class="count">{{ distinct_sections }}</div>
+              </div>
             </div>
-            <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
-              <span class="count_top"><i class="fa fa-calendar-o"></i> Academic Years</span>
-              <div class="count">{{ academic_years_count }}</div>
-            </div>
-            <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
-              <span class="count_top"><i class="fa fa-university"></i> Sections</span>
-              <div class="count">{{ distinct_sections }}</div>
-            </div>
-          </div>
+          {% endif %}
         </div>
         {% endif %}
       </div>
@@ -56,9 +67,10 @@
   </div>
 
   <!-- Filters -->
+  {% if active_role != "Class Teacher" and user.staff_account.role.name != "Class Teacher" %}
   <div class="row">
     <div class="col-md-12">
-      <div class="x_panel">
+      <div class="x_panel filters-panel">
         <div class="x_title d-flex align-items-center justify-content-between">
           <h2 class="mb-0"><i class="fa fa-filter"></i> Advanced Filters</h2>
           <ul class="nav navbar-right panel_toolbox">
@@ -162,35 +174,37 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <!-- Classes: View Toggle + Table / Cards -->
   <div class="row">
     <div class="col-md-12">
-      <div class="x_panel">
-        <div class="x_title d-flex align-items-center justify-content-between">
-          <h2 class="mb-0"><i class="fa fa-list"></i> Classes</h2>
-          <div class="d-flex align-items-center">
-          
-            <div class="btn-group" role="group" aria-label="ViewToggle">
-              <button id="tableViewBtn" type="button" class="btn btn-default btn-sm active"><i class="fa fa-table"></i> Table</button>
-              <button id="cardsViewBtn" type="button" class="btn btn-default btn-sm"><i class="fa fa-th-large"></i> Cards</button>
+      <div class="x_panel classes-panel">
+          <div class="x_title d-flex align-items-center justify-content-between">
+            <h2 class="mb-0"><i class="fa fa-list"></i> Classes</h2>
+            {% if active_role != "Class Teacher" and user.staff_account.role.name != "Class Teacher" %}
+            <div class="d-flex align-items-center">
+              <div class="btn-group" role="group" aria-label="ViewToggle">
+                <button id="tableViewBtn" type="button" class="btn btn-default btn-sm active"><i class="fa fa-table"></i> Table</button>
+                <button id="cardsViewBtn" type="button" class="btn btn-default btn-sm"><i class="fa fa-th-large"></i> Cards</button>
+              </div>
             </div>
+            {% endif %}
+            <div class="clearfix"></div>
           </div>
-          <div class="clearfix"></div>
-        </div>
         <div class="x_content">
 
           {% if academic_classes %}
             <!-- Table View -->
             <div id="classesTableWrap">
-              <table id="classesTable" class="table table-striped table-bordered datatable" style="width:100%">
+              <table id="classesTable" class="table table-striped table-bordered datatable classes-table" style="width:100%">
                 <thead>
                   <tr>
                     <th>Class</th>
                     <th>Term</th>
                     <th>Academic Year</th>
                     <th>Section</th>
-                    {% if user.staff_account.role.name == "Admin" %}<th>Fees Amount</th>{% endif %}
+                    {% if active_role == "Admin" %}<th>Fees Amount</th>{% endif %}
                     <th>Streams</th>
                     <th>Status</th>
                     <th style="min-width:150px;">Actions</th>
@@ -204,7 +218,7 @@
                     <td><span class="label label-info">{{ academic_class.term.term }}</span></td>
                     <td><span class="label label-default">{{ academic_class.academic_year.academic_year }}</span></td>
                     <td><span class="label label-primary">{{ academic_class.section }}</span></td>
-                    {% if user.staff_account.role.name == "Admin" %}
+                    {% if active_role == "Admin" %}
                       <td>UGX {{ academic_class.fees_amount|intcomma }}</td>
                     {% endif %}
                     <td>
@@ -224,7 +238,7 @@
                         <a class="btn btn-primary" href="{% url 'academic_class_details_page' academic_class.id %}" title="Details">
                           <i class="fa fa-eye"></i>
                         </a>
-                        {% if user.staff_account.role.name == "Admin" %}
+                        {% if active_role == "Admin" %}
                         <a class="btn btn-success" href="{% url 'edit_academic_class_details_page' academic_class.id %}" title="Edit">
                           <i class="fa fa-edit"></i>
                         </a>
@@ -262,7 +276,7 @@
                         <li><i class="fa fa-clock-o"></i> Term: <strong>{{ academic_class.term.term }}</strong></li>
                         <li><i class="fa fa-calendar-o"></i> Year: <strong>{{ academic_class.academic_year.academic_year }}</strong></li>
                         <li><i class="fa fa-university"></i> Section: <strong>{{ academic_class.section }}</strong></li>
-                        {% if user.staff_account.role.name == "Admin" %}
+                        {% if active_role == "Admin" %}
                         <li><i class="fa fa-money"></i> Fees: <strong>UGX {{ academic_class.fees_amount|intcomma }}</strong></li>
                         {% endif %}
                         <li><i class="fa fa-stream"></i> Streams: 
@@ -275,7 +289,7 @@
                         <a class="btn btn-primary" href="{% url 'academic_class_details_page' academic_class.id %}" title="Details">
                           <i class="fa fa-eye"></i> Details
                         </a>
-                        {% if user.staff_account.role.name == "Admin" %}
+                        {% if active_role == "Admin" %}
                         <a class="btn btn-success" href="{% url 'edit_academic_class_details_page' academic_class.id %}" title="Edit">
                           <i class="fa fa-edit"></i> Edit
                         </a>
@@ -302,7 +316,7 @@
 
 </div>
 
-{% if user.staff_account.role.name == "Admin" %}
+{% if active_role == "Admin" %}
 <!-- Add Class Modal -->
 <div class="modal fade" id="addClassModal" tabindex="-1" role="dialog" aria-labelledby="addClassModalLabel">
   <div class="modal-dialog modal-lg" role="document">
@@ -327,7 +341,24 @@
 </div>
 {% endif %}
 
-<style>
+  <style>
+    .page-header-panel .x_title{border-bottom:0;margin-bottom:6px;}
+    .page-header-panel{background:linear-gradient(135deg,#ffffff 0%,#f6f9ff 100%);border-radius:14px;border:1px solid #e6edf5;box-shadow:0 10px 22px rgba(0,0,0,0.04);}    
+    .page-header-panel h2{font-weight:700;color:#1f2a44;}
+
+    .modern-tiles .tile_stats_count{background:#ffffff;border:1px solid #e6edf5;border-radius:12px;padding:12px 14px;box-shadow:0 6px 16px rgba(0,0,0,0.04);}    
+    .modern-tiles .count_top{color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:11px;}
+    .modern-tiles .count{color:#1f2a44;font-weight:700;font-size:22px;}
+
+    .filters-panel .x_title h2{font-weight:700;}
+    .filters-panel .x_content{background:#f8fafc;border-radius:12px;border:1px solid #e6edf5;padding:14px;}
+    .filters-panel .form-control{border-radius:10px;border:1px solid #e2e8f0;background:#fff;}
+    .filter-chips .badge{background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;border-radius:999px;}
+
+    .classes-panel .x_title h2{font-weight:700;}
+    .classes-table th{text-transform:uppercase;font-size:11px;letter-spacing:.04em;}
+    .classes-table td{font-size:13px;}
+    .classes-panel .btn-group .btn{border-radius:8px;}
   #classesTable th, #classesTable td { vertical-align: middle; }
   .btn-group .btn { min-width: 34px; }
   .filter-chips .badge { margin-right: .35rem; padding: .45em .6em; font-weight: 600; }

@@ -8,9 +8,11 @@ from app.views.subject_views import *
 from app.views.staffs_views import *
 from app.views.fees_view import *
 from app.views.finance import *
+from app.views.communications import *
 from app.views.results import *
 from app.views.accounts import *
 from app.views.timetables import *
+from app.views.attendance import *
 
 
 
@@ -162,14 +164,14 @@ urlpatterns = [
     path('edit_budget_item/<int:id>/', edit_budget_items, name="edit_budget_item"),
     path('delete_budget_item/<int:id>/', delete_budget_item, name="delete_budget_item"),
 
-#Financial Summary Report
+   #Financial Summary Report
     path('financial-summary/', financial_summary_report, name="financial_summary_report"),
-# Income Statement
+   # Income Statement
     path('income-statement/', income_statement_report, name="income_statement"),
-# Cash Flow Report
+   # Cash Flow Report
     path('cash-flow/', cash_flow_report, name="cash_flow"),
 
-# Financial Dashboard and Reconciliation
+   # Financial Dashboard and Reconciliation
     path('finance/dashboard/', financial_dashboard_view, name="financial_dashboard"),
     path('finance/bank-reconciliation/', bank_reconciliation_view, name="bank_reconciliation"),
     path('finance/bank-reconciliation/upload/', upload_bank_statement_view, name="upload_bank_statement"),
@@ -177,8 +179,25 @@ urlpatterns = [
     path('finance/send-reminders/', send_payment_reminders_view, name="send_payment_reminders"),
     path('finance/approvals/', approval_workflow_view, name="approval_workflow"),
     path('finance/export/', export_financial_data_view, name="export_financial_data"),
+
+    # Communications
+    path('communications/announcements/', announcement_list, name="announcement_list"),
+    path('communications/announcements/new/', announcement_create, name="announcement_create"),
+    path('communications/announcements/<int:pk>/edit/', announcement_edit, name="announcement_edit"),
+    path('communications/announcements/<int:pk>/delete/', announcement_delete, name="announcement_delete"),
+    path('communications/events/', event_list, name="event_list"),
+    path('communications/events/new/', event_create, name="event_create"),
+    path('communications/events/<int:pk>/edit/', event_edit, name="event_edit"),
+    path('communications/events/<int:pk>/delete/', event_delete, name="event_delete"),
+
+    # Messaging
+    path('communications/messages/', message_inbox, name="message_inbox"),
+    path('communications/messages/new/', message_new, name="message_new"),
+    path('communications/messages/<int:pk>/', message_thread, name="message_thread"),
  
-     
+    # Exam Timetable
+    path('results/exam-timetable/', exam_timetable_view, name="exam_timetable"),
+ 
     #Results
     path('add_grading_system/', grading_system_view, name='add_grading_system_page'),
     path('edit_grading_system/<int:id>/', edit_grading_system_view, name="edit_grading_system"),
@@ -190,6 +209,9 @@ urlpatterns = [
     path('edit_results/<int:assessment_id>/<int:student_id>/edit_results/', edit_results_view, name='edit_results_view'),
     path('classes_assessments/',class_assessment_list_view,name='class_assessment_list'),
     path('classes_assessments/<int:class_id>/assessments/',list_assessments_view,name='list_assessments'),
+    path('assessments/<int:assessment_id>/verification/', verification_queue_view, name='verification_queue'),
+    path('assessments/<int:assessment_id>/verification/report/', verification_report_view, name='verification_report'),
+    path('assessments/<int:assessment_id>/verified-sheet/', assessment_verified_sheet_view, name='assessment_verified_sheet'),
     path("class-student-filter/", class_result_filter_view, name="class_stream_filter"),
     path("student/<int:student_id>/performance/", student_performance_view, name="student_performance"),
     # Mini Report per Assessment Type
@@ -201,6 +223,7 @@ urlpatterns = [
     path('class/bulk-reports/assessment-type/', class_assessment_type_bulk_reports, name='class_assessment_type_bulk_reports'),
     path('class-performance-summary/', class_performance_summary, name='class_performance_summary'),
     path('results/overview/', results_overview_dashboard, name='school_results_dashboard'),
+    path('results/verification-overview/', verification_overview_view, name='verification_overview'),
     path('assessment-sheet/', assessment_sheet_view, name='assessment_sheet'),
     path('class/combined-assessments/', class_assessment_combined_view, name='class_assessment_combined'),
     path('class/combined-assessments/print/', class_assessment_combined_print, name='class_assessment_combined_print'),
@@ -237,7 +260,18 @@ urlpatterns = [
 
     # Timetables
     path('timetable-center/', timetable_center, name='timetable_center'),
+    path('timetable/school/', school_timetable_overview, name='school_timetable'),
+    path('timetable/class/', class_timetable_overview, name='class_timetable'),
+    path('timetable/classrooms/', classrooms_overview, name='classrooms'),
     path('teacher/timetable/', teacher_timetable_view, name='teacher_timetable'),
+
+    # Attendance
+    path('attendance/', attendance_dashboard, name='attendance_dashboard'),
+    path('attendance/take/', take_attendance, name='take_attendance'),
+    path('attendance/analysis/', attendance_analysis, name='attendance_analysis'),
+    path('attendance/unlock/<int:session_id>/', unlock_attendance, name='unlock_attendance'),
+    path('attendance/student-report/', student_attendance_report, name='student_attendance_report'),
+    path('attendance/class-report/', class_attendance_report, name='class_attendance_report'),
 ]
 
 
@@ -248,8 +282,3 @@ urlpatterns = [
     
 
     
-
-
-
-
-

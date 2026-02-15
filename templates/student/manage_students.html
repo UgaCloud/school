@@ -5,6 +5,7 @@
 {% block page_title %}Student Management{% endblock page_title %}
 
 {% block content %}
+{% with role_name=active_role|default:user.staff_account.role.name %}
 <div class="container-fluid mt-4">
     <!-- Header Section -->
     <div class="row mb-4">
@@ -20,7 +21,7 @@
                     </p>
             </div>
                 <div class="d-flex gap-2">
-                {% if request.user.is_superuser %}
+                {% if request.user.is_superuser and role_name != "Teacher" and role_name != "Class Teacher" %}
                         <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".add-student-modal">
                             <i class="fa fa-plus me-1"></i> Add Student
                         </button>
@@ -37,7 +38,7 @@
                                 </a>
                             </div>
                         </div>
-                    {% endif %}
+                {% endif %}
                 </div>
             </div>
         </div>
@@ -211,7 +212,11 @@
                             <thead class="table-light">
                                 <tr>
                                     <th width="50">
-                                        <input type="checkbox" id="selectAll" class="form-check-input">
+                                        {% if request.user.is_superuser %}
+                                            <input type="checkbox" id="selectAll" class="form-check-input">
+                                        {% else %}
+                                            <span class="text-muted">#</span>
+                                        {% endif %}
                                     </th>
                                     <th width="60">#</th>
                                     <th>Student</th>
@@ -219,16 +224,22 @@
                                     <th>Class & Stream</th>
                                     <th>Contact</th>
                                     <th>Status</th>
-                            {% if request.user.is_superuser %}
+                            {% if request.user.is_superuser and role_name != "Teacher" and role_name != "Class Teacher" %}
                                         <th width="120">Actions</th>
+                            {% elif role_name == "Class Teacher" %}
+                                        <th width="80">View</th>
                             {% endif %}
                         </tr>
                     </thead>
                     <tbody>
                                 {% for student in students %}
-                                    <tr data-student-id="{{ student.id }}" data-gender="{{ student.gender }}" data-class="{{ student.current_class.code }}" data-stream="{{ student.stream.stream }}" data-status="{% if status != 'all' %}{{ status }}{% endif %}">
+                                    <tr data-student-id="{{ student.id }}" data-gender="{{ student.gender }}" data-class="{{ student.current_class.code }}" data-stream="{{ student.stream.stream }}" data-status="{{ student.is_active|yesno:'active,inactive' }}">
                                         <td>
-                                            <input type="checkbox" class="form-check-input student-checkbox" value="{{ student.id }}">
+                                            {% if request.user.is_superuser %}
+                                                <input type="checkbox" class="form-check-input student-checkbox" value="{{ student.id }}">
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
                                         </td>
                                         <td class="text-muted">{{ forloop.counter }}</td>
                                         <td>
@@ -272,7 +283,7 @@
                                                 <span class="badge bg-success">Active</span>
                                             {% endif %}
                                 </td>
-                                {% if request.user.is_superuser %}
+                                {% if request.user.is_superuser and role_name != "Teacher" and role_name != "Class Teacher" %}
                                     <td>
                                                 <div class="btn-group btn-group-sm">
                                                     <a href="{% url 'student_details_page' student.id %}" class="btn btn-outline-primary btn-sm" title="View Details">
@@ -285,6 +296,12 @@
                                                         <i class="fa fa-trash"></i>
                                                     </a>
                                                 </div>
+                                    </td>
+                                {% elif role_name == "Class Teacher" %}
+                                    <td>
+                                        <a href="{% url 'student_details_page' student.id %}" class="btn btn-outline-primary btn-sm" title="View Details">
+                                            <i class="fa fa-eye"></i>
+                                        </a>
                                     </td>
                                 {% endif %}
                             </tr>
@@ -317,7 +334,7 @@
         <div class="col-12">
             <div class="row" id="studentCards">
                 {% for student in students %}
-                    <div class="col-lg-4 col-md-6 mb-4" data-student-id="{{ student.id }}" data-gender="{{ student.gender }}" data-class="{{ student.current_class.code }}" data-stream="{{ student.stream.stream }}" data-status="{% if status != 'all' %}{{ status }}{% endif %}">
+                    <div class="col-lg-4 col-md-6 mb-4" data-student-id="{{ student.id }}" data-gender="{{ student.gender }}" data-class="{{ student.current_class.code }}" data-stream="{{ student.stream.stream }}" data-status="{{ student.is_active|yesno:'active,inactive' }}">
                         <div class="card h-100 shadow-sm student-card">
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-3">
@@ -334,9 +351,11 @@
                                         <h5 class="mb-1">{{ student.student_name }}</h5>
                                         <p class="text-muted mb-0">{{ student.reg_no }}</p>
                                     </div>
-                                    <div class="form-check">
+                                {% if request.user.is_superuser %}
+                                <div class="form-check">
                                         <input type="checkbox" class="form-check-input student-checkbox" value="{{ student.id }}">
                                     </div>
+                                {% endif %}
                                 </div>
                                 
                                 <div class="row text-center mb-3">
@@ -368,7 +387,7 @@
                                     <small><i class="fa fa-phone me-1"></i>{{ student.contact }}</small>
                                 </div>
 
-                                {% if request.user.is_superuser %}
+                                {% if request.user.is_superuser and role_name != "Teacher" and role_name != "Class Teacher" %}
                                     <div class="btn-group w-100">
                                         <a href="{% url 'student_details_page' student.id %}" class="btn btn-outline-primary btn-sm">
                                             <i class="fa fa-eye me-1"></i>View
@@ -380,6 +399,10 @@
                                             <i class="fa fa-trash me-1"></i>Delete
                                         </a>
                                     </div>
+                                {% elif role_name == "Class Teacher" %}
+                                    <a href="{% url 'student_details_page' student.id %}" class="btn btn-outline-primary btn-sm w-100">
+                                        <i class="fa fa-eye me-1"></i>View
+                                    </a>
                                 {% endif %}
                             </div>
                         </div>
@@ -455,6 +478,7 @@
         </div>
     </div>
 </div>
+{% endwith %}
 
 <!-- Add Student Modal -->
 <div class="modal fade add-student-modal" tabindex="-1" role="dialog" aria-hidden="true">
@@ -726,7 +750,8 @@ document.addEventListener('DOMContentLoaded', function() {
         filter.addEventListener('change', applyFilters);
     });
 
-    clearFilters.addEventListener('click', function() {
+    clearFilters.addEventListener('click', function(e) {
+        e.preventDefault();
         classFilter.value = '';
         genderFilter.value = '';
         statusFilter.value = '';
@@ -854,10 +879,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Populate class filter
     const classOptions = new Set();
-    document.querySelectorAll('.badge.bg-primary').forEach(badge => {
-        classOptions.add(badge.textContent.trim());
+    document.querySelectorAll('[data-class]').forEach(row => {
+        const className = row.getAttribute('data-class');
+        if (className) {
+            classOptions.add(className.trim());
+        }
     });
-    
+
     const classFilterSelect = document.getElementById('classFilter');
     classOptions.forEach(className => {
         const option = document.createElement('option');

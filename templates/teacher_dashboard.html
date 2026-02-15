@@ -35,9 +35,42 @@
   <!-- Timetable -->
   <li><a><i class="fa fa-calendar"></i> Timetable Center <span class="fa fa-chevron-down"></span></a>
     <ul class="nav child_menu">
-      <li><a href="{% url 'teacher_timetable' %}">View Timetable</a></li>
-    
+      <li><a href="{% url 'teacher_timetable' %}">My Teaching Timetable</a></li>
+      <li><a href="{% url 'exam_timetable' %}">Exam Timetable</a></li>
+    </ul>
+  </li>
 
+  <li><a><i class="fa fa-check-square-o"></i> Attendance <span class="fa fa-chevron-down"></span></a>
+    <ul class="nav child_menu">
+      <li><a href="{% url 'attendance_dashboard' %}">Attendance Dashboard</a></li>
+      <li><a href="{% url 'take_attendance' %}">Take Attendance</a></li>
+      <li><a href="{% url 'attendance_analysis' %}">Attendance Analysis</a></li>
+      <li><a href="{% url 'student_attendance_report' %}">Student Report</a></li>
+      <li><a href="{% url 'class_attendance_report' %}">Class Report</a></li>
+    </ul>
+  </li>
+
+  <li><a><i class="fa fa-bullhorn"></i> Communications
+      {% if comm_unread_count > 0 %}
+      <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_count }}</span>
+      {% endif %}
+      <span class="fa fa-chevron-down"></span></a>
+    <ul class="nav child_menu">
+      <li><a href="{% url 'announcement_list' %}">Announcements
+        {% if comm_unread_breakdown.announcements > 0 %}
+        <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.announcements }}</span>
+        {% endif %}
+      </a></li>
+      <li><a href="{% url 'event_list' %}">Events
+        {% if comm_unread_breakdown.events > 0 %}
+        <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.events }}</span>
+        {% endif %}
+      </a></li>
+      <li><a href="{% url 'message_inbox' %}">Messages
+        {% if comm_unread_breakdown.messages > 0 %}
+        <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.messages }}</span>
+        {% endif %}
+      </a></li>
     </ul>
   </li>
 

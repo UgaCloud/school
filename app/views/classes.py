@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect,get_object_or_404, redirect
 from django.contrib import messages
 from django.urls import reverse
+from django.db.models import Q
 import logging
 logger = logging.getLogger(__name__)
 from app.constants import *
@@ -25,6 +26,25 @@ from operator import attrgetter
 
 @login_required
 def class_view(request):
+    active_role = request.session.get("active_role_name")
+    staff_account = StaffAccount.objects.filter(user=request.user).select_related("staff", "role").first()
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    is_class_teacher = (active_role == "Class Teacher" or role_name == "Class Teacher")
+
+    if is_class_teacher:
+        class_form = ClassForm()
+        classes_qs = Class.objects.none()
+        if staff_account and staff_account.staff:
+            assigned_class_ids = AcademicClassStream.objects.filter(
+                class_teacher=staff_account.staff
+            ).values_list("academic_class__Class_id", flat=True).distinct()
+            classes_qs = Class.objects.filter(id__in=assigned_class_ids).order_by("name")
+        context = {
+            "form": class_form,
+            "classes": classes_qs,
+        }
+        return render(request, "classes/_class.html", context)
+
     if request.method == "POST":
         class_form = ClassForm(request.POST)
         
@@ -78,6 +98,16 @@ def delete_class_view(request, id):
 
 @login_required
 def stream_view(request):
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    is_dos = role_name in {"Director of Studies", "DOS"} or active_role in {"Director of Studies", "DOS"}
+    is_admin = role_name in {"Admin", "Head master"} or active_role in {"Admin", "Head master"}
+
+    if request.method == "POST" and not is_dos:
+        messages.error(request, "Only the Director of Studies can add streams.")
+        return redirect(stream_view)
+
     if request.method == "POST":
         stream_form = StreamForm(request.POST)
         
@@ -92,7 +122,8 @@ def stream_view(request):
     
     context = {
         "form": stream_form,
-        "streams": streams
+        "streams": streams,
+        "is_dos": is_dos,
     }
     return render(request, "classes/stream.html", context)
 
@@ -145,15 +176,25 @@ def academic_class_view(request):
 
     academic_class_form = AcademicClassForm()
 
-    # Safely get StaffAccount and Role
     staff_account = getattr(request.user, "staff_account", None)
     role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    is_class_teacher = (active_role == "Class Teacher" or role_name == "Class Teacher")
 
     # Get base queryset based on user role
-    if role_name == "Admin":
+    if is_class_teacher:
+        if staff_account and staff_account.staff:
+            base_queryset = AcademicClass.objects.filter(
+                id__in=AcademicClassStream.objects.filter(
+                    class_teacher=staff_account.staff
+                ).values_list("academic_class_id", flat=True)
+            ).distinct()
+        else:
+            base_queryset = AcademicClass.objects.none()
+    elif role_name == "Admin":
         base_queryset = AcademicClass.objects.all()
     elif role_name == "Teacher":
-        if staff_account.staff:
+        if staff_account and staff_account.staff:
             base_queryset = AcademicClass.objects.filter(
                 id__in=ClassSubjectAllocation.objects.filter(
                     subject_teacher=staff_account.staff
@@ -164,7 +205,6 @@ def academic_class_view(request):
     else:
         base_queryset = AcademicClass.objects.none()
 
-    # Apply filters from GET parameters
     academic_year_filter = request.GET.get('academic_year')
     term_filter = request.GET.get('term')
     class_filter = request.GET.get('class')
@@ -172,7 +212,6 @@ def academic_class_view(request):
 
     academic_classes = base_queryset.select_related('Class', 'academic_year', 'term')
 
-    # Apply filters
     if academic_year_filter and academic_year_filter != '':
         academic_classes = academic_classes.filter(academic_year_id=academic_year_filter)
 
@@ -185,22 +224,19 @@ def academic_class_view(request):
     if section_filter and section_filter != '':
         academic_classes = academic_classes.filter(section=section_filter)
 
-    # Calculate statistics for filtered results
     total_classes = academic_classes.count()
     distinct_terms = academic_classes.values_list('term', flat=True).distinct().count() if academic_classes.exists() else 0
     distinct_sections = academic_classes.values_list('section', flat=True).distinct().count() if academic_classes.exists() else 0
     academic_years_count = school_settings_selectors.get_academic_years().count()
 
-    # Get distinct sections for filter dropdown (from filtered results)
     sections_list = []
     if academic_classes.exists():
         section_ids = academic_classes.values_list('section', flat=True).distinct()
         sections_list = Section.objects.filter(id__in=section_ids)
 
-    # Get all available options for filters (not filtered)
     all_academic_years = school_settings_selectors.get_academic_years()
     all_classes = class_selectors.get_classes()
-    all_terms = []  # We'll populate this from the academic years
+    all_terms = []  
 
     # Get terms for the selected academic year or all terms
     if academic_year_filter and academic_year_filter != '':
@@ -348,11 +384,16 @@ def edit_academic_class_details_view(request,id):
 @login_required
 def add_class_stream(request, id):
     academic_class = AcademicClass.objects.get(pk=id)
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    if role_name == "Class Teacher" or active_role == "Class Teacher":
+        messages.error(request, "You are not allowed to add class streams.")
+        return HttpResponseRedirect(reverse(academic_class_details_view, args=[academic_class.id]))
     form = AcademicClassStreamForm(request.POST)
 
     if form.is_valid():
         cs = form.save(commit=False)
-        # Ensure the academic_class comes from the URL/id, not from the client
         cs.academic_class = academic_class
         cs.save()
         messages.success(request, SUCCESS_ADD_MESSAGE)
@@ -398,10 +439,8 @@ def delete_class_stream(request, id):
 
 @login_required
 def class_bill_list_view(request):
-    # Enhanced filtering with better defaults
     academic_classes = AcademicClass.objects.select_related('Class', 'academic_year', 'term', 'section')
 
-    # Get filter parameters
     class_filter = request.GET.get('class')
     academic_year_filter = request.GET.get('academic_year')
     term_filter = request.GET.get('term')
@@ -669,9 +708,18 @@ def class_subject_allocation_list(request):
     except StaffAccount.DoesNotExist:
         messages.error(request, "You do not have the necessary permissions to view this page.")
         return redirect('dashboard')
-    
-    # Filter allocations based on the logged-in staff member
-    allocations = ClassSubjectAllocation.objects.filter(subject_teacher=staff_member)
+
+    active_role = request.session.get("active_role_name")
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    effective_role = active_role or role_name
+
+    if effective_role == "Class Teacher":
+        allocations = ClassSubjectAllocation.objects.filter(
+            Q(academic_class_stream__class_teacher=staff_member)
+            | Q(subject_teacher=staff_member)
+        )
+    else:
+        allocations = ClassSubjectAllocation.objects.filter(subject_teacher=staff_member)
     
     context = {
         'allocations': allocations
@@ -680,23 +728,58 @@ def class_subject_allocation_list(request):
 
 @login_required
 def add_class_subject_allocation(request):
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    effective_role = active_role or role_name
+    is_class_teacher = effective_role == "Class Teacher"
+    is_dos = effective_role in {"Director of Studies", "DOS"}
+    is_admin = effective_role in {"Admin", "Head master"}
+
+    if not (is_dos or is_admin):
+        messages.error(request, "Only Admin or the Director of Studies can manage subject allocations.")
+        return redirect("class_subject_allocation_page")
+
+    if is_class_teacher and staff_account and staff_account.staff:
+        class_stream_ids = AcademicClassStream.objects.filter(
+            class_teacher=staff_account.staff
+        ).values_list("id", flat=True)
+        allocations = ClassSubjectAllocation.objects.filter(
+            academic_class_stream_id__in=class_stream_ids
+        )
+    else:
+        allocations = ClassSubjectAllocation.objects.all()
+
     if request.method == "POST":
         form = ClassSubjectAllocationForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, SUCCESS_ADD_MESSAGE)
-            return redirect(add_class_subject_allocation)
+            return redirect("subject_allocation_page")
     else:
         form = ClassSubjectAllocationForm()
-    allocations = ClassSubjectAllocation.objects.all()
     context={
         'form':form,
-        'allocations':allocations
+        'allocations':allocations,
+        'is_dos': is_dos,
+        'is_admin': is_admin,
+        'is_class_teacher': is_class_teacher,
     }
     return render(request, 'classes/classsubjectallocation_form.html', context)
 
 @login_required
 def edit_subject_allocation_view(request,id):
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    effective_role = active_role or role_name
+    is_dos = effective_role in {"Director of Studies", "DOS"}
+    is_admin = effective_role in {"Admin", "Head master"}
+
+    if not (is_dos or is_admin):
+        messages.error(request, "Only Admin or the Director of Studies can manage subject allocations.")
+        return redirect("class_subject_allocation_page")
+
     allocation = get_model_record(ClassSubjectAllocation,id)
     if request.method =="POST":
             form = ClassSubjectAllocationForm(request.POST,instance=allocation)
@@ -720,6 +803,17 @@ def edit_subject_allocation_view(request,id):
 
 
 def delete_class_subject_allocation(request, id):
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    effective_role = active_role or role_name
+    is_dos = effective_role in {"Director of Studies", "DOS"}
+    is_admin = effective_role in {"Admin", "Head master"}
+
+    if not (is_dos or is_admin):
+        messages.error(request, "Only Admin or the Director of Studies can manage subject allocations.")
+        return redirect("class_subject_allocation_page")
+
     allocation = ClassSubjectAllocation.objects.get( pk=id)
     
     allocation.delete()

@@ -16,11 +16,12 @@
                 <div class="clearfix"></div>
             </div>
             <div class="x_content">
-                <div class="row">
-                    <div class="col-md-8">
-                        <p class="text-muted">Manage and track student fees bills</p>
+                <div class="comm-header">
+                    <div class="comm-intro">
+                        <div class="comm-title">Manage and track student fees bills</div>
+                        <div class="text-muted">Monitor totals, payments, and outstanding balances.</div>
                     </div>
-                    <div class="col-md-4 text-right">
+                    <div class="comm-actions">
                         <a href="{% url 'fees_status' %}" class="btn btn-info">
                             <i class="fa fa-chart-bar"></i> Fees Status Report
                         </a>
@@ -34,65 +35,45 @@
 <!-- Summary Cards - Gentellela Style -->
 <div class="row">
     <div class="col-md-3 col-sm-6 ">
-        <div class="x_panel tile fixed_height_320">
-            <div class="x_content">
-                <div class="dashboard-widget-content">
-                    <div class="text-center">
-                        <h3 class="count">{{ total_bills }}</h3>
-                        <span class="count_bottom"><i class="green"><i class="fa fa-file-invoice"></i></i> Total Bills</span>
-                        <div class="flex">
-                            <small>Active bills</small>
-                        </div>
-                    </div>
-                </div>
+        <div class="stat-card">
+            <div class="stat-icon primary"><i class="fa fa-file-invoice"></i></div>
+            <div>
+                <div class="stat-label">Total Bills</div>
+                <div class="stat-value">{{ total_bills }}</div>
+                <div class="stat-note">Active bills</div>
             </div>
         </div>
     </div>
 
     <div class="col-md-3 col-sm-6 ">
-        <div class="x_panel tile fixed_height_320">
-            <div class="x_content">
-                <div class="dashboard-widget-content">
-                    <div class="text-center">
-                        <h3 class="count">UGX {{ total_amount|intcomma }}</h3>
-                        <span class="count_bottom"><i class="green"><i class="fa fa-money-bill-wave"></i></i> Total Billed</span>
-                        <div class="flex">
-                            <small>Amount due</small>
-                        </div>
-                    </div>
-                </div>
+        <div class="stat-card">
+            <div class="stat-icon info"><i class="fa fa-money-bill-wave"></i></div>
+            <div>
+                <div class="stat-label">Total Billed</div>
+                <div class="stat-value">UGX {{ total_amount|intcomma }}</div>
+                <div class="stat-note">Amount due</div>
             </div>
         </div>
     </div>
 
     <div class="col-md-3 col-sm-6 ">
-        <div class="x_panel tile fixed_height_320">
-            <div class="x_content">
-                <div class="dashboard-widget-content">
-                    <div class="text-center">
-                        <h3 class="count">UGX {{ total_paid|intcomma }}</h3>
-                        <span class="count_bottom"><i class="green"><i class="fa fa-coins"></i></i> Total Paid</span>
-                        <div class="flex">
-                            <small>Amount received</small>
-                        </div>
-                    </div>
-                </div>
+        <div class="stat-card">
+            <div class="stat-icon success"><i class="fa fa-coins"></i></div>
+            <div>
+                <div class="stat-label">Total Paid</div>
+                <div class="stat-value">UGX {{ total_paid|intcomma }}</div>
+                <div class="stat-note">Amount received</div>
             </div>
         </div>
     </div>
 
     <div class="col-md-3 col-sm-6 ">
-        <div class="x_panel tile fixed_height_320">
-            <div class="x_content">
-                <div class="dashboard-widget-content">
-                    <div class="text-center">
-                        <h3 class="count">UGX {{ total_outstanding|intcomma }}</h3>
-                        <span class="count_bottom"><i class="green"><i class="fa fa-exclamation-triangle"></i></i> Outstanding</span>
-                        <div class="flex">
-                            <small>Amount pending</small>
-                        </div>
-                    </div>
-                </div>
+        <div class="stat-card">
+            <div class="stat-icon warning"><i class="fa fa-exclamation-triangle"></i></div>
+            <div>
+                <div class="stat-label">Outstanding</div>
+                <div class="stat-value">UGX {{ total_outstanding|intcomma }}</div>
+                <div class="stat-note">Amount pending</div>
             </div>
         </div>
     </div>
@@ -101,7 +82,7 @@
 <!-- Status Breakdown - Gentellela Style -->
 <div class="row">
     <div class="col-md-12 col-sm-12 ">
-        <div class="x_panel">
+        <div class="x_panel status-panel">
             <div class="x_title">
                 <h2><i class="fa fa-chart-pie"></i> Bill Status Breakdown</h2>
                 <div class="clearfix"></div>
@@ -109,19 +90,19 @@
             <div class="x_content">
                 <div class="row text-center">
                     <div class="col-md-4 col-sm-4 ">
-                        <div class="tile_stats_count">
+                        <div class="status-card">
                             <span class="count_top"><i class="fa fa-check-circle"></i> Paid Bills</span>
                             <div class="count green">{{ paid_bills }}</div>
                         </div>
                     </div>
                     <div class="col-md-4 col-sm-4 ">
-                        <div class="tile_stats_count">
+                        <div class="status-card">
                             <span class="count_top"><i class="fa fa-clock"></i> Unpaid Bills</span>
                             <div class="count yellow">{{ unpaid_bills }}</div>
                         </div>
                     </div>
                     <div class="col-md-4 col-sm-4 ">
-                        <div class="tile_stats_count">
+                        <div class="status-card">
                             <span class="count_top"><i class="fa fa-exclamation-circle"></i> Overdue Bills</span>
                             <div class="count red">{{ overdue_bills }}</div>
                         </div>
@@ -135,7 +116,7 @@
 <!-- Advanced Filters - Gentellela Style -->
 <div class="row">
     <div class="col-md-12 col-sm-12 ">
-        <div class="x_panel">
+        <div class="x_panel filters-panel">
             <div class="x_title">
                 <h2><i class="fa fa-filter"></i> Filters</h2>
                 <div class="clearfix"></div>
@@ -199,7 +180,7 @@
 <!-- Student Bills Table - Gentellela Style -->
 <div class="row">
     <div class="col-md-12 col-sm-12 ">
-        <div class="x_panel">
+        <div class="x_panel table-panel">
             <div class="x_title">
                 <h2><i class="fa fa-list"></i> Student Bills <small>{{ student_bills|length }} bills found</small></h2>
                 <div class="clearfix"></div>
@@ -207,7 +188,7 @@
             <div class="x_content">
                 {% if student_bills %}
                 <div class="table-responsive">
-                    <table class="table table-striped table-bordered">
+                    <table class="table table-striped table-bordered datatable">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -321,7 +302,7 @@
                 {% endif %}
 
                 {% else %}
-                <div class="text-center py-5">
+                 <div class="text-center py-5">
                     <i class="fa fa-inbox fa-3x text-muted mb-3"></i>
                     <h4 class="text-muted">No Student Bills Found</h4>
                     <p class="text-muted">Try adjusting your filters or create new bills.</p>
@@ -334,26 +315,40 @@
 </div>
 
 <!-- Gentellela Custom Styles -->
-<style>
-/* Custom styles to complement Gentellela */
-.tile_stats_count .count {
-    font-size: 24px;
-    font-weight: 600;
-}
+ <style>
+  .comm-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    background:#f8fafc;
+    border:1px solid #e6edf5;
+    border-radius:12px;
+    padding:14px 16px;
+    margin-bottom:14px;
+  }
+  .comm-title{font-weight:600;color:#334155;margin-bottom:4px;}
+  .comm-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
 
-.tile_stats_count .count_bottom {
-    font-size: 12px;
-    color: #666;
-}
+  .stat-card{background:#fff;border:1px solid #e6edf5;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 16px rgba(0,0,0,0.04);}    
+  .stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;}
+  .stat-icon.primary{background:#2563eb;}
+  .stat-icon.success{background:#22c55e;}
+  .stat-icon.info{background:#38bdf8;}
+  .stat-icon.warning{background:#f59e0b;}
+  .stat-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+  .stat-value{font-size:16px;font-weight:700;color:#1f2a44;line-height:1.2;}
+  .stat-note{font-size:11px;color:#94a3b8;}
 
-.dashboard-widget-content {
-    padding: 15px;
-}
+  .status-panel .x_content{background:#f8fafc;border-radius:12px;border:1px solid #e6edf5;padding:12px;}
+  .status-card{background:#fff;border:1px solid #e6edf5;border-radius:12px;padding:10px 12px;box-shadow:0 4px 12px rgba(0,0,0,0.04);}    
 
-.fixed_height_320 {
-    height: 150px;
-}
-</style>
+  .filters-panel .x_content{background:#f8fafc;border-radius:12px;border:1px solid #e6edf5;padding:14px;}
+  .filters-panel .form-control{border-radius:10px;border:1px solid #e2e8f0;background:#fff;}
+
+  .table-panel .x_title h2{font-weight:700;}
+ </style>
 
 <!-- Simple Filter JavaScript -->
 <script>

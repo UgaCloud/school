@@ -11,11 +11,24 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 import json
 from .models import Classroom, TimeSlot, BreakPeriod, Timetable
+from app.models.attendance import AttendanceSession, AttendanceRecord
 
 # admin.site.register(Staff)
 admin.site.register(Role)
 
-admin.site.register(Result)
+@admin.register(Result)
+class ResultAdmin(admin.ModelAdmin):
+    list_display = (
+        'student', 'assessment', 'score',
+        'status', 'batch'
+    )
+    list_filter = (
+        'status', 'assessment__academic_class', 'assessment__assessment_type'
+    )
+    search_fields = (
+        'student__student_name', 'student__reg_no',
+        'assessment__subject__name', 'assessment__assessment_type__name'
+    )
 admin.site.register(Assessment)
 admin.site.register(AssessmentType)
 # admin.site.register(Student)
@@ -23,7 +36,11 @@ admin.site.register(ClassRegister)
 # admin.site.register(Section)
 # admin.site.register(Class)
 admin.site.register(Stream)
-admin.site.register(SchoolSetting)
+
+@admin.register(SchoolSetting)
+class SchoolSettingAdmin(admin.ModelAdmin):
+    filter_horizontal = ("division_critical_subjects",)
+
 admin.site.register(Department)
 
 
@@ -183,6 +200,26 @@ class TimeSlotAdmin(admin.ModelAdmin):
         queryset = super().get_queryset(request)
         return queryset
 
+
+@admin.register(AttendanceSession)
+class AttendanceSessionAdmin(admin.ModelAdmin):
+    list_display = ("class_stream", "subject", "teacher", "date", "time_slot", "is_locked")
+    list_filter = ("date", "class_stream", "subject", "teacher", "is_locked")
+    search_fields = (
+        "class_stream__academic_class__Class__name",
+        "class_stream__stream__stream",
+        "subject__name",
+        "teacher__first_name",
+        "teacher__last_name",
+    )
+
+
+@admin.register(AttendanceRecord)
+class AttendanceRecordAdmin(admin.ModelAdmin):
+    list_display = ("session", "student", "status", "captured_by", "captured_at")
+    list_filter = ("status", "captured_at")
+    search_fields = ("student__student_name", "session__class_stream__academic_class__Class__name")
+
 # Register BreakPeriod model
 @admin.register(BreakPeriod)
 class BreakPeriodAdmin(admin.ModelAdmin):
@@ -228,6 +265,44 @@ class ResultModeSettingAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
 
         return ResultModeSetting.objects.all()
+
+
+@admin.register(ResultVerificationSetting)
+class ResultVerificationSettingAdmin(admin.ModelAdmin):
+    list_display = (
+        'sample_percent', 'tolerance_marks'
+    )
+    actions = None
+
+    def has_add_permission(self, request):
+        return not ResultVerificationSetting.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_queryset(self, request):
+        return ResultVerificationSetting.objects.all()
+
+
+@admin.register(ResultBatch)
+class ResultBatchAdmin(admin.ModelAdmin):
+    list_display = ('assessment', 'status', 'submitted_by', 'submitted_at', 'verified_by', 'verified_at')
+    list_filter = ('status', 'assessment__academic_class', 'assessment__assessment_type')
+    search_fields = ('assessment__subject__name', 'assessment__academic_class__Class__name')
+
+
+@admin.register(VerificationSample)
+class VerificationSampleAdmin(admin.ModelAdmin):
+    list_display = ('result', 'dos_mark', 'matched', 'checked_by', 'checked_at')
+    list_filter = ('matched',)
+    search_fields = ('result__student__student_name', 'result__student__reg_no')
+
+
+@admin.register(ResultVerificationNotification)
+class ResultVerificationNotificationAdmin(admin.ModelAdmin):
+    list_display = ('recipient', 'batch', 'title', 'created_at', 'read')
+    list_filter = ('read',)
+    search_fields = ('recipient__username', 'title', 'message')
 
 
 
@@ -485,4 +560,3 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = ('payment_method', 'payment_date')
     search_fields = ('reference_no', 'recorded_by', 'bill__student__first_name', 'bill__student__last_name')
     readonly_fields = ('bill',)
-

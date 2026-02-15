@@ -12,22 +12,41 @@ from django.template.loader import render_to_string
 
 from app.constants import *
 from app.models.results import (
-    AssessmentType, AnnualResult, Assessment, GradingSystem, Result
+    AssessmentType,
+    AnnualResult,
+    Assessment,
+    GradingSystem,
+    Result,
+    VerificationSample,
+    ResultVerificationReport,
+    VerificationDiscrepancy,
+    VerificationCorrectionLog,
 )
 from app.forms.results import (
-    AssesmentTypeForm, GradingSystemForm, ResultForm, AssessmentForm
+    AssesmentTypeForm, GradingSystemForm, ResultForm, AssessmentForm, BulkAssessmentForm
 )
 from app.models import *
 from app.models.students import Student
+from app.models.accounts import StaffAccount
+from app.models.classes import ClassSubjectAllocation, AcademicClassStream, AcademicClass, Class, Term
 from app.selectors.model_selectors import *
 from app.selectors.results import (
     get_grade_and_points, get_current_mode, get_performance_metrics,
-    get_grade_from_average, calculate_weighted_subject_averages, get_division
+    get_grade_from_average, calculate_weighted_subject_averages, get_division,
+    get_division_with_override
 )
 from app.selectors.school_settings import get_current_academic_year
 from app.selectors.classes import get_current_term
 from app.utils.utils import calculate_grade_and_points
 from app.utils.pdf_utils import generate_student_report_pdf
+from app.services.results_sampling import (
+    ensure_batch_for_assessment,
+    submit_batch_for_verification,
+    update_sample_mark,
+    evaluate_batch_verification,
+    reset_batch_to_draft,
+    _create_verification_report,
+)
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from collections import defaultdict
@@ -71,6 +90,12 @@ def add_results_view(request, assessment_id=None):
 
     # Load the assessment and associated class
     assessment = get_object_or_404(Assessment, id=assessment_id)
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = (staff_account.role.name if staff_account and staff_account.role else "").strip().lower()
+    active_role = (request.session.get("active_role_name") or "").strip().lower()
+    if role_name in {"class teacher", "class_teacher"} or active_role in {"class teacher", "class_teacher"}:
+        messages.error(request, "Class teachers cannot enter marks. Please contact the subject teacher.")
+        return redirect('class_assessment_list')
     academic_class = assessment.academic_class
 
     # Get all registers for the class
@@ -98,22 +123,90 @@ def add_results_view(request, assessment_id=None):
     students_without_results = [s for s in students if s.id not in existing_student_ids]
 
     current_mode = ResultModeSetting.get_mode()
+    batch = ensure_batch_for_assessment(assessment)
+    all_results_entered = len(students_without_results) == 0 and len(students) > 0
 
     # Handle form submission
     if request.method == "POST":
+        if "bulk_edit" in request.POST:
+            if batch.status not in ["DRAFT", "FLAGGED"]:
+                messages.error(request, "Results are locked after submission for verification.")
+                return redirect('add_results', assessment_id=assessment.id)
+
+            if batch.status == "FLAGGED":
+                batch.rejection_reason = None
+                batch.save(update_fields=["rejection_reason"])
+                Result.objects.filter(batch=batch).update(status="DRAFT")
+
+            updated_count = 0
+            with transaction.atomic():
+                for result in existing_results:
+                    score_raw = request.POST.get(f"score_{result.student.id}")
+                    if score_raw in (None, ""):
+                        continue
+                    try:
+                        score = Decimal(score_raw)
+                    except (ValueError, TypeError, InvalidOperation):
+                        messages.error(request, f"Invalid score entered for {result.student}.")
+                        return redirect('add_results', assessment_id=assessment.id)
+
+                    if result.score != score:
+                        result.score = score
+                        result.save(update_fields=["score"])
+                        updated_count += 1
+
+            messages.success(request, f"Updated {updated_count} result(s) successfully!")
+
+            total_students = len(students)
+            total_results = Result.objects.filter(assessment=assessment).count()
+            if total_students > 0 and total_students == total_results:
+                messages.warning(
+                    request,
+                    "All results are now entered. Submit this batch for verification.",
+                )
+
+            return redirect('add_results', assessment_id=assessment.id)
+
         if "edit_result" in request.POST:
             result_id = request.POST.get("edit_result")
             result = get_object_or_404(Result, id=result_id, assessment=assessment)
             score = request.POST.get(f'score_{result.student.id}')
             try:
+                if batch.status not in ["DRAFT", "FLAGGED"]:
+                    messages.error(request, "Results are locked after submission for verification.")
+                    return redirect('add_results', assessment_id=assessment.id)
+
+                if batch.status == "FLAGGED":
+                    batch.status = "DRAFT"
+                    batch.rejection_reason = None
+                    batch.save(update_fields=["status", "rejection_reason"])
+                    Result.objects.filter(batch=batch).update(status="DRAFT")
+
                 result.score = Decimal(score)
                 result.save()
                 messages.success(request, f"Result for {result.student} updated successfully!")
+
+                total_students = len(students)
+                total_results = Result.objects.filter(assessment=assessment).count()
+                if total_students > 0 and total_students == total_results:
+                    messages.warning(
+                        request,
+                        "All results are now entered. Submit this batch for verification.",
+                    )
             except (ValueError, TypeError, InvalidOperation):
                 messages.error(request, f"Invalid score entered for {result.student}.")
             return redirect('add_results', assessment_id=assessment.id)
 
         elif "add_results" in request.POST:
+            if batch.status not in ["DRAFT", "FLAGGED"]:
+                messages.error(request, "Results are locked after submission for verification.")
+                return redirect('add_results', assessment_id=assessment.id)
+
+            if batch.status == "FLAGGED":
+                batch.rejection_reason = None
+                batch.save(update_fields=["rejection_reason"])
+                Result.objects.filter(batch=batch).update(status="DRAFT")
+
             with transaction.atomic():
                 bulk_results = []
                 for student in students_without_results:
@@ -124,7 +217,9 @@ def add_results_view(request, assessment_id=None):
                             bulk_results.append(Result(
                                 assessment=assessment,
                                 student=student,
-                                score=score
+                                score=score,
+                                batch=batch,
+                                status="DRAFT",
                             ))
                         except (ValueError, TypeError, InvalidOperation):
                             messages.error(request, f"Invalid score for {student}.")
@@ -132,14 +227,74 @@ def add_results_view(request, assessment_id=None):
 
                 Result.objects.bulk_create(bulk_results)
                 messages.success(request, "New results added successfully!")
+
+                total_students = len(students)
+                total_results = Result.objects.filter(assessment=assessment).count()
+                if total_students > 0 and total_students == total_results:
+                    messages.warning(
+                        request,
+                        "All results are now entered. Submit this batch for verification.",
+                    )
+            return redirect('add_results', assessment_id=assessment.id)
+
+        elif "submit_batch" in request.POST:
+            logger.info(
+                "submit_batch clicked: assessment_id=%s batch_id=%s status=%s results=%s",
+                assessment.id,
+                batch.id,
+                batch.status,
+                Result.objects.filter(assessment=assessment).count(),
+            )
+            submitted_batch, sample_count, ok = submit_batch_for_verification(assessment, request.user)
+            logger.info(
+                "submit_batch result: ok=%s batch_id=%s status=%s sample_count=%s",
+                ok,
+                submitted_batch.id if submitted_batch else None,
+                getattr(submitted_batch, "status", None),
+                sample_count,
+            )
+            if ok:
+                messages.success(request, f"Batch submitted for verification. {sample_count} samples selected.")
+            else:
+                messages.error(request, "Batch already submitted or no results to submit.")
+            return redirect('add_results', assessment_id=assessment.id)
+
+        elif "unlock_batch" in request.POST:
+            if batch.status == "VERIFIED":
+                reset_batch_to_draft(batch, request.user)
+                messages.success(request, "Batch unlocked and reset to Draft.")
+            else:
+                messages.error(request, "Only verified batches can be unlocked.")
             return redirect('add_results', assessment_id=assessment.id)
 
     # Render the results form
+    role_name = None
+    staff_account = getattr(request.user, "staff_account", None)
+    if staff_account and getattr(staff_account, "role", None):
+        role_name = staff_account.role.name
+    active_role = request.session.get("active_role_name")
+    effective_role = active_role or role_name
+    can_unlock_batch = (
+        request.user.is_superuser
+        or effective_role in ["Admin", "Director of Studies", "DOS"]
+    )
+    can_view_verification_queue = (
+        request.user.is_superuser
+        or effective_role in ["Admin", "Director of Studies", "DOS"]
+    )
+
+    if effective_role in ["Director of Studies", "DOS"]:
+        return redirect('verification_queue', assessment_id=assessment.id)
+
     context = {
         'assessment': assessment,
         'students_without_results': students_without_results,
         'existing_results': existing_results,
         'current_mode': current_mode,
+        'batch': batch,
+        'all_results_entered': all_results_entered,
+        'can_unlock_batch': can_unlock_batch,
+        'can_view_verification_queue': can_view_verification_queue,
     }
     return render(request, 'results/add_results_page.html', context)
 
@@ -166,6 +321,9 @@ def edit_results_view(request, assessment_id=None, student_id=None):
     if request.method == "POST":
         formset = ResultFormSet(request.POST, queryset=results)
         if formset.is_valid():
+            if assessment.result_batch and assessment.result_batch.status != "DRAFT":
+                messages.error(request, "Results are locked after submission for verification.")
+                return redirect('add_results', assessment_id=assessment_id)
             with transaction.atomic():
                 for form in formset:
                     form.instance.assessment = assessment
@@ -181,12 +339,14 @@ def edit_results_view(request, assessment_id=None, student_id=None):
 
     zipped_forms = zip(formset.forms, form_students)
     current_mode = ResultModeSetting.get_mode()
+    batch = ensure_batch_for_assessment(assessment)
 
     context = {
         'assessment': assessment,
         'formset': formset,
         'zipped_forms': zipped_forms,
         'current_mode': current_mode,
+        'batch': batch,
     }
     return render(request, 'results/edit_results_page.html', context)
 
@@ -259,12 +419,15 @@ def class_assessment_list_view(request):
 
     # Restricted mode: no fallback to all classes for teachers
 
+    is_teacher_role = role_key in {'teacher', 'class teacher', 'class_teacher'}
+
     context = {
         'academic_classes': academic_classes,
         'academic_years': academic_years,
         'terms': terms,
         'selected_year_id': str(selected_year_id or ''),
         'selected_term_id': str(selected_term_id or ''),
+        'is_teacher_role': is_teacher_role,
     }
     return render(request, 'results/class_assessments.html', context)
 
@@ -288,7 +451,14 @@ def list_assessments_view(request, class_id):
         if staff_account or role_key:
             # Teachers: only their subject assessments; Class Teachers: all assessments in the class
             if role_key in {"class teacher", "class_teacher"}:
-                base_qs = Assessment.objects.filter(academic_class=academic_class)
+                is_class_teacher = AcademicClassStream.objects.filter(
+                    class_teacher=staff_account.staff,
+                    academic_class=academic_class,
+                ).exists()
+                if is_class_teacher:
+                    base_qs = Assessment.objects.filter(academic_class=academic_class)
+                else:
+                    base_qs = Assessment.objects.none()
             elif role_key == "teacher":
                 teacher_allocations = ClassSubjectAllocation.objects.filter(
                     subject_teacher=staff_account.staff,
@@ -350,8 +520,29 @@ def list_assessments_view(request, class_id):
     
     # Normalize role name for case-insensitive checks
     role_key = (role_name or "").strip().lower()
+    is_dos_user = False
+    if role_key in {"director of studies", "dos"}:
+        is_dos_user = True
+    elif staff_account and getattr(staff_account, "role", None):
+        if (staff_account.role.name or "").strip().lower() in {"director of studies", "dos"}:
+            is_dos_user = True
+    elif staff_account and getattr(staff_account, "staff", None):
+        if staff_account.staff.roles.filter(name__in=["Director of Studies", "DOS"]).exists():
+            is_dos_user = True
+
     allowed_roles = {"teacher", "class teacher", "class_teacher", "head master", "headmaster", "director of studies", "admin"}
+    status_filter = (request.GET.get("status") or "").strip().lower()
+    if status_filter == "draft":
+        assessments = assessments.filter(Q(result_batch__status="DRAFT") | Q(result_batch__isnull=True))
+    is_teacher_role = role_key in {"teacher", "class teacher", "class_teacher"}
+    if not is_teacher_role and staff_account and getattr(staff_account, "staff", None):
+        if staff_account.staff.roles.filter(name__in=["Teacher", "Class Teacher"]).exists():
+            is_teacher_role = True
+
     can_add_results = request.user.is_superuser or (role_key in allowed_roles)
+    can_view_verification_queue = request.user.is_superuser or is_dos_user or role_key in {"admin"}
+
+    assessments = assessments.select_related('result_batch')
 
     return render(request, 'results/list_assessments.html', {
         'assessments': assessments.order_by('-date', 'assessment_type__name', 'subject__name'),
@@ -362,7 +553,11 @@ def list_assessments_view(request, class_id):
         'selected_assessment_type_id': str(assessment_type_id or ''),
         'date_from': date_from_raw or '',
         'date_to': date_to_raw or '',
+        'status_filter': status_filter,
         'can_add_results': can_add_results,
+        'can_view_verification_queue': can_view_verification_queue,
+        'role_key': role_key,
+        'is_teacher_role': is_teacher_role,
     })
 
 
@@ -370,6 +565,15 @@ def list_assessments_view(request, class_id):
 #Grading System
 @login_required
 def grading_system_view(request):
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    is_dos = (role_name in {"Director of Studies", "DOS"} or active_role in {"Director of Studies", "DOS"})
+
+    if request.method == "POST" and not is_dos:
+        messages.error(request, "Only the Director of Studies can add grading systems.")
+        return redirect("add_grading_system_page")
+
     if request.method == "POST":
         grading_form = GradingSystemForm(request.POST)
         if grading_form.is_valid():
@@ -384,8 +588,9 @@ def grading_system_view(request):
     grading_systems = GradingSystem.objects.all()  
 
     context = {
-        'grading_form': grading_form,  
-        'grading_systems': grading_systems,  
+        'grading_form': grading_form,
+        'grading_systems': grading_systems,
+        'is_dos': is_dos,
     }
 
     return render(request, 'results/grading_system.html', context)
@@ -432,7 +637,80 @@ def assessment_list_view(request):
     return render(request, 'results/list_assessments.html', context)
 
 @login_required
+def exam_timetable_view(request):
+    selected_year_id = request.GET.get("year_id")
+    selected_term_id = request.GET.get("term_id")
+    selected_class_id = request.GET.get("class_id")
+    selected_assessment_type_id = request.GET.get("assessment_type_id")
+
+    assessments = Assessment.objects.select_related(
+        "academic_class",
+        "assessment_type",
+        "subject",
+        "academic_class__academic_year",
+        "academic_class__term",
+    )
+
+    if selected_year_id:
+        assessments = assessments.filter(academic_class__academic_year_id=selected_year_id)
+    if selected_term_id:
+        assessments = assessments.filter(academic_class__term_id=selected_term_id)
+    if selected_class_id:
+        assessments = assessments.filter(academic_class__Class_id=selected_class_id)
+    if selected_assessment_type_id:
+        assessments = assessments.filter(assessment_type_id=selected_assessment_type_id)
+
+    assessments = assessments.order_by("date", "academic_class__Class__name", "subject__name")
+
+    assessments_by_date = defaultdict(list)
+    for assessment in assessments:
+        assessments_by_date[assessment.date].append(assessment)
+
+    academic_years = AcademicYear.objects.all().order_by("-id")
+    terms = Term.objects.all().order_by("term")
+    classes = Class.objects.all().order_by("name")
+    assessment_types = AssessmentType.objects.all().order_by("name")
+
+    selected_year_label = AcademicYear.objects.filter(id=selected_year_id).first() if selected_year_id else None
+    selected_term_label = Term.objects.filter(id=selected_term_id).first() if selected_term_id else None
+    selected_class_label = Class.objects.filter(id=selected_class_id).first() if selected_class_id else None
+    selected_assessment_type_label = AssessmentType.objects.filter(id=selected_assessment_type_id).first() if selected_assessment_type_id else None
+
+    context = {
+        "assessments_by_date": dict(assessments_by_date),
+        "academic_years": academic_years,
+        "terms": terms,
+        "classes": classes,
+        "assessment_types": assessment_types,
+        "selected_year_id": str(selected_year_id or ""),
+        "selected_term_id": str(selected_term_id or ""),
+        "selected_class_id": str(selected_class_id or ""),
+        "selected_assessment_type_id": str(selected_assessment_type_id or ""),
+        "selected_year_label": selected_year_label.academic_year if selected_year_label else "All",
+        "selected_term_label": selected_term_label.term if selected_term_label else "All",
+        "selected_class_label": selected_class_label.name if selected_class_label else "All",
+        "selected_assessment_type_label": selected_assessment_type_label.name if selected_assessment_type_label else "All",
+        "generated_at": timezone.now(),
+    }
+
+    if request.GET.get("print") == "1":
+        school = SchoolSetting.load()
+        context.update({"school": school})
+        html = render_to_string("results/exam_timetable_print.html", context)
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = "inline; filename=exam_timetable.pdf"
+        pisa_status = pisa.CreatePDF(html, dest=response)
+        if pisa_status.err:
+            return HttpResponse("PDF generation error", status=500)
+        return response
+
+    return render(request, "results/exam_timetable.html", context)
+
+
+@login_required
 def add_assessment_view(request):
+    from app.models.accounts import StaffAccount
+    from app.models.classes import AcademicClassStream
     # ---- Helpers ----
     def to_int(val):
         try:
@@ -460,6 +738,19 @@ def add_assessment_view(request):
     date_to_raw = request.GET.get('date_to')
     is_done_raw = request.GET.get('is_done')  # 'yes' | 'no' | None
 
+    # ---- Role + class scope ----
+    active_role = request.session.get("active_role_name")
+    staff_account = StaffAccount.objects.filter(user=request.user).select_related("staff", "role").first()
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    is_class_teacher = (active_role == "Class Teacher" or role_name == "Class Teacher")
+    class_ids = []
+    if is_class_teacher and staff_account and staff_account.staff:
+        class_ids = list(
+            AcademicClassStream.objects.filter(class_teacher=staff_account.staff)
+            .values_list("academic_class_id", flat=True)
+            .distinct()
+        )
+
     # ---- Options for selects (Gentellella filter bar) ----
     academic_years = AcademicYear.objects.all().order_by('-id')
     if selected_year_id:
@@ -476,6 +767,12 @@ def add_assessment_view(request):
         .select_related('academic_class', 'assessment_type', 'subject')
         .all()
     )
+
+    if is_class_teacher:
+        if class_ids:
+            assessments = assessments.filter(academic_class_id__in=class_ids)
+        else:
+            assessments = assessments.none()
 
     if selected_year_id:
         assessments = assessments.filter(academic_class__academic_year_id=selected_year_id)
@@ -500,24 +797,85 @@ def add_assessment_view(request):
 
     assessments = assessments.order_by('-date', 'assessment_type__name', 'subject__name', '-id')
 
+    # ---- Verification Status Filter ----
+    verification_status = request.GET.get('verification_status')
+    if verification_status:
+        if verification_status == "PENDING_OR_DRAFT":
+            assessments = assessments.filter(result_batch__status__in=["PENDING", "DRAFT"])
+        else:
+            assessments = assessments.filter(result_batch__status=verification_status)
+
     # ---- Create assessment (modal submit) ----
     if request.method == "POST":
-        form = AssessmentForm(request.POST)
-        if form.is_valid():
-            try:
-                form.save()
-                messages.success(request, SUCCESS_ADD_MESSAGE)
+        if request.POST.get("bulk_subjects") == "1":
+            bulk_form = BulkAssessmentForm(request.POST)
+            form = AssessmentForm()
+            if is_class_teacher:
+                bulk_form.fields["academic_class"].queryset = AcademicClass.objects.filter(id__in=class_ids)
+            if bulk_form.is_valid():
+                academic_class = bulk_form.cleaned_data["academic_class"]
+                if is_class_teacher and academic_class.id not in class_ids:
+                    messages.error(request, "You can only create assessments for your assigned class.")
+                    return redirect('assessment_create')
+                assessment_type = bulk_form.cleaned_data["assessment_type"]
+                subjects = bulk_form.cleaned_data["subjects"]
+                date = bulk_form.cleaned_data["date"]
+                out_of = bulk_form.cleaned_data["out_of"]
+                is_done = bulk_form.cleaned_data["is_done"]
+
+                created = 0
+                skipped = 0
+                for subject in subjects:
+                    _, was_created = Assessment.objects.get_or_create(
+                        academic_class=academic_class,
+                        assessment_type=assessment_type,
+                        subject=subject,
+                        defaults={
+                            "date": date,
+                            "out_of": out_of,
+                            "is_done": is_done,
+                        },
+                    )
+                    if was_created:
+                        created += 1
+                    else:
+                        skipped += 1
+
+                if created:
+                    messages.success(request, f"Created {created} assessment(s).")
+                if skipped:
+                    messages.warning(request, f"Skipped {skipped} existing assessment(s).")
                 return redirect('assessment_create')
-            except IntegrityError:
-                form.add_error(None, "An assessment for this Class, Type and Subject already exists.")
-                messages.error(request, "Duplicate assessment for this Class, Type and Subject.")
+            else:
+                messages.error(request, FAILURE_MESSAGE)
         else:
-            messages.error(request, FAILURE_MESSAGE)
+            form = AssessmentForm(request.POST)
+            bulk_form = BulkAssessmentForm()
+            if is_class_teacher:
+                form.fields["academic_class"].queryset = AcademicClass.objects.filter(id__in=class_ids)
+            if form.is_valid():
+                if is_class_teacher and form.cleaned_data["academic_class"].id not in class_ids:
+                    messages.error(request, "You can only create assessments for your assigned class.")
+                    return redirect('assessment_create')
+                try:
+                    form.save()
+                    messages.success(request, SUCCESS_ADD_MESSAGE)
+                    return redirect('assessment_create')
+                except IntegrityError:
+                    form.add_error(None, "An assessment for this Class, Type and Subject already exists.")
+                    messages.error(request, "Duplicate assessment for this Class, Type and Subject.")
+            else:
+                messages.error(request, FAILURE_MESSAGE)
     else:
         form = AssessmentForm()
+        bulk_form = BulkAssessmentForm()
+        if is_class_teacher:
+            form.fields["academic_class"].queryset = AcademicClass.objects.filter(id__in=class_ids)
+            bulk_form.fields["academic_class"].queryset = AcademicClass.objects.filter(id__in=class_ids)
 
     context = {
         'form': form,
+        'bulk_form': bulk_form,
         'assessments': assessments,
         # Filter options and selections
         'academic_years': academic_years,
@@ -533,6 +891,7 @@ def add_assessment_view(request):
         'date_from': date_from_raw or '',
         'date_to': date_to_raw or '',
         'selected_is_done': is_done_raw or '',
+        'verification_status': verification_status or '',
     }
     return render(request, 'results/add_assessment.html', context)
 
@@ -628,14 +987,15 @@ def class_result_filter_view(request):
 
     if staff_account:
         role_name = staff_account.role.name
+        active_role = request.session.get("active_role_name")
 
-        if role_name in ["Admin", "Head master", "Director of Studies"]:
+        if role_name in ["Admin", "Head master", "Director of Studies"] and active_role != "Class Teacher":
             # Full access
             academic_class_streams = AcademicClassStream.objects.select_related(
                 'academic_class', 'stream', 'academic_class__academic_year'
             ).all()
         
-        elif role_name == "Class Teacher":
+        elif role_name == "Class Teacher" or active_role == "Class Teacher":
             # Restricted to streams assigned to them
             academic_class_streams = AcademicClassStream.objects.select_related(
                 'academic_class', 'stream', 'academic_class__academic_year'
@@ -1041,7 +1401,20 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
     total_aggregates = sum(item['points'] for item in summary) if summary else 0
     overall_average = (total_marks / len(results)).quantize(Decimal('0.01')) if results else Decimal('0.00')
     overall_grade, overall_points = get_grade_and_points(overall_average)
-    selected_division = get_division(int(total_aggregates)) if total_aggregates else "-"
+    subject_grades = {
+        item['subject']: {
+            'grade': item['grade'],
+            'points': item['points']
+        }
+        for item in summary
+    }
+    if total_aggregates:
+        selected_division, division_override_note = get_division_with_override(
+            int(total_aggregates),
+            subject_grades
+        )
+    else:
+        selected_division, division_override_note = "-", None
 
     academic_year_source = (
         resolved_academic_class.academic_year
@@ -1101,6 +1474,7 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
         'class_teacher_signature': class_teacher_signature,
         'no_results_message': no_results_message,
         'selected_division': selected_division,
+        'division_override_note': division_override_note,
     }
 
     
@@ -1282,19 +1656,35 @@ def build_student_report_context(student, term_id, academic_class=None):
     ).quantize(Decimal('0.01')) if total_weight else Decimal('0.00')
     overall_grade, overall_points = get_grade_and_points(overall_average)
 
-    # Calculate assessment divisions
+    subject_grades = {
+        item['subject']: {
+            'grade': item['grade'],
+            'points': item['points']
+        }
+        for item in report_data
+    }
+
+    # Calculate assessment divisions (per assessment type)
     assessment_divisions = {}
     for at in assessment_types:
         total_points = int(assessment_totals[at.name]['points'])
         count = assessment_totals[at.name]['count']
         assessment_divisions[at.name] = (
-            get_division(total_points) if count > 0 else "-"
+            get_division(total_points, subject_grades) if count > 0 else "-"
         )
 
     total_aggregates = sum(
         assessment_totals[at.name]['points'] for at in assessment_types
         if assessment_totals[at.name]['count'] > 0
     )
+
+    if total_aggregates:
+        selected_division, division_override_note = get_division_with_override(
+            int(total_aggregates),
+            subject_grades
+        )
+    else:
+        selected_division, division_override_note = "-", None
 
     academic_year_str = academic_year.academic_year if academic_year else "-"
     term_name = term.term if term else "-"
@@ -1348,6 +1738,8 @@ def build_student_report_context(student, term_id, academic_class=None):
         'assessment_totals': assessment_totals,
         'total_aggregates': int(total_aggregates),
         'assessment_divisions': assessment_divisions,
+        'selected_division': selected_division,
+        'division_override_note': division_override_note,
         'next_term_start_date': next_term_start_date,
         'next_term_name': next_term_name,
         'head_teacher_signature': head_teacher_signature,
@@ -1769,7 +2161,7 @@ def assessment_sheet_view(request):
         "grades": unique_grades,
         "academic_years": academic_years,
         "selected_year_id": selected_year_id,
-        "school_name": request.session.get('school_name', 'Bayan Learning Center'),
+        "school_name": getattr(SchoolSetting.load(), "school_name", None),
         "show_selection": not selected_grade or selected_grade not in unique_grades,
     }
 
@@ -1970,12 +2362,28 @@ def assessment_sheet_view(request):
                 total_marks_sum += Decimal(str(score)) if score is not None else Decimal("0")
                 total_aggregates_sum += float(points) if points is not None else 0.0
 
+        subject_grades = {
+            subject: {
+                "grade": "",
+                "points": data.get("agg")
+            }
+            for subject, data in subjects_payload.items()
+        }
+
+        if total_aggregates_sum:
+            division_label, _ = get_division_with_override(
+                int(total_aggregates_sum),
+                subject_grades
+            )
+        else:
+            division_label = "-"
+
         student_record = {
             "name": student.student_name,
             "subjects": subjects_payload,
             "total_marks": int(q2(total_marks_sum)),
             "total_aggregates": total_aggregates_sum,
-            "division": get_division(total_aggregates_sum) if total_aggregates_sum else "-",
+            "division": division_label,
         }
 
         students_data.append(student_record)
@@ -2180,7 +2588,7 @@ def assessment_sheet_view(request):
         csv_content = output.getvalue()
         output.close()
 
-        school_name_text = request.session.get('school_name', 'Bayan Learning Center')
+        school_name_text = getattr(SchoolSetting.load(), "school_name", None) or "School"
         filename = f'{school_name_text}_{term_obj.term}_{selected_grade}_Assessment.csv'.replace(' ', '_')
         response = HttpResponse(csv_content, content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -2469,6 +2877,10 @@ def bulk_result_entry_view(request, assessment_id=None):
         csv_file = request.FILES['csv_file']
         assessment_id = request.POST.get('assessment_id')
         assessment = get_object_or_404(Assessment, id=assessment_id)
+        batch = ensure_batch_for_assessment(assessment)
+        if batch.status != "DRAFT":
+            messages.error(request, "Results are locked after submission for verification.")
+            return redirect('add_results', assessment_id=assessment.id)
 
         # Process CSV
         import csv
@@ -2485,7 +2897,9 @@ def bulk_result_entry_view(request, assessment_id=None):
                     Result.objects.create(
                         assessment=assessment,
                         student=student,
-                        score=Decimal(score)
+                        score=Decimal(score),
+                        batch=batch,
+                        status="DRAFT",
                     )
                 except (Student.DoesNotExist, ValueError):
                     messages.error(request, f"Error processing row for {student_reg_no}")
@@ -2500,6 +2914,369 @@ def bulk_result_entry_view(request, assessment_id=None):
         'assessments': assessments,
     }
     return render(request, 'results/bulk_result_entry.html', context)
+
+
+@login_required
+def verification_queue_view(request, assessment_id):
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    batch = ensure_batch_for_assessment(assessment)
+    samples = VerificationSample.objects.filter(result__assessment=assessment).select_related(
+        'result', 'result__student'
+    )
+    results = Result.objects.filter(assessment=assessment).select_related("student")
+    sample_map = {sample.result_id: sample for sample in samples}
+
+    staff_account = StaffAccount.objects.filter(user=request.user).first()
+    role_name = staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None
+    active_role = request.session.get("active_role_name")
+    effective_role = active_role or role_name
+    if not (request.user.is_superuser or effective_role in ["Admin", "Director of Studies", "DOS"]):
+        messages.error(request, "You do not have permission to verify results.")
+        return redirect('class_assessment_list')
+
+    if request.method == "POST":
+        if batch.status != "PENDING":
+            messages.error(request, "Batch is not pending verification.")
+            return redirect('verification_queue', assessment_id=assessment.id)
+
+        if "finalize_verification" in request.POST:
+            checked_samples = 0
+            for result in results:
+                mark_raw = request.POST.get(f"dos_mark_{result.id}")
+                if mark_raw not in (None, ""):
+                    try:
+                        dos_mark = Decimal(mark_raw)
+                    except (ValueError, InvalidOperation):
+                        messages.error(request, f"Invalid DOS mark for {result.student}.")
+                        return redirect('verification_queue', assessment_id=assessment.id)
+
+                    sample = sample_map.get(result.id)
+                    if not sample:
+                        sample = VerificationSample.objects.create(result=result)
+                        sample_map[result.id] = sample
+
+                    update_sample_mark(sample, dos_mark, request.user)
+                    checked_samples += 1
+
+            if checked_samples == 0:
+                messages.error(request, "Enter at least one DOS mark before finalizing.")
+                return redirect('verification_queue', assessment_id=assessment.id)
+
+            rejection_reason = request.POST.get("rejection_reason", "").strip()
+            has_mismatch = VerificationSample.objects.filter(result__batch=batch, matched=False).exists()
+            if has_mismatch and not rejection_reason:
+                messages.error(request, "Provide a rejection reason for mismatched samples.")
+                return redirect('verification_queue', assessment_id=assessment.id)
+            status = evaluate_batch_verification(batch, request.user, rejection_reason=rejection_reason)
+            if status == "VERIFIED":
+                messages.success(request, "Batch verified successfully.")
+            elif status == "FLAGGED":
+                messages.error(request, "Mismatches detected. Batch flagged for review.")
+            else:
+                messages.error(request, "Complete all DOS marks before finalizing.")
+            return redirect('verification_queue', assessment_id=assessment.id)
+
+        elif "reject_batch" in request.POST:
+            rejection_reason = request.POST.get("rejection_reason", "").strip()
+            if not rejection_reason:
+                messages.error(request, "Rejection reason is mandatory when explicitly rejecting a batch.")
+                return redirect('verification_queue', assessment_id=assessment.id)
+
+            batch.status = "FLAGGED"
+            batch.rejection_reason = rejection_reason
+            batch.save(update_fields=["status", "rejection_reason"])
+            Result.objects.filter(batch=batch).update(status="FLAGGED")
+            
+            # Mark notifications as read
+            ResultVerificationNotification.objects.filter(batch=batch, read=False).update(
+                read=True,
+                read_at=timezone.now(),
+            )
+            
+            _create_verification_report(batch, request.user)
+            
+            messages.success(request, "Batch rejected and flagged for review.")
+            return redirect('verification_queue', assessment_id=assessment.id)
+
+    is_dos_user = effective_role in ["Admin", "Director of Studies", "DOS"]
+    reviewed_count = samples.exclude(checked_at__isnull=True).count()
+    context = {
+        'assessment': assessment,
+        'batch': batch,
+        'samples': samples,
+        'results': results,
+        'sample_map': sample_map,
+        'is_dos_user': is_dos_user,
+        'reviewed_count': reviewed_count,
+    }
+    return render(request, 'results/verification_queue.html', context)
+
+
+@login_required
+def verification_report_view(request, assessment_id):
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    batch = ensure_batch_for_assessment(assessment)
+
+    staff_account = StaffAccount.objects.filter(user=request.user).first()
+    role_name = staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None
+    active_role = request.session.get("active_role_name")
+    effective_role = active_role or role_name
+    if not (request.user.is_superuser or effective_role in ["Admin", "Director of Studies", "DOS"]):
+        messages.error(request, "You do not have permission to view verification reports.")
+        return redirect('class_assessment_list')
+
+    report = ResultVerificationReport.objects.filter(batch=batch).select_related("verified_by").first()
+    samples = VerificationSample.objects.filter(result__batch=batch).select_related(
+        "result", "result__student"
+    )
+    discrepancies = VerificationDiscrepancy.objects.filter(batch=batch).select_related(
+        "result", "result__student"
+    )
+    correction_logs = VerificationCorrectionLog.objects.filter(batch=batch).select_related(
+        "result", "result__student", "corrected_by"
+    )
+
+    final_results = Result.objects.filter(batch=batch).select_related("student").order_by("student__student_name")
+
+    teacher_performance = []
+    try:
+        allocations = ClassSubjectAllocation.objects.filter(
+            academic_class_stream__academic_class=assessment.academic_class,
+            subject=assessment.subject,
+        ).select_related("subject_teacher")
+        for allocation in allocations:
+            teacher_name = getattr(allocation.subject_teacher, "staff_name", None) or str(allocation.subject_teacher)
+            teacher_performance.append({
+                "teacher": teacher_name,
+                "error_count": discrepancies.count(),
+                "error_rate": 0,
+            })
+    except Exception:
+        teacher_performance = []
+
+    context = {
+        "assessment": assessment,
+        "batch": batch,
+        "report": report,
+        "samples": samples,
+        "discrepancies": discrepancies,
+        "correction_logs": correction_logs,
+        "final_results": final_results,
+        "teacher_performance": teacher_performance,
+    }
+    return render(request, "results/verification_report.html", context)
+
+
+@login_required
+def verification_overview_view(request):
+    def to_int(val):
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return None
+
+    selected_year_id = to_int(request.GET.get("year_id"))
+    selected_term_id = to_int(request.GET.get("term_id"))
+    selected_class_id = to_int(request.GET.get("class_id"))
+    selected_subject_id = to_int(request.GET.get("subject_id"))
+    selected_assessment_type_id = to_int(request.GET.get("assessment_type_id"))
+    selected_status = (request.GET.get("status") or "ALL").upper()
+
+    academic_years = AcademicYear.objects.all().order_by('-id')
+    terms = Term.objects.filter(academic_year_id=selected_year_id).order_by('start_date') if selected_year_id else Term.objects.all().order_by('academic_year__id', 'start_date')
+    classes = Class.objects.all().order_by('name')
+    subjects = Subject.objects.all().order_by('name')
+    assessment_types = AssessmentType.objects.all().order_by('name')
+
+    assessments = Assessment.objects.select_related('academic_class', 'assessment_type', 'subject', 'result_batch')
+
+    if selected_year_id:
+        assessments = assessments.filter(academic_class__academic_year_id=selected_year_id)
+    if selected_term_id:
+        assessments = assessments.filter(academic_class__term_id=selected_term_id)
+    if selected_class_id:
+        assessments = assessments.filter(academic_class__Class_id=selected_class_id)
+    if selected_subject_id:
+        assessments = assessments.filter(subject_id=selected_subject_id)
+    if selected_assessment_type_id:
+        assessments = assessments.filter(assessment_type_id=selected_assessment_type_id)
+
+    if selected_status in {"PENDING", "DRAFT", "VERIFIED", "FLAGGED"}:
+        assessments = assessments.filter(result_batch__status=selected_status)
+    elif selected_status == "ALL":
+        assessments = assessments.filter(result_batch__status__in=["PENDING", "DRAFT", "VERIFIED", "FLAGGED"])
+    else:
+        assessments = assessments.filter(result_batch__status="PENDING")
+
+    pending_count = ResultBatch.objects.filter(status="PENDING").count()
+    draft_count = ResultBatch.objects.filter(status="DRAFT").count()
+
+    context = {
+        "assessments": assessments.order_by('-date', 'assessment_type__name', 'subject__name'),
+        "academic_years": academic_years,
+        "terms": terms,
+        "classes": classes,
+        "subjects": subjects,
+        "assessment_types": assessment_types,
+        "selected_year_id": str(selected_year_id or ''),
+        "selected_term_id": str(selected_term_id or ''),
+        "selected_class_id": str(selected_class_id or ''),
+        "selected_subject_id": str(selected_subject_id or ''),
+        "selected_assessment_type_id": str(selected_assessment_type_id or ''),
+        "selected_status": selected_status,
+        "pending_count": pending_count,
+        "draft_count": draft_count,
+    }
+    return render(request, "results/verification_overview.html", context)
+
+
+@login_required
+def assessment_verified_sheet_view(request, assessment_id):
+    assessment = get_object_or_404(Assessment, id=assessment_id)
+    batch = ensure_batch_for_assessment(assessment)
+
+    if batch.status != "VERIFIED":
+        messages.error(request, "Assessment is not verified yet.")
+        return redirect('add_results', assessment_id=assessment.id)
+
+    results = Result.objects.filter(assessment=assessment).select_related(
+        "student",
+        "assessment__subject",
+        "assessment__academic_class__Class",
+    )
+
+    def division_from_aggregates(total_aggregates):
+        try:
+            total = float(total_aggregates)
+        except (TypeError, ValueError):
+            return "U"
+        if 4 <= total <= 12:
+            return 1
+        if 13 <= total <= 24:
+            return 2
+        if 25 <= total <= 28:
+            return 3
+        if 29 <= total <= 32:
+            return 4
+        return "U"
+
+    class_stream = AcademicClassStream.objects.filter(
+        academic_class=assessment.academic_class
+    ).select_related("stream", "class_teacher").first()
+
+    subject_teacher = None
+    subject_allocation = ClassSubjectAllocation.objects.filter(
+        academic_class_stream=class_stream,
+        subject=assessment.subject,
+    ).select_related("subject_teacher").first() if class_stream else None
+    if subject_allocation and subject_allocation.subject_teacher:
+        subject_teacher = f"{subject_allocation.subject_teacher.first_name} {subject_allocation.subject_teacher.last_name}".strip()
+
+    response = HttpResponse(content_type="application/pdf")
+    response['Content-Disposition'] = (
+        f'attachment; filename="{assessment.subject.name}_{assessment.assessment_type.name}_Verified_Sheet.pdf"'
+    )
+
+    doc = SimpleDocTemplate(response, pagesize=landscape(A4), leftMargin=28, rightMargin=28, topMargin=24, bottomMargin=24)
+    elements = []
+    styles = getSampleStyleSheet()
+    title_style = styles['Title']
+    title_style.textColor = colors.HexColor("#1f4e79")
+    heading_style = styles['Heading2']
+    heading_style.alignment = 1
+    heading_style.textColor = colors.HexColor("#1f4e79")
+
+    total_students = results.count()
+    academic_year = assessment.academic_class.academic_year.academic_year if assessment.academic_class.academic_year else "-"
+    term_label = assessment.academic_class.term.term if assessment.academic_class.term else "-"
+    school_name = getattr(SchoolSetting.load(), "school_name", "School")
+
+    header_table = Table([
+        [school_name, "Verified Assessment Sheet"],
+        [f"{assessment.subject.name} ({assessment.assessment_type.name})", ""],
+    ], colWidths=[420, 300])
+    header_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1f4e79")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor("#e8eef5")),
+        ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor("#1f4e79")),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, 1), 11),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 10))
+
+    meta_table = Table([
+        ["Academic Year", academic_year, "Term", term_label],
+        ["Class", str(assessment.academic_class), "Stream", (class_stream.stream.stream if class_stream else "-")],
+        ["Subject Teacher", subject_teacher or "-", "Students", str(total_students)],
+        ["Marked Scripts", str(total_students), "Status", batch.status],
+    ], colWidths=[110, 210, 90, 170])
+    meta_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#f4f6f9")),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor("#f4f6f9")),
+        ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor("#f4f6f9")),
+        ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor("#f4f6f9")),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor("#1f2937")),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(meta_table)
+    elements.append(Spacer(1, 12))
+
+    data = [[
+        "No",
+        "Name",
+        assessment.subject.name,
+        "AGG",
+        "T.T Marks",
+        "T.T Agg",
+        "DIV",
+    ]]
+
+    for idx, result in enumerate(results, 1):
+        aggregates = result.points
+        division = division_from_aggregates(aggregates)
+        data.append([
+            str(idx),
+            result.student.student_name,
+            str(result.score),
+            str(result.points),
+            str(result.score),
+            str(aggregates),
+            division,
+        ])
+
+    table = Table(data, repeatRows=1, colWidths=[35, 200, 85, 55, 85, 55, 45])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#dbe7f6")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor("#1f4e79")),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (1, 1), (2, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor("#f8fafc"), colors.white]),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(table)
+
+    doc.build(elements)
+    return response
 
 
 @login_required
@@ -2611,7 +3388,8 @@ def class_assessment_combined_view(request):
                     Result.objects
                     .filter(
                         assessment__academic_class=class_obj,
-                        assessment__assessment_type_id__in=at_order
+                        assessment__assessment_type_id__in=at_order,
+                        status="VERIFIED",
                     )
                     .select_related('student', 'assessment__subject', 'assessment__assessment_type')
                 )
@@ -2808,7 +3586,8 @@ def class_assessment_combined_print(request):
         Result.objects
         .filter(
             assessment__academic_class=class_obj,
-            assessment__assessment_type_id__in=at_order
+            assessment__assessment_type_id__in=at_order,
+            status="VERIFIED",
         )
         .select_related('student', 'assessment__subject', 'assessment__assessment_type')
     )
@@ -2877,6 +3656,51 @@ def class_assessment_combined_print(request):
     for student in students:
         # Subject set for this student (limit to those that appear in data)
         subj_map = data.get(student.id, {})
+        if not subj_map:
+            student_results = results_qs.filter(student_id=student.id)
+            for r in student_results:
+                subj = (r.assessment.subject.name or '').strip()
+                if not subj:
+                    continue
+                at_id = r.assessment.assessment_type_id
+                try:
+                    score_val = Decimal(str(r.score))
+                except Exception:
+                    score_val = Decimal('0')
+
+                try:
+                    points_val = float(r.points)
+                except Exception:
+                    points_val = None
+
+                if points_val in (None, 0.0):
+                    _, points_val = get_grade_and_points(score_val)
+
+                if not points_val:
+                    s = float(score_val)
+                    if s >= 80:
+                        points_val = 1
+                    elif s >= 75:
+                        points_val = 2
+                    elif s >= 70:
+                        points_val = 3
+                    elif s >= 65:
+                        points_val = 4
+                    elif s >= 60:
+                        points_val = 5
+                    elif s >= 55:
+                        points_val = 6
+                    elif s >= 50:
+                        points_val = 7
+                    elif s >= 40:
+                        points_val = 8
+                    else:
+                        points_val = 9
+
+                subj_map.setdefault(subj, {})[at_id] = {
+                    'score': float(score_val),
+                    'points': float(points_val) if points_val is not None else 0.0,
+                }
         # Exclude القرآن for combined report
         subjects = sorted([n for n in subj_map.keys() if n != 'القرآن'])
 
@@ -2935,6 +3759,24 @@ def class_assessment_combined_print(request):
             count = assessment_totals[at.name]['count']
             assessment_divisions[at.name] = get_division(tot_pts) if count > 0 else "-"
 
+        subject_grades = {}
+        for row in report_rows:
+            subject_name = row.get('subject')
+            points_val = None
+            for at in selected_assessment_types:
+                data = row.get('assessments', {}).get(at.name, {})
+                pts = data.get('points')
+                if isinstance(pts, (int, float)):
+                    points_val = pts
+                    break
+                try:
+                    pts_num = float(pts)
+                    points_val = pts_num
+                    break
+                except (TypeError, ValueError):
+                    continue
+            subject_grades[subject_name] = {"grade": "", "points": points_val}
+
         # Class teacher signature for the student's stream
         class_teacher_signature = None
         try:
@@ -2969,6 +3811,19 @@ def class_assessment_combined_print(request):
             class_teacher_remark = ''
             head_teacher_remark = ''
         
+        total_aggregates = sum(
+            assessment_totals[at.name]['points']
+            for at in selected_assessment_types
+            if assessment_totals[at.name]['count'] > 0
+        )
+        if total_aggregates:
+            selected_division, division_override_note = get_division_with_override(
+                int(total_aggregates),
+                subject_grades
+            )
+        else:
+            selected_division, division_override_note = "-", None
+
         reports.append({
             'student': student,
             'report_data': report_rows,
@@ -2978,6 +3833,8 @@ def class_assessment_combined_print(request):
             'academic_year': class_obj.academic_year.academic_year,
             'assessment_totals': assessment_totals,
             'assessment_divisions': assessment_divisions,
+            'selected_division': selected_division,
+            'division_override_note': division_override_note,
             'next_term_start_date': next_term_start_date,
             'head_teacher_signature': head_teacher_signature,
             'class_teacher_signature': class_teacher_signature,

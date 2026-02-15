@@ -2,6 +2,8 @@ from app.models.fees_payment import *
 from django.shortcuts import get_object_or_404
 from app.models.students import *
 from app.models.classes import *
+
+
 def get_student_bills():
     return StudentBill.objects.all()
 

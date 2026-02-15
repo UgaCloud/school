@@ -57,13 +57,135 @@ class ResultModeSetting(models.Model):
         setting = cls.objects.first()
         return setting.mode if setting else "CUMULATIVE"
 
+
+class ResultVerificationSetting(models.Model):
+    """Global settings for result verification rules."""
+    sample_percent = models.DecimalField(max_digits=5, decimal_places=2, default=5.00)
+    tolerance_marks = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)
+
+    def __str__(self):
+        return "Result Verification Settings"
+
+    @classmethod
+    def get_settings(cls):
+        setting = cls.objects.first()
+        return setting if setting else cls.objects.create()
+
+
+class ResultBatch(models.Model):
+    STATUS_CHOICES = [
+        ("DRAFT", "Draft"),
+        ("PENDING", "Pending Verification"),
+        ("VERIFIED", "Verified"),
+        ("FLAGGED", "Flagged"),
+    ]
+    assessment = models.OneToOneField("app.Assessment", on_delete=models.CASCADE, related_name="result_batch")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="DRAFT")
+    submitted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="submitted_batches")
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="verified_batches")
+    verified_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.assessment} - {self.status}"
+
+
+class VerificationSample(models.Model):
+    result = models.OneToOneField("app.Result", on_delete=models.CASCADE, related_name="verification_sample")
+    dos_mark = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    matched = models.BooleanField(null=True)
+    checked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="checked_samples")
+    checked_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Sample - {self.result.student} - {self.result.assessment}"
+
+
+class ResultVerificationReport(models.Model):
+    STATUS_CHOICES = [
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+        ("RECHECK", "Re-check Required"),
+    ]
+
+    batch = models.OneToOneField("app.ResultBatch", on_delete=models.CASCADE, related_name="verification_report")
+    total_scripts = models.PositiveIntegerField(default=0)
+    sampled_count = models.PositiveIntegerField(default=0)
+    reentered_count = models.PositiveIntegerField(default=0)
+    matches_count = models.PositiveIntegerField(default=0)
+    mismatches_count = models.PositiveIntegerField(default=0)
+    corrections_count = models.PositiveIntegerField(default=0)
+    accuracy_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="RECHECK")
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="verification_reports")
+    verified_at = models.DateTimeField(null=True, blank=True)
+    sampling_method = models.CharField(max_length=255, default="Random (system)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Verification Report - {self.batch.assessment}"
+
+
+class VerificationDiscrepancy(models.Model):
+    sample = models.OneToOneField("app.VerificationSample", on_delete=models.CASCADE, related_name="discrepancy")
+    batch = models.ForeignKey("app.ResultBatch", on_delete=models.CASCADE, related_name="discrepancies")
+    result = models.ForeignKey("app.Result", on_delete=models.CASCADE, related_name="discrepancies")
+    teacher_mark = models.DecimalField(max_digits=5, decimal_places=2)
+    verifier_mark = models.DecimalField(max_digits=5, decimal_places=2)
+    difference = models.DecimalField(max_digits=6, decimal_places=2)
+    corrected_mark = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    action_taken = models.CharField(max_length=255, default="Flagged")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Discrepancy - {self.result.student} - {self.result.assessment}"
+
+
+class VerificationCorrectionLog(models.Model):
+    batch = models.ForeignKey("app.ResultBatch", on_delete=models.CASCADE, related_name="correction_logs")
+    result = models.ForeignKey("app.Result", on_delete=models.CASCADE, related_name="correction_logs")
+    old_mark = models.DecimalField(max_digits=5, decimal_places=2)
+    new_mark = models.DecimalField(max_digits=5, decimal_places=2)
+    reason = models.TextField()
+    corrected_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="verification_corrections")
+    corrected_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Correction - {self.result.student} - {self.result.assessment}"
+
+
+class ResultVerificationNotification(models.Model):
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="result_verification_notifications")
+    batch = models.ForeignKey(ResultBatch, on_delete=models.CASCADE, related_name="notifications")
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    read = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.title} - {self.recipient}"
+
 class Result(models.Model):
+    STATUS_CHOICES = [
+        ("DRAFT", "Draft"),
+        ("PENDING", "Pending Verification"),
+        ("VERIFIED", "Verified"),
+        ("FLAGGED", "Flagged"),
+    ]
     assessment = models.ForeignKey("app.Assessment", on_delete=models.CASCADE, related_name='results')
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='results')
     score = models.DecimalField(max_digits=5, decimal_places=2)
+    batch = models.ForeignKey(ResultBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name="results")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="DRAFT")
    
     def __str__(self):
         return f'{self.student} - {self.assessment} - {self.score}'
+
+    def mark_verified(self):
+        self.status = "VERIFIED"
+        self.save(update_fields=["status"])
 
     @property
     def grade(self):
@@ -192,5 +314,3 @@ class AnnualResult(models.Model):
                 self.rank_in_class = index + 1
                 self.save()
                 break
-
-

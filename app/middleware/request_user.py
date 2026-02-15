@@ -1,7 +1,7 @@
 import threading
 from typing import Optional, Tuple, Dict, Any
 
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseRedirect
 
 _thread_local = threading.local()
 

@@ -5,7 +5,9 @@ from .school_settings import *
 from .subjects import *
 from .staffs import *
 from .finance import *
+from .communications import *
 from .accounts import *
 from .results import *
 from .timetables import *
+from .attendance import *
 from .audit import *

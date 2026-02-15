@@ -1,6 +1,7 @@
 {% load static report_tags %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <title>Combined Assessments - {{ class_obj.Class.name }} | {{ school.school_name }}</title>
@@ -145,7 +146,8 @@
             box-sizing: border-box;
         }
 
-        th, td {
+        th,
+        td {
             border: 1px solid var(--border-color);
             padding: 6px;
             text-align: center;
@@ -200,40 +202,46 @@
         .remark-input:focus {
             background-color: #fffacd;
         }
-        
+
         .save-comment-btn:hover {
             background-color: #45a049;
         }
-        
+
         @media print {
             body {
                 margin: 0;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
+
             .print-btn,
             .top-actions,
             .no-print,
             .save-comment-btn {
                 display: none !important;
             }
+
             .remark-input {
                 border: none !important;
                 background: transparent !important;
             }
+
             .content-wrapper {
                 border: 3px solid var(--border-color);
                 padding: 1cm;
                 margin: 0;
                 max-width: 18cm;
             }
+
             th {
                 background-color: var(--primary-color) !important;
                 color: white !important;
             }
+
             tr:nth-child(even) {
                 background-color: var(--secondary-color) !important;
             }
+
             table {
                 width: 95%;
                 max-width: 16.5cm;
@@ -242,6 +250,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="top-actions" style="text-align:right; padding: 10px;">
         <button onclick="window.print()" class="print-btn">Print All</button>
@@ -252,15 +261,17 @@
         <div class="content-wrapper">
             <div class="header">
                 {% if school and school.school_logo and school.school_logo.url %}
-                    <img src="{{ school.school_logo.url }}" alt="School Logo" />
+                <img src="{{ school.school_logo.url }}" alt="School Logo" />
                 {% else %}
-                    <img src="{% static 'images/logo.png' %}" alt="School Logo" />
+                <img src="{% static 'images/logo.png' %}" alt="School Logo" />
                 {% endif %}
                 <div class="school-details">
-                   <p class="school-name"><strong>{{ school.school_name }}</strong></p>
+                    <p class="school-name"><strong>{{ school.school_name }}</strong></p>
                     <p>{{ school.address }}</p>
                     <p>Email: {{ school.email }}</p>
-                    <p>Mobile: {{ school.mobile }}{% if school.office_phone_number1 %} / {{ school.office_phone_number1 }}{% endif %}{% if school.office_phone_number2 %} / {{ school.office_phone_number2 }}{% endif %}</p>
+                    <p>Mobile: {{ school.mobile }}{% if school.office_phone_number1 %} / {{ school.office_phone_number1}}
+                        {% endif %}{% if school.office_phone_number2 %} / {{ school.office_phone_number2 }}{% endif %}
+                    </p>
                     <p>Web: {{ school.website }}</p>
                 </div>
             </div>
@@ -272,9 +283,9 @@
             <div class="info">
                 <div class="info-photo">
                     {% if rep.student.photo %}
-                        <img src="{{ rep.student.photo.url }}" alt="{{ rep.student.student_name }}" />
+                    <img src="{{ rep.student.photo.url }}" alt="{{ rep.student.student_name }}" />
                     {% else %}
-                        <div class="info-no-photo">No Photo</div>
+                    <div class="info-no-photo">No Photo</div>
                     {% endif %}
                 </div>
                 <div class="info-details">
@@ -286,73 +297,67 @@
             </div>
 
             {% if not rep.report_data %}
-                <p style="color: red;">No report data available.</p>
+            <p style="color: red;">No report data available.</p>
             {% endif %}
 
             <table>
                 <tr>
                     <th rowspan="2">SUBJECT</th>
                     {% for at in rep.assessment_types %}
-                        <th colspan="2">{{ at.name|upper }}</th>
+                    <th colspan="2">{{ at.name|upper }}</th>
                     {% endfor %}
                     <th rowspan="2">REMARKS</th>
                 </tr>
                 <tr>
                     {% for at in rep.assessment_types %}
-                        <th>MARKS</th>
-                        <th>AGG</th>
+                    <th>MARKS</th>
+                    <th>AGG</th>
                     {% endfor %}
                 </tr>
 
                 {% for item in rep.report_data %}
-                    <tr>
-                        <td style="text-align:left;">{{ item.subject }}</td>
-                        {% for at in rep.assessment_types %}
-                            {% with data=item.assessments|get_item:at.name %}
-                                <td>{{ data.score|floatformat:0|default:"-" }}</td>
-                                {% if item.subject|contains:"READING" or item.subject|contains:"RELIGIOUS EDUCATION" or item.subject|contains:"RELIGIOUSEDUCATION" %}
-                                    <td>-</td>
-                                {% else %}
-                                    <td>{{ data.points|floatformat:0|default:"-" }}</td>
-                                {% endif %}
-                            {% endwith %}
-                        {% endfor %}
-                        <td>
-                            {% if item.average <= 49 %}Improve
-                            {% elif item.average <= 59 %}Promising
-                            {% elif item.average <= 69 %}Fair
-                            {% elif item.average <= 79 %}Good
-                            {% elif item.average <= 89 %}Well Done
-                            {% elif item.average <= 99 %}Bravo
-                            {% else %}-{% endif %}
-                        </td>
-                    </tr>
+                <tr>
+                    <td style="text-align:left;">{{ item.subject }}</td>
+                    {% for at in rep.assessment_types %}
+                    {% with data=item.assessments|get_item:at.name %}
+                    <td>{{ data.score|floatformat:0|default:"-" }}</td>
+                    {% if item.subject|upper == "READING" or item.subject|upper == "RELIGIOUS EDUCATION" or item.subject|upper == "RELIGIOUSEDUCATION" %}
+                    <td>-</td>
+                    {% else %}
+                    <td>{{ data.points|floatformat:0|default:"-" }}</td>
+                    {% endif %}
+                    {% endwith %}
+                    {% endfor %}
+                    <td>
+                        {% if item.average <= 49 %}Improve {% elif item.average <= 59 %}Promising {% elif item.average <= 69 %}Fair {% elif item.average <= 79 %}Good {% elif item.average <= 89 %}Well Done {% elif item.average <= 99 %}Bravo {% else %}-{% endif %}
+                    </td>
+                </tr>
                 {% endfor %}
 
                 <tr>
                     <td><strong>TOTAL</strong></td>
                     {% for at in rep.assessment_types %}
-                        <td>{{ rep.assessment_totals|get_item:at.name|get_item:"marks"|floatformat:0|default:"-" }}</td>
-                        <td>{{ rep.assessment_totals|get_item:at.name|get_item:"points"|floatformat:0|default:"-" }}</td>
+                    <td>{{ rep.assessment_totals|get_item:at.name|get_item:"marks"|floatformat:0|default:"-" }}</td>
+                    <td>{{ rep.assessment_totals|get_item:at.name|get_item:"points"|floatformat:0|default:"-" }}</td>
                     {% endfor %}
                     <td></td>
                 </tr>
 
                 <tr>
                     <td><strong>DIVISION</strong></td>
-                    {% for at in rep.assessment_types %}
-                        <td colspan="2">{{ rep.assessment_divisions|get_item:at.name }}</td>
-                    {% endfor %}
-                    <td></td>
+                    <td colspan="{{ rep.assessment_types|length|add:rep.assessment_types|length|add:1 }}">
+                        {{ rep.selected_division }}
+                    </td>
                 </tr>
             </table>
 
             <div class="conduct-section">
-                <form method="POST" class="comment-form" data-student-id="{{ rep.student.id }}" data-term-id="{{ rep.term_id }}">
+                <form method="POST" class="comment-form" data-student-id="{{ rep.student.id }}"
+                    data-term-id="{{ rep.term_id }}">
                     {% csrf_token %}
                     <input type="hidden" name="student_id" value="{{ rep.student.id }}">
                     <input type="hidden" name="term_id" value="{{ rep.term_id }}">
-                    
+
                     <table style="width:100%; border-collapse:collapse;">
                         <tr>
                             <td colspan="2"></td>
@@ -362,19 +367,17 @@
                         <tr>
                             <td class="label" style="width:20%;">Class Teacher's Remarks:</td>
                             <td style="width:40%; border-bottom: 1px solid #000; padding: 4px;">
-                                <textarea name="class_teacher_remark"
-                                          class="remark-input"
-                                          style="width:100%; border:none; outline:none; resize:vertical; min-height:30px; font-family: inherit; font-size: inherit;"
-                                          placeholder="Enter class teacher's remarks...">{{ rep.class_teacher_remark }}</textarea>
+                                <textarea name="class_teacher_remark" class="remark-input"
+                                    style="width:100%; border:none; outline:none; resize:vertical; min-height:30px; font-family: inherit; font-size: inherit;"
+                                    placeholder="Enter class teacher's remarks...">{{ rep.class_teacher_remark }}</textarea>
                             </td>
 
                             <td style="width:40%; text-align:right; border-bottom: 1px solid #000;">
                                 {% if rep.class_teacher_signature and rep.class_teacher_signature.url %}
-                                    <img src="{{ rep.class_teacher_signature.url }}"
-                                         alt="Class Teacher Signature"
-                                         style="height:30px; object-fit:contain;" />
+                                <img src="{{ rep.class_teacher_signature.url }}" alt="Class Teacher Signature"
+                                    style="height:30px; object-fit:contain;" />
                                 {% else %}
-                                    
+
                                 {% endif %}
                             </td>
                         </tr>
@@ -382,26 +385,25 @@
                         <tr>
                             <td class="label">Head Teacher's Remarks:</td>
                             <td style="border-bottom: 1px solid #000; padding: 4px;">
-                                <textarea name="head_teacher_remark"
-                                          class="remark-input"
-                                          style="width:100%; border:none; outline:none; resize:vertical; min-height:30px; font-family: inherit; font-size: inherit;"
-                                          placeholder="Enter head teacher's remarks...">{{ rep.head_teacher_remark }}</textarea>
+                                <textarea name="head_teacher_remark" class="remark-input"
+                                    style="width:100%; border:none; outline:none; resize:vertical; min-height:30px; font-family: inherit; font-size: inherit;"
+                                    placeholder="Enter head teacher's remarks...">{{ rep.head_teacher_remark }}</textarea>
                             </td>
 
                             <td style="text-align:right; border-bottom: 1px solid #000;">
                                 {% if rep.head_teacher_signature and rep.head_teacher_signature.signature %}
-                                     <img src="{{ rep.head_teacher_signature.signature.url }}"
-                                          alt="Head Teacher Signature"
-                                          style="height:30px; object-fit:contain;" />
+                                <img src="{{ rep.head_teacher_signature.signature.url }}" alt="Head Teacher Signature"
+                                    style="height:30px; object-fit:contain;" />
                                 {% else %}
-                                    .
+                                .
                                 {% endif %}
                             </td>
                         </tr>
-                        
+
                         <tr class="no-print">
                             <td colspan="3" style="text-align:right; padding-top:10px;">
-                                <button type="submit" class="save-comment-btn" style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 9pt;">
+                                <button type="submit" class="save-comment-btn"
+                                    style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 9pt;">
                                     Save Comments
                                 </button>
                             </td>
@@ -415,4 +417,5 @@
     </div>
     {% endfor %}
 </body>
+
 </html>

@@ -100,7 +100,7 @@ def delete_all_csv_files():
         
 def create_student_bill(student, academic_class):
     """
-    Creates a StudentBill and assigns all Class Bills (including school fees).
+    Creates a StudentBill and assigns all Class Bills 
     """
     
     student_bill, _ = StudentBill.objects.get_or_create(

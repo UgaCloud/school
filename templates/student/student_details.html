@@ -6,7 +6,29 @@
 {% block content %}
 <div class="container p-3">
 
-  <a href="{% url 'student_page' %}" class="btn btn-danger mb-3">&larr; Go Back</a>
+  <div class="student-header">
+    <a href="{% url 'student_page' %}" class="btn btn-default btn-sm">
+      <i class="fa fa-arrow-left"></i> Back to Students
+    </a>
+    <div class="student-identity">
+      <div class="avatar">
+        {% if student.photo %}
+        <img src="{{ student.photo.url }}" alt="Student Photo" />
+        {% else %}
+        <img src="/static/images/default_student.png" alt="Default Student Photo" />
+        {% endif %}
+      </div>
+      <div>
+        <h3 class="student-name">{{ student.student_name }}</h3>
+        <div class="student-subtext">Reg No: {{ student.reg_no }}{% if student.current_class %} · {{ student.current_class }}{% endif %}</div>
+      </div>
+    </div>
+    <div class="student-status">
+      <span class="badge {% if student.is_active %}badge-success{% else %}badge-default{% endif %}">
+        {% if student.is_active %}Active{% else %}Inactive{% endif %}
+      </span>
+    </div>
+  </div>
 
   <div class="row g-3">
 
@@ -21,69 +43,54 @@
           {% endif %}
         </div>
 
-        <h5 class="fw-bold">{{ student.student_name }}</h5>
-        <small class="text-success d-block mb-3">Username: {{ student.reg_no }}</small>
-
-        <table class="table table-sm">
-          <tbody>
-            <tr>
-              <th>Email</th>
-              <td>{{ student.email|default:"-" }}</td>
-            </tr>
-            <tr>
-              <th>DOB</th>
-              <td>{{ student.birthdate|date:"M d, Y"|default:"-" }}</td>
-            </tr>
-            <tr>
-              <th>Registered session</th>
-              <td>{{ student.academic_year.academic_year|default:"-" }}</td>
-            </tr>
-            <tr>
-              <th>Class</th>
-              <td>{{ student.current_class|default:"-" }}</td>
-            </tr>
-            <tr>
-              <th>Gender</th>
-              <td>{{ student.get_gender_display|default:student.gender }}</td>
-            </tr>
-            <tr>
-              <th>Current address</th>
-              <td>{{ student.address|default:"-" }}</td>
-            </tr>
-            <tr>
-              <th>Guardian name</th>
-              <td>{{ student.guardian|default:"-" }}</td>
-            </tr>
-            <tr>
-              <th>Guardian contact</th>
-              <td>{{ student.contact|default:"-" }}</td>
-            </tr>
-            <tr>
-              <th>Active</th>
-              <td>{% if student.is_active %}Yes{% else %}No{% endif %}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label"><i class="fa fa-envelope"></i> Email</span>
+            <span class="detail-value">{{ student.email|default:"-" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label"><i class="fa fa-birthday-cake"></i> DOB</span>
+            <span class="detail-value">{{ student.birthdate|date:"M d, Y"|default:"-" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label"><i class="fa fa-calendar"></i> Registered Session</span>
+            <span class="detail-value">{{ student.academic_year.academic_year|default:"-" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label"><i class="fa fa-graduation-cap"></i> Class</span>
+            <span class="detail-value">{{ student.current_class|default:"-" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label"><i class="fa fa-user"></i> Gender</span>
+            <span class="detail-value">{{ student.get_gender_display|default:student.gender }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label"><i class="fa fa-map-marker"></i> Address</span>
+            <span class="detail-value">{{ student.address|default:"-" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label"><i class="fa fa-user-circle"></i> Guardian</span>
+            <span class="detail-value">{{ student.guardian|default:"-" }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label"><i class="fa fa-phone"></i> Guardian Contact</span>
+            <span class="detail-value">{{ student.contact|default:"-" }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- RIGHT: CONTENT -->
     <div class="col-md-8">
 
-      <!-- NAV TILES -->
-      <div class="d-flex gap-2 mb-3 flex-wrap">
-        <div class="nav-tile docs {% if active_tab == 'docs' %}active{% endif %}" onclick="showSection('docs')">Docs
-        </div>
-        <div class="nav-tile exam {% if active_tab == 'exam' %}active{% endif %}" onclick="showSection('exam')">Exam
-          Reports</div>
-        <div class="nav-tile library {% if active_tab == 'library' %}active{% endif %}"
-          onclick="showSection('library')">Library History</div>
-        <div class="nav-tile extra {% if active_tab == 'extra' %}active{% endif %}" onclick="showSection('extra')">Extra
-          Activities</div>
-        <div class="nav-tile payments {% if active_tab == 'payments' %}active{% endif %}"
-          onclick="showSection('payments')">Payments</div>
-        <div class="nav-tile attendance {% if active_tab == 'attendance' %}active{% endif %}"
-          onclick="showSection('attendance')">Attendance</div>
+      <!-- NAV TABS -->
+      <div class="nav-tabs-modern">
+        <button class="tab-btn {% if active_tab == 'docs' %}active{% endif %}" onclick="showSection('docs')">Docs</button>
+        <button class="tab-btn {% if active_tab == 'exam' %}active{% endif %}" onclick="showSection('exam')">Exam Reports</button>
+        <button class="tab-btn {% if active_tab == 'library' %}active{% endif %}" onclick="showSection('library')">Library</button>
+        <button class="tab-btn {% if active_tab == 'extra' %}active{% endif %}" onclick="showSection('extra')">Activities</button>
+        <button class="tab-btn {% if active_tab == 'payments' %}active{% endif %}" onclick="showSection('payments')">Payments</button>
+        <button class="tab-btn {% if active_tab == 'attendance' %}active{% endif %}" onclick="showSection('attendance')">Attendance</button>
       </div>
 
       <!-- DOCS SECTION -->
@@ -446,14 +453,14 @@
     const sections = document.querySelectorAll('.content-section');
     sections.forEach(sec => sec.style.display = 'none');
 
-    // Remove active class from all tiles
-    const tiles = document.querySelectorAll('.nav-tile');
-    tiles.forEach(tile => tile.classList.remove('active'));
+    // Remove active class from all tabs
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(tab => tab.classList.remove('active'));
 
     // Show selected section
     document.getElementById(section + '-section').style.display = 'block';
 
-    // Add active class to clicked tile
+    // Add active class to clicked tab
     event.target.classList.add('active');
   }
 </script>
@@ -462,53 +469,162 @@
     background: #f5f7fa;
   }
 
+  .student-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid #eef1f4;
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    color: #2c3e50;
+    box-shadow: 0 10px 20px rgba(17, 24, 39, 0.08);
+  }
+
+  .student-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .student-identity .avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 2px solid #eef1f4;
+    background: #f6f8fb;
+  }
+
+  .student-identity .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .student-name {
+    margin: 0 0 4px;
+    font-weight: 700;
+    color: #2c3e50;
+  }
+
+  .student-subtext {
+    color: #7b8a97;
+    font-size: 13px;
+  }
+
+  .student-status .badge {
+    background: #e8f4ff;
+    border: 1px solid #cfe6ff;
+    color: #1f6fd6;
+    padding: 6px 10px;
+    border-radius: 12px;
+  }
+
   .profile-card {
-    background: #fff;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, .05);
+    border: 1px solid #eef1f4;
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 18px;
+    box-shadow: 0 10px 20px rgba(17, 24, 39, 0.06);
   }
 
   .profile-photo img {
-    width: 130px;
-    height: 130px;
-    border-radius: 50%;
+    width: 120px;
+    height: 120px;
+    border-radius: 14px;
     object-fit: cover;
-    border: 4px solid #fff;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, .15);
+    border: 3px solid #eef1f4;
   }
 
-  .nav-tile {
-    padding: 12px 15px;
-    border-radius: 8px;
-    color: #fff;
-    text-align: center;
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    text-align: left;
+  }
+
+  .detail-item {
+    border: 1px solid #eef1f4;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #ffffff;
+    box-shadow: 0 6px 12px rgba(17, 24, 39, 0.04);
+  }
+
+  .detail-label {
+    display: block;
+    text-transform: uppercase;
+    font-size: 11px;
+    color: #8a97a5;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+
+  .detail-value {
     font-size: 14px;
-    cursor: pointer;
     font-weight: 600;
-    border: none;
-    display: inline-block;
-    min-width: 120px;
-    margin: 0 5px 5px 0;
-    transition: transform 0.2s, box-shadow 0.2s;
+    color: #1f2a37;
   }
 
-  .nav-tile:hover,
-  .nav-tile.active {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  .nav-tabs-modern {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
   }
 
-  .docs {
-    background: #00b3ff;
+  .tab-btn {
+    border: 1px solid #e6ebf1;
+    background: #ffffff;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: #425466;
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.06);
+  }
+
+  .tab-btn.active {
+    background: #2a7fdb;
+    border-color: #2a7fdb;
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgba(42, 127, 219, 0.2);
+  }
+
+  @media (max-width: 992px) {
+    .student-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .extra {
+    background: #ff9800;
+  }
+
+  .payments {
+    background: #4caf50;
+  }
+
+  .attendance {
+    background: #f44336;
+  }
+
+  .library {
+    background: #673ab7;
   }
 
   .exam {
     background: #2196f3;
   }
 
-  .library {
-    background: #673ab7;
+  .docs {
+    background: #00b3ff;
   }
 
   .extra {
