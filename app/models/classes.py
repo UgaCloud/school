@@ -100,6 +100,7 @@ class ClassSubjectAllocation(models.Model):
     class Meta:
         verbose_name = ("classsubjectallocation")
         verbose_name_plural = ("classsubjectallocations")
+        unique_together = [('academic_class_stream', 'subject')]
 
     def __str__(self):
         return f"{self.academic_class_stream} - {self.subject} - {self.subject_teacher}"

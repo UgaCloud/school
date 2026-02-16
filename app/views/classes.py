@@ -819,6 +819,126 @@ def delete_class_subject_allocation(request, id):
     allocation.delete()
     messages.success(request, DELETE_MESSAGE)
     return redirect(add_class_subject_allocation)
+
+
+@login_required
+def copy_allocations_from_previous_term(request):
+    """Copy subject allocations from the previous term to the current term."""
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    effective_role = active_role or role_name
+    is_dos = effective_role in {"Director of Studies", "DOS"}
+    is_admin = effective_role in {"Admin", "Head master"}
+
+    if not (is_dos or is_admin):
+        messages.error(request, "Only Admin or the Director of Studies can copy allocations.")
+        return redirect("class_subject_allocation_page")
+
+    try:
+        # Get current academic year and term
+        from app.selectors.school_settings import get_current_academic_year
+        from app.models.classes import Term
+        
+        current_year = get_current_academic_year()
+        current_term = Term.objects.filter(is_current=True).first()
+
+        if not current_year or not current_term:
+            messages.error(request, "No current academic year or term set.")
+            return redirect("subject_allocation_page")
+
+        # Find the previous term
+        if current_term.term == "1":
+            # Term 1 -> look for previous year's Term 3
+            # Get previous year by subtracting 1 from the year string
+            try:
+                prev_year_num = int(current_year.academic_year) - 1
+                previous_year = AcademicYear.objects.filter(
+                    academic_year=str(prev_year_num)
+                ).first()
+            except:
+                previous_year = None
+            previous_term = Term.objects.filter(term="3").first()
+        else:
+            # Same year, previous term number
+            previous_year = current_year
+            prev_term_num = str(int(current_term.term) - 1)
+            previous_term = Term.objects.filter(term=prev_term_num).first()
+
+        if not previous_term:
+            messages.error(request, "Could not determine previous term.")
+            return redirect("subject_allocation_page")
+
+        # Get all class streams for the current term
+        current_class_streams = AcademicClassStream.objects.filter(
+            academic_class__academic_year=current_year,
+            academic_class__term=current_term
+        )
+
+        # Get allocations from previous term
+        previous_class_streams = AcademicClassStream.objects.filter(
+            academic_class__academic_year=previous_year,
+            academic_class__term=previous_term
+        )
+
+        # Create a mapping from (class, stream, subject) -> teacher from previous term
+        previous_allocations = ClassSubjectAllocation.objects.filter(
+            academic_class_stream__in=previous_class_streams
+        ).select_related('subject', 'subject_teacher', 'academic_class_stream__stream', 'academic_class_stream__academic_class__Class')
+
+        # Build mapping: (class_id, stream_id, subject_id) -> subject_teacher
+        allocation_map = {}
+        for alloc in previous_allocations:
+            key = (
+                alloc.academic_class_stream.academic_class.Class.id,
+                alloc.academic_class_stream.stream.id,
+                alloc.subject.id
+            )
+            allocation_map[key] = alloc.subject_teacher
+
+        # Now create allocations for current term based on previous allocations
+        created_count = 0
+        skipped_count = 0
+        errors = []
+
+        for current_stream in current_class_streams:
+            for alloc in previous_allocations.filter(
+                academic_class_stream__academic_class__Class=current_stream.academic_class.Class,
+                academic_class_stream__stream=current_stream.stream
+            ):
+                # Check if allocation already exists for this stream and subject
+                exists = ClassSubjectAllocation.objects.filter(
+                    academic_class_stream=current_stream,
+                    subject=alloc.subject
+                ).exists()
+
+                if exists:
+                    skipped_count += 1
+                    continue
+
+                # Create new allocation (handle IntegrityError for duplicates)
+                try:
+                    ClassSubjectAllocation.objects.create(
+                        academic_class_stream=current_stream,
+                        subject=alloc.subject,
+                        subject_teacher=alloc.subject_teacher
+                    )
+                    created_count += 1
+                except Exception as e:
+                    # Skip if duplicate (IntegrityError) or other error
+                    if 'Duplicate entry' in str(e) or 'UNIQUE constraint' in str(e):
+                        skipped_count += 1
+                    else:
+                        errors.append(str(e))
+
+        messages.success(request, f"Successfully copied {created_count} allocations. {skipped_count} already existed.")
+        if errors:
+            messages.warning(request, f"Some errors occurred: {', '.join(errors[:3])}")
+    except Exception as e:
+        logger.error(f"Error copying allocations: {str(e)}")
+        messages.error(request, f"Error copying allocations: {str(e)}")
+
+    return redirect("subject_allocation_page")
     
 
 

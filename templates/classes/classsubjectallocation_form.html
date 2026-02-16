@@ -23,6 +23,9 @@
                             <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addClassSubjectModal">
                                 <i class="fa fa-plus-circle"></i> Add New Allocation
                             </button>
+                            <a href="{% url 'copy_allocations' %}" class="btn btn-primary" onclick="return confirm('This will copy all subject allocations from the previous term to the current term. Existing allocations will be skipped. Continue?')">
+                                <i class="fa fa-copy"></i> Copy from Previous Term
+                            </a>
                             {% else %}
                             <p class="text-muted">Only Admin or the Director of Studies can add allocations.</p>
                             {% endif %}

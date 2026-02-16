@@ -87,6 +87,7 @@ urlpatterns = [
     path('subject_allocation_list/',class_subject_allocation_list,name= "class_subject_allocation_page"),
     path('edit_subject_allocation/<int:id>/',edit_subject_allocation_view, name="edit_subject_allocation_page"),
     path('delete_subject_allocation/<int:id>/',delete_class_subject_allocation, name="delete_subject_allocation"),
+    path('copy_allocations/',copy_allocations_from_previous_term, name="copy_allocations"),
     
     #Staff
     path('staff/<int:id>/upload-document/', staff_details_view, name='upload_staff_document'),
