@@ -109,6 +109,7 @@ urlpatterns = [
     path('add_student_bill_item/<int:id>/', add_student_bill_item_view, name="add_student_bill_item"),
     path('add_class_bill_item/<int:id>/add-bill/', add_class_bill_item_view, name="add_class_bill_items"),
     path('record_payment/<int:id>/', add_student_payment_view, name="record_payment"),
+    path('ajax-payment-form/<int:bill_id>/', ajax_payment_form_view, name="ajax_payment_form"),
     path('bill/<int:id>/upload-document/', upload_bill_document, name='upload_bill_document'),
     path('bill/document/delete/<int:id>/', delete_bill_document, name='delete_bill_document'),
     path("class-bills/", class_bill_list_view, name="class_bill_list"),
@@ -116,6 +117,9 @@ urlpatterns = [
     path('delete_class_bill_item/<int:id>/', delete_class_bill_item_view, name='delete_class_bill_item'),
     path('bulk-create-bills/', bulk_create_class_bills, name='bulk_create_class_bills'),
     path('fees-status/', student_fees_status_view, name='fees_status'),
+    path('student-fees-history/<int:student_id>/', student_fees_history_view, name='student_fees_history'),
+    path('student-fees-receipt/<int:student_id>/', student_fees_receipt_pdf_view, name='student_fees_receipt'),
+    path('reconcile-overpayments/<int:student_id>/', reconcile_student_overpayments, name='reconcile_overpayments'),
 
     
     #Finance

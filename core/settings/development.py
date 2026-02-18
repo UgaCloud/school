@@ -10,7 +10,7 @@ DEBUG = True
 # Security key for development only
 SECRET_KEY = 'django-insecure-dev-key-for-local-testing-only-change-in-production'
 
-# SQLite for local development
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',

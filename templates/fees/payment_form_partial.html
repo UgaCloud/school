@@ -1,0 +1,36 @@
+<form id="ajaxPaymentForm" method="post" action="/ajax-payment-form/{{ bill.id }}/">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label class="form-label">Bill</label>
+        <input type="text" class="form-control" value="{{ bill }}" readonly>
+        <input type="hidden" name="bill" value="{{ bill.id }}">
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Payment Date</label>
+        <input type="date" name="payment_date" class="form-control" value="{{ today }}" required>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Amount</label>
+        <input type="number" name="amount" class="form-control" placeholder="Enter amount" required min="1" step="0.01">
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Payment Method</label>
+        <select name="payment_method" class="form-control" required>
+            <option value="">Select method</option>
+            <option value="Cash">Cash</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Mobile Money">Mobile Money</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Other">Other</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Reference No</label>
+        <input type="text" name="reference_no" class="form-control" placeholder="Auto-generated if left blank">
+    </div>
+    <input type="hidden" name="recorded_by" value="{{ request.user.username }}">
+    <div class="text-end">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-success">Record Payment</button>
+    </div>
+</form>
