@@ -1,0 +1,422 @@
+{% load static report_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>End of Term Report - {{ student.student_name }} | {{ school.school_name }}</title>
+<style>
+    @page {
+        size: A4;
+        margin: 10mm;
+    }
+
+    :root {
+        --dark-blue: #1f3f8b;
+        --pink: #e6007e;
+        --teal: #0a9aa4;
+        --green: #1aa34a;
+        --line: #1597ae;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #ffffff;
+        color: #15314f;
+    }
+
+    .report-card {
+        width: 100%;
+        max-width: 190mm;
+        margin: 0 auto;
+        background: #ffffff;
+        border-left: 8px solid var(--pink);
+        border-right: 8px solid var(--pink);
+        border-top: 8px solid var(--green);
+        border-bottom: 8px solid var(--green);
+        padding: 12px 14px 14px;
+        position: relative;
+    }
+
+    .watermark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        opacity: 0.05;
+    }
+
+    .watermark img {
+        width: 55%;
+        max-width: 340px;
+        height: auto;
+    }
+
+    .header {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        border-bottom: 3px solid var(--pink);
+        padding-bottom: 8px;
+        margin-bottom: 10px;
+    }
+
+    .school-row {
+        display: grid;
+        grid-template-columns: 76px 1fr;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .logo {
+        width: 76px;
+        height: 76px;
+        object-fit: contain;
+        border: 1px solid #d7e5ef;
+        border-radius: 50%;
+        padding: 3px;
+        background: #fff;
+    }
+
+    .bismillah {
+        font-size: 27px;
+        color: var(--pink);
+        line-height: 1.1;
+        margin: 0 0 3px;
+    }
+
+    .school-name {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 1px;
+        color: var(--dark-blue);
+        margin: 0;
+        text-transform: uppercase;
+    }
+
+    .contact {
+        margin-top: 4px;
+        font-size: 12px;
+        line-height: 1.35;
+        color: #263f56;
+    }
+
+    .title-wrap {
+        text-align: center;
+        margin: 10px 0 12px;
+    }
+
+    .title-box {
+        display: inline-block;
+        border: 3px solid var(--pink);
+        padding: 3px;
+        background: #ffffff;
+    }
+
+    .title-box span {
+        display: inline-block;
+        background: var(--dark-blue);
+        color: #fff;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        padding: 4px 12px;
+        font-size: 19px;
+    }
+
+    .line-grid {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        gap: 7px;
+        margin-bottom: 10px;
+        font-size: 12px;
+        color: #0d6488;
+    }
+
+    .line-item {
+        display: grid;
+        grid-template-columns: auto 1fr auto 1fr;
+        gap: 6px;
+        align-items: end;
+    }
+
+    .line-fill {
+        border-bottom: 1.7px dotted var(--line);
+        min-height: 16px;
+        padding: 0 4px 1px;
+        color: #06385f;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .arabic {
+        direction: rtl;
+        text-align: right;
+        font-weight: 700;
+        color: #136e96;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 4px;
+        position: relative;
+        z-index: 2;
+    }
+
+    th, td {
+        border: 1.5px solid var(--line);
+        padding: 6px 4px;
+        text-align: center;
+        font-size: 12px;
+        vertical-align: middle;
+    }
+
+    th {
+        font-size: 13px;
+        color: #154f7a;
+        background: #f8fdff;
+    }
+
+    td.subject-en {
+        text-align: left;
+        font-weight: 600;
+        color: #184d78;
+    }
+
+    td.subject-ar {
+        direction: rtl;
+        text-align: right;
+        font-weight: 700;
+        color: #18729b;
+    }
+
+    .index-col {
+        width: 24px;
+        font-weight: 700;
+        color: #15618a;
+    }
+
+    .total-row td {
+        font-weight: 700;
+        background: #fbfeff;
+    }
+
+    .notes {
+        position: relative;
+        z-index: 2;
+        margin-top: 10px;
+        font-size: 12px;
+        color: #0d6488;
+    }
+
+    .note-line {
+        display: grid;
+        grid-template-columns: auto 1fr auto 1fr;
+        gap: 6px;
+        align-items: end;
+        margin-top: 7px;
+    }
+
+    .discipline {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 6px;
+        align-items: end;
+    }
+
+    .footer-mark {
+        margin-top: 10px;
+        text-align: center;
+        font-size: 24px;
+        color: #2f638a;
+        font-weight: 700;
+        direction: rtl;
+        position: relative;
+        z-index: 2;
+    }
+
+    .control-bar {
+        text-align: right;
+        margin: 0 0 8px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .control-bar form,
+    .control-bar button {
+        display: inline-block;
+        margin-left: 6px;
+    }
+
+    .control-bar button {
+        border: none;
+        background: var(--dark-blue);
+        color: #fff;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    @media print {
+        .control-bar {
+            display: none;
+        }
+    }
+</style>
+</head>
+<body>
+<div class="report-card">
+    {% if school.school_logo %}
+    <div class="watermark">
+        <img src="{{ school.school_logo.url }}" alt="Watermark" />
+    </div>
+    {% endif %}
+
+    {% if not is_bulk_report %}
+    <div class="control-bar">
+        <form method="get">
+            <label for="term_id"><strong>Term:</strong></label>
+            <select name="term_id" id="term_id" onchange="this.form.submit()">
+                {% for t in terms %}
+                <option value="{{ t.id }}" {% if t.id|stringformat:"s" == selected_term_id %}selected{% endif %}>{{ t.term }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        <button onclick="window.print()" type="button">Print Report</button>
+    </div>
+    {% endif %}
+
+    <div class="header">
+        <div class="school-row">
+            {% if school.school_logo %}
+            <img class="logo" src="{{ school.school_logo.url }}" alt="School logo" />
+            {% else %}
+            <div class="logo"></div>
+            {% endif %}
+            <div>
+                <div class="bismillah">بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>
+                <h1 class="school-name">{{ school.school_name|default:"SCHOOL NAME" }}</h1>
+                <div class="contact">
+                    {% if school.mobile or school.office_phone_number1 or school.office_phone_number2 %}
+                    Tel: {{ school.mobile|default:"-" }}{% if school.office_phone_number1 %} / {{ school.office_phone_number1 }}{% endif %}{% if school.office_phone_number2 %} / {{ school.office_phone_number2 }}{% endif %}<br>
+                    {% endif %}
+                    {% if school.email %}Email: {{ school.email }}<br>{% endif %}
+                    {{ school.address|default:"-" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="title-wrap">
+        <div class="title-box"><span>END OF TERM REPORT</span></div>
+    </div>
+
+    <div class="line-grid">
+        <div class="line-item">
+            <span>(Name)</span><span class="line-fill">{{ student.student_name|default:"-" }}</span>
+            <span class="arabic">الاسم</span><span class="line-fill"></span>
+        </div>
+        <div class="line-item">
+            <span>(Term)</span><span class="line-fill">{{ term|default:"-" }}</span>
+            <span class="arabic">الفترة الدراسية</span><span class="line-fill">{{ academic_year|default:"-" }}</span>
+        </div>
+        <div class="line-item">
+            <span>(Class)</span><span class="line-fill">{{ student.current_class.name|default:"-" }}</span>
+            <span class="arabic">الفصل</span><span class="line-fill"></span>
+        </div>
+        <div class="line-item">
+            <span>(Position)</span><span class="line-fill">-</span>
+            <span class="arabic">الترتيب / عدد الطلبة</span><span class="line-fill">-</span>
+        </div>
+    </div>
+
+    <table>
+        <tr>
+            <th class="index-col">#</th>
+            <th class="subject-ar">المواد الدراسية</th>
+            <th>Subject</th>
+            <th>مجموع الدرجات</th>
+            <th>%100</th>
+            <th class="arabic">التقدير</th>
+            <th>Marks</th>
+        </tr>
+
+        {% if report_data %}
+            {% for item in report_data %}
+            <tr>
+                <td class="index-col">{{ forloop.counter }}</td>
+                <td class="subject-ar">
+                    {% if item.subject|lower == "qur'an recitation" or item.subject|lower == "quran recitation" %}القرآن الكريم
+                    {% elif item.subject|lower == "tarbia-malezi" %}التربية
+                    {% elif item.subject|lower == "fiqh" %}الفقه
+                    {% elif item.subject|lower == "lugha arabia" %}اللغة العربية
+                    {% else %}-{% endif %}
+                </td>
+                <td class="subject-en">{{ item.subject }}</td>
+                <td>{{ item.average|floatformat:0 }}</td>
+                <td>{{ item.average|floatformat:0 }}</td>
+                <td>{{ item.grade|default:"-" }}</td>
+                <td>{{ item.points|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="7" style="padding: 10px; color: #8a1e1e; font-weight: 700;">No report data available.</td>
+            </tr>
+        {% endif %}
+
+        <tr class="total-row">
+            <td></td>
+            <td class="subject-ar">المجموع</td>
+            <td>(TOTAL MARKS)</td>
+            <td>{{ total_marks|floatformat:0|default:"-" }}</td>
+            <td>{{ overall_average|floatformat:0|default:"-" }}</td>
+            <td>{{ overall_grade|default:"-" }}</td>
+            <td>{{ total_aggregates|default:"-" }}</td>
+        </tr>
+    </table>
+
+    <div class="notes">
+        <div class="note-line">
+            <span>(Class teacher's comment)</span><span class="line-fill"></span>
+            <span class="arabic">ملاحظات مشرف الفصل</span><span class="line-fill"></span>
+        </div>
+        <div class="note-line">
+            <span>(Sign)</span>
+            <span class="line-fill">
+                {% if class_teacher_signature %}<img src="{{ class_teacher_signature.url }}" alt="Class teacher signature" style="height:18px; vertical-align:middle;" />{% endif %}
+            </span>
+            <span class="arabic">التوقيع</span><span class="line-fill"></span>
+        </div>
+
+        <div class="note-line">
+            <span>(Director's comment)</span><span class="line-fill"></span>
+            <span class="arabic">ملاحظات مديرة/المدرسة</span><span class="line-fill"></span>
+        </div>
+        <div class="note-line">
+            <span>(Sign)</span>
+            <span class="line-fill">
+                {% if head_teacher_signature and head_teacher_signature.signature %}<img src="{{ head_teacher_signature.signature.url }}" alt="Head teacher signature" style="height:18px; vertical-align:middle;" />{% endif %}
+            </span>
+            <span class="arabic">التوقيع</span><span class="line-fill"></span>
+        </div>
+
+        <div class="discipline">
+            <span><strong>Discipline.</strong></span>
+            <span class="line-fill"></span>
+        </div>
+    </div>
+
+    <div class="footer-mark">ختم المدرسة</div>
+</div>
+</body>
+</html>

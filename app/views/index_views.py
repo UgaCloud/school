@@ -3,11 +3,10 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, Q, F, ExpressionWrapper, DecimalField, Avg
 from django.db.models.functions import TruncMonth
-from django.utils.safestring import mark_safe
-import json
+from django.core.cache import cache
 from django.utils import timezone
 from django.contrib import messages
-from datetime import datetime, timedelta
+from datetime import date
 from app.models.classes import Class, AcademicClass, Term
 from app.models.school_settings import AcademicYear
 from app.models.staffs import Staff
@@ -15,7 +14,9 @@ from app.models.students import Student
 from app.models.fees_payment import StudentBill, Payment
 from app.models.finance import Budget, Expenditure, ExpenditureItem, IncomeSource, ApprovalWorkflow
 from app.models.results import Assessment, Result, GradingSystem
+from app.models.subjects import Subject
 from app.models.communications import Announcement, Event
+from app.models.attendance import AttendanceRecord, AttendanceStatus
 from app.selectors.school_settings import get_current_academic_year
 
 
@@ -45,6 +46,11 @@ def index_view(request):
     is_teacher_dashboard = user_role in ['Teacher', 'Class Teacher']
     is_head_dashboard = user_role in head_roles
     can_add_student = user_role in academic_roles and user_role not in ['Teacher']
+
+    selected_term_param = (request.GET.get("term") or "").strip()
+    term_options = []
+    selected_term = None
+    selected_term_label = ""
 
     # Basic staff statistics (visible to all except support staff)
     if user_role not in ['Support Staff']:
@@ -83,6 +89,20 @@ def index_view(request):
                 'is_teacher': user_role in teacher_roles,
                 'is_support': user_role == 'Support Staff',
             })
+        term_options = list(Term.objects.filter(academic_year=current_year).order_by("term"))
+        selected_term_ids = {str(term.id) for term in term_options}
+        if selected_term_param in selected_term_ids:
+            selected_term = next((term for term in term_options if str(term.id) == selected_term_param), None)
+        elif current_term and current_term.academic_year_id == current_year.id:
+            selected_term = current_term
+        elif term_options:
+            selected_term = term_options[0]
+        else:
+            selected_term = current_term
+
+        if selected_term:
+            selected_term_label = f"Term {selected_term.term} {selected_term.academic_year.academic_year}"
+        current_term = selected_term
     else:
         current_year = current_term = None
 
@@ -270,18 +290,21 @@ def index_view(request):
     elif is_teacher_dashboard:
         class_distribution = []
 
+    term_start_date = selected_term.start_date if selected_term else None
+    term_end_date = selected_term.end_date if selected_term else None
+
     # Financial overview (visible to finance and admin roles)
-    if user_role in finance_roles:
-        # Filter by both academic year AND current term to match financial summary report
+    if user_role in finance_roles and current_year and current_term:
         total_fees_collected = Payment.objects.filter(
             bill__academic_class__academic_year=current_year,
-            bill__academic_class__term=current_term
+            bill__academic_class__term=current_term,
+            payment_date__range=(term_start_date, term_end_date),
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         total_fees_outstanding = StudentBill.objects.filter(
             academic_class__academic_year=current_year,
             academic_class__term=current_term,
-            status='Unpaid'
+            status='Unpaid',
         ).aggregate(total=Sum('items__amount'))['total'] or 0
 
         # Budget information
@@ -307,14 +330,13 @@ def index_view(request):
         total_fees_collected = total_fees_outstanding = budget_allocated = budget_spent = 0
         current_budget = None
 
-    # Recent activities (last 7 days) - role-based visibility
-    seven_days_ago = timezone.now() - timedelta(days=7)
-
-    if user_role in finance_roles:
+    if user_role in finance_roles and term_start_date and term_end_date:
         recent_payments = Payment.objects.filter(
-            payment_date__gte=seven_days_ago
+            payment_date__range=(term_start_date, term_end_date),
         ).select_related('bill__student').order_by('-payment_date')[:5]
-        recent_expenditures = Expenditure.objects.order_by('-date_incurred')[:5]
+        recent_expenditures = Expenditure.objects.filter(
+            date_incurred__range=(term_start_date, term_end_date)
+        ).order_by('-date_incurred')[:5]
         pending_approvals = ApprovalWorkflow.objects.filter(status='pending').select_related('expenditure')[:5]
     else:
         recent_payments = []
@@ -360,6 +382,8 @@ def index_view(request):
     dashboard_events = dashboard_events[:5]
 
     # Performance metrics - visible to academic and admin roles
+    total_assessments = 0
+    completed_assessments = 0
     if user_role in academic_roles and current_year:
         # Scope assessment metrics to the current term
         total_assessments = Assessment.objects.filter(
@@ -410,23 +434,23 @@ def index_view(request):
         student_gender_data = []
 
     # Fee collection status - only for finance roles
-    if user_role in finance_roles and current_year:
+    if user_role in finance_roles and current_year and current_term:
         paid_bills = StudentBill.objects.filter(
             academic_class__academic_year=current_year,
             academic_class__term=current_term,
-            status='Paid'
+            status='Paid',
         ).count()
 
         unpaid_bills = StudentBill.objects.filter(
             academic_class__academic_year=current_year,
             academic_class__term=current_term,
-            status='Unpaid'
+            status='Unpaid',
         ).count()
 
         overdue_bills = StudentBill.objects.filter(
             academic_class__academic_year=current_year,
             academic_class__term=current_term,
-            status='Overdue'
+            status='Overdue',
         ).count()
 
         total_bills = paid_bills + unpaid_bills + overdue_bills
@@ -434,7 +458,7 @@ def index_view(request):
         # Calculate fee collection rate based on amount collected vs amount billed
         total_billed = StudentBill.objects.filter(
             academic_class__academic_year=current_year,
-            academic_class__term=current_term
+            academic_class__term=current_term,
         ).aggregate(total=Sum('items__amount'))['total'] or 0
 
         fee_collection_rate = (total_fees_collected / total_billed * 100) if total_billed > 0 else 0
@@ -451,12 +475,16 @@ def index_view(request):
     else:
         active_classes = 0
 
-    total_subjects = Class.objects.count() if user_role in academic_roles else 0
+    total_subjects = Subject.objects.count() if user_role in academic_roles else 0
     pending_tasks = unpaid_bills + overdue_bills if user_role in finance_roles else 0
 
     # Chart data
     class_performance_labels = []
     class_performance_values = []
+    class_readiness_labels = []
+    class_readiness_values = []
+    class_assessment_totals = []
+    class_assessment_completed = []
     subject_performance_labels = []
     subject_performance_values = []
     top_classes = []
@@ -468,6 +496,12 @@ def index_view(request):
     grade_distribution_labels = []
     grade_distribution_values = []
     grade_distribution_colors = []
+    enrollment_trend_labels = []
+    enrollment_trend_active_values = []
+    enrollment_trend_inactive_values = []
+    attendance_heatmap_series = []
+    class_results_distribution_labels = []
+    class_results_distribution_series = []
     fees_collection_labels = []
     fees_collection_expected = []
     fees_collection_collected = []
@@ -477,96 +511,311 @@ def index_view(request):
     expenses_values = []
     result_status_percent = 0
 
+    total_results = 0
+    verified_results = 0
     if user_role in academic_roles and current_year and current_term:
-        class_perf = (
-            Result.objects.filter(assessment__academic_class__academic_year=current_year,
-                                  assessment__academic_class__term=current_term)
-            .values("assessment__academic_class__Class__name")
-            .annotate(avg_score=Avg("score"))
-            .order_by("assessment__academic_class__Class__name")
-        )
-        class_perf_list = list(class_perf)
-        class_performance_labels = [c["assessment__academic_class__Class__name"] for c in class_perf_list]
-        class_performance_values = [round(c["avg_score"] or 0, 1) for c in class_perf_list]
-        class_perf_sorted = sorted(class_perf_list, key=lambda x: (x["avg_score"] or 0), reverse=True)
-        top_classes = class_perf_sorted[:5]
-        bottom_classes = list(reversed(class_perf_sorted[-5:])) if class_perf_sorted else []
+        analytics_cache_key = f"dashboard:analytics:v1:{current_year.id}:{current_term.id}"
+        cached_analytics = cache.get(analytics_cache_key)
+        if cached_analytics:
+            class_performance_labels = cached_analytics["class_performance_labels"]
+            class_performance_values = cached_analytics["class_performance_values"]
+            class_readiness_labels = cached_analytics["class_readiness_labels"]
+            class_readiness_values = cached_analytics["class_readiness_values"]
+            class_assessment_totals = cached_analytics["class_assessment_totals"]
+            class_assessment_completed = cached_analytics["class_assessment_completed"]
+            subject_performance_labels = cached_analytics["subject_performance_labels"]
+            subject_performance_values = cached_analytics["subject_performance_values"]
+            top_classes = cached_analytics["top_classes"]
+            bottom_classes = cached_analytics["bottom_classes"]
+            top_subjects = cached_analytics["top_subjects"]
+            bottom_subjects = cached_analytics["bottom_subjects"]
+            performance_trend_labels = cached_analytics["performance_trend_labels"]
+            performance_trend_values = cached_analytics["performance_trend_values"]
+            grade_distribution_labels = cached_analytics["grade_distribution_labels"]
+            grade_distribution_values = cached_analytics["grade_distribution_values"]
+            grade_distribution_colors = cached_analytics["grade_distribution_colors"]
+            enrollment_trend_labels = cached_analytics["enrollment_trend_labels"]
+            enrollment_trend_active_values = cached_analytics["enrollment_trend_active_values"]
+            enrollment_trend_inactive_values = cached_analytics["enrollment_trend_inactive_values"]
+            attendance_heatmap_series = cached_analytics["attendance_heatmap_series"]
+            class_results_distribution_labels = cached_analytics["class_results_distribution_labels"]
+            class_results_distribution_series = cached_analytics["class_results_distribution_series"]
+            total_results = cached_analytics["total_results"]
+            verified_results = cached_analytics["verified_results"]
+            result_status_percent = cached_analytics["result_status_percent"]
+        else:
+            term_academic_classes = list(
+                AcademicClass.objects.filter(
+                    academic_year=current_year,
+                    term=current_term,
+                ).select_related("Class")
+            )
+            for academic_class in term_academic_classes:
+                total_class_assessments = Assessment.objects.filter(academic_class=academic_class).count()
+                completed_class_assessments = (
+                    Result.objects.filter(assessment__academic_class=academic_class)
+                    .values("assessment")
+                    .distinct()
+                    .count()
+                )
+                readiness_percent = round(
+                    (completed_class_assessments / total_class_assessments) * 100, 1
+                ) if total_class_assessments else 0
+                class_readiness_labels.append(academic_class.Class.name)
+                class_readiness_values.append(readiness_percent)
+                class_assessment_totals.append(total_class_assessments)
+                class_assessment_completed.append(completed_class_assessments)
 
-        subject_perf = (
-            Result.objects.filter(assessment__academic_class__academic_year=current_year,
-                                  assessment__academic_class__term=current_term)
-            .values("assessment__subject__name")
-            .annotate(avg_score=Avg("score"))
-            .order_by("assessment__subject__name")
-        )
-        subject_perf_list = list(subject_perf)
-        subject_performance_labels = [s["assessment__subject__name"] for s in subject_perf_list]
-        subject_performance_values = [round(s["avg_score"] or 0, 1) for s in subject_perf_list]
-        subject_perf_sorted = sorted(subject_perf_list, key=lambda x: (x["avg_score"] or 0), reverse=True)
-        top_subjects = subject_perf_sorted[:5]
-        bottom_subjects = list(reversed(subject_perf_sorted[-5:])) if subject_perf_sorted else []
+            class_perf = (
+                Result.objects.filter(assessment__academic_class__academic_year=current_year,
+                                      assessment__academic_class__term=current_term)
+                .values("assessment__academic_class__Class__name")
+                .annotate(avg_score=Avg("score"))
+                .order_by("assessment__academic_class__Class__name")
+            )
+            class_perf_list = list(class_perf)
+            class_performance_labels = [c["assessment__academic_class__Class__name"] for c in class_perf_list]
+            class_performance_values = [round(c["avg_score"] or 0, 1) for c in class_perf_list]
+            class_perf_sorted = sorted(class_perf_list, key=lambda x: (x["avg_score"] or 0), reverse=True)
+            top_classes = class_perf_sorted[:5]
+            bottom_classes = list(reversed(class_perf_sorted[-5:])) if class_perf_sorted else []
 
-        trend_perf = (
-            Result.objects.filter(assessment__academic_class__academic_year=current_year)
-            .values("assessment__academic_class__term__term")
-            .annotate(avg_score=Avg("score"))
-            .order_by("assessment__academic_class__term__term")
-        )
-        performance_trend_labels = [t["assessment__academic_class__term__term"] for t in trend_perf]
-        performance_trend_values = [round(t["avg_score"] or 0, 1) for t in trend_perf]
+            subject_perf = (
+                Result.objects.filter(assessment__academic_class__academic_year=current_year,
+                                      assessment__academic_class__term=current_term)
+                .values("assessment__subject__name")
+                .annotate(avg_score=Avg("score"))
+                .order_by("assessment__subject__name")
+            )
+            subject_perf_list = list(subject_perf)
+            subject_performance_labels = [s["assessment__subject__name"] for s in subject_perf_list]
+            subject_performance_values = [round(s["avg_score"] or 0, 1) for s in subject_perf_list]
+            subject_perf_sorted = sorted(subject_perf_list, key=lambda x: (x["avg_score"] or 0), reverse=True)
+            top_subjects = subject_perf_sorted[:5]
+            bottom_subjects = list(reversed(subject_perf_sorted[-5:])) if subject_perf_sorted else []
 
-        grading = list(GradingSystem.objects.all().order_by("min_score"))
-        grade_distribution_labels = [g.grade for g in grading]
-        if not grade_distribution_labels:
-            grade_distribution_labels = ["Ungraded"]
-        grade_counts = {grade: 0 for grade in grade_distribution_labels}
-        for row in Result.objects.filter(assessment__academic_class__academic_year=current_year,
-                                         assessment__academic_class__term=current_term).values("score"):
-            score = row["score"]
-            grade = None
-            for g in grading:
-                if g.min_score <= score <= g.max_score:
-                    grade = g.grade
-                    break
-            if grade is None:
-                grade = "Ungraded"
-            if grade not in grade_counts:
-                grade_counts[grade] = 0
-                grade_distribution_labels.append(grade)
-            grade_counts[grade] += 1
-        grade_distribution_values = [grade_counts.get(k, 0) for k in grade_distribution_labels]
-        color_palette = ["#d9534f", "#f0ad4e", "#ffd45a", "#5cb85c", "#337ab7", "#6f42c1", "#d63384", "#8b5a2b", "#2c3e50"]
-        grade_distribution_colors = [color_palette[i % len(color_palette)] for i in range(len(grade_distribution_labels))]
+            trend_perf = (
+                Result.objects.filter(assessment__academic_class__academic_year=current_year)
+                .values("assessment__academic_class__term__term")
+                .annotate(avg_score=Avg("score"))
+                .order_by("assessment__academic_class__term__term")
+            )
+            performance_trend_labels = [t["assessment__academic_class__term__term"] for t in trend_perf]
+            performance_trend_values = [round(t["avg_score"] or 0, 1) for t in trend_perf]
 
-        total_results = Result.objects.filter(assessment__academic_class__academic_year=current_year,
-                                              assessment__academic_class__term=current_term).count()
-        verified_results = Result.objects.filter(assessment__academic_class__academic_year=current_year,
-                                                 assessment__academic_class__term=current_term,
-                                                 status="VERIFIED").count()
-        result_status_percent = round((verified_results / total_results) * 100, 1) if total_results else 0
+            grading = list(GradingSystem.objects.all().order_by("min_score"))
+            grade_distribution_labels = [g.grade for g in grading]
+            if not grade_distribution_labels:
+                grade_distribution_labels = ["Ungraded"]
+            grade_counts = {grade: 0 for grade in grade_distribution_labels}
+            for row in Result.objects.filter(assessment__academic_class__academic_year=current_year,
+                                             assessment__academic_class__term=current_term).values("score"):
+                score = row["score"]
+                grade = None
+                for g in grading:
+                    if g.min_score <= score <= g.max_score:
+                        grade = g.grade
+                        break
+                if grade is None:
+                    grade = "Ungraded"
+                if grade not in grade_counts:
+                    grade_counts[grade] = 0
+                    grade_distribution_labels.append(grade)
+                grade_counts[grade] += 1
+            grade_distribution_values = [grade_counts.get(k, 0) for k in grade_distribution_labels]
+            color_palette = ["#d9534f", "#f0ad4e", "#ffd45a", "#5cb85c", "#337ab7", "#6f42c1", "#d63384", "#8b5a2b", "#2c3e50"]
+            grade_distribution_colors = [color_palette[i % len(color_palette)] for i in range(len(grade_distribution_labels))]
 
-    if user_role in finance_roles and current_year and current_term:
+            enrollment_stats = (
+                Student.objects.filter(academic_year=current_year)
+                .values("term__term")
+                .annotate(
+                    active_count=Count("id", filter=Q(is_active=True)),
+                    inactive_count=Count("id", filter=Q(is_active=False)),
+                )
+                .order_by("term__term")
+            )
+            enrollment_trend_labels = [f"Term {row['term__term']}" for row in enrollment_stats]
+            enrollment_trend_active_values = [row["active_count"] for row in enrollment_stats]
+            enrollment_trend_inactive_values = [row["inactive_count"] for row in enrollment_stats]
+
+            attendance_daily = (
+                AttendanceRecord.objects.filter(
+                    session__academic_year=current_year,
+                    session__term=current_term,
+                )
+                .values("session__date")
+                .annotate(
+                    total=Count("id"),
+                    present_like=Count("id", filter=Q(status__in=[AttendanceStatus.PRESENT, AttendanceStatus.LATE])),
+                )
+                .order_by("session__date")
+            )
+            heatmap_points = []
+            for row in attendance_daily:
+                total = row["total"] or 0
+                present_like = row["present_like"] or 0
+                rate = round((present_like / total) * 100, 1) if total else 0
+                heatmap_points.append({
+                    "x": row["session__date"].strftime("%b %d"),
+                    "y": rate,
+                })
+            attendance_heatmap_series = [{"name": "Attendance %", "data": heatmap_points}]
+
+            class_names = []
+            class_grade_totals = {}
+            grade_order = list(grade_distribution_labels)
+            result_rows = Result.objects.filter(
+                assessment__academic_class__academic_year=current_year,
+                assessment__academic_class__term=current_term,
+            ).values("assessment__academic_class__Class__name", "score")
+            for row in result_rows:
+                class_name = row["assessment__academic_class__Class__name"] or "Unknown"
+                if class_name not in class_grade_totals:
+                    class_grade_totals[class_name] = {grade: 0 for grade in grade_order}
+                    class_names.append(class_name)
+                score = row["score"]
+                assigned_grade = "Ungraded"
+                for g in grading:
+                    if g.min_score <= score <= g.max_score:
+                        assigned_grade = g.grade
+                        break
+                if assigned_grade not in class_grade_totals[class_name]:
+                    class_grade_totals[class_name][assigned_grade] = 0
+                    if assigned_grade not in grade_order:
+                        grade_order.append(assigned_grade)
+                class_grade_totals[class_name][assigned_grade] += 1
+
+            class_results_distribution_labels = class_names
+            class_results_distribution_series = [
+                {
+                    "name": grade,
+                    "data": [class_grade_totals[class_name].get(grade, 0) for class_name in class_names],
+                }
+                for grade in grade_order
+            ]
+
+            total_results = Result.objects.filter(
+                assessment__academic_class__academic_year=current_year,
+                assessment__academic_class__term=current_term,
+            ).count()
+            verified_results = Result.objects.filter(
+                assessment__academic_class__academic_year=current_year,
+                assessment__academic_class__term=current_term,
+                status="VERIFIED",
+            ).count()
+            result_status_percent = round((verified_results / total_results) * 100, 1) if total_results else 0
+
+            cache.set(analytics_cache_key, {
+                "class_performance_labels": class_performance_labels,
+                "class_performance_values": class_performance_values,
+                "class_readiness_labels": class_readiness_labels,
+                "class_readiness_values": class_readiness_values,
+                "class_assessment_totals": class_assessment_totals,
+                "class_assessment_completed": class_assessment_completed,
+                "subject_performance_labels": subject_performance_labels,
+                "subject_performance_values": subject_performance_values,
+                "top_classes": top_classes,
+                "bottom_classes": bottom_classes,
+                "top_subjects": top_subjects,
+                "bottom_subjects": bottom_subjects,
+                "performance_trend_labels": performance_trend_labels,
+                "performance_trend_values": performance_trend_values,
+                "grade_distribution_labels": grade_distribution_labels,
+                "grade_distribution_values": grade_distribution_values,
+                "grade_distribution_colors": grade_distribution_colors,
+                "enrollment_trend_labels": enrollment_trend_labels,
+                "enrollment_trend_active_values": enrollment_trend_active_values,
+                "enrollment_trend_inactive_values": enrollment_trend_inactive_values,
+                "attendance_heatmap_series": attendance_heatmap_series,
+                "class_results_distribution_labels": class_results_distribution_labels,
+                "class_results_distribution_series": class_results_distribution_series,
+                "total_results": total_results,
+                "verified_results": verified_results,
+                "result_status_percent": result_status_percent,
+            }, 300)
+
+    # Action queue for admin/head roles
+    action_queue = []
+    if user_role in admin_roles:
+        classes_without_streams = 0
+        if current_year and current_term:
+            classes_without_streams = AcademicClass.objects.filter(
+                academic_year=current_year,
+                term=current_term,
+            ).annotate(stream_count=Count("class_streams")).filter(stream_count=0).count()
+
+        pending_results_count = max(total_assessments - completed_assessments, 0)
+        unverified_results_count = max(total_results - verified_results, 0)
+
+        action_queue = [
+            {
+                "label": "Academic classes missing streams",
+                "count": classes_without_streams,
+                "severity": "high" if classes_without_streams else "ok",
+                "url": reverse("academic_class_page"),
+            },
+            {
+                "label": "Assessments pending results",
+                "count": pending_results_count,
+                "severity": "medium" if pending_results_count else "ok",
+                "url": reverse("class_assessment_list"),
+            },
+            {
+                "label": "Unverified results",
+                "count": unverified_results_count,
+                "severity": "medium" if unverified_results_count else "ok",
+                "url": reverse("verification_overview"),
+            },
+            {
+                "label": "Overdue fee bills",
+                "count": overdue_bills if user_role in finance_roles else 0,
+                "severity": "high" if (overdue_bills if user_role in finance_roles else 0) else "ok",
+                "url": reverse("fees_status"),
+            },
+        ]
+        action_queue = [item for item in action_queue if item["count"] > 0]
+    action_queue_total = sum(item["count"] for item in action_queue)
+
+    if user_role in finance_roles and current_year and current_term and term_start_date and term_end_date:
         expected_fees = StudentBill.objects.filter(
             academic_class__academic_year=current_year,
-            academic_class__term=current_term
+            academic_class__term=current_term,
         ).aggregate(total=Sum("items__amount"))["total"] or 0
         collected_fees = total_fees_collected
-        fees_collection_labels = [f"Term {current_term.term}"]
+        fees_collection_labels = [selected_term_label]
         fees_collection_expected = [float(expected_fees)]
         fees_collection_collected = [float(collected_fees)]
 
-        monthly_collections = (
-            Payment.objects.filter(bill__academic_class__academic_year=current_year)
-            .annotate(month=TruncMonth("payment_date"))
-            .values("month")
+        daily_collections = (
+            Payment.objects.filter(
+                bill__academic_class__academic_year=current_year,
+                bill__academic_class__term=current_term,
+                payment_date__range=(term_start_date, term_end_date),
+            )
+            .annotate(bucket=TruncMonth("payment_date"))
+            .values("bucket")
             .annotate(total=Sum("amount"))
-            .order_by("month")
+            .order_by("bucket")
         )
-        fees_trend_labels = [m["month"].strftime("%b") for m in monthly_collections]
-        fees_trend_values = [float(m["total"] or 0) for m in monthly_collections]
+        collections_by_month = {
+            date(item["bucket"].year, item["bucket"].month, 1): float(item["total"] or 0)
+            for item in daily_collections if item["bucket"]
+        }
+        month_cursor = date(term_start_date.year, term_start_date.month, 1)
+        month_end = date(term_end_date.year, term_end_date.month, 1)
+        while month_cursor <= month_end:
+            fees_trend_labels.append(month_cursor.strftime("%b"))
+            fees_trend_values.append(collections_by_month.get(month_cursor, 0))
+            if month_cursor.month == 12:
+                month_cursor = date(month_cursor.year + 1, 1, 1)
+            else:
+                month_cursor = date(month_cursor.year, month_cursor.month + 1, 1)
 
         expense_breakdown = (
-            ExpenditureItem.objects.values("item_name")
+            ExpenditureItem.objects.filter(
+                expenditure__date_incurred__range=(term_start_date, term_end_date),
+            ).values("item_name")
             .annotate(total=Sum(ExpressionWrapper(F("quantity") * F("unit_cost"), output_field=DecimalField())))
             .order_by("-total")[:5]
         )
@@ -624,6 +873,9 @@ def index_view(request):
         'budget_allocated': budget_allocated,
         'budget_spent': budget_spent,
         'budget_remaining': budget_allocated - budget_spent,
+        'selected_term': str(current_term.id) if current_term else "",
+        'selected_term_label': selected_term_label,
+        'term_options': term_options,
 
         # Recent activities
         'recent_payments': recent_payments,
@@ -647,6 +899,10 @@ def index_view(request):
         # Charts
         'class_performance_labels': class_performance_labels,
         'class_performance_values': class_performance_values,
+        'class_readiness_labels': class_readiness_labels,
+        'class_readiness_values': class_readiness_values,
+        'class_assessment_totals': class_assessment_totals,
+        'class_assessment_completed': class_assessment_completed,
         'subject_performance_labels': subject_performance_labels,
         'subject_performance_values': subject_performance_values,
         'top_classes': top_classes,
@@ -658,6 +914,12 @@ def index_view(request):
         'grade_distribution_labels': grade_distribution_labels,
         'grade_distribution_values': grade_distribution_values,
         'grade_distribution_colors': grade_distribution_colors,
+        'enrollment_trend_labels': enrollment_trend_labels,
+        'enrollment_trend_active_values': enrollment_trend_active_values,
+        'enrollment_trend_inactive_values': enrollment_trend_inactive_values,
+        'attendance_heatmap_series': attendance_heatmap_series,
+        'class_results_distribution_labels': class_results_distribution_labels,
+        'class_results_distribution_series': class_results_distribution_series,
         'fees_collection_labels': fees_collection_labels,
         'fees_collection_expected': fees_collection_expected,
         'fees_collection_collected': fees_collection_collected,
@@ -666,9 +928,13 @@ def index_view(request):
         'expenses_labels': expenses_labels,
         'expenses_values': expenses_values,
         'result_status_percent': result_status_percent,
-        'dashboard_chart_data': mark_safe(json.dumps({
+        'dashboard_chart_data': {
             'class_performance_labels': class_performance_labels,
             'class_performance_values': class_performance_values,
+            'class_readiness_labels': class_readiness_labels,
+            'class_readiness_values': class_readiness_values,
+            'class_assessment_totals': class_assessment_totals,
+            'class_assessment_completed': class_assessment_completed,
             'subject_performance_labels': subject_performance_labels,
             'subject_performance_values': subject_performance_values,
             'top_classes': top_classes,
@@ -680,6 +946,12 @@ def index_view(request):
             'grade_distribution_labels': grade_distribution_labels,
             'grade_distribution_values': grade_distribution_values,
             'grade_distribution_colors': grade_distribution_colors,
+            'enrollment_trend_labels': enrollment_trend_labels,
+            'enrollment_trend_active_values': enrollment_trend_active_values,
+            'enrollment_trend_inactive_values': enrollment_trend_inactive_values,
+            'attendance_heatmap_series': attendance_heatmap_series,
+            'class_results_distribution_labels': class_results_distribution_labels,
+            'class_results_distribution_series': class_results_distribution_series,
             'fees_collection_labels': fees_collection_labels,
             'fees_collection_expected': fees_collection_expected,
             'fees_collection_collected': fees_collection_collected,
@@ -688,12 +960,20 @@ def index_view(request):
             'expenses_labels': expenses_labels,
             'expenses_values': expenses_values,
             'result_status_percent': result_status_percent,
-        }, default=str)),
+        },
 
         # Quick actions data
         'pending_tasks': pending_tasks,
         'active_classes': active_classes,
         'total_subjects': total_subjects,
+        'action_queue': action_queue,
+        'action_queue_total': action_queue_total,
+        'has_performance_data': bool(top_classes or bottom_classes or top_subjects or bottom_subjects),
+        'has_class_readiness_data': bool(class_readiness_labels),
+        'has_enrollment_trend_data': bool(enrollment_trend_labels),
+        'has_attendance_heatmap_data': bool(attendance_heatmap_series and attendance_heatmap_series[0].get("data")),
+        'has_class_results_distribution_data': bool(class_results_distribution_labels and class_results_distribution_series),
+        'has_finance_chart_data': bool(fees_collection_expected or fees_trend_values or expenses_values),
     }
 
     return render(request, "index.html", context)

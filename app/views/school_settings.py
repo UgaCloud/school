@@ -222,4 +222,4 @@ def delete_department_view(request, id):
     
     messages.success(request, DELETE_MESSAGE)
     
-    return redirect(add_department_view)        
+    return redirect(add_department_view)
