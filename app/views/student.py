@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect, HttpResponse, get_object_or_404
 from django.contrib import messages
 from django.urls import reverse
+from django.http import JsonResponse
+from django.template.loader import render_to_string
 import csv
 from django.db import IntegrityError
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -20,7 +22,15 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from app.models import ClassRegister
 from django.db.models import Q
-from app.models import ClassRegister, AcademicClassStream
+from app.models import (
+    ClassRegister,
+    AcademicClassStream,
+    AcademicClass,
+    Class,
+    Stream,
+    Section,
+    Staff,
+)
 
 
 
@@ -86,6 +96,11 @@ def manage_student_view(request):
     
     student_form = student_forms.StudentForm()
     csv_form = student_forms.StudentRegistrationCSVForm()
+    current_academic_year = get_current_academic_year()
+    try:
+        current_term = get_current_term()
+    except Exception:
+        current_term = None
     
     context = {
         "students": students,
@@ -96,9 +111,136 @@ def manage_student_view(request):
         "total_inactive": total_inactive,
         "total_all": total_all,
         "per_page": int(per_page),
+        "current_academic_year": current_academic_year,
+        "current_term": current_term,
+        "quick_sections": Section.objects.all().order_by("section_name"),
+        "quick_teachers": Staff.objects.filter(is_academic_staff=True).order_by("first_name", "last_name"),
     }
     
     return render(request, "student/manage_students.html", context)
+
+
+@login_required
+def quick_create_academic_class_view(request):
+    if request.method != "POST":
+        return HttpResponseRedirect(reverse("student_page"))
+
+    current_academic_year = get_current_academic_year()
+    if not current_academic_year:
+        messages.error(request, "No current academic year is configured.")
+        return HttpResponseRedirect(reverse("settings_page"))
+
+    try:
+        current_term = get_current_term()
+    except Exception:
+        messages.error(request, "No current term is configured.")
+        return HttpResponseRedirect(reverse("academic_class_page"))
+
+    class_id = request.POST.get("quick_selected_class_id") or request.POST.get("quick_class_id")
+    section_id = request.POST.get("quick_section_id")
+    fees_amount = request.POST.get("quick_fees_amount")
+
+    if not (class_id and section_id and fees_amount):
+        messages.error(request, "Class, section and fees amount are required.")
+        return HttpResponseRedirect(reverse("student_page"))
+
+    try:
+        class_obj = Class.objects.get(id=class_id)
+        section_obj = Section.objects.get(id=section_id)
+        fees_value = int(fees_amount)
+    except (Class.DoesNotExist, Section.DoesNotExist, ValueError):
+        messages.error(request, "Invalid academic class setup values.")
+        return HttpResponseRedirect(reverse("student_page"))
+
+    academic_class, created = AcademicClass.objects.get_or_create(
+        Class=class_obj,
+        academic_year=current_academic_year,
+        term=current_term,
+        defaults={"section": section_obj, "fees_amount": fees_value},
+    )
+    if not created:
+        updated = False
+        if academic_class.section_id != section_obj.id:
+            academic_class.section = section_obj
+            updated = True
+        if academic_class.fees_amount != fees_value:
+            academic_class.fees_amount = fees_value
+            updated = True
+        if updated:
+            academic_class.save(update_fields=["section", "fees_amount"])
+            messages.success(request, "Academic Class existed and was updated.")
+        else:
+            messages.info(request, "Academic Class already exists.")
+    else:
+        messages.success(request, "Academic Class created successfully.")
+    return HttpResponseRedirect(reverse("student_page"))
+
+
+@login_required
+def quick_create_class_stream_view(request):
+    if request.method != "POST":
+        return HttpResponseRedirect(reverse("student_page"))
+
+    current_academic_year = get_current_academic_year()
+    if not current_academic_year:
+        messages.error(request, "No current academic year is configured.")
+        return HttpResponseRedirect(reverse("settings_page"))
+
+    try:
+        current_term = get_current_term()
+    except Exception:
+        messages.error(request, "No current term is configured.")
+        return HttpResponseRedirect(reverse("academic_class_page"))
+
+    class_id = request.POST.get("quick_selected_class_id") or request.POST.get("quick_stream_class_id")
+    stream_id = request.POST.get("quick_selected_stream_id") or request.POST.get("quick_stream_id")
+    teacher_id = request.POST.get("quick_teacher_id")
+
+    if not (class_id and stream_id and teacher_id):
+        messages.error(request, "Class, stream and class teacher are required.")
+        return HttpResponseRedirect(reverse("student_page"))
+
+    try:
+        class_obj = Class.objects.get(id=class_id)
+        stream_obj = Stream.objects.get(id=stream_id)
+        teacher_obj = Staff.objects.get(id=teacher_id)
+    except (Class.DoesNotExist, Stream.DoesNotExist, Staff.DoesNotExist):
+        messages.error(request, "Invalid class stream setup values.")
+        return HttpResponseRedirect(reverse("student_page"))
+
+    if not teacher_obj.is_academic_staff:
+        messages.error(request, "Selected class teacher must be marked as academic staff.")
+        return HttpResponseRedirect(reverse("student_page"))
+
+    academic_class = AcademicClass.objects.filter(
+        Class=class_obj,
+        academic_year=current_academic_year,
+        term=current_term,
+    ).first()
+    if not academic_class:
+        messages.error(
+            request,
+            "Academic Class does not exist yet for the selected class in current year/term. "
+            "Create it first in Quick Setup.",
+        )
+        return HttpResponseRedirect(reverse("student_page"))
+
+    class_stream, created = AcademicClassStream.objects.get_or_create(
+        academic_class=academic_class,
+        stream=stream_obj,
+        defaults={"class_teacher": teacher_obj},
+    )
+    if not created and class_stream.class_teacher_id != teacher_obj.id:
+        class_stream.class_teacher = teacher_obj
+        class_stream.save(update_fields=["class_teacher"])
+        messages.success(request, "Class stream existed and class teacher was updated.")
+    elif created:
+        messages.success(request, "Class stream created successfully.")
+    else:
+        messages.info(request, "Class stream already exists.")
+    return HttpResponseRedirect(reverse("student_page"))
+
+
 @login_required
 def add_student_view(request):
     if request.method == "POST":
@@ -109,16 +251,48 @@ def add_student_view(request):
             stream = student_form.cleaned_data.get("stream")
 
             current_academic_year = get_current_academic_year()
-            term = get_current_term()
-            academic_class = get_current_academic_class(current_academic_year, _class, term)
+            if not current_academic_year:
+                messages.error(
+                    request,
+                    "No current academic year is configured. Configure it under School Settings first.",
+                )
+                return HttpResponseRedirect(reverse("settings_page"))
+
+            try:
+                term = get_current_term()
+            except Exception:
+                messages.error(
+                    request,
+                    "No current term is configured. Set one term as current under Academics.",
+                )
+                return HttpResponseRedirect(reverse("academic_class_page"))
+
+            academic_class = AcademicClass.objects.filter(
+                academic_year=current_academic_year,
+                Class=_class,
+                term=term,
+            ).first()
+
+            if not academic_class:
+                messages.error(
+                    request,
+                    f"Missing Academic Class setup for {_class} in {current_academic_year} / {term}. "
+                    "Create it in Academic Classes first.",
+                )
+                return HttpResponseRedirect(reverse("academic_class_page"))
 
             class_stream_exists = AcademicClassStream.objects.filter(
                 academic_class=academic_class, stream=stream
             ).exists()
 
             if not class_stream_exists:
-                messages.error(request, "No academic class stream found. Student registration aborted.")
-                return HttpResponseRedirect(reverse(manage_student_view))  
+                messages.error(
+                    request,
+                    f"Missing class stream '{stream}' for {_class}. Add it on the Academic Class details page.",
+                )
+                return HttpResponseRedirect(
+                    reverse("academic_class_details_page", args=[academic_class.id])
+                )
 
             student = student_form.save()
             register_student(student, _class, stream)
@@ -214,8 +388,8 @@ def download_student_template_csv(request):
     writer.writerow([heading_text.upper()])
     
     writer.writerow(
-        ['ID No', 'Student Name', 'Gender', 'Birth Date(dd/mm/yy)', 'Nationality', 'Religion', 'Address',
-         'Guardian', 'Relationship', 'Guardian Contact', 'Academic year', 'Current Class', 'Stream', 'Term'])
+        ['Reg No', 'Student Name', 'Gender', 'Birth Date (YYYY-MM-DD)', 'Nationality', 'Religion', 'Address',
+         'Guardian', 'Relationship', 'Guardian Contact', 'Academic Year', 'Current Class', 'Stream', 'Term (1/2/3)'])
 
     # Return the response
     return response
@@ -230,8 +404,18 @@ def bulk_student_registration_view(request):
             csv_object = csv_form.save()
 
             try:
-                bulk_student_registration(csv_object) 
-                messages.success(request, SUCCESS_BULK_ADD_MESSAGE)
+                import_result = bulk_student_registration(csv_object)
+                created_count = import_result.get("created_count", 0)
+                skipped_count = import_result.get("skipped_count", 0)
+                errors = import_result.get("errors", [])
+
+                if created_count:
+                    messages.success(request, f"Successfully imported {created_count} student(s).")
+                if skipped_count:
+                    messages.warning(
+                        request,
+                        f"Skipped {skipped_count} row(s). First issue: {errors[0] if errors else 'Unknown error.'}"
+                    )
             except ValueError as e:
                 messages.error(request, str(e))  
             except IntegrityError:
@@ -244,24 +428,35 @@ def bulk_student_registration_view(request):
 @login_required
 def edit_student_view(request, id):
     student = get_model_record(Student, id)
+    is_modal = request.GET.get("modal") == "1" or request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if request.method == 'POST':
         student_form = StudentForm(request.POST, request.FILES, instance=student)
         if student_form.is_valid():
-        
             student_form.save()
-
-            messages.success(request, SUCCESS_ADD_MESSAGE)    
+            messages.success(request, SUCCESS_EDIT_MESSAGE)
+            if is_modal:
+                return JsonResponse({"ok": True, "message": SUCCESS_EDIT_MESSAGE})
+            return redirect(add_student_view)
         else:
+            if is_modal:
+                html = render_to_string(
+                    "student/partials/edit_student_form.html",
+                    {"form": student_form, "student": student},
+                    request=request,
+                )
+                return JsonResponse({"ok": False, "html": html}, status=400)
             messages.error(request, FAILURE_MESSAGE)
-        return redirect(add_student_view)
     else:
         student_form = StudentForm(instance=student)
 
     context = {
         "form": student_form,
-        "student": student
+        "student": student,
+        "is_modal": is_modal,
     }
+    if is_modal:
+        return render(request, "student/partials/edit_student_form.html", context)
 
     return render(request, "student/edit_student.html", context)
 

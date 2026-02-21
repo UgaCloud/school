@@ -64,6 +64,8 @@ urlpatterns = [
    #Student
     path('students/', manage_student_view, name="student_page"),
     path('add_student/', add_student_view, name="add_student"),
+    path('students/quick-create-academic-class/', quick_create_academic_class_view, name="quick_create_academic_class"),
+    path('students/quick-create-class-stream/', quick_create_class_stream_view, name="quick_create_class_stream"),
    path('student_details/<int:id>/', student_details_view, name="student_details_page"),
    path('student/<int:id>/upload-document/', upload_student_document, name='upload_student_document'),
    path('student/document/delete/<int:id>/', delete_student_document, name='delete_student_document'),
