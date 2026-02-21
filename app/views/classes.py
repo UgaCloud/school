@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, HttpResponseRedirect,get_object_o
 from django.contrib import messages
 from django.urls import reverse
 from django.db.models import Q
+from django.db import IntegrityError
 import logging
 logger = logging.getLogger(__name__)
 from app.constants import *
@@ -753,9 +754,21 @@ def add_class_subject_allocation(request):
     if request.method == "POST":
         form = ClassSubjectAllocationForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, SUCCESS_ADD_MESSAGE)
+            data = form.cleaned_data
+            try:
+                _, created = ClassSubjectAllocation.objects.update_or_create(
+                    academic_class_stream=data["academic_class_stream"],
+                    subject=data["subject"],
+                    defaults={"subject_teacher": data["subject_teacher"]},
+                )
+                if created:
+                    messages.success(request, SUCCESS_ADD_MESSAGE)
+                else:
+                    messages.success(request, "Allocation already existed. Teacher was updated.")
+            except IntegrityError:
+                messages.error(request, "This class stream and subject allocation already exists.")
             return redirect("subject_allocation_page")
+        messages.error(request, FAILURE_MESSAGE)
     else:
         form = ClassSubjectAllocationForm()
     context={
@@ -784,9 +797,12 @@ def edit_subject_allocation_view(request,id):
     if request.method =="POST":
             form = ClassSubjectAllocationForm(request.POST,instance=allocation)
             if form.is_valid():
-                form.save()
-                messages.success(request,SUCCESS_ADD_MESSAGE)
-                return HttpResponseRedirect(reverse(add_class_subject_allocation))
+                try:
+                    form.save()
+                    messages.success(request,SUCCESS_ADD_MESSAGE)
+                    return HttpResponseRedirect(reverse(add_class_subject_allocation))
+                except IntegrityError:
+                    messages.error(request, "Another allocation already uses this class stream and subject.")
             else:
                 messages.error(request, FAILURE_MESSAGE)
     form= ClassSubjectAllocationForm(instance=allocation)
@@ -906,24 +922,16 @@ def copy_allocations_from_previous_term(request):
                 academic_class_stream__academic_class__Class=current_stream.academic_class.Class,
                 academic_class_stream__stream=current_stream.stream
             ):
-                # Check if allocation already exists for this stream and subject
-                exists = ClassSubjectAllocation.objects.filter(
-                    academic_class_stream=current_stream,
-                    subject=alloc.subject
-                ).exists()
-
-                if exists:
-                    skipped_count += 1
-                    continue
-
-                # Create new allocation (handle IntegrityError for duplicates)
                 try:
-                    ClassSubjectAllocation.objects.create(
+                    _, created = ClassSubjectAllocation.objects.get_or_create(
                         academic_class_stream=current_stream,
                         subject=alloc.subject,
-                        subject_teacher=alloc.subject_teacher
+                        defaults={"subject_teacher": alloc.subject_teacher},
                     )
-                    created_count += 1
+                    if created:
+                        created_count += 1
+                    else:
+                        skipped_count += 1
                 except Exception as e:
                     # Skip if duplicate (IntegrityError) or other error
                     if 'Duplicate entry' in str(e) or 'UNIQUE constraint' in str(e):
