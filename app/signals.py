@@ -429,6 +429,10 @@ def auto_create_academic_class_streams(sender, instance, created, **kwargs):
                     if available_staff.exists():
                         existing_teacher = available_staff.first()
 
+                # class_teacher is required; skip auto-creation when no staff exists.
+                if not existing_teacher:
+                    continue
+
                 # Create AcademicClassStream
                 AcademicClassStream.objects.create(
                     academic_class=instance,

@@ -1,5 +1,8 @@
 import time
 from django.shortcuts import redirect
+from django.contrib.auth import logout
+from django.urls import reverse
+from urllib.parse import urlencode
 from core.settings import common
 
 class AutoLogoutMiddleware:
@@ -16,8 +19,11 @@ class AutoLogoutMiddleware:
 
             # If inactive for more than SESSION_COOKIE_AGE, log out the user
             if elapsed_time > common.SESSION_COOKIE_AGE:
-                request.session.flush()  # Clears session (logs out the user)
-                return redirect('login')  # Redirect to login page
+                logout(request)
+                notice_params = urlencode(
+                    {"notice": "Your session expired due to inactivity. Please sign in again."}
+                )
+                return redirect(f"{reverse('login')}?{notice_params}")
 
             # Update last activity timestamp
             request.session['last_activity'] = time.time()

@@ -3,6 +3,89 @@ import django.db.models.deletion
 from django.conf import settings
 
 
+class CreateModelIfMissing(migrations.CreateModel):
+    """Create a model table only when it does not already exist."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.name)
+        table_name = model._meta.db_table
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name in schema_editor.connection.introspection.table_names(cursor):
+                return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
+class AddFieldIfMissing(migrations.AddField):
+    """Add a field only when the target column is missing."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        table_name = model._meta.db_table
+        field = model._meta.get_field(self.name)
+        column_name = field.column
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return super().database_forwards(app_label, schema_editor, from_state, to_state)
+            existing_columns = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            }
+
+        if column_name in existing_columns:
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
+class RemoveFieldIfExists(migrations.RemoveField):
+    """Remove a field only when the corresponding DB column exists."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = from_state.apps.get_model(app_label, self.model_name)
+        table_name = model._meta.db_table
+        field = model._meta.get_field(self.name)
+        column_name = field.column
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return
+            existing_columns = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            }
+
+        if column_name not in existing_columns:
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
+class AlterFieldIfExists(migrations.AlterField):
+    """Alter a field only when the target column exists."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        table_name = model._meta.db_table
+        field = model._meta.get_field(self.name)
+        column_name = field.column
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return
+            existing_columns = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            }
+
+        if column_name not in existing_columns:
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,7 +94,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
+        CreateModelIfMissing(
             name='ResultBatch',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -23,7 +106,7 @@ class Migration(migrations.Migration):
                 ('verified_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='verified_batches', to=settings.AUTH_USER_MODEL)),
             ],
         ),
-        migrations.CreateModel(
+        CreateModelIfMissing(
             name='VerificationSample',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -34,70 +117,70 @@ class Migration(migrations.Migration):
                 ('result', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='verification_sample', to='app.result')),
             ],
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='result',
             name='batch',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='results', to='app.resultbatch'),
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='result',
             name='status',
             field=models.CharField(choices=[('DRAFT', 'Draft'), ('PENDING', 'Pending Verification'), ('VERIFIED', 'Verified'), ('FLAGGED', 'Flagged')], default='DRAFT', max_length=10),
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='result',
             name='is_boundary',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='result',
             name='is_outlier',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='result',
             name='is_sampled',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='result',
             name='verification_status',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='result',
             name='verified_at',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='result',
             name='verified_by',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='resultverificationsetting',
             name='boundary_window',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='resultverificationsetting',
             name='enable_boundary',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='resultverificationsetting',
             name='enable_outlier',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='resultverificationsetting',
             name='enable_sampling',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='resultverificationsetting',
             name='outlier_percent',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='resultverificationsetting',
             name='pass_mark_percent',
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='resultverificationsetting',
             name='tolerance_marks',
             field=models.DecimalField(decimal_places=2, default=1.0, max_digits=5),
         ),
-        migrations.AlterField(
+        AlterFieldIfExists(
             model_name='resultverificationsetting',
             name='sample_percent',
             field=models.DecimalField(decimal_places=2, default=5.0, max_digits=5),

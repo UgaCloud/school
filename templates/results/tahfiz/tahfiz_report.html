@@ -1,43 +1,55 @@
 {% load static report_tags %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>End of Term Report - {{ student.student_name }} | {{ school.school_name }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بطاقة التقييم - {{ student.student_name }} | {{ school.school_name }}</title>
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&display=swap');
+
     @page {
         size: A4;
-        margin: 10mm;
+        margin: 8mm;
     }
 
     :root {
-        --dark-blue: #1f3f8b;
-        --pink: #e6007e;
-        --teal: #0a9aa4;
-        --green: #1aa34a;
-        --line: #1597ae;
+        --pink: #e30098;
+        --green: #19aa4b;
+        --line: #1b8bb3;
+        --ink: #1f5f84;
+        --ink-dark: #174d6f;
+        --title-blue: #1f4b9c;
+        --paper: #f7f7f7;
+        --font-ar: "Noto Naskh Arabic", "Amiri", "Tahoma", serif;
+        --font-en: "Trebuchet MS", "Tahoma", "Arial", sans-serif;
     }
 
-    * { box-sizing: border-box; }
+    * {
+        box-sizing: border-box;
+    }
 
     body {
         margin: 0;
-        font-family: Arial, sans-serif;
-        background: #ffffff;
-        color: #15314f;
+        background: #eceff2;
+        color: var(--ink-dark);
+        font-family: var(--font-ar);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
-    .report-card {
+    .report-sheet {
         width: 100%;
-        max-width: 190mm;
+        max-width: 194mm;
         margin: 0 auto;
-        background: #ffffff;
-        border-left: 8px solid var(--pink);
-        border-right: 8px solid var(--pink);
+        padding: 10px 12px 12px;
+        background: var(--paper);
         border-top: 8px solid var(--green);
         border-bottom: 8px solid var(--green);
-        padding: 12px 14px 14px;
+        border-right: 14px solid var(--pink);
+        border-left: 14px solid var(--pink);
         position: relative;
+        overflow: hidden;
     }
 
     .watermark {
@@ -47,223 +59,366 @@
         align-items: center;
         justify-content: center;
         pointer-events: none;
-        opacity: 0.05;
+        opacity: 0.07;
     }
 
     .watermark img {
-        width: 55%;
-        max-width: 340px;
+        width: 72%;
+        max-width: 420px;
         height: auto;
+    }
+
+    .control-bar {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-family: var(--font-en);
+        font-size: 12px;
+    }
+
+    .control-bar form {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .control-bar select,
+    .control-bar button {
+        border: 1px solid #b7d5e5;
+        border-radius: 5px;
+        background: #fff;
+        color: var(--ink-dark);
+        padding: 4px 7px;
+        font-size: 12px;
+    }
+
+    .control-bar button {
+        background: #12577f;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-weight: 700;
     }
 
     .header {
         position: relative;
         z-index: 2;
-        text-align: center;
-        border-bottom: 3px solid var(--pink);
-        padding-bottom: 8px;
-        margin-bottom: 10px;
+        padding-bottom: 4px;
     }
 
-    .school-row {
+    .head-main {
+        direction: ltr;
         display: grid;
-        grid-template-columns: 76px 1fr;
-        gap: 10px;
+        grid-template-columns: 104px 1fr;
         align-items: center;
+        gap: 12px;
+    }
+
+    .logo-wrap {
+        width: 104px;
+        height: 104px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .logo {
-        width: 76px;
-        height: 76px;
+        width: 100px;
+        height: 100px;
         object-fit: contain;
-        border: 1px solid #d7e5ef;
-        border-radius: 50%;
-        padding: 3px;
-        background: #fff;
+    }
+
+    .school-copy {
+        text-align: center;
     }
 
     .bismillah {
-        font-size: 27px;
-        color: var(--pink);
-        line-height: 1.1;
-        margin: 0 0 3px;
+        margin: 0;
+        color: #c11664;
+        font-family: "Amiri", serif;
+        font-size: 36px;
+        line-height: 1;
+        font-weight: 700;
     }
 
     .school-name {
-        font-size: 30px;
-        font-weight: 800;
-        letter-spacing: 1px;
-        color: var(--dark-blue);
-        margin: 0;
+        margin: 2px 0 3px;
+        font-family: var(--font-en);
+        color: var(--title-blue);
+        font-size: 56px;
+        line-height: 1;
+        letter-spacing: 0.8px;
         text-transform: uppercase;
+        font-weight: 800;
     }
 
-    .contact {
-        margin-top: 4px;
-        font-size: 12px;
+    .school-meta {
+        margin: 0;
+        font-family: var(--font-en);
+        font-size: 16px;
         line-height: 1.35;
-        color: #263f56;
+        color: #1d2c39;
+        font-weight: 700;
+    }
+
+    .divider {
+        margin-top: 8px;
+        border-top: 4px solid var(--pink);
     }
 
     .title-wrap {
+        position: relative;
+        z-index: 2;
         text-align: center;
-        margin: 10px 0 12px;
+        margin: 12px 0 9px;
     }
 
-    .title-box {
+    .title-plate {
         display: inline-block;
         border: 3px solid var(--pink);
-        padding: 3px;
-        background: #ffffff;
+        padding: 4px;
+        background: #fff;
     }
 
-    .title-box span {
+    .title-plate span {
         display: inline-block;
-        background: var(--dark-blue);
+        background: var(--title-blue);
         color: #fff;
-        font-weight: 700;
-        letter-spacing: 0.6px;
-        padding: 4px 12px;
-        font-size: 19px;
+        padding: 3px 10px 2px;
+        font-family: var(--font-en);
+        font-weight: 800;
+        font-size: 43px;
+        letter-spacing: 0.5px;
+    }
+
+    .info-lines {
+        position: relative;
+        z-index: 2;
+        margin-bottom: 10px;
+        display: grid;
+        gap: 7px;
     }
 
     .line-grid {
-        position: relative;
-        z-index: 2;
         display: grid;
-        gap: 7px;
-        margin-bottom: 10px;
-        font-size: 12px;
-        color: #0d6488;
+        gap: 8px;
+    }
+
+    .line-grid.one {
+        grid-template-columns: 1fr;
+    }
+
+    .line-grid.two {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .line-grid.three {
+        grid-template-columns: 1fr 1fr 1fr;
     }
 
     .line-item {
-        display: grid;
-        grid-template-columns: auto 1fr auto 1fr;
-        gap: 6px;
-        align-items: end;
+        border-bottom: 3px dotted var(--line);
+        min-height: 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 8px;
+        padding-bottom: 2px;
     }
 
-    .line-fill {
-        border-bottom: 1.7px dotted var(--line);
-        min-height: 16px;
-        padding: 0 4px 1px;
-        color: #06385f;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .arabic {
-        direction: rtl;
-        text-align: right;
+    .line-item .label {
+        color: #1d759c;
+        font-size: 16px;
         font-weight: 700;
-        color: #136e96;
+        white-space: nowrap;
     }
 
-    table {
+    .line-item .label .en {
+        font-family: var(--font-en);
+        font-size: 12px;
+        color: #1d759c;
+    }
+
+    .line-item .value {
+        color: var(--ink);
+        font-size: 16px;
+        font-weight: 700;
+        min-height: 18px;
+        padding: 0 4px;
+    }
+
+    .line-item .value.en {
+        font-family: var(--font-en);
+    }
+
+    .marks-table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 4px;
+        table-layout: fixed;
         position: relative;
         z-index: 2;
+        margin-top: 3px;
     }
 
-    th, td {
-        border: 1.5px solid var(--line);
-        padding: 6px 4px;
+    .marks-table th,
+    .marks-table td {
+        border: 1.6px solid var(--line);
+        padding: 5px 4px;
+        font-size: 14px;
+        color: var(--ink);
         text-align: center;
-        font-size: 12px;
         vertical-align: middle;
+        background: rgba(255, 255, 255, 0.52);
     }
 
-    th {
+    .marks-table th {
+        color: #c01567;
+        font-weight: 800;
+        background: rgba(239, 249, 255, 0.92);
+    }
+
+    .marks-table .th-ar {
+        display: block;
+        font-size: 15px;
+        line-height: 1.1;
+    }
+
+    .marks-table .th-en {
+        display: block;
+        font-family: var(--font-en);
         font-size: 13px;
-        color: #154f7a;
-        background: #f8fdff;
+        line-height: 1.1;
     }
 
-    td.subject-en {
+    .marks-table td.subject-ar {
+        text-align: right;
+        direction: rtl;
+        font-size: 15px;
+        font-weight: 700;
+        color: #1c6b92;
+        width: 31%;
+    }
+
+    .marks-table th.serial-col,
+    .marks-table td.serial-col {
+        width: 34px;
+        font-family: var(--font-en);
+        font-weight: 800;
+        color: var(--ink-dark);
+    }
+
+    .marks-table td.subject-en {
+        direction: ltr;
         text-align: left;
-        font-weight: 600;
-        color: #184d78;
+        font-family: var(--font-en);
+        font-size: 15px;
+        color: var(--ink-dark);
+        width: 24%;
     }
 
-    td.subject-ar {
-        direction: rtl;
-        text-align: right;
-        font-weight: 700;
-        color: #18729b;
+    .marks-table .total-row td {
+        font-weight: 800;
+        background: rgba(240, 250, 255, 0.95);
     }
 
-    .index-col {
-        width: 24px;
-        font-weight: 700;
-        color: #15618a;
-    }
-
-    .total-row td {
-        font-weight: 700;
-        background: #fbfeff;
-    }
-
-    .notes {
+    .remarks {
         position: relative;
         z-index: 2;
         margin-top: 10px;
-        font-size: 12px;
-        color: #0d6488;
-    }
-
-    .note-line {
         display: grid;
-        grid-template-columns: auto 1fr auto 1fr;
-        gap: 6px;
-        align-items: end;
-        margin-top: 7px;
+        gap: 9px;
     }
 
-    .discipline {
+    .comment-line,
+    .sign-line,
+    .discipline-line {
+        border-bottom: 3px dotted var(--line);
+        min-height: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 8px;
+        padding-bottom: 2px;
+    }
+
+    .remarks .label {
+        color: #1d759c;
+        font-size: 16px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .remarks .label .en {
+        font-family: var(--font-en);
+        font-size: 12px;
+    }
+
+    .remarks .value {
+        color: #1f678e;
+        font-size: 15px;
+        font-weight: 700;
+        min-height: 18px;
+        white-space: pre-wrap;
+        padding: 0 4px;
+    }
+
+    .remarks .value img {
+        max-height: 28px;
+        width: auto;
+    }
+
+    .stamp {
+        position: relative;
+        z-index: 2;
         margin-top: 8px;
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 6px;
-        align-items: end;
-    }
-
-    .footer-mark {
-        margin-top: 10px;
         text-align: center;
-        font-size: 24px;
-        color: #2f638a;
-        font-weight: 700;
-        direction: rtl;
+        color: #1d5d83;
+        font-size: 48px;
+        font-weight: 800;
+    }
+
+    .footer-mini {
         position: relative;
         z-index: 2;
+        margin-top: 3px;
+        text-align: center;
+        color: #44728f;
+        font-size: 10px;
+        font-family: var(--font-en);
+        letter-spacing: 0.3px;
     }
 
-    .control-bar {
-        text-align: right;
-        margin: 0 0 8px;
-        position: relative;
-        z-index: 2;
-    }
+    @media (max-width: 760px) {
+        .head-main {
+            grid-template-columns: 1fr;
+            direction: rtl;
+        }
 
-    .control-bar form,
-    .control-bar button {
-        display: inline-block;
-        margin-left: 6px;
-    }
+        .logo-wrap {
+            margin: 0 auto;
+        }
 
-    .control-bar button {
-        border: none;
-        background: var(--dark-blue);
-        color: #fff;
-        font-size: 12px;
-        padding: 6px 10px;
-        border-radius: 4px;
-        cursor: pointer;
+        .line-grid.two,
+        .line-grid.three {
+            grid-template-columns: 1fr;
+        }
+
+        .school-name {
+            font-size: 34px;
+        }
+
+        .title-plate span {
+            font-size: 27px;
+        }
+
+        .stamp {
+            font-size: 40px;
+        }
     }
 
     @media print {
@@ -274,149 +429,169 @@
 </style>
 </head>
 <body>
-<div class="report-card">
+<div class="report-sheet">
     {% if school.school_logo %}
     <div class="watermark">
-        <img src="{{ school.school_logo.url }}" alt="Watermark" />
+        <img src="{{ school.school_logo.url }}" alt="" />
     </div>
     {% endif %}
 
     {% if not is_bulk_report %}
     <div class="control-bar">
         <form method="get">
-            <label for="term_id"><strong>Term:</strong></label>
+            <label for="term_id">الفترة / Term</label>
             <select name="term_id" id="term_id" onchange="this.form.submit()">
                 {% for t in terms %}
                 <option value="{{ t.id }}" {% if t.id|stringformat:"s" == selected_term_id %}selected{% endif %}>{{ t.term }}</option>
                 {% endfor %}
             </select>
+            <label for="report_format">التنسيق / Format</label>
+            <select name="report_format" id="report_format" onchange="this.form.submit()">
+                <option value="standard" {% if selected_report_format == "standard" %}selected{% endif %}>Standard</option>
+                <option value="tahfiz" {% if selected_report_format == "tahfiz" %}selected{% endif %}>Tahfiz</option>
+            </select>
         </form>
-        <button onclick="window.print()" type="button">Print Report</button>
+        <button onclick="window.print()" type="button">طباعة التقرير</button>
     </div>
     {% endif %}
 
-    <div class="header">
-        <div class="school-row">
-            {% if school.school_logo %}
-            <img class="logo" src="{{ school.school_logo.url }}" alt="School logo" />
-            {% else %}
-            <div class="logo"></div>
-            {% endif %}
-            <div>
-                <div class="bismillah">بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</div>
+    <header class="header">
+        <div class="head-main">
+            <div class="logo-wrap">
+                {% if school.school_logo %}
+                <img class="logo" src="{{ school.school_logo.url }}" alt="School Logo" />
+                {% else %}
+                <div class="logo"></div>
+                {% endif %}
+            </div>
+            <div class="school-copy">
+                <p class="bismillah">بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
                 <h1 class="school-name">{{ school.school_name|default:"SCHOOL NAME" }}</h1>
-                <div class="contact">
+                <p class="school-meta">
                     {% if school.mobile or school.office_phone_number1 or school.office_phone_number2 %}
                     Tel: {{ school.mobile|default:"-" }}{% if school.office_phone_number1 %} / {{ school.office_phone_number1 }}{% endif %}{% if school.office_phone_number2 %} / {{ school.office_phone_number2 }}{% endif %}<br>
                     {% endif %}
                     {% if school.email %}Email: {{ school.email }}<br>{% endif %}
                     {{ school.address|default:"-" }}
-                </div>
+                </p>
             </div>
         </div>
-    </div>
+        <div class="divider"></div>
+    </header>
 
     <div class="title-wrap">
-        <div class="title-box"><span>END OF TERM REPORT</span></div>
-    </div>
-
-    <div class="line-grid">
-        <div class="line-item">
-            <span>(Name)</span><span class="line-fill">{{ student.student_name|default:"-" }}</span>
-            <span class="arabic">الاسم</span><span class="line-fill"></span>
-        </div>
-        <div class="line-item">
-            <span>(Term)</span><span class="line-fill">{{ term|default:"-" }}</span>
-            <span class="arabic">الفترة الدراسية</span><span class="line-fill">{{ academic_year|default:"-" }}</span>
-        </div>
-        <div class="line-item">
-            <span>(Class)</span><span class="line-fill">{{ student.current_class.name|default:"-" }}</span>
-            <span class="arabic">الفصل</span><span class="line-fill"></span>
-        </div>
-        <div class="line-item">
-            <span>(Position)</span><span class="line-fill">-</span>
-            <span class="arabic">الترتيب / عدد الطلبة</span><span class="line-fill">-</span>
+        <div class="title-plate">
+            <span>END OF TERM REPORT</span>
         </div>
     </div>
 
-    <table>
-        <tr>
-            <th class="index-col">#</th>
-            <th class="subject-ar">المواد الدراسية</th>
-            <th>Subject</th>
-            <th>مجموع الدرجات</th>
-            <th>%100</th>
-            <th class="arabic">التقدير</th>
-            <th>Marks</th>
-        </tr>
+    <section class="info-lines">
+        <div class="line-grid one">
+            <div class="line-item">
+                <span class="value">{{ student.student_name|default:"" }}</span>
+                <span class="label"><span class="en">(Name)</span> الاسم</span>
+            </div>
+        </div>
 
-        {% if report_data %}
-            {% for item in report_data %}
-            <tr>
-                <td class="index-col">{{ forloop.counter }}</td>
-                <td class="subject-ar">
-                    {% if item.subject|lower == "qur'an recitation" or item.subject|lower == "quran recitation" %}القرآن الكريم
-                    {% elif item.subject|lower == "tarbia-malezi" %}التربية
-                    {% elif item.subject|lower == "fiqh" %}الفقه
-                    {% elif item.subject|lower == "lugha arabia" %}اللغة العربية
-                    {% else %}-{% endif %}
-                </td>
-                <td class="subject-en">{{ item.subject }}</td>
-                <td>{{ item.average|floatformat:0 }}</td>
-                <td>{{ item.average|floatformat:0 }}</td>
-                <td>{{ item.grade|default:"-" }}</td>
-                <td>{{ item.points|default:"-" }}</td>
-            </tr>
-            {% endfor %}
-        {% else %}
-            <tr>
-                <td colspan="7" style="padding: 10px; color: #8a1e1e; font-weight: 700;">No report data available.</td>
-            </tr>
-        {% endif %}
+        <div class="line-grid three">
+            <div class="line-item">
+                <span class="value">{{ term|default:"-" }}</span>
+                <span class="label">الفترة الدراسية <span class="en">(Term)</span></span>
+            </div>
+            <div class="line-item">
+                <span class="value">{{ academic_year|default:"-" }}</span>
+                <span class="label">العام الدراسي <span class="en">(Year)</span></span>
+            </div>
+            <div class="line-item">
+                <span class="value en">{{ printed_at|date:"Y-m-d"|default:"-" }}</span>
+                <span class="label">الموافق</span>
+            </div>
+        </div>
 
-        <tr class="total-row">
-            <td></td>
-            <td class="subject-ar">المجموع</td>
-            <td>(TOTAL MARKS)</td>
-            <td>{{ total_marks|floatformat:0|default:"-" }}</td>
-            <td>{{ overall_average|floatformat:0|default:"-" }}</td>
-            <td>{{ overall_grade|default:"-" }}</td>
-            <td>{{ total_aggregates|default:"-" }}</td>
-        </tr>
+        <div class="line-grid two">
+            <div class="line-item">
+                <span class="value">{{ selected_division|default:"-" }}</span>
+                <span class="label">التقدير <span class="en">(Position)</span></span>
+            </div>
+            <div class="line-item">
+                <span class="value">{{ class_size|default:"-" }}</span>
+                <span class="label">عدد الطلبة <span class="en">(No. of Students)</span></span>
+            </div>
+        </div>
+    </section>
+
+    <table class="marks-table">
+        <thead>
+            <tr>
+                <th class="serial-col"></th>
+                <th><span class="th-ar">المواد الدراسية</span></th>
+                <th><span class="th-en">Subject</span></th>
+                <th><span class="th-ar">مجموع الدرجات</span></th>
+                <th><span class="th-en">%100</span></th>
+                <th><span class="th-ar">التقدير</span></th>
+                <th><span class="th-en">Marks</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if report_data %}
+                {% for item in report_data %}
+                <tr>
+                    <td class="serial-col">{{ forloop.counter }}</td>
+                    <td class="subject-ar">{{ item.subject|subject_ar }}</td>
+                    <td class="subject-en">{{ item.subject }}</td>
+                    <td>{{ item.average|floatformat:0|default:"-" }}</td>
+                    <td>100</td>
+                    <td>{{ item.grade|default:"-" }}</td>
+                    <td>{{ item.points|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="7" style="padding: 12px; font-weight: 700; color: #8f1b57;">لا توجد بيانات تقرير متاحة.</td>
+                </tr>
+            {% endif %}
+
+            <tr class="total-row">
+                <td class="serial-col"></td>
+                <td class="subject-ar">المجموع</td>
+                <td class="subject-en">(TOTAL MARKS)</td>
+                <td>{{ total_marks|floatformat:0|default:"-" }}</td>
+                <td>-</td>
+                <td>{{ overall_grade|default:"-" }}</td>
+                <td>{{ total_aggregates|default:"-" }}</td>
+            </tr>
+        </tbody>
     </table>
 
-    <div class="notes">
-        <div class="note-line">
-            <span>(Class teacher's comment)</span><span class="line-fill"></span>
-            <span class="arabic">ملاحظات مشرف الفصل</span><span class="line-fill"></span>
-        </div>
-        <div class="note-line">
-            <span>(Sign)</span>
-            <span class="line-fill">
-                {% if class_teacher_signature %}<img src="{{ class_teacher_signature.url }}" alt="Class teacher signature" style="height:18px; vertical-align:middle;" />{% endif %}
-            </span>
-            <span class="arabic">التوقيع</span><span class="line-fill"></span>
+    <section class="remarks">
+        <div class="comment-line">
+            <span class="value">{{ class_teacher_remark|default:"" }}</span>
+            <span class="label">ملاحظات مشرف الفصل <span class="en">(Class teacher&rsquo;s comment)</span></span>
         </div>
 
-        <div class="note-line">
-            <span>(Director's comment)</span><span class="line-fill"></span>
-            <span class="arabic">ملاحظات مديرة/المدرسة</span><span class="line-fill"></span>
-        </div>
-        <div class="note-line">
-            <span>(Sign)</span>
-            <span class="line-fill">
-                {% if head_teacher_signature and head_teacher_signature.signature %}<img src="{{ head_teacher_signature.signature.url }}" alt="Head teacher signature" style="height:18px; vertical-align:middle;" />{% endif %}
-            </span>
-            <span class="arabic">التوقيع</span><span class="line-fill"></span>
+        <div class="sign-line">
+            <span class="value">{% if class_teacher_signature %}<img src="{{ class_teacher_signature.url }}" alt="Class Teacher Signature" />{% endif %}</span>
+            <span class="label">التوقيع <span class="en">(Sign)</span></span>
         </div>
 
-        <div class="discipline">
-            <span><strong>Discipline.</strong></span>
-            <span class="line-fill"></span>
+        <div class="comment-line">
+            <span class="value">{{ head_teacher_remark|default:"" }}</span>
+            <span class="label">ملاحظات مدير/ة المدرسة <span class="en">(Director&rsquo;s comment)</span></span>
         </div>
-    </div>
 
-    <div class="footer-mark">ختم المدرسة</div>
+        <div class="sign-line">
+            <span class="value">{% if head_teacher_signature and head_teacher_signature.signature %}<img src="{{ head_teacher_signature.signature.url }}" alt="Head Teacher Signature" />{% endif %}</span>
+            <span class="label">التوقيع <span class="en">(Sign)</span></span>
+        </div>
+
+        <div class="discipline-line">
+            <span class="value"></span>
+            <span class="label"><span class="en">Discipline.</span></span>
+        </div>
+    </section>
+
+    <div class="stamp">ختم المدرسة</div>
+    <div class="footer-mini">{{ school.school_name|default:"School" }} | {{ term|default:"-" }} | {{ academic_year|default:"-" }}</div>
 </div>
 </body>
 </html>

@@ -8,10 +8,12 @@ from django.db.models.signals import pre_save, post_save, post_delete
 from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
 from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
-from django.db import models
+from django.db import connection, models
 
 from app.models.audit import AuditLog
 from app.middleware.request_user import get_current_user, get_request_meta
+
+_audit_table_known_exists = None
 
 
 # ---------------------------
@@ -92,6 +94,21 @@ def _build_common_meta() -> Dict[str, Any]:
     }
 
 
+def _audit_table_exists() -> bool:
+    global _audit_table_known_exists
+    if _audit_table_known_exists is True:
+        return True
+
+    try:
+        table_name = AuditLog._meta.db_table
+        exists = table_name in connection.introspection.table_names()
+        if exists:
+            _audit_table_known_exists = True
+        return exists
+    except Exception:
+        return False
+
+
 def _save_audit_entry(
     *,
     action: str,
@@ -129,6 +146,9 @@ def _save_audit_entry(
             # fallback to model label with ID
             model_label = f"{instance._meta.app_label}.{instance._meta.model_name}"  # type: ignore[attr-defined]
             obj_repr = f"{model_label}({obj_id})"
+
+    if not _audit_table_exists():
+        return
 
     try:
         AuditLog.objects.create(

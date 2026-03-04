@@ -30,6 +30,7 @@
                                 value="{{ class_filter }}">{% endif %}
                             {% if year_filter %}<input type="hidden" name="year" value="{{ year_filter }}">{% endif %}
                             {% if term_filter %}<input type="hidden" name="term" value="{{ term_filter }}">{% endif %}
+                            {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
                             <button type="submit" class="btn btn-danger">
                                 <i class="fa fa-file-pdf"></i> Download PDF
                             </button>
@@ -87,7 +88,7 @@
                                 <div class="d-flex align-items-center">
                                     <div class="flex-grow-1">
                                         <div class="stat-label">Collection Rate</div>
-                                        <div class="stat-value">N/A%</div>
+                                        <div class="stat-value">{{ collection_rate|floatformat:1 }}%</div>
                                         <div class="stat-note">Payment efficiency</div>
                                     </div>
                                     <div class="stat-icon info"><i class="fa fa-chart-pie"></i></div>
@@ -166,7 +167,23 @@
                                         </div>
                                     </div>
                                     <div class="row mt-3">
-                                        <div class="col-md-12 text-end">
+                                        <div class="col-md-3">
+                                            <label for="status" class="form-label fw-bold">
+                                                <i class="fa fa-tag text-danger me-1"></i>Payment Status
+                                            </label>
+                                            <select name="status" id="status" class="form-control"
+                                                onchange="document.getElementById('filterForm').submit()">
+                                                <option value="" {% if not status_filter %}selected{% endif %}>All Statuses</option>
+                                                <option value="outstanding" {% if status_filter == "outstanding" %}selected{% endif %}>Outstanding (DR)</option>
+                                                <option value="paid" {% if status_filter == "paid" %}selected{% endif %}>Paid</option>
+                                                <option value="partial" {% if status_filter == "partial" %}selected{% endif %}>Partial</option>
+                                                <option value="overdue" {% if status_filter == "overdue" %}selected{% endif %}>Overdue</option>
+                                                <option value="unpaid" {% if status_filter == "unpaid" %}selected{% endif %}>Unpaid</option>
+                                                <option value="overpaid" {% if status_filter == "overpaid" %}selected{% endif %}>Overpaid</option>
+                                                <option value="no_bill" {% if status_filter == "no_bill" %}selected{% endif %}>No Bill</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-9 text-end">
                                             <button type="button" class="btn btn-outline-secondary"
                                                 onclick="clearFilters()">
                                                 <i class="fa fa-refresh"></i> Clear All Filters
@@ -504,6 +521,7 @@
         document.getElementById('academic_class').value = '';
         document.getElementById('year').value = '';
         document.getElementById('term').value = '';
+        document.getElementById('status').value = '';
         document.getElementById('filterForm').submit();
     }
 

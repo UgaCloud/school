@@ -417,7 +417,7 @@
           .sign-line{border-bottom:1px solid #94a3b8;margin-top:24px;}
         </style>
       `;
-      printWindow.document.write(`<!doctype html><html><head><title>Vendor Receipt</title>${styles}</head><body>${receiptEl.innerHTML}</body></html>`);
+      printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Vendor Receipt</title>${styles}</head><body>${receiptEl.innerHTML}</body></html>`);
       printWindow.document.close();
       printWindow.focus();
       printWindow.print();

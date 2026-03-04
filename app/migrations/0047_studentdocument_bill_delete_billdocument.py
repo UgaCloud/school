@@ -4,6 +4,43 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+class AddFieldIfMissing(migrations.AddField):
+    """Add a field only when the target column is missing."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        table_name = model._meta.db_table
+        field = model._meta.get_field(self.name)
+        column_name = field.column
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return super().database_forwards(app_label, schema_editor, from_state, to_state)
+            existing_columns = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            }
+
+        if column_name in existing_columns:
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
+class DeleteModelIfExists(migrations.DeleteModel):
+    """Delete a model table only when it exists."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = from_state.apps.get_model(app_label, self.name)
+        table_name = model._meta.db_table
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,12 +48,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='studentdocument',
             name='bill',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='documents', to='app.studentbill'),
         ),
-        migrations.DeleteModel(
+        DeleteModelIfExists(
             name='BillDocument',
         ),
     ]

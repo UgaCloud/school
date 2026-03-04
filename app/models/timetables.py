@@ -1,6 +1,6 @@
-from django.db import models
+from django.apps import apps
 from django.core.exceptions import ValidationError
-from django.contrib.auth.models import User
+from django.db import models
 
 class Classroom(models.Model):
     name = models.CharField(max_length=50)
@@ -65,6 +65,13 @@ class Timetable(models.Model):
     subject = models.ForeignKey('app.Subject', on_delete=models.CASCADE)
     teacher = models.ForeignKey('app.Staff', on_delete=models.SET_NULL, null=True, blank=True, related_name='teaching_slots')
     classroom = models.ForeignKey(Classroom, on_delete=models.SET_NULL, null=True, blank=True, related_name="allocations")
+    allocation = models.ForeignKey(
+        "app.ClassSubjectAllocation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="timetable_entries",
+    )
 
     class Meta:
         # Update this to refer to the correct fields
@@ -73,7 +80,60 @@ class Timetable(models.Model):
     def __str__(self):
         return f'{self.subject} on {self.weekday} at {self.time_slot}'
 
+    def _resolve_allocation(self):
+        if not self.class_stream_id or not self.subject_id:
+            return None
+
+        ClassSubjectAllocation = apps.get_model("app", "ClassSubjectAllocation")
+        allocation_qs = ClassSubjectAllocation.objects.filter(
+            academic_class_stream_id=self.class_stream_id,
+            subject_id=self.subject_id,
+        )
+        if self.teacher_id:
+            allocation = allocation_qs.filter(subject_teacher_id=self.teacher_id).first()
+            if allocation:
+                return allocation
+        return allocation_qs.first()
+
     def clean(self):
+        allocation = self.allocation
+        if allocation:
+            if (
+                self.class_stream_id
+                and allocation.academic_class_stream_id != self.class_stream_id
+            ):
+                raise ValidationError(
+                    {"allocation": "Selected allocation does not match this class stream."}
+                )
+            if self.subject_id and allocation.subject_id != self.subject_id:
+                raise ValidationError(
+                    {"subject": "Subject must match the selected class subject allocation."}
+                )
+            if self.teacher_id and allocation.subject_teacher_id != self.teacher_id:
+                raise ValidationError(
+                    {"teacher": "Teacher must match the selected class subject allocation."}
+                )
+        else:
+            allocation = self._resolve_allocation()
+            if not allocation and self.class_stream_id and self.subject_id:
+                raise ValidationError(
+                    {
+                        "subject": (
+                            "No class subject allocation exists for this class stream and subject."
+                        )
+                    }
+                )
+            if allocation:
+                self.allocation = allocation
+                if self.teacher_id and allocation.subject_teacher_id != self.teacher_id:
+                    raise ValidationError(
+                        {"teacher": "Teacher must match the class subject allocation."}
+                    )
+
+        if allocation:
+            self.subject_id = allocation.subject_id
+            self.teacher_id = allocation.subject_teacher_id
+
         # Conflict: Same teacher at same time (skip when teacher is unset)
         if self.teacher:
             teacher_conflict = Timetable.objects.filter(

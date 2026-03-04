@@ -49,8 +49,7 @@ class BulkStudentRegistrationForm(forms.Form):
     def clean_student_ids(self):
         ids = self.cleaned_data["student_ids"]
         student_ids = [id.strip() for id in ids.split(",") if id.strip()]
-        valid_students = Student.objects.filter(reg_no__in=student_ids)
+        valid_students = Student.objects.filter(reg_no__in=student_ids, is_active=True)
         if not valid_students.exists():
             raise forms.ValidationError("None of the student IDs are valid.")
         return valid_students
-

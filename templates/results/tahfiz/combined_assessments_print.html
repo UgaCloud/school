@@ -1,0 +1,640 @@
+{% load static report_tags %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>التقييمات المجمعة - {{ class_obj.Class.name }} | {{ school.school_name }}</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&display=swap');
+
+    @page {
+        size: {% if is_wide_table %}A4 landscape{% else %}A4{% endif %};
+        margin: 8mm;
+    }
+
+    :root {
+        --ink: #12324b;
+        --ink-soft: #47657e;
+        --line: #1d7aa8;
+        --accent: #c31e72;
+        --accent-2: #148c3a;
+        --paper: #ffffff;
+        --panel: #f5fbff;
+        --font-ar: "Noto Naskh Arabic", "Amiri", "Tahoma", serif;
+        --font-en: "Tahoma", "Arial", sans-serif;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        background: linear-gradient(180deg, #f2f9ff 0%, #ffffff 55%);
+        color: var(--ink);
+        font-family: var(--font-ar);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .page {
+        page-break-after: always;
+    }
+
+    .page:last-of-type {
+        page-break-after: auto;
+    }
+
+    .report-sheet {
+        width: 100%;
+        max-width: {% if is_wide_table %}277mm{% else %}190mm{% endif %};
+        margin: 0 auto;
+        padding: 10px 12px 12px;
+        background: var(--paper);
+        border-top: 8px solid var(--accent-2);
+        border-bottom: 8px solid var(--accent-2);
+        border-right: 8px solid var(--accent);
+        border-left: 8px solid var(--accent);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .watermark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        opacity: 0.045;
+    }
+
+    .watermark img {
+        width: 55%;
+        max-width: 340px;
+        height: auto;
+    }
+
+    .control-bar {
+        position: relative;
+        z-index: 2;
+        text-align: left;
+        padding: 10px;
+    }
+
+    .print-btn {
+        border: none;
+        border-radius: 6px;
+        background: #0f4f72;
+        color: #fff;
+        padding: 6px 12px;
+        font-size: 12px;
+        cursor: pointer;
+        font-weight: 700;
+        font-family: var(--font-en);
+    }
+
+    .header {
+        position: relative;
+        z-index: 2;
+        border-bottom: 2px solid #c7deeb;
+        padding-bottom: 8px;
+    }
+
+    .school-row {
+        display: grid;
+        grid-template-columns: 1fr 84px;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .school-copy {
+        text-align: center;
+    }
+
+    .bismillah {
+        margin: 0;
+        color: var(--accent);
+        font-size: 27px;
+        line-height: 1.15;
+        font-weight: 700;
+    }
+
+    .school-name {
+        margin: 2px 0 0;
+        font-family: var(--font-en);
+        font-size: 30px;
+        letter-spacing: .8px;
+        text-transform: uppercase;
+        color: #193f86;
+        font-weight: 800;
+    }
+
+    .school-meta {
+        margin: 4px 0 0;
+        color: var(--ink-soft);
+        font-size: 12px;
+        line-height: 1.45;
+        font-family: var(--font-en);
+    }
+
+    .logo {
+        width: 84px;
+        height: 84px;
+        object-fit: contain;
+        background: #fff;
+        border: 1px solid #d0e2ee;
+        border-radius: 50%;
+        padding: 4px;
+    }
+
+    .title-band {
+        position: relative;
+        z-index: 2;
+        margin: 10px 0 12px;
+        text-align: center;
+    }
+
+    .title-band .ar {
+        display: inline-block;
+        background: #143e8f;
+        color: #fff;
+        padding: 6px 12px 5px;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .title-band .en {
+        margin-top: 4px;
+        color: #1f5f89;
+        font-size: 12px;
+        font-family: var(--font-en);
+        letter-spacing: .4px;
+    }
+
+    .meta-grid {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .meta-item {
+        border: 1px solid #d5e7f1;
+        border-radius: 8px;
+        background: var(--panel);
+        padding: 7px 8px;
+        min-height: 46px;
+    }
+
+    .meta-item .labels {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 3px;
+    }
+
+    .meta-item .labels .ar {
+        color: #0f6990;
+        font-weight: 700;
+        font-size: 12px;
+    }
+
+    .meta-item .labels .en {
+        color: #3f677f;
+        font-family: var(--font-en);
+        font-size: 11px;
+    }
+
+    .meta-item .value {
+        border-bottom: 1.4px dotted #6aaac8;
+        font-weight: 700;
+        color: #103f63;
+        min-height: 18px;
+        padding-bottom: 2px;
+        font-size: 13px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 4px;
+        position: relative;
+        z-index: 2;
+        table-layout: fixed;
+    }
+
+    th,
+    td {
+        border: 1.3px solid var(--line);
+        padding: {% if is_wide_table %}5px 3px{% else %}6px 4px{% endif %};
+        font-size: {% if is_wide_table %}10px{% else %}11px{% endif %};
+        text-align: center;
+        vertical-align: middle;
+        word-break: break-word;
+    }
+
+    th {
+        background: #edf8ff;
+        color: #124e74;
+        font-weight: 700;
+    }
+
+    th .ar {
+        display: block;
+        font-weight: 700;
+    }
+
+    th .en {
+        display: block;
+        font-family: var(--font-en);
+        font-size: 10px;
+        color: #3b667d;
+        margin-top: 2px;
+    }
+
+    td.subject-ar {
+        direction: rtl;
+        text-align: right;
+        font-weight: 700;
+        color: #116a92;
+        width: {% if is_wide_table %}16%{% else %}20%{% endif %};
+    }
+
+    td.subject-en {
+        direction: ltr;
+        text-align: left;
+        font-family: var(--font-en);
+        color: #214e6a;
+        width: {% if is_wide_table %}14%{% else %}18%{% endif %};
+    }
+
+    td.serial {
+        width: 30px;
+        font-family: var(--font-en);
+        font-weight: 700;
+        color: #1f6589;
+    }
+
+    td.remark {
+        width: {% if is_wide_table %}80px{% else %}90px{% endif %};
+        font-weight: 700;
+        color: #0d6488;
+    }
+
+    .report-meta-strip {
+        position: relative;
+        z-index: 2;
+        margin: 0 0 10px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .meta-chip {
+        border: 1px solid #d3e7f3;
+        background: #f8fcff;
+        border-radius: 8px;
+        padding: 5px 8px;
+        font-size: 10px;
+        color: #2f5f79;
+        text-align: center;
+        font-family: var(--font-en);
+    }
+
+    .meta-chip strong {
+        color: #0d5f85;
+        font-weight: 700;
+    }
+
+    .mono {
+        font-family: "Courier New", Courier, monospace;
+        letter-spacing: .35px;
+    }
+
+    .total-row td,
+    .division-row td {
+        background: #f4fbff;
+        font-weight: 700;
+    }
+
+    .notes {
+        position: relative;
+        z-index: 2;
+        margin-top: 10px;
+    }
+
+    .notes table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .notes td {
+        border: none;
+        border-bottom: 1.3px solid #9ec5da;
+        padding: 6px 4px;
+        font-size: 12px;
+    }
+
+    .notes .label {
+        width: 22%;
+        white-space: nowrap;
+        color: #0f6990;
+        font-weight: 700;
+    }
+
+    .notes .input-cell {
+        width: 48%;
+    }
+
+    .notes textarea {
+        width: 100%;
+        border: none;
+        outline: none;
+        resize: vertical;
+        min-height: 30px;
+        font-family: var(--font-ar);
+        font-size: 12px;
+        background: transparent;
+        direction: rtl;
+        text-align: right;
+    }
+
+    .notes .sign-cell {
+        width: 30%;
+        text-align: left;
+    }
+
+    .notes .sign-cell img {
+        max-height: 30px;
+        width: auto;
+    }
+
+    .signature-placeholder {
+        color: #7a9aae;
+        font-size: 11px;
+    }
+
+    .save-comment-btn {
+        background: #148c3a;
+        color: #fff;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: var(--font-en);
+        font-weight: 700;
+    }
+
+    .report-note {
+        margin-top: 6px;
+        padding: 5px 8px;
+        border: 1px solid #d8e9f3;
+        border-radius: 8px;
+        background: #f9fdff;
+        font-size: 11px;
+        color: #355f78;
+    }
+
+    .footer-meta {
+        position: relative;
+        z-index: 2;
+        margin-top: 7px;
+        border-top: 1px dashed #bcd7e7;
+        padding-top: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        font-size: 10px;
+        color: #3e6882;
+        font-family: var(--font-en);
+    }
+
+    @media (max-width: 760px) {
+        .meta-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .report-meta-strip {
+            grid-template-columns: 1fr;
+        }
+
+        .school-row {
+            grid-template-columns: 1fr;
+        }
+
+        .logo {
+            margin: 0 auto;
+        }
+    }
+
+    @media print {
+        .control-bar {
+            display: none;
+        }
+
+        .no-print {
+            display: none !important;
+        }
+    }
+</style>
+</head>
+<body>
+    <div class="control-bar">
+        <button onclick="window.print()" class="print-btn" type="button">طباعة الكل</button>
+    </div>
+
+    {% for rep in reports %}
+    <div class="report-sheet page">
+        {% if school.school_logo %}
+        <div class="watermark">
+            <img src="{{ school.school_logo.url }}" alt="" />
+        </div>
+        {% endif %}
+
+        <header class="header">
+            <div class="school-row">
+                <div class="school-copy">
+                    <p class="bismillah">بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
+                    <h1 class="school-name">{{ school.school_name|default:"SCHOOL NAME" }}</h1>
+                    <p class="school-meta">
+                        {% if school.mobile or school.office_phone_number1 or school.office_phone_number2 %}
+                        Tel: {{ school.mobile|default:"-" }}{% if school.office_phone_number1 %} / {{ school.office_phone_number1 }}{% endif %}{% if school.office_phone_number2 %} / {{ school.office_phone_number2 }}{% endif %}<br>
+                        {% endif %}
+                        {% if school.email %}Email: {{ school.email }}<br>{% endif %}
+                        {{ school.address|default:"-" }}
+                    </p>
+                </div>
+                {% if school.school_logo %}
+                <img class="logo" src="{{ school.school_logo.url }}" alt="شعار المدرسة" />
+                {% else %}
+                <div class="logo"></div>
+                {% endif %}
+            </div>
+        </header>
+
+        <div class="title-band">
+            <div class="ar">تقرير التقييمات المجمعة</div>
+            <div class="en">COMBINED ASSESSMENTS REPORT</div>
+        </div>
+
+        <div class="report-meta-strip">
+            <div class="meta-chip"><strong>Printed:</strong> {{ printed_at|date:"Y-m-d H:i" }}</div>
+            <div class="meta-chip"><strong>Reference:</strong> <span class="mono">{{ rep.report_reference|default:"-" }}</span></div>
+            <div class="meta-chip"><strong>Assessments:</strong> {{ rep.assessment_types|length }}</div>
+            <div class="meta-chip"><strong>Page:</strong> {{ forloop.counter }} / {{ reports|length }}</div>
+        </div>
+
+        <section class="meta-grid">
+            <div class="meta-item">
+                <div class="labels"><span class="ar">الاسم</span><span class="en">Name</span></div>
+                <div class="value">{{ rep.student.student_name|default:"-" }}</div>
+            </div>
+            <div class="meta-item">
+                <div class="labels"><span class="ar">الفترة / العام</span><span class="en">Term / Year</span></div>
+                <div class="value">{{ rep.term|default:"-" }} / {{ rep.academic_year|default:"-" }}</div>
+            </div>
+            <div class="meta-item">
+                <div class="labels"><span class="ar">الفصل</span><span class="en">Class</span></div>
+                <div class="value">{{ class_obj.Class.name|default:"-" }}</div>
+            </div>
+        </section>
+
+        {% if not rep.report_data %}
+        <p style="color:#8a1e1e; font-weight:700; text-align:center;">لا توجد بيانات تقرير متاحة.</p>
+        {% endif %}
+
+        <table class="scores-table">
+            <thead>
+                <tr>
+                    <th rowspan="2"><span class="ar">م</span><span class="en">#</span></th>
+                    <th rowspan="2"><span class="ar">المادة (عربي)</span><span class="en">Subject (AR)</span></th>
+                    <th rowspan="2"><span class="ar">المادة (English)</span><span class="en">Subject</span></th>
+                    {% for at in rep.assessment_types %}
+                    <th colspan="2">{{ at.name|upper }}</th>
+                    {% endfor %}
+                    <th rowspan="2"><span class="ar">المتوسط</span><span class="en">Average</span></th>
+                    <th rowspan="2"><span class="ar">التقدير</span><span class="en">Remark</span></th>
+                </tr>
+                <tr>
+                    {% for at in rep.assessment_types %}
+                    <th><span class="ar">الدرجات</span><span class="en">Marks</span></th>
+                    <th><span class="ar">النقاط</span><span class="en">Points</span></th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in rep.report_data %}
+                <tr>
+                    <td class="serial">{{ forloop.counter }}</td>
+                    <td class="subject-ar">{{ item.subject|subject_ar }}</td>
+                    <td class="subject-en">{{ item.subject }}</td>
+                    {% for at in rep.assessment_types %}
+                    {% with data=item.assessments|get_item:at.name %}
+                    <td>{{ data.score|floatformat:0|default:"-" }}</td>
+                    {% if item.subject|upper == "READING" or item.subject|upper == "RELIGIOUS EDUCATION" or item.subject|upper == "RELIGIOUSEDUCATION" %}
+                    <td>-</td>
+                    {% else %}
+                    <td>{{ data.points|floatformat:0|default:"-" }}</td>
+                    {% endif %}
+                    {% endwith %}
+                    {% endfor %}
+                    <td>{{ item.average|floatformat:0|default:"-" }}</td>
+                    <td class="remark">{{ item.average|remark_ar }}</td>
+                </tr>
+                {% endfor %}
+
+                <tr class="total-row">
+                    <td></td>
+                    <td><strong>المجموع</strong></td>
+                    <td><strong>TOTAL</strong></td>
+                    {% for at in rep.assessment_types %}
+                    <td>{{ rep.assessment_totals|get_item:at.name|get_item:"marks"|floatformat:0|default:"-" }}</td>
+                    <td>{{ rep.assessment_totals|get_item:at.name|get_item:"points"|floatformat:0|default:"-" }}</td>
+                    {% endfor %}
+                    <td>-</td>
+                    <td></td>
+                </tr>
+
+                <tr class="division-row">
+                    <td></td>
+                    <td><strong>القسم</strong></td>
+                    <td><strong>DIVISION</strong></td>
+                    <td colspan="{{ rep.assessment_types|length|add:rep.assessment_types|length|add:2 }}">{{ rep.selected_division }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="notes">
+            <form method="POST" class="comment-form" data-student-id="{{ rep.student.id }}" data-term-id="{{ rep.term_id }}">
+                {% csrf_token %}
+                <input type="hidden" name="student_id" value="{{ rep.student.id }}">
+                <input type="hidden" name="term_id" value="{{ rep.term_id }}">
+
+                <table>
+                    <tr>
+                        <td colspan="2"></td>
+                        <td style="text-align:center; font-weight:700; color:#0f6990;">التوقيع</td>
+                    </tr>
+                    <tr>
+                        <td class="label">ملاحظات مشرف الفصل:</td>
+                        <td class="input-cell">
+                            <textarea name="class_teacher_remark" class="remark-input" placeholder="اكتب ملاحظات مشرف الفصل...">{{ rep.class_teacher_remark }}</textarea>
+                        </td>
+                        <td class="sign-cell">
+                            {% if rep.class_teacher_signature and rep.class_teacher_signature.url %}
+                            <img src="{{ rep.class_teacher_signature.url }}" alt="توقيع مشرف الفصل" />
+                            {% else %}
+                            <span class="signature-placeholder">---</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="label">ملاحظات المدير/ة:</td>
+                        <td class="input-cell">
+                            <textarea name="head_teacher_remark" class="remark-input" placeholder="اكتب ملاحظات المدير/ة...">{{ rep.head_teacher_remark }}</textarea>
+                        </td>
+                        <td class="sign-cell">
+                            {% if rep.head_teacher_signature and rep.head_teacher_signature.signature %}
+                            <img src="{{ rep.head_teacher_signature.signature.url }}" alt="توقيع المدير/ة" />
+                            {% else %}
+                            <span class="signature-placeholder">---</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr class="no-print">
+                        <td colspan="3" style="text-align:left; padding-top:10px;">
+                            <button type="submit" class="save-comment-btn">حفظ الملاحظات</button>
+                        </td>
+                    </tr>
+                </table>
+            </form>
+        </div>
+
+        {% if rep.division_override_note %}
+        <div class="report-note">
+            <strong>Note:</strong> {{ rep.division_override_note }}
+        </div>
+        {% endif %}
+
+        {% if rep.next_term_start_date %}
+        <div class="report-note">
+            بداية الفترة القادمة: {{ rep.next_term_start_date|date:"j F Y" }}
+        </div>
+        {% endif %}
+
+        <div class="footer-meta">
+            <span>{{ class_obj.Class.name|default:"-" }}</span>
+            <span>{{ rep.term|default:"-" }} | {{ rep.academic_year|default:"-" }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</body>
+</html>

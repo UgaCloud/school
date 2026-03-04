@@ -71,7 +71,7 @@ class BankDetail(models.Model):
         verbose_name_plural = ("bankdetails")
 
     def __str__(self):
-        return self.name
+        return f"{self.staff} - {self.bank_name}"
 
     def get_absolute_url(self):
         return reverse("bankdetail_detail", kwargs={"pk": self.pk})
@@ -87,8 +87,7 @@ class StaffDocument(models.Model):
         verbose_name_plural = ("StaffDocuments")
 
     def __str__(self):
-        return self.name
+        return f"{self.staff} - {self.document_type}"
 
     def get_absolute_url(self):
         return reverse("StaffDocument_detail", kwargs={"pk": self.pk})
-

@@ -73,7 +73,12 @@ def edit_bill_item_view(request,id):
     return render(request,"fees/edit_bill_item.html",context)
 
 
+@login_required
 def delete_bill_item_view(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponseRedirect(reverse(manage_bill_items_view))
+
     bill_item = get_model_record(BillItem, id)
     
     bill_item.delete()
@@ -106,7 +111,7 @@ def manage_student_bills_view(request):
     classes = Class.objects.all()
 
     # Start with all student bills
-    student_bills = StudentBill.objects.select_related(
+    student_bills = StudentBill.objects.filter(student__is_active=True).select_related(
         'student', 'academic_class', 'academic_class__academic_year',
         'academic_class__term', 'academic_class__Class'
     ).order_by('-bill_date')
@@ -309,7 +314,7 @@ def ajax_payment_form_view(request, bill_id):
     from django.http import JsonResponse
     from django.middleware.csrf import get_token
     
-    bill = get_object_or_404(StudentBill, pk=bill_id)
+    bill = get_object_or_404(StudentBill, pk=bill_id, student__is_active=True)
     
     if request.method == 'POST':
         form = PaymentForm(request.POST)
@@ -342,6 +347,7 @@ def student_fees_status_view(request):
     selected_academic_class = request.GET.get("academic_class")
     selected_term_id = request.GET.get("term")
     selected_year_id = request.GET.get("year")
+    selected_status = (request.GET.get("status") or "").strip().lower()
 
     # Resolve selected academic year (defaults to current)
     selected_year = None
@@ -376,6 +382,7 @@ def student_fees_status_view(request):
     bills_qs = StudentBill.objects.filter(
         academic_class__academic_year=selected_year,
         academic_class__term=term_obj,
+        student__is_active=True,
     )
     if selected_academic_class:
         bills_qs = bills_qs.filter(academic_class__Class_id=selected_academic_class)
@@ -426,7 +433,10 @@ def student_fees_status_view(request):
         from django.db.models import Max
         # Find latest term (by start_date) within selected year that has any StudentBill
         term_ids_with_bills = (
-            StudentBill.objects.filter(academic_class__academic_year=selected_year)
+            StudentBill.objects.filter(
+                academic_class__academic_year=selected_year,
+                student__is_active=True,
+            )
             .values_list('academic_class__term_id', flat=True)
             .distinct()
         )
@@ -441,6 +451,7 @@ def student_fees_status_view(request):
             bills_qs = StudentBill.objects.filter(
                 academic_class__academic_year=selected_year,
                 academic_class__term=term_obj,
+                student__is_active=True,
             )
             if selected_academic_class:
                 bills_qs = bills_qs.filter(academic_class__Class_id=selected_academic_class)
@@ -484,10 +495,25 @@ def student_fees_status_view(request):
             # Update the effective filters
             selected_term_id = str(fallback_term.id)
 
+    # Optional payment status filter (applies after class/year/term scope)
+    status_filters = {
+        "outstanding": {"Unpaid", "Partial", "Overdue"},
+        "paid": {"Paid"},
+        "overpaid": {"Overpaid"},
+        "unpaid": {"Unpaid"},
+        "partial": {"Partial"},
+        "overdue": {"Overdue"},
+        "no_bill": {"No Bill"},
+    }
+    if selected_status in status_filters:
+        allowed_statuses = status_filters[selected_status]
+        student_fees_data = [row for row in student_fees_data if row.get("payment_status") in allowed_statuses]
+
     # Summary metrics for UX
     total_fees = sum(row["total_amount"] for row in student_fees_data)
     total_paid = sum(row["amount_paid"] for row in student_fees_data)
     total_balance = sum(row["balance"] for row in student_fees_data if row.get("balance_label") != "CR")
+    collection_rate = (total_paid / total_fees * 100) if total_fees > 0 else 0
 
     if request.GET.get("download_pdf"):
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -535,6 +561,7 @@ def student_fees_status_view(request):
         <b>Academic Year:</b> {selected_year.academic_year if selected_year else 'All Years'}<br/>
         <b>Term:</b> {term_obj.term if term_obj else 'All Terms'}<br/>
         <b>Class Filter:</b> {AcademicClass.objects.filter(id=selected_academic_class).first().Class.name if selected_academic_class else 'All Classes'}<br/>
+        <b>Status Filter:</b> {selected_status.replace('_', ' ').title() if selected_status else 'All Statuses'}<br/>
         <b>Total Students:</b> {len(student_fees_data)}<br/>
         <b>Total Fees:</b> UGX {total_fees:,.0f}<br/>
         <b>Total Paid:</b> UGX {total_paid:,.0f}<br/>
@@ -615,6 +642,8 @@ def student_fees_status_view(request):
         "total_fees": total_fees,
         "total_paid": total_paid,
         "total_balance": total_balance,
+        "collection_rate": collection_rate,
+        "status_filter": selected_status,
         "current_term": term_obj if 'term_obj' in locals() and term_obj else current_term,
         "current_year": selected_year,
     }
@@ -624,7 +653,7 @@ def student_fees_status_view(request):
 @login_required
 def student_fees_history_view(request, student_id):
     """Show all bills for a particular student across every academic year and term."""
-    student = get_object_or_404(Student, pk=student_id)
+    student = get_object_or_404(Student, pk=student_id, is_active=True)
     
     # Get selected year from query params
     selected_year_id = request.GET.get('year')
@@ -784,7 +813,7 @@ def upload_bill_document(request, id):
 
 @login_required
 def delete_bill_document(request, id):
-    document = get_object_or_404(StudentDocument, id=id)
+    document = get_object_or_404(StudentDocument, id=id, student__is_active=True)
     bill_id = document.bill.id
     document.delete()
     messages.success(request, DELETE_MESSAGE)
@@ -798,7 +827,7 @@ def student_fees_receipt_pdf_view(request, student_id):
     from app.utils.pdf_utils import generate_student_fees_receipt_pdf
     from app.models.school_settings import SchoolSetting
     
-    student = get_object_or_404(Student, pk=student_id)
+    student = get_object_or_404(Student, pk=student_id, is_active=True)
     
     # Get all bills for the student
     bills_qs = (
@@ -878,7 +907,7 @@ def reconcile_student_overpayments(request, student_id):
     from app.models.fees_payment import StudentBill, StudentCredit
     from app.models.classes import AcademicClass
     
-    student = get_object_or_404(Student, pk=student_id)
+    student = get_object_or_404(Student, pk=student_id, is_active=True)
     
     # Get all bills for student ordered by term (earliest first)
     bills = (
@@ -949,7 +978,3 @@ def reconcile_student_overpayments(request, student_id):
         messages.info(request, "No overpayments to reconcile.")
     
     return HttpResponseRedirect(reverse('student_fees_history', args=[student.id]))
-
-
-
-

@@ -10,7 +10,7 @@ from app.models.staffs import Staff, StaffDocument
 import app.selectors.staffs as staff_selectors
 import app.forms.staff as staff_forms
 from django.contrib.auth.decorators import login_required
-from app.models.classes import ClassSubjectAllocation
+from app.services.teacher_assignments import get_teacher_assignments
 
 @login_required
 def manage_staff_view(request):
@@ -41,7 +41,7 @@ def add_staff(request):
 @login_required
 def staff_details_view(request, id):
     staff = get_object_or_404(Staff, id=id)
-    teaching_assignments = ClassSubjectAllocation.objects.filter(subject_teacher=staff)
+    teaching_assignments = get_teacher_assignments(staff)
     staff_documents = StaffDocument.objects.filter(staff=staff)
 
     if request.method == "POST":
@@ -102,7 +102,12 @@ def edit_staff_details_view(request, id):
 
 
 
+@login_required
 def delete_staff_view(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponseRedirect(reverse(manage_staff_view))
+
     staff = staff_selectors.get_staff(id)
     
     staff.delete()

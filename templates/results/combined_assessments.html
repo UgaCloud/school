@@ -12,11 +12,12 @@
     <div class="pull-right">
       <a
         class="btn btn-default"
-        href="{% url 'class_assessment_combined_print' %}?academic_year_id={{ selected_year_id }}&term_id={{ selected_term_id }}&class_id={{ selected_class_id }}{% for id in selected_assessment_type_ids %}&assessment_type_ids={{ id }}{% endfor %}"
+        href="{% url 'class_assessment_combined_print' %}?academic_year_id={{ selected_year_id }}&term_id={{ selected_term_id }}&class_id={{ selected_class_id }}&report_format={{ selected_report_format }}{% for id in selected_assessment_type_ids %}&assessment_type_ids={{ id }}{% endfor %}"
         target="_blank"
         rel="noopener"
       >
-        <i class="fa fa-print"></i> Print Combined Reports
+        <i class="fa fa-print"></i>
+        {% if selected_report_format == "tahfiz" %}طباعة التقارير المجمعة{% else %}Print Combined Reports{% endif %}
       </a>
     </div>
   </div>
@@ -121,6 +122,14 @@
       </div>
 
       <div class="form-group">
+        <label for="report_format">Report Format</label>
+        <select name="report_format" id="report_format" class="form-control" onchange="this.form.submit()">
+          <option value="standard" {% if selected_report_format == "standard" %}selected{% endif %}>Standard</option>
+          <option value="tahfiz" {% if selected_report_format == "tahfiz" %}selected{% endif %}>Tahfiz</option>
+        </select>
+      </div>
+
+      <div class="form-group">
         <label for="class_id">Class</label>
         <select name="class_id" id="class_id" class="form-control">
           <option value="">-- Select --</option>
@@ -152,10 +161,11 @@
 
       <div class="form-group filter-actions">
         <button type="submit" class="btn btn-primary">
-          <i class="fa fa-filter"></i> Apply
+          <i class="fa fa-filter"></i>
+          {% if selected_report_format == "tahfiz" %}تطبيق{% else %}Apply{% endif %}
         </button>
-        <a href="?{% if selected_year_id %}academic_year_id={{ selected_year_id }}&{% endif %}{% if selected_term_id %}term_id={{ selected_term_id }}&{% endif %}" class="btn btn-default">
-          Reset
+        <a href="?report_format={{ selected_report_format }}{% if selected_year_id %}&academic_year_id={{ selected_year_id }}{% endif %}{% if selected_term_id %}&term_id={{ selected_term_id }}{% endif %}" class="btn btn-default">
+          {% if selected_report_format == "tahfiz" %}إعادة تعيين{% else %}Reset{% endif %}
         </a>
       </div>
     </form>

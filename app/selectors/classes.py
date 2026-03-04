@@ -1,14 +1,22 @@
 from app.models.classes import *
 from app.models.students import ClassRegister
 from app.selectors.school_settings import get_current_academic_year
+from app.services.level_scope import (
+    get_level_academic_classes_queryset,
+    get_level_classes_queryset,
+)
 
-def get_classes():
+def get_classes(active_level=None):
+    if active_level:
+        return get_level_classes_queryset(active_level=active_level)
     return Class.objects.all()
 
 def get_class_by_code(class_code):
     return Class.objects.filter(code=class_code).first() 
 
-def get_academic_classes():
+def get_academic_classes(active_level=None):
+    if active_level:
+        return get_level_academic_classes_queryset(active_level=active_level)
     return AcademicClass.objects.all()
 
 def get_academic_class(id):

@@ -3,6 +3,43 @@ import django.db.models.deletion
 from django.conf import settings
 
 
+class CreateModelIfMissing(migrations.CreateModel):
+    """Create a model table only when it does not already exist."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.name)
+        table_name = model._meta.db_table
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name in schema_editor.connection.introspection.table_names(cursor):
+                return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
+class AddFieldIfMissing(migrations.AddField):
+    """Add a field only when the target column is missing."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        table_name = model._meta.db_table
+        field = model._meta.get_field(self.name)
+        column_name = field.column
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return super().database_forwards(app_label, schema_editor, from_state, to_state)
+            existing_columns = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            }
+
+        if column_name in existing_columns:
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,7 +48,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
+        CreateModelIfMissing(
             name='ResultVerificationSetting',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -24,32 +61,32 @@ class Migration(migrations.Migration):
                 ('enable_outlier', models.BooleanField(default=True)),
             ],
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='result',
             name='verification_status',
             field=models.CharField(choices=[('PENDING', 'Pending'), ('FLAGGED', 'Flagged'), ('VERIFIED', 'Verified')], default='PENDING', max_length=10),
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='result',
             name='is_sampled',
             field=models.BooleanField(default=False),
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='result',
             name='is_boundary',
             field=models.BooleanField(default=False),
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='result',
             name='is_outlier',
             field=models.BooleanField(default=False),
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='result',
             name='verified_at',
             field=models.DateTimeField(blank=True, null=True),
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='result',
             name='verified_by',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='verified_results', to=settings.AUTH_USER_MODEL),

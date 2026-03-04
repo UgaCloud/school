@@ -97,7 +97,12 @@ def edit_income_sources(request, id):
     
      
 
+@login_required
 def delete_income_source(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponsePermanentRedirect(reverse(manage_income_sources))
+
     income_source = get_model_record(IncomeSource, id)
     
     income_source.delete()
@@ -156,7 +161,12 @@ def edit_expenses(request, id):
     return render(request, 'finance/edit_expense.html', context)
 
 
+@login_required
 def delete_expense(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponsePermanentRedirect(reverse(manage_expenses))
+
     expense = get_model_record(Expense, id)
     
     expense.delete()
@@ -359,6 +369,10 @@ def edit_expenditures(request, id):
 
 @login_required
 def delete_expenditure(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponsePermanentRedirect(reverse(manage_expenditures))
+
     expenditure = get_model_record(Expenditure, id)
     
     expenditure.delete()
@@ -478,9 +492,16 @@ def edit_expenditure_items(request, id):
 
     
 
+@login_required
 def delete_expenditure_item(request, id):
     expenditure_item = get_model_record(ExpenditureItem, id)
     expenditure_id = expenditure_item.expenditure.id if getattr(expenditure_item, "expenditure", None) else None
+
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        if expenditure_id:
+            return HttpResponsePermanentRedirect(reverse(manage_expenditure_items, args=[expenditure_id]))
+        return HttpResponsePermanentRedirect(reverse(manage_expenditures))
 
     # Enforce active-term scope for deletion
     allowed = False
@@ -558,7 +579,12 @@ def edit_vendors(request, id):
     
   
 
+@login_required
 def delete_vendor(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponsePermanentRedirect(reverse(manage_vendors))
+
     vendor = get_model_record(Vendor, id)
     
     vendor.delete()
@@ -621,7 +647,12 @@ def edit_budgets(request, id):
     return render(request,"finance/edit_budget_page.html",context)
 
 
+@login_required
 def delete_budget(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponsePermanentRedirect(reverse(manage_budgets))
+
     budget = get_model_record(Budget, id)
     
     budget.delete()
@@ -681,8 +712,13 @@ def edit_budget_items(request, id):
     return render(request,"finance/edit_budget_item.html",context)
            
 
+@login_required
 def delete_budget_item(request, id):
     budget_item = get_model_record(BudgetItem, id)
+
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponsePermanentRedirect(reverse(manage_budget_items, args=[budget_item.budget.id]))
     
     budget_item.delete()
     messages.success(request, DELETE_MESSAGE)
@@ -723,6 +759,9 @@ def financial_summary_report(request):
     department_breakdown = {}
     total_other_fees_billed_global = 0  # Global accumulator for other fees billed
     over_expenditure_alerts = []
+    budget_item_data = []
+    academic_year = None
+    term = None
 
     if academic_year_id and term_id:
         academic_year = get_model_record(AcademicYear, academic_year_id)
@@ -737,7 +776,8 @@ def financial_summary_report(request):
         for academic_class in academic_classes:
             # Get all student bills for this class with related items
             student_bills = StudentBill.objects.filter(
-                academic_class=academic_class
+                academic_class=academic_class,
+                student__is_active=True,
             ).select_related('student').prefetch_related('items')
 
             # Get class bills for this academic class
@@ -851,7 +891,6 @@ def financial_summary_report(request):
         ).first()
 
         expenditure_data = []
-        budget_item_data = []
 
         if budget:
             # Get detailed expenditure data
@@ -1315,10 +1354,6 @@ def income_statement_report(request):
     mode = (request.GET.get('mode') or 'accrual').lower()
     if mode not in ('accrual', 'cash'):
         mode = 'accrual'
-    # Toggle basis for Income Statement: 'accrual' (default) or 'cash'
-    mode = (request.GET.get('mode') or 'accrual').lower()
-    if mode not in ('accrual', 'cash'):
-        mode = 'accrual'
 
     if has_range:
         tx_qs = (
@@ -1348,7 +1383,8 @@ def income_statement_report(request):
         # Revenue: billed (earned) within date range (student bill items by bill date)
         billed_qs = StudentBillItem.objects.filter(
             bill__bill_date__gte=start_date,
-            bill__bill_date__lte=end_date
+            bill__bill_date__lte=end_date,
+            bill__student__is_active=True,
         ).select_related('bill')
 
         income_list = [
@@ -1375,6 +1411,23 @@ def income_statement_report(request):
                     )
             income_list = [buckets[k] for k in sorted(buckets.keys(), key=lambda x: (x[0], x[1]))]
 
+        # In accrual mode, include non-fee income transactions from the ledger.
+        # School-fee cash receipts are excluded to avoid double-counting billed fees.
+        accrual_other_income_qs = (
+            tx_qs.filter(transaction_type='Income')
+            .exclude(related_income_source__name__iexact='School fees')
+            .select_related('related_income_source')
+        )
+        income_list.extend(accrual_other_income_qs)
+        income_list = sorted(
+            income_list,
+            key=lambda row: (
+                row.date,
+                row.description,
+                getattr(getattr(row, 'related_income_source', None), 'name', ''),
+            ),
+        )
+
         # Expenses: incurred within date range
         expenditures_qs = Expenditure.objects.filter(
             date_incurred__gte=start_date,
@@ -1389,18 +1442,12 @@ def income_statement_report(request):
             ) for e in expenditures_qs
         ]
     else:
-        # Cash mode: revenue = payments received in range; expenses = actually paid only
-        payments_qs = Payment.objects.filter(
-            payment_date__gte=start_date,
-            payment_date__lte=end_date
+        # Cash mode: revenue comes from income transactions (including fee mirrors and other income sources)
+        income_list = list(
+            tx_qs.filter(transaction_type='Income')
+            .select_related('related_income_source')
+            .order_by('date')
         )
-        income_list = [
-            SimpleIncome(
-                p.payment_date,
-                f"Student payment bill#{p.bill_id} ref {p.reference_no}",
-                p.amount
-            ) for p in payments_qs
-        ]
 
         expenditures_paid_qs = Expenditure.objects.filter(
             payment_status='Paid',
@@ -1421,8 +1468,15 @@ def income_statement_report(request):
     total_expense = sum((e.amount for e in expense_list), 0)
     net_income = total_income - total_expense
 
-    # Income by Source (single category unless you later add more sources)
-    income_breakdown = [{'source': 'School fees', 'total': total_income}]
+    # Income by Source
+    income_totals_by_source = {}
+    for row in income_list:
+        source_name = getattr(getattr(row, 'related_income_source', None), 'name', None) or 'Other Income'
+        income_totals_by_source[source_name] = income_totals_by_source.get(source_name, 0) + row.amount
+    income_breakdown = [
+        {'source': source_name, 'total': total}
+        for source_name, total in income_totals_by_source.items()
+    ]
     income_breakdown.sort(key=lambda x: x['total'], reverse=True)
 
     # CSV export
@@ -1518,7 +1572,8 @@ def cash_flow_report(request):
     # Cash basis: inflows from Payments; outflows only from actually paid Expenditures
     pay_qs = Payment.objects.filter(
         payment_date__gte=start_date,
-        payment_date__lte=end_date
+        payment_date__lte=end_date,
+        bill__student__is_active=True,
     )
 
     # If your workflow marks paid expenditures via payment_status, we approximate cash payments
@@ -1666,7 +1721,7 @@ def bank_reconciliation_view(request):
         id__in=BankTransaction.objects.filter(
             reconciled=True, reconciled_with__isnull=False
         ).values_list('reconciled_with_id', flat=True)
-    )
+    ).filter(bill__student__is_active=True)
 
     # Scope unmatched payments to selected/active year/term and date window
     if scope_year and scope_term:
@@ -1776,12 +1831,14 @@ def financial_dashboard_view(request):
         # Sum billed amounts from actual bill items since total_amount is a Python property (not a DB field)
         total_billed = StudentBillItem.objects.filter(
             bill__academic_class__academic_year=current_year,
-            bill__academic_class__term=current_term
+            bill__academic_class__term=current_term,
+            bill__student__is_active=True,
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         total_collected = Payment.objects.filter(
             bill__academic_class__academic_year=current_year,
-            bill__academic_class__term=current_term
+            bill__academic_class__term=current_term,
+            bill__student__is_active=True,
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         collection_rate = (total_collected / total_billed * 100) if total_billed > 0 else 0
@@ -1807,7 +1864,8 @@ def financial_dashboard_view(request):
         # Monthly trends
         monthly_collection = Payment.objects.filter(
             bill__academic_class__academic_year=current_year,
-            bill__academic_class__term=current_term
+            bill__academic_class__term=current_term,
+            bill__student__is_active=True,
         ).annotate(
             month=TruncMonth('payment_date')
         ).values('month').annotate(
@@ -1862,28 +1920,34 @@ def send_payment_reminders_view(request):
             upcoming_bills = StudentBill.objects.filter(
                 due_date__gte=timezone.now().date(),
                 due_date__lte=timezone.now().date() + timedelta(days=7),
-                status__in=['Unpaid', 'Partial']
+                status__in=['Unpaid', 'Partial'],
+                student__is_active=True,
             ).select_related('student')
 
         elif reminder_type == 'overdue':
             # Students with overdue fees
             overdue_bills = StudentBill.objects.filter(
                 due_date__lt=timezone.now().date(),
-                status__in=['Unpaid', 'Partial']
+                status__in=['Unpaid', 'Partial'],
+                student__is_active=True,
             ).select_related('student')
 
         elif reminder_type == 'final_notice':
             # Students with fees overdue by more than 30 days
             final_notice_bills = StudentBill.objects.filter(
                 due_date__lt=timezone.now().date() - timedelta(days=30),
-                status__in=['Unpaid', 'Partial']
+                status__in=['Unpaid', 'Partial'],
+                student__is_active=True,
             ).select_related('student')
 
         # Send notifications (implement email/SMS logic here)
         notifications_sent = 0
 
         # Create in-app notifications
-        for bill in StudentBill.objects.filter(status__in=['Unpaid', 'Partial']):
+        for bill in StudentBill.objects.filter(
+            status__in=['Unpaid', 'Partial'],
+            student__is_active=True,
+        ):
             FinancialNotification.objects.create(
                 recipient=bill.student,
                 notification_type='payment_reminder',

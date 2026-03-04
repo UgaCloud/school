@@ -2,82 +2,46 @@
 {% load verification_tags %}
 {% pending_verification_count as pending_count %}
 
-<style>
-  .nav.child_menu {
-    max-height: 360px;
-    overflow-y: auto;
-  }
-
-  .nav.child_menu > li > a {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-  }
-
-  .nav.child_menu .nav.child_menu {
-    margin-left: 10px;
-    padding-left: 10px;
-    border-left: 2px solid #e4e7ea;
-  }
-</style>
-
 <ul class="nav side-menu">
-
-  <!-- DASHBOARD -->
   <li>
     <a href="{% url 'index_page' %}">
       <i class="fa fa-dashboard"></i> Dashboard
     </a>
   </li>
 
-  <!-- ACADEMIC STRUCTURE -->
   <li>
     <a>
-      <i class="fa fa-book"></i> Academic Structure
+      <i class="fa fa-sitemap"></i> Academic Structure
       <span class="fa fa-chevron-down"></span>
     </a>
     <ul class="nav child_menu">
       <li><a href="{% url 'class_page' %}">Classes</a></li>
       <li><a href="{% url 'stream_page' %}">Streams</a></li>
+      <li><a href="{% url 'academic_class_page' %}">Academic Classes</a></li>
       <li><a href="{% url 'subjects_page' %}">Subjects</a></li>
       <li><a href="{% url 'subject_allocation_page' %}">Subject Allocation</a></li>
-      <li><a href="{% url 'academic_class_page' %}">Academic Classes</a></li>
     </ul>
   </li>
 
-  <!-- STUDENTS -->
   <li>
-    <a>
+    <a href="{% url 'student_page' %}">
       <i class="fa fa-users"></i> Students
-      <span class="fa fa-chevron-down"></span>
     </a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'student_page' %}">Student Directory</a></li>
-      <!-- <li><a href="{% url 'bulk_register_students' %}">Admissions</a></li> -->
-    </ul>
   </li>
 
-  <!-- TIMETABLE -->
   <li>
-    <a>
+    <a href="{% url 'timetable_center' %}">
       <i class="fa fa-calendar"></i> Timetable
-      <span class="fa fa-chevron-down"></span>
     </a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'timetable_center' %}">School Timetable</a></li>
-      <li><a href="{% url 'exam_timetable' %}">Exam Timetable</a></li>
-    </ul>
   </li>
 
-  <!-- EXAMS & ASSESSMENT -->
   <li>
     <a>
-      <i class="fa fa-pencil-square-o"></i> Exams & Assessment
+      <i class="fa fa-graduation-cap"></i> Exams & Assessment
       <span class="fa fa-chevron-down"></span>
     </a>
     <ul class="nav child_menu">
-      <li><a href="{% url 'assessment_create' %}">Assessments</a></li>
+      <li><a href="{% url 'assessment_list' %}">Create Assessments</a></li>
       <li><a href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
       <li><a href="{% url 'assessment_sheet' %}">Assessment Sheets</a></li>
       <li><a href="{% url 'bulk_result_entry' %}">Bulk Result Import</a></li>
@@ -85,77 +49,40 @@
     </ul>
   </li>
 
-  <!-- RESULTS & REPORTS -->
   <li>
     <a>
-      <i class="fa fa-graduation-cap"></i> Results & Reports
+      <i class="fa fa-line-chart"></i> Results & Reports
       <span class="fa fa-chevron-down"></span>
     </a>
     <ul class="nav child_menu">
-      <li><a href="{% url 'class_performance_summary' %}">Results Dashboard</a></li>
-      <li><a href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
-      <li><a href="{% url 'class_performance_summary' %}">Result Cards</a></li>
-      <li><a href="{% url 'class_assessment_combined' %}">Combined Assessments</a></li>
+      <li><a href="{% url 'school_results_dashboard' %}">Results Overview</a></li>
+      <li><a href="{% url 'class_performance_summary' %}">Performance Summary</a></li>
+      <li><a href="{% url 'class_stream_filter' %}">Class Reports</a></li>
+      <li><a href="{% url 'class_bulk_reports' %}">Bulk Reports</a></li>
     </ul>
   </li>
 
-  <!-- VERIFICATION -->
   <li>
-    <a>
+    <a href="{% url 'verification_overview' %}">
       <i class="fa fa-check-square-o"></i> Verification
       {% if pending_count > 0 %}
-        <span class="badge bg-red">{{ pending_count }}</span>
+      <span class="badge bg-red">{{ pending_count }}</span>
       {% endif %}
-      <span class="fa fa-chevron-down"></span>
     </a>
-    <ul class="nav child_menu">
-      <li>
-        <a href="{% url 'verification_overview' %}">
-          Exam Verification
-          {% if pending_count > 0 %}
-            <span class="badge bg-red">{{ pending_count }}</span>
-          {% endif %}
-        </a>
-      </li>
-      <li><a href="{% url 'verification_overview' %}">Verification Overview</a></li>
-    </ul>
   </li>
 
-  <!-- COMMUNICATION -->
   <li>
     <a>
       <i class="fa fa-bullhorn"></i> Communication
       {% if comm_unread_count > 0 %}
-        <span class="badge bg-green">{{ comm_unread_count }}</span>
+      <span class="badge bg-green">{{ comm_unread_count }}</span>
       {% endif %}
       <span class="fa fa-chevron-down"></span>
     </a>
     <ul class="nav child_menu">
-      <li>
-        <a href="{% url 'announcement_list' %}">
-          Announcements
-          {% if comm_unread_breakdown.announcements > 0 %}
-            <span class="badge bg-green">{{ comm_unread_breakdown.announcements }}</span>
-          {% endif %}
-        </a>
-      </li>
-      <li>
-        <a href="{% url 'event_list' %}">
-          Events
-          {% if comm_unread_breakdown.events > 0 %}
-            <span class="badge bg-green">{{ comm_unread_breakdown.events }}</span>
-          {% endif %}
-        </a>
-      </li>
-      <li>
-        <a href="{% url 'message_inbox' %}">
-          Messages
-          {% if comm_unread_breakdown.messages > 0 %}
-            <span class="badge bg-green">{{ comm_unread_breakdown.messages }}</span>
-          {% endif %}
-        </a>
-      </li>
+      <li><a href="{% url 'announcement_list' %}">Announcements</a></li>
+      <li><a href="{% url 'event_list' %}">Events</a></li>
+      <li><a href="{% url 'message_inbox' %}">Messages</a></li>
     </ul>
   </li>
-
 </ul>

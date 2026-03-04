@@ -54,7 +54,7 @@ class Student(models.Model):
             year_str = str(timezone.now().year)
 
         prefix = f"STD{year_str}-"
-
+        
         # Find the maximum numeric suffix for this prefix
         existing = Student.objects.filter(reg_no__startswith=prefix).values_list('reg_no', flat=True)
         max_seq = 0

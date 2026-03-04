@@ -96,6 +96,22 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 DEV_TUNNEL_URL = ""
 
+# Software versioning
+SOFTWARE_NAME = config("SOFTWARE_NAME", default="School MIS")
+SOFTWARE_VERSION = config("SOFTWARE_VERSION", default="1.0.0")
+SOFTWARE_RELEASE_CHANNEL = config("SOFTWARE_RELEASE_CHANNEL", default="stable")
+SOFTWARE_BUILD = config("SOFTWARE_BUILD", default="")
+
+# Backup monitoring configuration
+BACKUP_ENABLED = config("BACKUP_ENABLED", default=False, cast=bool)
+BACKUP_METHOD = config("BACKUP_METHOD", default="hybrid")
+BACKUP_SCHEDULE = config("BACKUP_SCHEDULE", default="daily 02:00")
+BACKUP_DIR = config("BACKUP_DIR", default=str(BASE_DIR / "backups"))
+BACKUP_MAX_AGE_HOURS = config("BACKUP_MAX_AGE_HOURS", default=48, cast=int)
+MYSQLDUMP_BIN = config("MYSQLDUMP_BIN", default="mysqldump")
+PG_DUMP_BIN = config("PG_DUMP_BIN", default="pg_dump")
+PSQL_BIN = config("PSQL_BIN", default="psql")
+
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = ""
 EMAIL_PORT = 465

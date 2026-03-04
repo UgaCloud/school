@@ -31,58 +31,55 @@ from app.models import (
     Section,
     Staff,
 )
+from app.services.level_scope import (
+    bind_form_level_querysets,
+    get_level_classes_queryset,
+    get_level_class_streams_queryset,
+    get_level_sections_queryset,
+    get_level_students_queryset,
+)
+from app.services.school_level import get_active_school_level
 
 
 
 @login_required
 def manage_student_view(request):
-    from django.core.cache import cache
-    
+    active_level = get_active_school_level(request)
     staff_account = getattr(request.user, "staff_account", None)
     role_name = staff_account.role.name if staff_account and staff_account.role else None
     active_role = request.session.get("active_role_name")
     is_class_teacher = (role_name == "Class Teacher" or active_role == "Class Teacher")
     status = request.GET.get("status", "active")
     page_number = request.GET.get("page", 1)
-    per_page = request.GET.get("per_page", 25)
-    
-    # Get counts from cache or compute once
-    cache_key = 'student_counts'
-    cached_counts = cache.get(cache_key)
-    
-    if cached_counts is None:
-        # Single query to get all counts
-        total_all = Student.objects.count()
-        total_active = Student.objects.filter(is_active=True).count()
-        total_inactive = Student.objects.filter(is_active=False).count()
-        cached_counts = {'total_all': total_all, 'total_active': total_active, 'total_inactive': total_inactive}
-        cache.set(cache_key, cached_counts, 300)  # Cache for 5 minutes
-    
-    total_all = cached_counts['total_all']
-    total_active = cached_counts['total_active']
-    total_inactive = cached_counts['total_inactive']
-    
-    # Get students based on status - optimized query with select_related
-    if is_class_teacher:
-        class_streams = AcademicClassStream.objects.filter(class_teacher=staff_account.staff).select_related(
-            "academic_class", "stream"
+    try:
+        per_page = int(request.GET.get("per_page", 25))
+    except (TypeError, ValueError):
+        per_page = 25
+
+    scoped_students = get_level_students_queryset(active_level=active_level).select_related("current_class", "stream")
+    if is_class_teacher and staff_account and staff_account.staff:
+        class_streams = get_level_class_streams_queryset(active_level=active_level).filter(
+            class_teacher=staff_account.staff
         )
         class_stream_ids = class_streams.values_list("id", flat=True)
-        students_list = Student.objects.filter(
+        base_students_qs = scoped_students.filter(
             classregister__academic_class_stream_id__in=class_stream_ids
-        ).select_related("current_class", "stream")
-        
-        if status == "inactive":
-            students_list = students_list.filter(is_active=False)
-        elif status == "active":
-            students_list = students_list.filter(is_active=True)
+        ).distinct()
+    elif is_class_teacher:
+        base_students_qs = scoped_students.none()
     else:
-        if status == "inactive":
-            students_list = Student.objects.filter(is_active=False).select_related("current_class", "stream")
-        elif status == "all":
-            students_list = Student.objects.all().select_related("current_class", "stream")
-        else:
-            students_list = Student.objects.filter(is_active=True).select_related("current_class", "stream")
+        base_students_qs = scoped_students
+
+    total_all = base_students_qs.count()
+    total_active = base_students_qs.filter(is_active=True).count()
+    total_inactive = base_students_qs.filter(is_active=False).count()
+
+    if status == "inactive":
+        students_list = base_students_qs.filter(is_active=False)
+    elif status == "all":
+        students_list = base_students_qs
+    else:
+        students_list = base_students_qs.filter(is_active=True)
     
     # Paginate the students
     paginator = Paginator(students_list, per_page)
@@ -95,6 +92,7 @@ def manage_student_view(request):
         students = paginator.page(paginator.num_pages)
     
     student_form = student_forms.StudentForm()
+    bind_form_level_querysets(student_form, active_level=active_level)
     csv_form = student_forms.StudentRegistrationCSVForm()
     current_academic_year = get_current_academic_year()
     try:
@@ -110,10 +108,10 @@ def manage_student_view(request):
         "total_active": total_active,
         "total_inactive": total_inactive,
         "total_all": total_all,
-        "per_page": int(per_page),
+        "per_page": per_page,
         "current_academic_year": current_academic_year,
         "current_term": current_term,
-        "quick_sections": Section.objects.all().order_by("section_name"),
+        "quick_sections": get_level_sections_queryset(active_level=active_level),
         "quick_teachers": Staff.objects.filter(is_academic_staff=True).order_by("first_name", "last_name"),
     }
     
@@ -125,6 +123,7 @@ def quick_create_academic_class_view(request):
     if request.method != "POST":
         return HttpResponseRedirect(reverse("student_page"))
 
+    active_level = get_active_school_level(request)
     current_academic_year = get_current_academic_year()
     if not current_academic_year:
         messages.error(request, "No current academic year is configured.")
@@ -145,11 +144,15 @@ def quick_create_academic_class_view(request):
         return HttpResponseRedirect(reverse("student_page"))
 
     try:
-        class_obj = Class.objects.get(id=class_id)
-        section_obj = Section.objects.get(id=section_id)
+        class_obj = get_level_classes_queryset(active_level=active_level).get(id=class_id)
+        section_obj = get_level_sections_queryset(active_level=active_level).get(id=section_id)
         fees_value = int(fees_amount)
     except (Class.DoesNotExist, Section.DoesNotExist, ValueError):
         messages.error(request, "Invalid academic class setup values.")
+        return HttpResponseRedirect(reverse("student_page"))
+
+    if class_obj.section_id != section_obj.id:
+        messages.error(request, "Selected section does not match the class section.")
         return HttpResponseRedirect(reverse("student_page"))
 
     academic_class, created = AcademicClass.objects.get_or_create(
@@ -181,6 +184,7 @@ def quick_create_class_stream_view(request):
     if request.method != "POST":
         return HttpResponseRedirect(reverse("student_page"))
 
+    active_level = get_active_school_level(request)
     current_academic_year = get_current_academic_year()
     if not current_academic_year:
         messages.error(request, "No current academic year is configured.")
@@ -201,7 +205,7 @@ def quick_create_class_stream_view(request):
         return HttpResponseRedirect(reverse("student_page"))
 
     try:
-        class_obj = Class.objects.get(id=class_id)
+        class_obj = get_level_classes_queryset(active_level=active_level).get(id=class_id)
         stream_obj = Stream.objects.get(id=stream_id)
         teacher_obj = Staff.objects.get(id=teacher_id)
     except (Class.DoesNotExist, Stream.DoesNotExist, Staff.DoesNotExist):
@@ -243,8 +247,10 @@ def quick_create_class_stream_view(request):
 
 @login_required
 def add_student_view(request):
+    active_level = get_active_school_level(request)
     if request.method == "POST":
         student_form = student_forms.StudentForm(request.POST, request.FILES)
+        bind_form_level_querysets(student_form, active_level=active_level)
 
         if student_form.is_valid():
             _class = student_form.cleaned_data.get("current_class")
@@ -304,9 +310,14 @@ def add_student_view(request):
     return HttpResponseRedirect(reverse(manage_student_view))
 
 
+def _get_scoped_student_or_404(request, student_id):
+    active_level = get_active_school_level(request)
+    return get_object_or_404(get_level_students_queryset(active_level=active_level), pk=student_id)
+
+
 @login_required
 def student_details_view(request, id):
-    student = student_selectors.get_student(id)
+    student = _get_scoped_student_or_404(request, id)
     
     # Fetch exam reports 
     from app.models.results import Result
@@ -427,11 +438,13 @@ def bulk_student_registration_view(request):
 
 @login_required
 def edit_student_view(request, id):
-    student = get_model_record(Student, id)
+    active_level = get_active_school_level(request)
+    student = _get_scoped_student_or_404(request, id)
     is_modal = request.GET.get("modal") == "1" or request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if request.method == 'POST':
         student_form = StudentForm(request.POST, request.FILES, instance=student)
+        bind_form_level_querysets(student_form, active_level=active_level)
         if student_form.is_valid():
             student_form.save()
             messages.success(request, SUCCESS_EDIT_MESSAGE)
@@ -449,6 +462,7 @@ def edit_student_view(request, id):
             messages.error(request, FAILURE_MESSAGE)
     else:
         student_form = StudentForm(instance=student)
+        bind_form_level_querysets(student_form, active_level=active_level)
 
     context = {
         "form": student_form,
@@ -462,7 +476,7 @@ def edit_student_view(request, id):
 
 @login_required
 def delete_student_view(request, id):
-    student = student_selectors.get_student(id)
+    student = _get_scoped_student_or_404(request, id)
 
     student.is_active = False
     student.save()
@@ -493,20 +507,26 @@ def classregister(request):
 #class registration
 @login_required
 def bulk_register_students(request):
+    active_level = get_active_school_level(request)
     # Filter active students not yet registered
     registered_students = ClassRegister.objects.values_list('student_id', flat=True)
-    unregistered_students = Student.objects.filter(is_active=True).exclude(id__in=registered_students)
+    unregistered_students = get_level_students_queryset(active_level=active_level).filter(
+        is_active=True
+    ).exclude(id__in=registered_students)
 
     if request.method == "POST":
         selected_students = request.POST.getlist("students")
 
         # Register selected students
         for student_id in selected_students:
-            student = Student.objects.get(id=student_id)
+            student = get_object_or_404(
+                get_level_students_queryset(active_level=active_level),
+                id=student_id,
+            )
 
             # Fetch the AcademicClassStream instance
             try:
-                academic_class_stream = AcademicClassStream.objects.get(
+                academic_class_stream = get_level_class_streams_queryset(active_level=active_level).get(
                     academic_class__Class=student.current_class,  # Match Class
                     stream=student.stream  # Match Stream
                 )
@@ -531,7 +551,7 @@ def bulk_register_students(request):
 
 @login_required
 def upload_student_document(request, id):
-    student = get_object_or_404(Student, id=id)
+    student = _get_scoped_student_or_404(request, id)
 
     if request.method == "POST":
         document_type = request.POST.get('document_type')
@@ -553,7 +573,8 @@ def upload_student_document(request, id):
 @login_required
 def delete_student_document(request, id):
     document = get_object_or_404(StudentDocument, id=id)
-    student_id = document.student.id
+    student = _get_scoped_student_or_404(request, document.student_id)
+    student_id = student.id
     document.delete()
     messages.success(request, "Document deleted successfully.")
     return redirect('student_details_page', id=student_id)
@@ -565,7 +586,7 @@ def download_student_exam_report(request, id):
     from app.utils.pdf_utils import generate_student_report_pdf
     from django.http import HttpResponse
     
-    student = student_selectors.get_student(id)
+    student = _get_scoped_student_or_404(request, id)
     exam_reports = Result.objects.filter(student=student).select_related(
         'assessment__subject',
         'assessment__assessment_type',
@@ -587,7 +608,7 @@ def view_student_exam_report(request, id):
     from app.utils.pdf_utils import generate_student_report_pdf
     from django.http import HttpResponse
     
-    student = student_selectors.get_student(id)
+    student = _get_scoped_student_or_404(request, id)
     exam_reports = Result.objects.filter(student=student).select_related(
         'assessment__subject',
         'assessment__assessment_type',

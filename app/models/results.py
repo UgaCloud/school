@@ -19,7 +19,7 @@ class GradingSystem(models.Model):
 
 class AssessmentType(models.Model):
     name = models.CharField(max_length=50, unique=True)
-    weight = models.DecimalField(max_digits=4, decimal_places=2)
+    weight = models.DecimalField(max_digits=5, decimal_places=2)
 
     def __str__(self):
         return self.name
@@ -179,6 +179,14 @@ class Result(models.Model):
     score = models.DecimalField(max_digits=5, decimal_places=2)
     batch = models.ForeignKey(ResultBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name="results")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="DRAFT")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["assessment", "student"],
+                name="uniq_result_assessment_student",
+            )
+        ]
    
     def __str__(self):
         return f'{self.student} - {self.assessment} - {self.score}'

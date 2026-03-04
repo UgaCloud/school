@@ -19,12 +19,12 @@
                 <div class="x_content">
                     <div class="row">
                         <div class="col-md-6">
-                            {% if is_dos %}
+                            {% if can_manage_subjects %}
                             <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addSubjectModal">
                                 <i class="fa fa-plus-circle"></i> Add New Subject
                             </button>
                             {% else %}
-                            <p class="text-muted">Only the Director of Studies can add subjects.</p>
+                            <p class="text-muted">Only Admin or Director of Studies can add subjects.</p>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
@@ -49,7 +49,7 @@
                                         <th>Credit Hours</th>
                                         <th>Section</th>
                                         <th>Type</th>
-                                        {% if is_dos %}
+                                        {% if can_manage_subjects %}
                                         <th style="width: 15%">Actions</th>
                                         {% endif %}
                                     </tr>
@@ -67,7 +67,7 @@
                                                     {{ subject.type }}
                                                 </span>
                                             </td>
-                                            {% if is_dos %}
+                                            {% if can_manage_subjects %}
                                             <td>
                                                 <a href="{% url 'edit_subject_page' subject.id %}" class="btn btn-info btn-sm" title="Edit Subject">
                                                     <i class="fa fa-edit"></i> 
@@ -97,7 +97,7 @@
     </div>
 
     <!-- Add Subject Modal -->
-    {% if is_dos %}
+    {% if can_manage_subjects %}
     <div class="modal fade" id="addSubjectModal" tabindex="-1" role="dialog" aria-labelledby="addSubjectModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">

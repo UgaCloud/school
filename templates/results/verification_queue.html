@@ -89,6 +89,21 @@
     </div>
   </div>
 
+  <div class="alert alert-light border d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <strong>Reviewed / Sampled:</strong>
+      <span id="reviewProgressText">{{ reviewed_count|default:0 }} / {{ sampled_count|default:0 }}</span>
+      (<span id="reviewProgressPercent">{{ sampled_progress_percent|default:0 }}</span>%)
+    </div>
+    <div class="w-50">
+      <div class="progress" style="height:8px;">
+        <div id="reviewProgressBar" class="progress-bar bg-info" role="progressbar"
+          style="width: {{ sampled_progress_percent|default:0 }}%"
+          aria-valuenow="{{ sampled_progress_percent|default:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
+      </div>
+    </div>
+  </div>
+
     <div class="row">
     <div class="col-md-12 col-sm-12">
       <div class="card border-0 shadow-lg mb-4">
@@ -129,7 +144,7 @@
                   <tr class="text-uppercase text-muted small">
                     <th class="py-3 border-top-0" style="width: 5%;">#</th>
                     <th class="py-3 border-top-0" style="width: 40%;">Student</th>
-                    {% if not is_dos_user %}
+                    {% if show_teacher_mark %}
                     <th class="py-3 border-top-0 text-center" style="width: 15%;">Teacher Mark</th>
                     {% endif %}
                     <th class="py-3 border-top-0 text-center" style="width: 20%;">Verifier Mark</th>
@@ -152,7 +167,7 @@
                         </div>
                       </div>
                     </td>
-                    {% if not is_dos_user %}
+                    {% if show_teacher_mark %}
                     <td class="text-center font-weight-bold text-secondary" style="font-size: 1.1rem;">
                       {{ result.score }}
                     </td>
@@ -161,7 +176,10 @@
                       <input type="number" step="0.01" name="dos_mark_{{ result.id }}"
                         value="{% if sample %}{{ sample.dos_mark|default_if_none:'' }}{% endif %}" class="form-control form-control-lg text-center mx-auto verification-input font-weight-bold 
                         {% if sample and sample.matched == True %}is-valid{% elif sample and sample.matched == False %}is-invalid{% endif %}"
-                        style="width: 100px; font-size: 1.1rem;" placeholder="-" />
+                        style="width: 100px; font-size: 1.1rem;" placeholder="-" min="0" max="{{ assessment.out_of }}"
+                        data-out-of="{{ assessment.out_of }}"
+                        data-was-checked="{% if sample and sample.checked_at %}1{% else %}0{% endif %}" />
+                      <small class="text-danger verifier-error d-block mt-1"></small>
                     </td>
                     <td class="text-center">
                       {% if sample and sample.matched == True %}
@@ -178,7 +196,7 @@
                   {% endwith %}
                   {% empty %}
                   <tr>
-                    <td colspan="5" class="text-center py-5 text-muted">
+                    <td colspan="{% if show_teacher_mark %}5{% else %}4{% endif %}" class="text-center py-5 text-muted">
                       <i class="fa fa-folder-open fa-3x mb-3 text-light-gray"></i><br>
                       No results available for verification.
                     </td>
@@ -202,11 +220,13 @@
                 </div>
                 <div class="col-md-6 d-flex flex-column justify-content-center align-items-end">
                   <div class="d-flex align-items-center mb-3">
-                    <button type="submit" name="finalize_verification"
-                      class="btn btn-primary btn-lg px-4 shadow-sm mr-2">
+                    <button type="submit" name="finalize_verification" id="finalizeVerificationBtn"
+                      class="btn btn-primary btn-lg px-4 shadow-sm mr-2"
+                      data-can-finalize="{% if can_finalize_verification %}1{% else %}0{% endif %}">
                       <i class="fa fa-check-circle mr-2"></i> Run Verification
                     </button>
                   </div>
+                  <small id="finalizeHint" class="text-muted mb-3 text-right d-block"></small>
                   <div class="btn-group">
                     <a href="{% url 'add_results' assessment.id %}" class="btn btn-outline-secondary btn-sm">Back</a>
                     <a href="{% url 'verification_report' assessment.id %}" class="btn btn-outline-info btn-sm">View
@@ -259,6 +279,113 @@
     }
   }
 
+  function validateVerifierInput(input) {
+    var rawValue = (input.value || '').trim();
+    var outOf = parseFloat(input.getAttribute('data-out-of') || '0');
+    var errorNode = input.parentElement.querySelector('.verifier-error');
+    var isEmpty = rawValue === '';
+    var isValid = true;
+    var message = '';
+
+    if (!isEmpty) {
+      var numericValue = parseFloat(rawValue);
+      if (Number.isNaN(numericValue)) {
+        isValid = false;
+        message = 'Use a numeric value.';
+      } else if (numericValue < 0 || numericValue > outOf) {
+        isValid = false;
+        message = 'Must be between 0 and ' + outOf + '.';
+      }
+    }
+
+    input.classList.toggle('is-invalid', !isValid);
+    if (errorNode) {
+      errorNode.textContent = message;
+    }
+    return { isEmpty: isEmpty, isValid: isValid };
+  }
+
+  function computeReviewProgress() {
+    var inputs = document.querySelectorAll('.verification-input');
+    var total = inputs.length;
+    var ready = 0;
+    var invalid = 0;
+
+    inputs.forEach(function(input) {
+      var wasChecked = input.getAttribute('data-was-checked') === '1';
+      var validation = validateVerifierInput(input);
+      if (!validation.isValid) {
+        invalid += 1;
+      }
+      if (wasChecked || (!validation.isEmpty && validation.isValid)) {
+        ready += 1;
+      }
+    });
+
+    return {
+      total: total,
+      ready: ready,
+      invalid: invalid,
+      pending: Math.max(total - ready, 0),
+      percent: total ? Math.round((ready / total) * 100) : 0
+    };
+  }
+
+  function refreshProgressAndFinalizeState() {
+    var progress = computeReviewProgress();
+    var progressText = document.getElementById('reviewProgressText');
+    var progressPercent = document.getElementById('reviewProgressPercent');
+    var progressBar = document.getElementById('reviewProgressBar');
+    var finalizeBtn = document.getElementById('finalizeVerificationBtn');
+    var finalizeHint = document.getElementById('finalizeHint');
+    var blockedByRole = finalizeBtn && finalizeBtn.getAttribute('data-can-finalize') === '0';
+
+    if (progressText) {
+      progressText.textContent = progress.ready + ' / ' + progress.total;
+    }
+    if (progressPercent) {
+      progressPercent.textContent = progress.percent;
+    }
+    if (progressBar) {
+      progressBar.style.width = progress.percent + '%';
+      progressBar.setAttribute('aria-valuenow', progress.percent);
+    }
+
+    if (!finalizeBtn) {
+      return;
+    }
+
+    if (blockedByRole) {
+      finalizeBtn.disabled = true;
+      if (finalizeHint) {
+        finalizeHint.textContent = 'You cannot verify a batch you submitted.';
+      }
+      return;
+    }
+
+    if (progress.total === 0) {
+      finalizeBtn.disabled = true;
+      if (finalizeHint) {
+        finalizeHint.textContent = 'No sampled scripts are available for verification.';
+      }
+      return;
+    }
+
+    finalizeBtn.disabled = progress.pending > 0 || progress.invalid > 0;
+    if (!finalizeHint) {
+      return;
+    }
+    if (progress.invalid > 0) {
+      finalizeHint.textContent = 'Fix invalid verifier marks before finalizing.';
+      return;
+    }
+    if (progress.pending > 0) {
+      finalizeHint.textContent = 'Complete all sampled verifier marks before finalizing.';
+      return;
+    }
+    finalizeHint.textContent = 'All sampled scripts are ready. You can finalize verification.';
+  }
+
   function confirmRejection() {
     var reason = document.getElementById("rejection_reason").value.trim();
     if (!reason) {
@@ -272,6 +399,11 @@
   document.addEventListener('DOMContentLoaded', function() {
     var rows = document.querySelectorAll('.student-row');
     updateStudentCount(rows.length, rows.length);
+    document.querySelectorAll('.verification-input').forEach(function(input) {
+      input.addEventListener('input', refreshProgressAndFinalizeState);
+      input.addEventListener('change', refreshProgressAndFinalizeState);
+    });
+    refreshProgressAndFinalizeState();
   });
 </script>
 {% endblock content %}

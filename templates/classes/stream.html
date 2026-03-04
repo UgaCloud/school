@@ -19,7 +19,7 @@
                 <div class="x_content">
                     <div class="row">
                         <div class="col-md-6">
-                            {% if is_dos %}
+                            {% if can_manage_streams %}
                             <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addStreamModal">
                                 <i class="fa fa-plus-circle"></i> Add New Stream
                             </button>
@@ -45,7 +45,7 @@
                                     <tr>
                                         <th style="width: 5%">#</th>
                                         <th>Stream Name</th>
-                                        {% if is_dos %}
+                                        {% if can_manage_streams %}
                                         <th style="width: 15%">Actions</th>
                                         {% endif %}
                                     </tr>
@@ -57,7 +57,7 @@
                                             <td>
                                                 <strong>{{ stream.stream }}</strong>
                                             </td>
-                                            {% if is_dos %}
+                                            {% if can_manage_streams %}
                                             <td>
                                                 <a href="{% url 'edit_stream' stream.id %}" class="btn btn-info btn-sm" title="Edit Stream">
                                                     <i class="fa fa-edit"></i>
@@ -87,7 +87,7 @@
     </div>
 
     <!-- Add Stream Modal -->
-    {% if is_dos %}
+    {% if can_manage_streams %}
     <div class="modal fade" id="addStreamModal" tabindex="-1" role="dialog" aria-labelledby="addStreamModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">

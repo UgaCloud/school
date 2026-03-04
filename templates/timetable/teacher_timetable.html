@@ -70,6 +70,16 @@
                           <div class="tt-meta">
                             <i class="fa fa-building"></i> {{ entry.classroom.name|default:"TBD" }}
                           </div>
+                          {% with row=attendance_map|dict_key:entry.id %}
+                          {% if row %}
+                          <div class="tt-meta" style="margin-top:6px;">
+                            <span class="label {{ row.status_css }}">{{ row.status_icon }} {{ row.status_label }}</span>
+                          </div>
+                          <div style="margin-top:6px;">
+                            <a href="{{ row.action_url }}" class="btn btn-xs {{ row.action_css }}">{{ row.action_label }}</a>
+                          </div>
+                          {% endif %}
+                          {% endwith %}
                         </div>
                       {% empty %}
                         <span class="tt-empty">Free</span>

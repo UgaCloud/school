@@ -300,7 +300,7 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize charts when page loads
-            {% if dashboard_data.monthly_collection %}
+            {% if dashboard_data and dashboard_data.monthly_collection %}
             initMonthlyTrendChart();
             {% endif %}
             {% if dashboard_data %}
@@ -357,13 +357,20 @@
         }
 
         function initBudgetChart() {
+            {% if dashboard_data %}
+            const budgetSpent = {{ dashboard_data.total_expenditure }};
+            const budgetRemaining = {{ dashboard_data.total_budget|subtract:dashboard_data.total_expenditure }};
+            {% else %}
+            const budgetSpent = 0;
+            const budgetRemaining = 0;
+            {% endif %}
             const budgetCtx = document.getElementById('budgetChart').getContext('2d');
             const budgetChart = new Chart(budgetCtx, {
                 type: 'doughnut',
                 data: {
                     labels: ['Spent', 'Remaining'],
                     datasets: [{
-                        data: [{{ dashboard_data.total_expenditure }}, {{ dashboard_data.total_budget|subtract:dashboard_data.total_expenditure }}],
+                        data: [budgetSpent, budgetRemaining],
                         backgroundColor: [
                             'rgb(255, 99, 132)',
                             'rgb(75, 192, 192)'

@@ -120,40 +120,42 @@
                 <div class="clearfix"></div>
               </div>
               <div class="x_content">
-                <table class="table table-striped table-bordered" id="studentTable">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Student Name</th>
-                      <th>Reg No</th>
-                      <th>Present</th>
-                      <th>Absent</th>
-                      <th>Total</th>
-                      <th>Attendance %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for summary in student_summary %}
-                    <tr {% if summary.percentage < 75 %}class="danger"{% endif %}>
-                      <td>{{ forloop.counter }}</td>
-                      <td>{{ summary.student.student_name }}</td>
-                      <td>{{ summary.student.reg_no }}</td>
-                      <td class="success">{{ summary.present }}</td>
-                      <td class="danger">{{ summary.absent }}</td>
-                      <td>{{ summary.total }}</td>
-                      <td>
-                        {% if summary.percentage >= 75 %}
-                        <span class="label label-success">{{ summary.percentage }}%</span>
-                        {% elif summary.percentage >= 50 %}
-                        <span class="label label-warning">{{ summary.percentage }}%</span>
-                        {% else %}
-                        <span class="label label-danger">{{ summary.percentage }}%</span>
-                        {% endif %}
-                      </td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
+                <div class="table-responsive">
+                  <table class="table table-striped table-bordered" id="studentTable">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Student Name</th>
+                        <th>Reg No</th>
+                        <th>Present</th>
+                        <th>Absent</th>
+                        <th>Total</th>
+                        <th>Attendance %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for summary in student_summary %}
+                      <tr {% if summary.percentage < 75 %}class="danger"{% endif %}>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ summary.student.student_name }}</td>
+                        <td>{{ summary.student.reg_no }}</td>
+                        <td class="success">{{ summary.present }}</td>
+                        <td class="danger">{{ summary.absent }}</td>
+                        <td>{{ summary.total }}</td>
+                        <td>
+                          {% if summary.percentage >= 75 %}
+                          <span class="label label-success">{{ summary.percentage }}%</span>
+                          {% elif summary.percentage >= 50 %}
+                          <span class="label label-warning">{{ summary.percentage }}%</span>
+                          {% else %}
+                          <span class="label label-danger">{{ summary.percentage }}%</span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

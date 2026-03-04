@@ -1,671 +1,990 @@
 {% extends "../base.html" %}
-{% load crispy_forms_tags %}
+{% load humanize %}
 
-{% block page_title %}Add Results{% endblock page_title %}
+{% block page_title %}Enter Results{% endblock page_title %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <!-- Header Section -->
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h2>Enter Marks for {{ assessment.subject }} ({{ assessment.assessment_type }})</h2>
-                    <p class="text-muted mb-0">
-                        {{ assessment.academic_class }} • Date: {{ assessment.date }} • 
-                        Mode: <span class="badge bg-info text-dark">{{ current_mode }}</span>
-                        • Batch: <span class="badge bg-warning text-dark">{{ batch.status }}</span>
-                    </p>
-                </div>
-                <div class="d-flex align-items-center">
-                    <form method="post" class="mr-2">
-                        {% csrf_token %}
-                        {% if all_results_entered and batch.status == "DRAFT" and not can_view_verification_queue %}
-                            <button type="submit" name="submit_batch" class="btn btn-primary">
-                                <i class="fa fa-check-square"></i> Submit for Verification
-                            </button>
-                        {% elif batch.status == "PENDING" %}
-                            <span class="badge bg-info text-dark">Submitted for verification</span>
-                        {% elif batch.status == "VERIFIED" %}
-                            <span class="badge bg-success">Verified</span>
-                        {% elif batch.status == "FLAGGED" %}
-                            <span class="badge bg-danger">Flagged</span>
-                        {% else %}
-                            <span class="badge bg-secondary">Draft</span>
-                        {% endif %}
-                    </form>
-                    <button type="button" class="btn btn-secondary" onclick="showKeyboardShortcuts()">
-                        <i class="fa fa-keyboard-o"></i> Shortcuts
-                    </button>
-                </div>
+<div class="container-fluid results-entry-page">
+  <div class="x_panel context-summary-panel">
+    <div class="x_title">
+      <h2><i class="fa fa-edit"></i> Enter Results</h2>
+      <div class="clearfix"></div>
+    </div>
+    <div class="x_content">
+      <div class="row">
+        <div class="col-md-9 col-sm-12">
+          <div class="context-grid row">
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-book"></i> Subject</span>
+              <span class="context-value">{{ assessment.subject.name|default:assessment.subject }}</span>
             </div>
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-university"></i> Class</span>
+              <span class="context-value">{{ assessment.academic_class.Class.code|default:assessment.academic_class.Class.name }}</span>
+            </div>
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-calendar"></i> Term</span>
+              <span class="context-value">Term {{ assessment.academic_class.term.term }}</span>
+            </div>
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-clock-o"></i> Academic Year</span>
+              <span class="context-value">{{ assessment.academic_class.academic_year.academic_year }}</span>
+            </div>
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-sliders"></i> Assessment Mode</span>
+              <span class="context-value">{{ current_mode|title }}</span>
+            </div>
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-calendar-check-o"></i> Entry Date</span>
+              <span class="context-value">{{ entry_date|date:"d M Y" }}</span>
+            </div>
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-user"></i> Teacher</span>
+              <span class="context-value">{{ teacher_label }}</span>
+            </div>
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-tasks"></i> Out Of</span>
+              <span class="context-value">{{ assessment.out_of }}</span>
+            </div>
+            <div class="col-md-4 col-sm-6 context-item">
+              <span class="context-label"><i class="fa fa-flask"></i> Assessment</span>
+              <span class="context-value">{{ assessment.assessment_type.name }}</span>
+            </div>
+          </div>
         </div>
+        <div class="col-md-3 col-sm-12">
+          <div class="batch-status-box">
+            <p class="batch-title">Batch Status</p>
+            {% if batch.status == "DRAFT" %}
+            <span class="label label-warning badge-status">Draft</span>
+            {% elif batch.status == "PENDING" %}
+            <span class="label label-primary badge-status">Submitted</span>
+            {% elif batch.status == "VERIFIED" %}
+            <span class="label label-success badge-status">Approved</span>
+            {% elif batch.status == "FLAGGED" %}
+            <span class="label label-danger badge-status">Rejected</span>
+            {% else %}
+            <span class="label label-default badge-status">{{ batch.status }}</span>
+            {% endif %}
+            <p class="batch-meta">
+              {% if batch.submitted_by %}
+              Submitted by {{ batch.submitted_by.username }}
+              {% else %}
+              Not submitted yet
+              {% endif %}
+            </p>
+            {% if batch.submitted_at %}
+            <p class="batch-meta">{{ batch.submitted_at|date:"d M Y, H:i" }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% if batch.status == "FLAGGED" and batch.rejection_reason %}
+      <div class="alert alert-danger" style="margin-top: 14px;">
+        <i class="fa fa-exclamation-triangle"></i>
+        Rejected during verification: {{ batch.rejection_reason }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8 col-sm-12">
+      <div class="x_panel">
+        <div class="x_title">
+          <h2><i class="fa fa-search"></i> Search & Entry Progress</h2>
+          <div class="clearfix"></div>
+        </div>
+        <div class="x_content">
+          <div class="row">
+            <div class="col-md-8 col-sm-12" style="margin-bottom: 10px;">
+              <div class="input-group">
+                <span class="input-group-addon"><i class="fa fa-search"></i></span>
+                <input type="text" id="studentSearch" class="form-control" placeholder="Search by student name or admission number">
+                <span class="input-group-btn">
+                  <button class="btn btn-default" type="button" id="clearSearchBtn"><i class="fa fa-times"></i></button>
+                </span>
+              </div>
+            </div>
+            <div class="col-md-4 col-sm-12 text-right">
+              <span id="visibleCountBadge" class="label label-default" style="font-size: 12px;">Showing {{ total_students }} / {{ total_students }}</span>
+            </div>
+          </div>
+          <div class="entry-progress-wrap">
+            <div class="progress" style="height: 10px; margin-bottom: 8px;">
+              <div id="entryProgressBar" class="progress-bar progress-bar-info" role="progressbar" style="width:0%;"></div>
+            </div>
+            <p id="autosaveIndicator" class="text-muted autosave-indicator">
+              <i class="fa fa-cloud"></i> Autosave ready
+            </p>
+          </div>
+          <p class="text-muted small" style="margin-bottom: 0;">
+            Keyboard: <strong>Tab</strong> next field, <strong>Enter</strong> next student, <strong>Ctrl + S</strong> save draft, <strong>Ctrl + F</strong> search.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-12">
+      <div class="x_panel performance-panel">
+        <div class="x_title">
+          <h2><i class="fa fa-line-chart"></i> Live Performance</h2>
+          <div class="clearfix"></div>
+        </div>
+        <div class="x_content">
+          <ul class="list-unstyled live-stats-list">
+            <li><span>Students</span><strong id="statTotal">{{ total_students }}</strong></li>
+            <li><span>Entered</span><strong id="statEntered">{{ results_count }}</strong></li>
+            <li><span>Missing</span><strong id="statMissing">{{ missing_results_count }}</strong></li>
+            <li><span>Class Average</span><strong id="statAverage">-</strong></li>
+            <li><span>Highest</span><strong id="statHighest">-</strong></li>
+            <li><span>Lowest</span><strong id="statLowest">-</strong></li>
+            <li><span>Pass Rate</span><strong id="statPassRate">-</strong></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="entryAlertArea"></div>
+
+  {% if entry_rows %}
+  <form method="post" id="resultsEntryForm" novalidate>
+    {% csrf_token %}
+    <div class="x_panel results-grid-panel">
+      <div class="x_title">
+        <h2><i class="fa fa-table"></i> Results Entry Grid</h2>
+        <div class="pull-right">
+          <a href="{% url 'bulk_result_entry' assessment.id %}" class="btn btn-xs btn-default">
+            <i class="fa fa-upload"></i> Bulk Upload CSV
+          </a>
+        </div>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover results-entry-table" id="resultsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Adm No</th>
+                <th>Student Name</th>
+                <th>Gender</th>
+                <th>Score / {{ assessment.out_of }}</th>
+                <th>Grade</th>
+                <th>Remarks</th>
+                <th>Status</th>
+                <th>Audit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in entry_rows %}
+              <tr
+                class="result-row{% if not is_editable_batch %} row-locked{% endif %}"
+                data-student-id="{{ row.student.id }}"
+                data-student-name="{{ row.student.student_name|lower }}"
+                data-student-reg="{{ row.student.reg_no|lower }}"
+                data-existing="{% if row.result %}1{% else %}0{% endif %}"
+              >
+                <td>{{ row.index }}</td>
+                <td><code>{{ row.student.reg_no }}</code></td>
+                <td>{{ row.student.student_name }}</td>
+                <td>{{ row.student.gender|default:"-" }}</td>
+                <td class="score-cell">
+                  <input
+                    type="number"
+                    name="score_{{ row.student.id }}"
+                    value="{{ row.score }}"
+                    class="form-control input-sm score-input"
+                    min="0"
+                    max="{{ assessment.out_of }}"
+                    step="0.01"
+                    {% if not is_editable_batch %}disabled{% endif %}
+                    autocomplete="off"
+                  >
+                  <small class="text-danger score-error"></small>
+                </td>
+                <td>
+                  <span class="grade-value">{{ row.grade }}</span>
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    name="remark_{{ row.student.id }}"
+                    class="form-control input-sm remark-input"
+                    placeholder="Optional note"
+                    {% if not is_editable_batch %}disabled{% endif %}
+                    autocomplete="off"
+                  >
+                </td>
+                <td>
+                  <span class="status-badge label
+                    {% if row.status == 'DRAFT' %}label-warning{% elif row.status == 'PENDING' %}label-primary{% elif row.status == 'VERIFIED' %}label-success{% elif row.status == 'FLAGGED' %}label-danger{% else %}label-default{% endif %}">
+                    {% if row.status == "DRAFT" %}Draft{% elif row.status == "PENDING" %}Submitted{% elif row.status == "VERIFIED" %}Approved{% elif row.status == "FLAGGED" %}Rejected{% else %}Missing{% endif %}
+                  </span>
+                </td>
+                <td>
+                  <span class="audit-cell">{{ row.audit }}</span>
+                  {% if row.result and row.result.batch and row.result.batch.submitted_at %}
+                  <small class="text-muted d-block">{{ row.result.batch.submitted_at|date:"d M H:i" }}</small>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="emptyStatePanel" style="display:none;">
+          <i class="fa fa-file-text-o fa-2x text-muted"></i>
+          <h4>No marks entered yet</h4>
+          <p class="text-muted">Start entering scores below. Results will auto-save locally as draft notes.</p>
+        </div>
+      </div>
     </div>
 
-    {% if batch.status == "FLAGGED" and batch.rejection_reason %}
-        <div class="alert alert-danger">
-            <i class="fa fa-exclamation-circle"></i>
-            Verification rejected: {{ batch.rejection_reason }}
-        </div>
-    {% endif %}
+    <div class="results-action-bar" id="resultsActionBar">
+      <div class="action-left">
+        {% if is_editable_batch %}
+        <button type="submit" class="btn btn-primary" name="save_draft" id="saveDraftBtn">
+          <i class="fa fa-save"></i> Save Draft
+        </button>
+        <button type="button" class="btn btn-info" id="openSubmitModalBtn">
+          <i class="fa fa-paper-plane"></i> Submit for Approval
+        </button>
+        {% else %}
+        <button type="button" class="btn btn-primary disabled" disabled>
+          <i class="fa fa-lock"></i> Entry Locked
+        </button>
+        {% endif %}
 
-    {% if all_results_entered and batch.status == "DRAFT" %}
-        <div class="alert alert-warning">
-            <i class="fa fa-exclamation-circle"></i>
-            All results are entered. Submit this batch for verification.
-        </div>
-    {% endif %}
+        {% if batch.status == "VERIFIED" %}
+        <button type="button" class="btn btn-dark btn-lock-status" disabled>
+          <i class="fa fa-lock"></i> Results Locked
+        </button>
+        {% elif batch.status == "PENDING" %}
+        <button type="button" class="btn btn-default" disabled>
+          <i class="fa fa-hourglass-half"></i> Awaiting Approval
+        </button>
+        {% else %}
+        <button type="button" class="btn btn-default" disabled>
+          <i class="fa fa-lock"></i> Lock After Approval
+        </button>
+        {% endif %}
 
-    <!-- Search and Filter Bar -->
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <div class="input-group">
-                <span class="input-group-text"><i class="fa fa-search"></i></span>
-                <input type="text" 
-                       id="studentSearch" 
-                       class="form-control" 
-                       placeholder="Search by student name or reg number..."
-                       onkeyup="filterStudents()">
-                <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
-                    <i class="fa fa-times"></i>
-                </button>
-            </div>
-        </div>
-        <div class="col-md-6 text-end">
-            <span id="studentCount" class="badge bg-secondary p-2"></span>
-        </div>
+        {% if can_unlock_batch and batch.status == "VERIFIED" %}
+        <button type="submit" class="btn btn-warning" name="unlock_batch" id="unlockBatchBtn">
+          <i class="fa fa-unlock"></i> Reopen Draft
+        </button>
+        {% endif %}
+      </div>
+      <div class="action-right text-muted small">
+        Draft flow: Save Draft -> Submit -> Approve -> Lock.
+      </div>
     </div>
 
-    <!-- Progress Indicator -->
-    <div id="saveProgress" class="alert alert-info d-none" role="alert" aria-live="polite">
-        <div class="spinner-border spinner-border-sm me-2" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        Saving results...
+    <button type="submit" name="submit_batch" id="submitBatchHiddenBtn" style="display:none;"></button>
+  </form>
+  {% else %}
+  <div class="x_panel">
+    <div class="x_content text-center" style="padding: 34px 10px;">
+      <i class="fa fa-file-text-o fa-3x text-muted" style="margin-bottom: 10px;"></i>
+      <h4>No marks entered yet</h4>
+      <p class="text-muted">No student registrations were found for this assessment class stream.</p>
     </div>
-
-    <!-- Success Toast -->
-    <div id="successToast" class="toast-container position-fixed top-0 end-0 p-3">
-        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header bg-success text-white">
-                <i class="fa fa-check-circle me-2"></i>
-                <strong class="me-auto">Success</strong>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-            </div>
-            <div class="toast-body" id="toastMessage"></div>
-        </div>
-    </div>
-
-    <!-- Existing Results Section -->
-    {% if existing_results %}
-        <div class="card mb-4">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0"><i class="fa fa-check-square-o"></i> Existing Results</h4>
-                    <div>
-                    {% if batch.status in "DRAFT,FLAGGED" and not can_view_verification_queue %}
-                    <button type="button" id="bulkEditBtn" class="btn btn-sm btn-light" onclick="toggleBulkEdit()">
-                        <i class="fa fa-edit"></i> Bulk Edit
-                    </button>
-                    <button type="button" id="bulkSaveBtn" class="btn btn-sm btn-success d-none" onclick="saveBulkEdits()">
-                        <i class="fa fa-save"></i> Save All
-                    </button>
-                    <button type="button" id="bulkCancelBtn" class="btn btn-sm btn-secondary d-none" onclick="cancelBulkEdit()">
-                        <i class="fa fa-times"></i> Cancel
-                    </button>
-                    {% endif %}
-                    </div>
-                </div>
-<div class="card-body">
-                <form method="post" id="editForm">
-                    {% csrf_token %}
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="existingResultsTable">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th scope="col" style="width:50px;">#</th>
-                                        <th scope="col">Student ID</th>
-                                        <th scope="col">Student Name</th>
-                                        <th scope="col">Raw Score (out of {{ assessment.out_of }})</th>
-                                        <th scope="col">Actual Score</th>
-                                        <th scope="col">Grade</th>
-                                        <th scope="col">Points</th>
-                                        <th scope="col">Status</th>
-                                        <th scope="col" class="action-column">Action</th>
-                                    </tr>
-                                </thead>
-                            <tbody>
-                                {% for result in existing_results %}
-                                <tr class="student-row" data-student-id="{{ result.student.id }}" data-student-name="{{ result.student.student_name|lower }}" data-reg-no="{{ result.student.reg_no|lower }}">
-                                    <th scope="row">{{ forloop.counter }}</th>
-                                    <td>{{ result.student.reg_no }}</td>
-                                    <td>{{ result.student.student_name }}</td>
-                                    <td>
-                                        <input 
-                                            type="number" 
-                                            name="score_{{ result.student.id }}" 
-                                            value="{{ result.score }}" 
-                                            class="form-control form-control-sm score-input" 
-                                            style="max-width: 120px;" 
-                                            min="0"
-                                            max="{{ assessment.out_of }}"
-                                            step="0.01"
-                                            data-original="{{ result.score }}"
-                                            data-result-id="{{ result.id }}"
-                                            oninput="validateScore(this, {{ assessment.out_of }})"
-                                            onkeypress="handleEnterKey(event, this)"
-                                            disabled
-                                            aria-label="Score for {{ result.student.student_name }}"
-                                            aria-describedby="error_{{ result.student.id }}"
-                                        >
-                                        <small id="error_{{ result.student.id }}" class="text-danger error-message small"></small>
-                                    </td>
-                                    <td class="actual-score">{{ result.actual_score }}</td>
-                                    <td class="grade-display">{{ result.grade }}</td>
-                                    <td class="points-display">{{ result.points }}</td>
-                                    <td><span class="badge bg-success">Completed</span></td>
-                                    <td class="action-column">
-                                        {% if batch.status in "DRAFT,FLAGGED" and not can_view_verification_queue %}
-                                        <button type="submit" name="edit_result" value="{{ result.id }}" class="btn btn-sm btn-primary edit-single-btn" onclick="return enableSingleEdit(this);">
-                                            <i class="fa fa-edit"></i> Edit
-                                        </button>
-                                        {% else %}
-                                        <span class="text-muted">Locked</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </form>
-            </div>
-        </div>
-    {% else %}
-        <div class="alert alert-info">
-            <i class="fa fa-info-circle"></i> No results have been entered yet.
-        </div>
-    {% endif %}
-
-    <!-- Add New Results Section -->
-    {% if students_without_results %}
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h4 class="mb-0"><i class="fa fa-plus-square"></i> Add New Results</h4>
-            </div>
-            <div class="card-body">
-                <form method="post" id="addForm">
-                    {% csrf_token %}
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="newResultsTable">
-                            <thead class="table-light">
-                                <tr>
-                                    <th scope="col" style="width:50px;">#</th>
-                                    <th scope="col">Student ID</th>
-                                    <th scope="col">Student Name</th>
-                                    <th scope="col">Score (out of {{ assessment.out_of }})</th>
-                                    <th scope="col">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for student in students_without_results %}
-                                <tr class="student-row" data-student-id="{{ student.id }}" data-student-name="{{ student.student_name|lower }}" data-reg-no="{{ student.reg_no|lower }}">
-                                    <th scope="row">{{ forloop.counter }}</th>
-                                    <td>{{ student.reg_no }}</td>
-                                    <td>{{ student.student_name }}</td>
-                                    <td>
-                                        {% if batch.status == "DRAFT" or batch.status == "FLAGGED" %}
-                                        <input 
-                                            type="number" 
-                                            name="score_{{ student.id }}" 
-                                            class="form-control form-control-sm score-input new-score" 
-                                            style="max-width: 120px;" 
-                                            min="0"
-                                            max="{{ assessment.out_of }}"
-                                            step="0.01"
-                                            oninput="validateScore(this, {{ assessment.out_of }}); saveDraft()"
-                                            onkeypress="handleEnterKey(event, this)"
-                                            aria-label="Score for {{ student.student_name }}"
-                                            aria-describedby="error_{{ student.id }}"
-                                        >
-                                        {% else %}
-                                        <input 
-                                            type="number" 
-                                            name="score_{{ student.id }}" 
-                                            class="form-control form-control-sm score-input new-score" 
-                                            style="max-width: 120px;" 
-                                            min="0"
-                                            max="{{ assessment.out_of }}"
-                                            step="0.01"
-                                            disabled
-                                            aria-label="Score for {{ student.student_name }}"
-                                            aria-describedby="error_{{ student.id }}"
-                                        >
-                                        {% endif %}
-                                        <small id="error_{{ student.id }}" class="text-danger error-message small"></small>
-                                    </td>
-                                    <td><span class="badge bg-warning text-dark">Pending</span></td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-3">
-                        {% if batch.status in "DRAFT,FLAGGED" and not can_view_verification_queue %}
-                        <button type="submit" name="add_results" class="btn btn-success btn-lg" id="saveNewBtn" onclick="isSubmitting = true;">
-                            <i class="fa fa-save"></i> Save All New Results
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" onclick="clearDraft()">
-                            <i class="fa fa-trash"></i> Clear All
-                        </button>
-                        {% else %}
-                        <span class="text-muted">Locked</span>
-                        {% endif %}
-                    </div>
-                </form>
-            </div>
-        </div>
-    {% else %}
-        <div class="alert alert-success">
-            <i class="fa fa-check-circle"></i> All results have been entered for this assessment.
-        </div>
-    {% endif %}
-
-    <!-- Keyboard Shortcuts Modal -->
-    <div class="modal fade" id="shortcutsModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Keyboard Shortcuts</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <table class="table">
-                        <tbody>
-                            <tr>
-                                <td><kbd>Ctrl</kbd> + <kbd>S</kbd></td>
-                                <td>Save current results</td>
-                            </tr>
-                            <tr>
-                                <td><kbd>Tab</kbd></td>
-                                <td>Move to next field</td>
-                            </tr>
-                            <tr>
-                                <td><kbd>Shift</kbd> + <kbd>Tab</kbd></td>
-                                <td>Move to previous field</td>
-                            </tr>
-                            <tr>
-                                <td><kbd>Enter</kbd></td>
-                                <td>Move to next student (Smart Entry Mode)</td>
-                            </tr>
-                            <tr>
-                                <td><kbd>Ctrl</kbd> + <kbd>F</kbd></td>
-                                <td>Focus search box</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
+  </div>
+  {% endif %}
 </div>
 
+<div class="modal fade" id="confirmSubmitModal" tabindex="-1" role="dialog" aria-labelledby="confirmSubmitLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="confirmSubmitLabel"><i class="fa fa-check-circle"></i> Submit for Approval</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        You are about to submit this batch for verification and approval. You will not be able to edit marks unless the batch is rejected or reopened.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmSubmitBtn">Confirm Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ grading_bands|json_script:"grading-bands-data" }}
+
 <style>
-/* Enhanced styling */
-.score-input:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+.results-entry-page {
+  padding-bottom: 80px;
 }
 
-.score-input.is-invalid {
-    border-color: #dc3545;
+.context-summary-panel .x_content {
+  padding-top: 14px;
 }
 
-.score-input.is-valid {
-    border-color: #198754;
+.context-item {
+  margin-bottom: 10px;
 }
 
-.student-row.recently-saved {
-    animation: highlight 1s ease-in-out;
+.context-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #73879c;
+  font-weight: 700;
 }
 
-@keyframes highlight {
-    0%, 100% { background-color: transparent; }
-    50% { background-color: #d4edda; }
+.context-value {
+  display: block;
+  font-size: 15px;
+  color: #2a3f54;
+  font-weight: 700;
 }
 
-.action-column {
-    min-width: 100px;
+.batch-status-box {
+  border: 1px solid #e7edf5;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fbfdff;
 }
 
-.action-column .btn {
-    min-height: 44px;
-    min-width: 44px;
+.batch-title {
+  margin: 0 0 6px;
+  color: #5c738f;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
 }
 
-.toast-container .toast {
-    min-width: 300px;
+.badge-status {
+  font-size: 12px;
+  padding: 6px 10px;
 }
 
-kbd {
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 3px;
-    padding: 2px 6px;
-    font-family: monospace;
+.batch-meta {
+  margin: 8px 0 0;
+  color: #758ba3;
+  font-size: 12px;
+}
+
+.entry-progress-wrap {
+  margin-top: 8px;
+}
+
+.autosave-indicator {
+  margin: 0;
+}
+
+.live-stats-list {
+  margin: 0;
+}
+
+.live-stats-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #edf2f7;
+  padding: 7px 0;
+  font-size: 13px;
+}
+
+.live-stats-list li:last-child {
+  border-bottom: 0;
+}
+
+.live-stats-list strong {
+  color: #2a3f54;
+  font-size: 14px;
+}
+
+.results-grid-panel .x_content {
+  padding-top: 12px;
+}
+
+.results-entry-table th {
+  background: #f7f9fc;
+  color: #3c4f65;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 11px;
+}
+
+.results-entry-table td {
+  vertical-align: middle;
+}
+
+.results-entry-table .score-input,
+.results-entry-table .remark-input {
+  min-width: 105px;
+}
+
+.results-entry-table .score-input.is-invalid {
+  border-color: #d9534f;
+  box-shadow: 0 0 0 1px rgba(217, 83, 79, 0.2);
+}
+
+.results-entry-table .score-input.is-valid {
+  border-color: #1abb9c;
+  box-shadow: 0 0 0 1px rgba(26, 187, 156, 0.2);
+}
+
+.results-entry-table .status-badge {
+  min-width: 72px;
+  display: inline-block;
+  text-align: center;
+}
+
+.results-entry-table .grade-value {
+  font-weight: 700;
+  color: #2a3f54;
+}
+
+.results-entry-table .audit-cell {
+  font-size: 12px;
+  color: #5f738a;
+}
+
+.result-row.row-locked {
+  background: #f9fbfd;
+}
+
+.empty-state {
+  border: 1px dashed #d7e2ef;
+  border-radius: 10px;
+  text-align: center;
+  padding: 22px 12px;
+}
+
+.results-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  background: #ffffff;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  box-shadow: 0 -5px 16px rgba(25, 46, 77, 0.08);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.results-action-bar .action-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-lock-status {
+  background: #2f3e4d;
+  border-color: #2f3e4d;
+  color: #fff;
+}
+
+.score-error {
+  display: block;
+  min-height: 16px;
+}
+
+@media (max-width: 991px) {
+  .results-action-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .results-action-bar .action-right {
+    width: 100%;
+  }
 }
 </style>
 
 <script>
-// Global variables
-let bulkEditMode = false;
-let isSubmitting = false;
-const maxScore = {{ assessment.out_of }};
+(function () {
+  var gradingDataEl = document.getElementById("grading-bands-data");
+  var gradingBands = [];
+  try {
+    gradingBands = gradingDataEl ? JSON.parse(gradingDataEl.textContent || "[]") : [];
+  } catch (err) {
+    gradingBands = [];
+  }
 
-// Input validation
-function validateScore(input, maxValue) {
-    const value = parseFloat(input.value);
-    const errorMsg = input.parentElement.querySelector('.error-message');
-    
-    if (input.value === '') {
-        errorMsg.textContent = '';
-        input.classList.remove('is-invalid', 'is-valid');
-        return true;
+  var maxScore = parseFloat("{{ assessment.out_of }}") || 100;
+  var batchStatus = "{{ batch.status }}";
+  var isEditableBatch = {{ is_editable_batch|yesno:"true,false" }};
+  var storageKey = "results_entry_draft_{{ assessment.id }}";
+
+  var tableRows = Array.prototype.slice.call(document.querySelectorAll("#resultsTable tbody .result-row"));
+  var scoreInputs = Array.prototype.slice.call(document.querySelectorAll(".score-input"));
+  var remarkInputs = Array.prototype.slice.call(document.querySelectorAll(".remark-input"));
+
+  function getBandForScore(score) {
+    for (var i = 0; i < gradingBands.length; i += 1) {
+      var band = gradingBands[i];
+      var min = Number(band.min_score || 0);
+      var max = Number(band.max_score || 0);
+      if (score >= min && score <= max) {
+        return band;
+      }
     }
-    
-    if (isNaN(value) || value < 0) {
-        errorMsg.textContent = 'Score must be 0 or greater';
-        input.classList.add('is-invalid');
-        input.classList.remove('is-valid');
-        return false;
-    }
-    
-    if (value > maxValue) {
-        errorMsg.textContent = `Score cannot exceed ${maxValue}`;
-        input.classList.add('is-invalid');
-        input.classList.remove('is-valid');
-        return false;
-    }
-    
-    errorMsg.textContent = '';
-    input.classList.remove('is-invalid');
-    input.classList.add('is-valid');
-    return true;
-}
+    return null;
+  }
 
-// Student search/filter
-function filterStudents() {
-    const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
-    const rows = document.querySelectorAll('.student-row');
-    let visibleCount = 0;
-    
-    rows.forEach(row => {
-        const studentName = row.getAttribute('data-student-name');
-        const regNo = row.getAttribute('data-reg-no');
-        
-        if (studentName.includes(searchTerm) || regNo.includes(searchTerm)) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
-    });
-    
-    updateStudentCount(visibleCount, rows.length);
-}
+  function sanitizeNumber(value) {
+    if (value === null || value === undefined || value === "") return null;
+    var parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
 
-function clearSearch() {
-    document.getElementById('studentSearch').value = '';
-    filterStudents();
-}
+  function validateScoreInput(input) {
+    var errorEl = input.closest(".score-cell").querySelector(".score-error");
+    var val = input.value.trim();
 
-function updateStudentCount(visible, total) {
-    const countEl = document.getElementById('studentCount');
-    countEl.textContent = `Showing ${visible} of ${total} students`;
-}
+    input.classList.remove("is-valid", "is-invalid");
+    errorEl.textContent = "";
 
-// Bulk edit mode
-function toggleBulkEdit() {
-    bulkEditMode = true;
-    document.querySelectorAll('#existingResultsTable .score-input').forEach(input => {
-        input.disabled = false;
-    });
-    document.querySelectorAll('.edit-single-btn').forEach(btn => btn.classList.add('d-none'));
-    document.getElementById('bulkEditBtn').classList.add('d-none');
-    document.getElementById('bulkSaveBtn').classList.remove('d-none');
-    document.getElementById('bulkCancelBtn').classList.remove('d-none');
-}
-
-function cancelBulkEdit() {
-    bulkEditMode = false;
-    document.querySelectorAll('#existingResultsTable .score-input').forEach(input => {
-        input.disabled = true;
-        input.value = input.getAttribute('data-original');
-        input.classList.remove('is-invalid', 'is-valid');
-    });
-    document.querySelectorAll('.edit-single-btn').forEach(btn => btn.classList.remove('d-none'));
-    document.getElementById('bulkEditBtn').classList.remove('d-none');
-    document.getElementById('bulkSaveBtn').classList.add('d-none');
-    document.getElementById('bulkCancelBtn').classList.add('d-none');
-}
-
-function saveBulkEdits() {
-    // Validate all inputs first
-    let allValid = true;
-    const inputs = document.querySelectorAll('#existingResultsTable .score-input:not([disabled])');
-    
-    inputs.forEach(input => {
-        if (!validateScore(input, maxScore)) {
-            allValid = false;
-        }
-    });
-    
-    if (!allValid) {
-        showToast('Please fix validation errors before saving', 'error');
-        return;
-    }
-    
-    // Show progress
-    showProgress();
-    
-    // Submit form programmatically
-    const form = document.getElementById('editForm');
-    const formData = new FormData(form);
-    
-    // Add bulk edit indicator
-    formData.append('bulk_edit', 'true');
-    
-    isSubmitting = true;
-    fetch(window.location.href, {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-    })
-    .then(response => response.text())
-    .then(html => {
-        hideProgress();
-        showToast('All results updated successfully!', 'success');
-        // Highlight rows that were updated
-        inputs.forEach(i => {
-            const row = i.closest('.student-row');
-            if (row) highlightRow(row.dataset.studentId);
-        });
-        setTimeout(() => window.location.reload(), 1200);
-    })
-    .catch(error => {
-        hideProgress();
-        showToast('Error saving results. Please try again.', 'error');
-    });
-}
-
-function enableSingleEdit(button) {
-    const row = button.closest('tr');
-    const input = row ? row.querySelector('.score-input') : null;
-    if (!input) {
-        isSubmitting = true;
-        return true;
+    if (!val) {
+      return { valid: true, empty: true, score: null };
     }
 
-    if (input.disabled) {
-        input.disabled = false;
-        input.focus();
-        button.innerHTML = '<i class="fa fa-save"></i> Save';
-        return false;
+    var score = sanitizeNumber(val);
+    if (score === null) {
+      input.classList.add("is-invalid");
+      errorEl.textContent = "Invalid number";
+      return { valid: false, empty: false, score: null };
     }
 
-    if (!validateScore(input, maxScore)) {
-        input.focus();
-        return false;
+    if (score < 0 || score > maxScore) {
+      input.classList.add("is-invalid");
+      errorEl.textContent = "Score must be 0 - " + maxScore;
+      return { valid: false, empty: false, score: score };
     }
 
-    isSubmitting = true;
-    return true;
-}
+    input.classList.add("is-valid");
+    return { valid: true, empty: false, score: score };
+  }
 
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + S to save
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        if (bulkEditMode) {
-            saveBulkEdits();
-        } else {
-            document.getElementById('saveNewBtn')?.click();
-        }
+  function getDisplayStatus(hasScore, isInvalid) {
+    if (isInvalid) {
+      return { text: "Invalid", cls: "label-danger" };
     }
-    
-    // Ctrl/Cmd + F to focus search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        document.getElementById('studentSearch').focus();
+
+    if (batchStatus === "VERIFIED") {
+      if (!hasScore) return { text: "Missing", cls: "label-default" };
+      return { text: "Locked", cls: "label-default" };
     }
-});
-
-// Smart entry mode (Enter to advance)
-function handleEnterKey(event, input) {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        const allInputs = Array.from(document.querySelectorAll('.score-input:not([disabled])'));
-        const currentIndex = allInputs.indexOf(input);
-        
-        if (currentIndex < allInputs.length - 1) {
-            allInputs[currentIndex + 1].focus();
-        }
+    if (batchStatus === "PENDING") {
+      if (!hasScore) return { text: "Missing", cls: "label-default" };
+      return { text: "Submitted", cls: "label-primary" };
     }
-}
-
-// Auto-save draft to localStorage
-function saveDraft() {
-    const draftData = {};
-    document.querySelectorAll('.new-score').forEach(input => {
-        if (input.value) {
-            draftData[input.name] = input.value;
-        }
-    });
-    localStorage.setItem('resultsDraft_{{ assessment.id }}', JSON.stringify(draftData));
-}
-
-function loadDraft() {
-    const draft = localStorage.getItem('resultsDraft_{{ assessment.id }}');
-    if (draft) {
-        const draftData = JSON.parse(draft);
-        Object.keys(draftData).forEach(name => {
-            const input = document.querySelector(`[name="${name}"]`);
-            if (input) {
-                input.value = draftData[name];
-                validateScore(input, maxScore);
-            }
-        });
+    if (batchStatus === "FLAGGED") {
+      if (hasScore) return { text: "Rejected", cls: "label-danger" };
+      return { text: "Missing", cls: "label-default" };
     }
-}
-
-function clearDraft() {
-    if (confirm('Are you sure you want to clear all unsaved scores?')) {
-        localStorage.removeItem('resultsDraft_{{ assessment.id }}');
-        document.querySelectorAll('.new-score').forEach(input => {
-            input.value = '';
-            input.classList.remove('is-valid', 'is-invalid');
-        });
+    if (batchStatus === "DRAFT") {
+      if (hasScore) return { text: "Draft", cls: "label-warning" };
+      return { text: "Missing", cls: "label-default" };
     }
-}
 
-// Progress indicator
-function showProgress() {
-    document.getElementById('saveProgress').classList.remove('d-none');
-}
+    if (hasScore) return { text: "Draft", cls: "label-warning" };
+    return { text: "Missing", cls: "label-default" };
+  }
 
-function hideProgress() {
-    document.getElementById('saveProgress').classList.add('d-none');
-}
+  function updateRowComputedValues(row) {
+    var input = row.querySelector(".score-input");
+    var gradeEl = row.querySelector(".grade-value");
+    var statusEl = row.querySelector(".status-badge");
+    var result = validateScoreInput(input);
 
-// Toast notifications
-function showToast(message, type = 'success') {
-    const toastEl = document.querySelector('#successToast .toast');
-    const toastHeader = toastEl.querySelector('.toast-header');
-    const toastBody = document.getElementById('toastMessage');
-    
-    // Set type-specific styles
-    if (type === 'error') {
-        toastHeader.classList.remove('bg-success');
-        toastHeader.classList.add('bg-danger');
+    if (result.valid && !result.empty) {
+      var band = getBandForScore(result.score);
+      gradeEl.textContent = band ? band.grade : "N/A";
+    } else if (result.empty) {
+      gradeEl.textContent = "-";
     } else {
-        toastHeader.classList.remove('bg-danger');
-        toastHeader.classList.add('bg-success');
+      gradeEl.textContent = "Invalid";
     }
-    
-    toastBody.textContent = message;
-    
-    const toast = new bootstrap.Toast(toastEl);
-    toast.show();
-}
 
-// Highlight a student's row briefly after save
-function highlightRow(studentId) {
-    const row = document.querySelector(`.student-row[data-student-id="${studentId}"]`);
-    if (!row) return;
-    row.classList.add('recently-saved');
-    setTimeout(() => row.classList.remove('recently-saved'), 1200);
-}
+    var status = getDisplayStatus(!result.empty, !result.valid);
+    statusEl.className = "status-badge label " + status.cls;
+    statusEl.textContent = status.text;
 
-// Keyboard shortcuts modal
-function showKeyboardShortcuts() {
-    const modal = new bootstrap.Modal(document.getElementById('shortcutsModal'));
-    modal.show();
-}
+    return result;
+  }
 
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-    loadDraft();
-    updateStudentCount(document.querySelectorAll('.student-row').length, document.querySelectorAll('.student-row').length);
-    
-    // Auto-save every 30 seconds
-    setInterval(saveDraft, 30000);
+  function formatPercent(value) {
+    if (!Number.isFinite(value)) return "-";
+    return value.toFixed(1) + "%";
+  }
 
-    document.querySelectorAll('form').forEach(form => {
-        form.addEventListener('submit', function() {
-            isSubmitting = true;
-        });
+  function computeLiveStats() {
+    var total = tableRows.length;
+    var entered = 0;
+    var validScores = [];
+
+    tableRows.forEach(function (row) {
+      var input = row.querySelector(".score-input");
+      var result = validateScoreInput(input);
+      if (!result.empty) {
+        entered += 1;
+      }
+      if (result.valid && !result.empty && result.score !== null) {
+        validScores.push(result.score);
+      }
     });
-    
-    // Focus first input for keyboard users
-    const firstInput = document.querySelector('.score-input:not([disabled])');
-    if (firstInput) {
-        firstInput.focus();
-        firstInput.setAttribute('tabindex', '0');
-    }
-});
 
-// Warn before leaving if there's unsaved data
-window.addEventListener('beforeunload', function (e) {
-    if (isSubmitting) {
-        return;
+    var missing = total - entered;
+    var average = "-";
+    var highest = "-";
+    var lowest = "-";
+    var passRate = "-";
+
+    if (validScores.length) {
+      var sum = validScores.reduce(function (acc, score) { return acc + score; }, 0);
+      var avgVal = sum / validScores.length;
+      var highVal = Math.max.apply(null, validScores);
+      var lowVal = Math.min.apply(null, validScores);
+      var passThreshold = maxScore * 0.5;
+      var passCount = validScores.filter(function (score) { return score >= passThreshold; }).length;
+
+      average = formatPercent((avgVal / maxScore) * 100);
+      highest = formatPercent((highVal / maxScore) * 100);
+      lowest = formatPercent((lowVal / maxScore) * 100);
+      passRate = formatPercent((passCount / validScores.length) * 100);
     }
-    const hasUnsavedData = Array.from(document.querySelectorAll('.new-score')).some(input => input.value);
-    if (hasUnsavedData) {
-        e.preventDefault();
-        e.returnValue = '';
+
+    var progress = total ? (entered / total) * 100 : 0;
+
+    document.getElementById("statTotal").textContent = total;
+    document.getElementById("statEntered").textContent = entered;
+    document.getElementById("statMissing").textContent = missing;
+    document.getElementById("statAverage").textContent = average;
+    document.getElementById("statHighest").textContent = highest;
+    document.getElementById("statLowest").textContent = lowest;
+    document.getElementById("statPassRate").textContent = passRate;
+
+    var progressBar = document.getElementById("entryProgressBar");
+    if (progressBar) {
+      progressBar.style.width = progress.toFixed(0) + "%";
+      progressBar.textContent = "";
     }
-});
+
+    return {
+      total: total,
+      entered: entered,
+      missing: missing,
+      hasInvalid: tableRows.some(function (row) {
+        var input = row.querySelector(".score-input");
+        return input.classList.contains("is-invalid");
+      }),
+    };
+  }
+
+  function renderEntryAlert(type, text) {
+    var area = document.getElementById("entryAlertArea");
+    if (!area) return;
+    var cls = "alert-info";
+    if (type === "error") cls = "alert-danger";
+    if (type === "warning") cls = "alert-warning";
+    if (type === "success") cls = "alert-success";
+
+    area.innerHTML = '<div class="alert ' + cls + '"><i class="fa fa-info-circle"></i> ' + text + "</div>";
+
+    window.setTimeout(function () {
+      if (area) {
+        area.innerHTML = "";
+      }
+    }, 4500);
+  }
+
+  function saveLocalDraft(showMessage) {
+    if (!isEditableBatch) return;
+    var draft = { scores: {}, remarks: {}, saved_at: new Date().toISOString() };
+
+    scoreInputs.forEach(function (input) {
+      if (input.value.trim()) {
+        draft.scores[input.name] = input.value.trim();
+      }
+    });
+
+    remarkInputs.forEach(function (input) {
+      if (input.value.trim()) {
+        draft.remarks[input.name] = input.value.trim();
+      }
+    });
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(draft));
+      var statusEl = document.getElementById("autosaveIndicator");
+      if (statusEl) {
+        var now = new Date();
+        statusEl.innerHTML = '<i class="fa fa-check-circle text-success"></i> Autosaved locally at ' + now.toLocaleTimeString();
+      }
+      if (showMessage) {
+        renderEntryAlert("success", "Draft autosaved locally.");
+      }
+    } catch (err) {
+      renderEntryAlert("error", "Autosave failed in browser storage.");
+    }
+  }
+
+  function loadLocalDraft() {
+    if (!isEditableBatch) return;
+    try {
+      var raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      var draft = JSON.parse(raw);
+      if (!draft || typeof draft !== "object") return;
+
+      Object.keys(draft.scores || {}).forEach(function (key) {
+        var input = document.querySelector('[name="' + key + '"]');
+        if (input && !input.disabled) {
+          input.value = draft.scores[key];
+        }
+      });
+
+      Object.keys(draft.remarks || {}).forEach(function (key) {
+        var input = document.querySelector('[name="' + key + '"]');
+        if (input && !input.disabled) {
+          input.value = draft.remarks[key];
+        }
+      });
+
+      var statusEl = document.getElementById("autosaveIndicator");
+      if (statusEl && draft.saved_at) {
+        statusEl.innerHTML = '<i class="fa fa-history"></i> Loaded local draft from ' + new Date(draft.saved_at).toLocaleString();
+      }
+    } catch (err) {
+      // ignore malformed draft
+    }
+  }
+
+  function filterRows() {
+    var searchInput = document.getElementById("studentSearch");
+    var term = (searchInput ? searchInput.value : "").toLowerCase().trim();
+    var visible = 0;
+
+    tableRows.forEach(function (row) {
+      var studentName = row.getAttribute("data-student-name") || "";
+      var studentReg = row.getAttribute("data-student-reg") || "";
+      var matches = !term || studentName.indexOf(term) > -1 || studentReg.indexOf(term) > -1;
+      row.style.display = matches ? "" : "none";
+      if (matches) visible += 1;
+    });
+
+    var countBadge = document.getElementById("visibleCountBadge");
+    if (countBadge) {
+      countBadge.textContent = "Showing " + visible + " / " + tableRows.length;
+    }
+  }
+
+  function moveToInput(currentInput, step) {
+    var editable = scoreInputs.filter(function (input) {
+      return !input.disabled && input.closest("tr").style.display !== "none";
+    });
+    var index = editable.indexOf(currentInput);
+    if (index === -1) return;
+    var next = editable[index + step];
+    if (next) {
+      next.focus();
+      next.select();
+    }
+  }
+
+  function handleScorePaste(event) {
+    var text = (event.clipboardData || window.clipboardData).getData("text");
+    if (!text || (text.indexOf("\n") === -1 && text.indexOf("\t") === -1)) {
+      return;
+    }
+
+    event.preventDefault();
+    var values = text
+      .split(/\r?\n/)
+      .map(function (line) { return line.split("\t")[0]; })
+      .filter(function (line) { return line !== ""; });
+
+    if (!values.length) return;
+
+    var editable = scoreInputs.filter(function (input) { return !input.disabled; });
+    var startIndex = editable.indexOf(event.target);
+    if (startIndex === -1) return;
+
+    for (var i = 0; i < values.length; i += 1) {
+      var target = editable[startIndex + i];
+      if (!target) break;
+      target.value = values[i].trim();
+      updateRowComputedValues(target.closest("tr"));
+    }
+
+    computeLiveStats();
+    saveLocalDraft(false);
+  }
+
+  function validateBeforeDraftSave() {
+    var invalidRows = [];
+    tableRows.forEach(function (row) {
+      var result = updateRowComputedValues(row);
+      if (!result.valid) {
+        invalidRows.push(row.getAttribute("data-student-reg") || "student");
+      }
+    });
+
+    if (invalidRows.length) {
+      renderEntryAlert("error", "Fix invalid scores before saving draft.");
+      return false;
+    }
+    return true;
+  }
+
+  function validateBeforeSubmit() {
+    if (!validateBeforeDraftSave()) {
+      return false;
+    }
+
+    var stats = computeLiveStats();
+    if (stats.missing > 0) {
+      renderEntryAlert("warning", "Cannot submit. " + stats.missing + " student(s) still have no marks.");
+      return false;
+    }
+
+    return true;
+  }
+
+  function initializeRowComputations() {
+    tableRows.forEach(function (row) {
+      updateRowComputedValues(row);
+    });
+    var stats = computeLiveStats();
+    var emptyPanel = document.getElementById("emptyStatePanel");
+    if (emptyPanel) {
+      emptyPanel.style.display = stats.entered === 0 ? "block" : "none";
+    }
+  }
+
+  if (!tableRows.length) {
+    return;
+  }
+
+  loadLocalDraft();
+  initializeRowComputations();
+
+  scoreInputs.forEach(function (input) {
+    input.addEventListener("input", function () {
+      updateRowComputedValues(input.closest("tr"));
+      computeLiveStats();
+      saveLocalDraft(false);
+    });
+
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        moveToInput(input, 1);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveToInput(input, 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveToInput(input, -1);
+      }
+    });
+
+    input.addEventListener("paste", handleScorePaste);
+  });
+
+  remarkInputs.forEach(function (input) {
+    input.addEventListener("input", function () {
+      saveLocalDraft(false);
+    });
+  });
+
+  var searchInput = document.getElementById("studentSearch");
+  if (searchInput) {
+    searchInput.addEventListener("input", filterRows);
+  }
+
+  var clearSearchBtn = document.getElementById("clearSearchBtn");
+  if (clearSearchBtn && searchInput) {
+    clearSearchBtn.addEventListener("click", function () {
+      searchInput.value = "";
+      filterRows();
+    });
+  }
+
+  document.addEventListener("keydown", function (event) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      if (!isEditableBatch) return;
+      if (!validateBeforeDraftSave()) return;
+      var saveBtn = document.getElementById("saveDraftBtn");
+      if (saveBtn) {
+        saveBtn.click();
+      }
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    }
+  });
+
+  var form = document.getElementById("resultsEntryForm");
+  if (form) {
+    form.addEventListener("submit", function (event) {
+      var submitter = event.submitter || document.activeElement;
+      if (submitter && submitter.name === "save_draft") {
+        if (!validateBeforeDraftSave()) {
+          event.preventDefault();
+          return;
+        }
+      }
+
+      if (submitter && submitter.name === "unlock_batch") {
+        var ok = window.confirm("Reopen this verified batch for editing?");
+        if (!ok) {
+          event.preventDefault();
+          return;
+        }
+      }
+
+      localStorage.removeItem(storageKey);
+    });
+  }
+
+  var openSubmitModalBtn = document.getElementById("openSubmitModalBtn");
+  if (openSubmitModalBtn) {
+    openSubmitModalBtn.addEventListener("click", function () {
+      if (!validateBeforeSubmit()) return;
+      $("#confirmSubmitModal").modal("show");
+    });
+  }
+
+  var confirmSubmitBtn = document.getElementById("confirmSubmitBtn");
+  if (confirmSubmitBtn) {
+    confirmSubmitBtn.addEventListener("click", function () {
+      if (!validateBeforeSubmit()) return;
+      var hiddenSubmit = document.getElementById("submitBatchHiddenBtn");
+      if (hiddenSubmit) {
+        $("#confirmSubmitModal").modal("hide");
+        hiddenSubmit.click();
+      }
+    });
+  }
+
+  window.setInterval(function () {
+    if (isEditableBatch) {
+      saveLocalDraft(false);
+    }
+  }, 30000);
+})();
 </script>
 {% endblock content %}

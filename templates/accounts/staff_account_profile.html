@@ -33,29 +33,31 @@
                     </ul>
 
                     <h3>Assigned Roles</h3>
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Role Name</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for account in staff_accounts %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
                                 <tr>
-                                    <td>{{ account.role.name }}</td>
-                                    <td>
-                                        <a href="#" class="btn btn-warning">Edit</a>
-                                        <a href="#" class="btn btn-danger">Remove</a>
-                                    </td>
+                                    <th>Role Name</th>
+                                    <th>Actions</th>
                                 </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="2">No roles assigned.</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {% for account in staff_accounts %}
+                                    <tr>
+                                        <td>{{ account.role.name }}</td>
+                                        <td>
+                                            <a href="#" class="btn btn-warning btn-sm">Edit</a>
+                                            <a href="#" class="btn btn-danger btn-sm">Remove</a>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="2">No roles assigned.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
 
                     <div class="modal-footer">
                         <a href="{% url 'create_staff_account' %}" class="btn btn-secondary">Back to Accounts</a>

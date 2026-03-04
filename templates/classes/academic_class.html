@@ -5,247 +5,261 @@
 {% block page_title %}Academic Classes Management{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid academic-classes-page">
 
-  <!-- Page Header -->
-  <div class="row">
-    <div class="col-md-12">
-      <div class="x_panel page-header-panel">
-        <div class="x_title d-flex align-items-center justify-content-between">
-          <h2 class="mb-0">
-            <i class="fa fa-university mr-2"></i> Academic Classes
-            {% if active_role == "Class Teacher" or user.staff_account.role.name == "Class Teacher" %}
-              <small class="text-muted d-block" style="font-size:.9rem;">Your assigned academic classes</small>
-            {% else %}
-              <small class="text-muted d-block" style="font-size:.9rem;">Manage and organize your academic classes efficiently</small>
-            {% endif %}
-          </h2>
-          <div class="btn-group">
-            {% if active_role == "Admin" %}
-              <a href="{% url 'class_bill_list' %}" class="btn btn-default btn-sm">
-                <i class="fa fa-file-invoice-dollar"></i> Class Bills
-              </a>
-              <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addClassModal">
-                <i class="fa fa-plus-circle"></i> New Class
-              </button>
-            {% endif %}
+  <div class="x_panel panel-soft hero-panel">
+    <div class="x_title d-flex align-items-center justify-content-between">
+      <h2 class="mb-0">
+        <i class="fa fa-university mr-2"></i>Academic Classes Management
+        <small class="d-block page-subtitle">Manage and organize academic classes</small>
+      </h2>
+      {% if can_manage_classes %}
+      <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addClassModal">
+        <i class="fa fa-plus-circle"></i> Add Academic Class
+      </button>
+      {% endif %}
+      <div class="clearfix"></div>
+    </div>
+    <div class="x_content">
+      <div class="row">
+        <div class="col-md-3 col-sm-6 col-xs-6 mb-10">
+          <div class="metric-card metric-classes">
+            <div class="metric-icon"><i class="fa fa-graduation-cap"></i></div>
+            <div class="metric-copy">
+              <div class="metric-value">{{ total_classes }}</div>
+              <div class="metric-label">Total Classes</div>
+            </div>
           </div>
-          <div class="clearfix"></div>
         </div>
-
-        {% if academic_classes %}
-        <div class="x_content">
-          {% if active_role == "Class Teacher" or user.staff_account.role.name == "Class Teacher" %}
-            <div class="alert alert-info" style="margin-bottom:0;">
-              <i class="fa fa-info-circle"></i>
-              Showing {{ total_classes }} assigned class{{ total_classes|pluralize }}.
+        <div class="col-md-3 col-sm-6 col-xs-6 mb-10">
+          <div class="metric-card metric-terms">
+            <div class="metric-icon"><i class="fa fa-calendar"></i></div>
+            <div class="metric-copy">
+              <div class="metric-value">{{ distinct_terms }}</div>
+              <div class="metric-label">Active Terms</div>
             </div>
-          {% else %}
-            <div class="row tile_count modern-tiles">
-              <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
-                <span class="count_top"><i class="fa fa-graduation-cap"></i> Total Classes</span>
-                <div class="count">{{ total_classes }}</div>
-              </div>
-              <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
-                <span class="count_top"><i class="fa fa-calendar"></i> Active Terms</span>
-                <div class="count">{{ distinct_terms }}</div>
-              </div>
-              <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
-                <span class="count_top"><i class="fa fa-calendar-o"></i> Academic Years</span>
-                <div class="count">{{ academic_years_count }}</div>
-              </div>
-              <div class="col-md-3 col-sm-3 col-xs-6 tile_stats_count">
-                <span class="count_top"><i class="fa fa-university"></i> Sections</span>
-                <div class="count">{{ distinct_sections }}</div>
-              </div>
-            </div>
-          {% endif %}
+          </div>
         </div>
-        {% endif %}
+        <div class="col-md-3 col-sm-6 col-xs-6 mb-10">
+          <div class="metric-card metric-years">
+            <div class="metric-icon"><i class="fa fa-clock-o"></i></div>
+            <div class="metric-copy">
+              <div class="metric-value">{{ academic_years_count }}</div>
+              <div class="metric-label">Academic Years</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 col-xs-6 mb-10">
+          <div class="metric-card metric-sections">
+            <div class="metric-icon"><i class="fa fa-th-large"></i></div>
+            <div class="metric-copy">
+              <div class="metric-value">{{ distinct_sections }}</div>
+              <div class="metric-label">Sections</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Filters -->
-  {% if active_role != "Class Teacher" and user.staff_account.role.name != "Class Teacher" %}
-  <div class="row">
-    <div class="col-md-12">
-      <div class="x_panel filters-panel">
-        <div class="x_title d-flex align-items-center justify-content-between">
-          <h2 class="mb-0"><i class="fa fa-filter"></i> Advanced Filters</h2>
-          <ul class="nav navbar-right panel_toolbox">
-            <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
-          </ul>
-          <div class="clearfix"></div>
+  <div class="x_panel panel-soft filter-panel">
+    <div class="x_title d-flex align-items-center justify-content-between">
+      <h2 class="mb-0"><i class="fa fa-filter mr-1"></i>Filter Classes</h2>
+      <a href="#advancedFilters" data-toggle="collapse" class="btn btn-link btn-sm p-0 advanced-toggle">
+        Advanced Filters <i class="fa fa-chevron-down"></i>
+      </a>
+      <div class="clearfix"></div>
+    </div>
+    <div class="x_content">
+      <form method="get" id="academicClassFilters" class="filter-form">
+        <div class="row">
+          <div class="col-md-4 col-sm-12">
+            <label for="search" class="control-label">Search</label>
+            <div class="input-group">
+              <span class="input-group-addon"><i class="fa fa-search"></i></span>
+              <input type="text" class="form-control" id="search" name="search" value="{{ search_query }}" placeholder="Search classes...">
+            </div>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <label for="academic_year" class="control-label">Academic Year</label>
+            <select class="form-control" name="academic_year" id="academic_year">
+              <option value="">All</option>
+              {% for year in academic_years %}
+                <option value="{{ year.id }}" {% if current_academic_year == year.id|stringformat:"s" %}selected{% endif %}>{{ year.academic_year }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <label for="term" class="control-label">Term</label>
+            <select class="form-control" name="term" id="term">
+              <option value="">All</option>
+              {% for term in all_terms %}
+                <option value="{{ term.id }}" {% if current_term == term.id|stringformat:"s" %}selected{% endif %}>Term {{ term.term }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2 col-sm-12">
+            <label class="control-label text-transparent">Action</label>
+            <button type="submit" class="btn btn-primary btn-block"><i class="fa fa-check"></i> Apply</button>
+          </div>
         </div>
-        <div class="x_content">
-          <form method="get" id="filter-form" class="form-horizontal">
-            <div class="row">
-              <div class="col-md-3 col-sm-6">
-                <div class="form-group">
-                  <label class="control-label" for="academic_year">Academic Year</label>
-                  <select class="form-control" name="academic_year" id="academic_year" onchange="document.getElementById('filter-form').submit()">
-                    <option value="">All Academic Years</option>
-                    {% for year in academic_years %}
-                      <option value="{{ year.id }}" {% if current_academic_year == year.id|stringformat:"s" %}selected{% endif %}>
-                        {{ year.academic_year }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
 
-              <div class="col-md-3 col-sm-6">
-                <div class="form-group">
-                  <label class="control-label" for="term">Term</label>
-                  <select class="form-control" name="term" id="term" onchange="document.getElementById('filter-form').submit()">
-                    <option value="">All Terms</option>
-                    {% for term in all_terms %}
-                      <option value="{{ term.id }}" {% if current_term == term.id|stringformat:"s" %}selected{% endif %}>
-                        {{ term.term }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-
-              <div class="col-md-3 col-sm-6">
-                <div class="form-group">
-                  <label class="control-label" for="class_filter">Class</label>
-                  <select class="form-control" name="class" id="class_filter" onchange="document.getElementById('filter-form').submit()">
-                    <option value="">All Classes</option>
-                    {% for class_option in classes %}
-                      <option value="{{ class_option.id }}" {% if current_class == class_option.id|stringformat:"s" %}selected{% endif %}>
-                        {{ class_option.name|default:class_option.code }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-
-              <div class="col-md-3 col-sm-6">
-                <div class="form-group">
-                  <label class="control-label" for="section_filter">Section</label>
-                  <select class="form-control" name="section" id="section_filter" onchange="document.getElementById('filter-form').submit()">
-                    <option value="">All Sections</option>
-                    {% for section_option in sections_list %}
-                      <option value="{{ section_option.id }}" {% if current_section == section_option.id|stringformat:"s" or current_section == section_option %}selected{% endif %}>
-                        {{ section_option.section_name }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
+        <div id="advancedFilters" class="collapse {% if show_advanced_filters %}in{% endif %}">
+          <div class="row advanced-row">
+            <div class="col-md-3 col-sm-6">
+              <label for="class_filter" class="control-label">Class</label>
+              <select class="form-control" name="class" id="class_filter">
+                <option value="">All</option>
+                {% for class_option in classes %}
+                  <option value="{{ class_option.id }}" {% if current_class == class_option.id|stringformat:"s" %}selected{% endif %}>{{ class_option.name|default:class_option.code }}</option>
+                {% endfor %}
+              </select>
             </div>
-
-            <!-- Active filter chips -->
-            <div class="row">
-              <div class="col-md-12">
-                <div class="filter-chips">
-                  {% if current_academic_year %}
-                    <span class="badge badge-default"><i class="fa fa-calendar"></i> Year: 
-                      {% for y in academic_years %}{% if y.id|stringformat:"s" == current_academic_year %}{{ y.academic_year }}{% endif %}{% endfor %}
-                    </span>
-                  {% endif %}
-                  {% if current_term %}
-                    <span class="badge badge-info"><i class="fa fa-clock-o"></i> Term: 
-                      {% for t in all_terms %}{% if t.id|stringformat:"s" == current_term %}{{ t.term }}{% endif %}{% endfor %}
-                    </span>
-                  {% endif %}
-                  {% if current_class %}
-                    <span class="badge badge-primary"><i class="fa fa-graduation-cap"></i> Class: 
-                      {% for c in classes %}{% if c.id|stringformat:"s" == current_class %}{{ c.name|default:c.code }}{% endif %}{% endfor %}
-                    </span>
-                  {% endif %}
-                  {% if current_section %}
-                    <span class="badge badge-success"><i class="fa fa-university"></i> Section: 
-                      {% for s in sections_list %}{% if s.id|stringformat:"s" == current_section %}{{ s.section_name }}{% endif %}{% endfor %}
-                    </span>
-                  {% endif %}
-                </div>
-              </div>
+            <div class="col-md-3 col-sm-6">
+              <label for="section_filter" class="control-label">Section</label>
+              <select class="form-control" name="section" id="section_filter">
+                <option value="">All</option>
+                {% for section_option in sections_list %}
+                  <option value="{{ section_option.id }}" {% if current_section == section_option.id|stringformat:"s" %}selected{% endif %}>{{ section_option.section_name }}</option>
+                {% endfor %}
+              </select>
             </div>
-
-            <div class="text-right mt-10">
-              <a href="{% url 'academic_class_page' %}" class="btn btn-default"><i class="fa fa-undo"></i> Reset</a>
+            <div class="col-md-6 col-sm-12 filter-actions">
+              <a href="{% url 'academic_class_page' %}" class="btn btn-default"><i class="fa fa-refresh"></i> Reset</a>
             </div>
-          </form>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="x_panel panel-soft action-panel">
+    <div class="x_content d-flex flex-wrap align-items-center justify-content-between gap-10">
+      <div class="left-actions">
+        {% if can_manage_classes %}
+        <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addClassModal">
+          <i class="fa fa-plus"></i> Add Academic Class
+        </button>
+        {% endif %}
+      </div>
+      <div class="right-actions d-flex flex-wrap align-items-center gap-10">
+        <button id="exportExcelBtn" type="button" class="btn btn-default"><i class="fa fa-file-excel-o"></i> Export</button>
+        <button id="exportPdfBtn" type="button" class="btn btn-default"><i class="fa fa-file-pdf-o"></i> PDF</button>
+        <button id="printBtn" type="button" class="btn btn-default"><i class="fa fa-print"></i> Print</button>
+        <div class="dropdown">
+          <button class="btn btn-default dropdown-toggle" type="button" id="bulkActionsBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <i class="fa fa-tasks"></i> Bulk Actions
+          </button>
+          <ul class="dropdown-menu dropdown-menu-right" aria-labelledby="bulkActionsBtn">
+            <li><a href="#" id="selectVisibleRows">Select Visible Rows</a></li>
+            <li><a href="#" id="clearSelectedRows">Clear Selection</a></li>
+            {% if can_manage_classes %}
+            <li role="separator" class="divider"></li>
+            <li><a href="#" id="bulkDeleteRows" class="text-danger"><i class="fa fa-trash"></i> Delete Selected</a></li>
+            {% endif %}
+          </ul>
         </div>
       </div>
     </div>
+  </div>
+
+  {% if is_read_only %}
+  <div class="alert alert-info read-only-alert">
+    <i class="fa fa-lock"></i> You are in <strong>{{ effective_role }}</strong> mode with view-only access to academic class structure.
   </div>
   {% endif %}
 
-  <!-- Classes: View Toggle + Table / Cards -->
-  <div class="row">
-    <div class="col-md-12">
-      <div class="x_panel classes-panel">
-          <div class="x_title d-flex align-items-center justify-content-between">
-            <h2 class="mb-0"><i class="fa fa-list"></i> Classes</h2>
-            {% if active_role != "Class Teacher" and user.staff_account.role.name != "Class Teacher" %}
-            <div class="d-flex align-items-center">
-              <div class="btn-group" role="group" aria-label="ViewToggle">
-                <button id="tableViewBtn" type="button" class="btn btn-default btn-sm active"><i class="fa fa-table"></i> Table</button>
-                <button id="cardsViewBtn" type="button" class="btn btn-default btn-sm"><i class="fa fa-th-large"></i> Cards</button>
-              </div>
-            </div>
-            {% endif %}
-            <div class="clearfix"></div>
-          </div>
-        <div class="x_content">
+  {% if can_manage_classes %}
+  <form id="bulkActionForm" method="post" action="{% url 'academic_class_bulk_action' %}" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="bulkActionInput" value="">
+    <input type="hidden" name="selected_ids" id="bulkSelectedIdsInput" value="">
+    <input type="hidden" name="next_url" value="{{ request.get_full_path }}">
+  </form>
+  {% endif %}
 
+  <div class="row">
+    <div class="col-lg-9 col-md-12">
+      <div class="x_panel panel-soft table-panel">
+        <div class="x_title d-flex align-items-center justify-content-between">
+          <h2 class="mb-0"><i class="fa fa-table mr-1"></i>Academic Classes</h2>
+          <small class="selected-count">Selected: <span id="selectedRowCount">0</span></small>
+          <div class="clearfix"></div>
+        </div>
+        <div class="x_content">
           {% if academic_classes %}
-            <!-- Table View -->
-            <div id="classesTableWrap">
-              <table id="classesTable" class="table table-striped table-bordered datatable classes-table" style="width:100%">
+            <div class="desktop-grid">
+              <table id="academicClassesTable" class="table table-striped table-hover academic-classes-grid" style="width:100%">
                 <thead>
                   <tr>
-                    <th>Class</th>
+                    <th style="width:34px;"><input type="checkbox" id="checkAllRows"></th>
+                    <th>Class Name</th>
                     <th>Term</th>
                     <th>Academic Year</th>
                     <th>Section</th>
-                    {% if active_role == "Admin" %}<th>Fees Amount</th>{% endif %}
+                    {% if can_view_fees %}<th class="text-right">Fees</th>{% endif %}
                     <th>Streams</th>
                     <th>Status</th>
-                    <th style="min-width:150px;">Actions</th>
+                    <th style="width:90px;">Actions</th>
                   </tr>
-                  <!-- Per-column filters row (inserted by JS) -->
                 </thead>
                 <tbody>
                   {% for academic_class in academic_classes %}
                   <tr>
-                    <td><strong>{{ academic_class.Class.name|default:academic_class.Class.code }}</strong></td>
-                    <td><span class="label label-info">{{ academic_class.term.term }}</span></td>
-                    <td><span class="label label-default">{{ academic_class.academic_year.academic_year }}</span></td>
-                    <td><span class="label label-primary">{{ academic_class.section }}</span></td>
-                    {% if active_role == "Admin" %}
-                      <td>UGX {{ academic_class.fees_amount|intcomma }}</td>
+                    <td>
+                      <input type="checkbox" class="row-check" value="{{ academic_class.id }}">
+                    </td>
+                    <td>
+                      <strong>{{ academic_class.Class.name|default:academic_class.Class.code }}</strong>
+                    </td>
+                    <td>
+                      <span class="badge badge-pill badge-light">Term {{ academic_class.term.term }}</span>
+                    </td>
+                    <td>{{ academic_class.academic_year.academic_year }}</td>
+                    <td>{{ academic_class.section.section_name|default:academic_class.section }}</td>
+                    {% if can_view_fees %}
+                    <td class="text-right fee-cell">UGX {{ academic_class.fees_amount|intcomma }}</td>
                     {% endif %}
                     <td>
-                      {% with academic_class.classstreams.all as streams %}
-                        <span class="badge bg-green">{{ streams|length }}</span>
-                      {% endwith %}
+                      {% if academic_class.streams_count %}
+                        <button
+                          type="button"
+                          class="btn btn-link p-0 stream-trigger"
+                          data-toggle="modal"
+                          data-target="#streamsModal"
+                          data-class-name="{{ academic_class.Class.name|default:academic_class.Class.code|escape }}"
+                          data-streams="{% for stream_item in academic_class.class_streams.all %}{{ stream_item.stream.stream|escapejs }}{% if not forloop.last %}||{% endif %}{% endfor %}"
+                        >
+                          {{ academic_class.streams_count }} Streams
+                        </button>
+                      {% else %}
+                        <span class="text-muted">0 Streams</span>
+                      {% endif %}
                     </td>
                     <td>
                       {% if academic_class.term.is_current %}
-                        <span class="label label-success">Active</span>
+                        <span class="status-badge status-active">Active</span>
                       {% else %}
-                        <span class="label label-default">Inactive</span>
+                        <span class="status-badge status-inactive">Inactive</span>
                       {% endif %}
                     </td>
-                    <td class="text-nowrap">
-                      <div class="btn-group btn-group-sm">
-                        <a class="btn btn-primary" href="{% url 'academic_class_details_page' academic_class.id %}" title="Details">
-                          <i class="fa fa-eye"></i>
-                        </a>
-                        {% if active_role == "Admin" %}
-                        <a class="btn btn-success" href="{% url 'edit_academic_class_details_page' academic_class.id %}" title="Edit">
-                          <i class="fa fa-edit"></i>
-                        </a>
-                        <a class="btn btn-default" href="{% url 'add_class_bill_items' academic_class.id %}" title="Add Bill Item">
-                          <i class="fa fa-file-invoice-dollar"></i>
-                        </a>
-                        {% endif %}
+                    <td>
+                      <div class="dropdown">
+                        <button class="btn btn-default btn-sm dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                          <i class="fa fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-right">
+                          <li><a href="{% url 'academic_class_details_page' academic_class.id %}"><i class="fa fa-eye"></i> View Details</a></li>
+                          {% if can_manage_promotions %}
+                          <li><a href="{% url 'student_promotion_workflow' %}?source_academic_class_id={{ academic_class.id }}"><i class="fa fa-random"></i> Promotion Center</a></li>
+                          {% endif %}
+                          {% if can_manage_classes %}
+                          <li><a href="{% url 'edit_academic_class_details_page' academic_class.id %}"><i class="fa fa-edit"></i> Edit</a></li>
+                          <li><a href="{% url 'add_class_stream_page' academic_class.id %}"><i class="fa fa-stream"></i> Manage Streams</a></li>
+                          <li role="separator" class="divider"></li>
+                          <li><a href="{% url 'delete_academic_class' academic_class.id %}" class="text-danger" onclick="return confirm('Delete this academic class?');"><i class="fa fa-trash"></i> Delete</a></li>
+                          {% endif %}
+                        </ul>
                       </div>
                     </td>
                   </tr>
@@ -254,61 +268,62 @@
               </table>
             </div>
 
-            <!-- Cards View -->
-            <div id="classesCards" class="row" style="display:none;">
+            <div class="mobile-cards">
               {% for academic_class in academic_classes %}
-                <div class="col-lg-3 col-md-4 col-sm-6">
-                  <div class="x_panel" style="position:relative; overflow:hidden;">
-                    {% if academic_class.term.is_current %}
-                      <span class="status-ribbon ribbon-success">Active</span>
-                    {% else %}
-                      <span class="status-ribbon ribbon-default">Inactive</span>
-                    {% endif %}
-                    <div class="x_title">
-                      <h2 class="mb-0">
-                        <i class="fa fa-graduation-cap"></i>
-                        {{ academic_class.Class.name|default:academic_class.Class.code }}
-                      </h2>
-                      <div class="clearfix"></div>
-                    </div>
-                    <div class="x_content">
-                      <ul class="list-unstyled project_files">
-                        <li><i class="fa fa-clock-o"></i> Term: <strong>{{ academic_class.term.term }}</strong></li>
-                        <li><i class="fa fa-calendar-o"></i> Year: <strong>{{ academic_class.academic_year.academic_year }}</strong></li>
-                        <li><i class="fa fa-university"></i> Section: <strong>{{ academic_class.section }}</strong></li>
-                        {% if active_role == "Admin" %}
-                        <li><i class="fa fa-money"></i> Fees: <strong>UGX {{ academic_class.fees_amount|intcomma }}</strong></li>
-                        {% endif %}
-                        <li><i class="fa fa-stream"></i> Streams: 
-                          {% with academic_class.classstreams.all as streams %}
-                            <span class="badge bg-green">{{ streams|length }}</span>
-                          {% endwith %}
-                        </li>
-                      </ul>
-                      <div class="btn-group btn-group-sm d-flex">
-                        <a class="btn btn-primary" href="{% url 'academic_class_details_page' academic_class.id %}" title="Details">
-                          <i class="fa fa-eye"></i> Details
-                        </a>
-                        {% if active_role == "Admin" %}
-                        <a class="btn btn-success" href="{% url 'edit_academic_class_details_page' academic_class.id %}" title="Edit">
-                          <i class="fa fa-edit"></i> Edit
-                        </a>
-                        <a class="btn btn-default" href="{% url 'add_class_bill_items' academic_class.id %}" title="Add Bill Item">
-                          <i class="fa fa-file-invoice-dollar"></i> Bills
-                        </a>
-                        {% endif %}
-                      </div>
-                    </div>
-                  </div>
+              <div class="mobile-class-card">
+                <div class="mobile-card-head">
+                  <h4>{{ academic_class.Class.name|default:academic_class.Class.code }}</h4>
+                  {% if academic_class.term.is_current %}
+                    <span class="status-badge status-active">Active</span>
+                  {% else %}
+                    <span class="status-badge status-inactive">Inactive</span>
+                  {% endif %}
                 </div>
+                <p>Term {{ academic_class.term.term }} - {{ academic_class.academic_year.academic_year }}</p>
+                <p>Section: {{ academic_class.section.section_name|default:academic_class.section }}</p>
+                {% if can_view_fees %}<p>Fees: <strong>UGX {{ academic_class.fees_amount|intcomma }}</strong></p>{% endif %}
+                <p>Streams: {{ academic_class.streams_count }}</p>
+                <div class="mobile-actions">
+                  <a class="btn btn-primary btn-sm" href="{% url 'academic_class_details_page' academic_class.id %}">View</a>
+                  {% if can_manage_promotions %}
+                  <a class="btn btn-info btn-sm" href="{% url 'student_promotion_workflow' %}?source_academic_class_id={{ academic_class.id }}">Promote</a>
+                  {% endif %}
+                  {% if can_manage_classes %}
+                  <a class="btn btn-success btn-sm" href="{% url 'edit_academic_class_details_page' academic_class.id %}">Edit</a>
+                  {% endif %}
+                </div>
+              </div>
               {% endfor %}
             </div>
-
           {% else %}
-            <div class="alert alert-info">
-              <i class="fa fa-info-circle"></i> No Academic Classes found. Use the New Class button above to create a class.
+            <div class="empty-state text-center">
+              <div class="empty-icon"><i class="fa fa-folder-open-o"></i></div>
+              <h4>No Academic Classes Created Yet</h4>
+              <p class="text-muted">Create your first academic class to start organizing streams and timetables.</p>
+              {% if can_manage_classes %}
+              <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addClassModal">
+                <i class="fa fa-plus-circle"></i> Create Your First Class
+              </button>
+              {% endif %}
             </div>
           {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-3 hidden-md hidden-sm hidden-xs">
+      <div class="x_panel panel-soft summary-panel">
+        <div class="x_title">
+          <h2 class="mb-0"><i class="fa fa-bar-chart mr-1"></i>{{ selected_year_label }} Summary</h2>
+          <div class="clearfix"></div>
+        </div>
+        <div class="x_content">
+          <ul class="summary-list list-unstyled">
+            <li><span>Total Classes</span><strong>{{ total_classes }}</strong></li>
+            <li><span>Total Streams</span><strong>{{ total_streams }}</strong></li>
+            <li><span>Total Students</span><strong>{{ total_students }}</strong></li>
+            <li><span>Average Fees</span><strong>UGX {{ average_fees|intcomma }}</strong></li>
+          </ul>
         </div>
       </div>
     </div>
@@ -316,8 +331,22 @@
 
 </div>
 
-{% if active_role == "Admin" %}
-<!-- Add Class Modal -->
+<div class="modal fade" id="streamsModal" tabindex="-1" role="dialog" aria-labelledby="streamsModalTitle">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="streamsModalTitle">Class Streams</h4>
+      </div>
+      <div class="modal-body">
+        <p id="streamsClassName" class="text-muted"></p>
+        <ul id="streamsList" class="list-group"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if can_manage_classes %}
 <div class="modal fade" id="addClassModal" tabindex="-1" role="dialog" aria-labelledby="addClassModalLabel">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
@@ -329,10 +358,10 @@
         {% csrf_token %}
         <div class="modal-body">
           {{ form|crispy }}
-          <p class="text-muted"><small>Ensure Term, Academic Year, Section and Fees are correct to keep billing consistent.</small></p>
+          <p class="text-muted"><small>Ensure Term, Academic Year, Section and Fees are accurate.</small></p>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary">Create Class</button>
         </div>
       </form>
@@ -341,126 +370,288 @@
 </div>
 {% endif %}
 
-  <style>
-    .page-header-panel .x_title{border-bottom:0;margin-bottom:6px;}
-    .page-header-panel{background:linear-gradient(135deg,#ffffff 0%,#f6f9ff 100%);border-radius:14px;border:1px solid #e6edf5;box-shadow:0 10px 22px rgba(0,0,0,0.04);}    
-    .page-header-panel h2{font-weight:700;color:#1f2a44;}
-
-    .modern-tiles .tile_stats_count{background:#ffffff;border:1px solid #e6edf5;border-radius:12px;padding:12px 14px;box-shadow:0 6px 16px rgba(0,0,0,0.04);}    
-    .modern-tiles .count_top{color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:11px;}
-    .modern-tiles .count{color:#1f2a44;font-weight:700;font-size:22px;}
-
-    .filters-panel .x_title h2{font-weight:700;}
-    .filters-panel .x_content{background:#f8fafc;border-radius:12px;border:1px solid #e6edf5;padding:14px;}
-    .filters-panel .form-control{border-radius:10px;border:1px solid #e2e8f0;background:#fff;}
-    .filter-chips .badge{background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;border-radius:999px;}
-
-    .classes-panel .x_title h2{font-weight:700;}
-    .classes-table th{text-transform:uppercase;font-size:11px;letter-spacing:.04em;}
-    .classes-table td{font-size:13px;}
-    .classes-panel .btn-group .btn{border-radius:8px;}
-  #classesTable th, #classesTable td { vertical-align: middle; }
-  .btn-group .btn { min-width: 34px; }
-  .filter-chips .badge { margin-right: .35rem; padding: .45em .6em; font-weight: 600; }
-
-  /* Ribbon status for cards */
-  .status-ribbon {
-    position: absolute;
-    right: -40px;
-    top: 12px;
-    transform: rotate(45deg);
+<style>
+  .text-transparent { color: transparent; }
+  .panel-soft {
+    border-radius: 14px;
+    border: 1px solid #e5edf7;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  }
+  .hero-panel {
+    background: linear-gradient(125deg, #f8fbff 0%, #ffffff 70%);
+  }
+  .page-subtitle {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .metric-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid #e7edf5;
+    border-radius: 12px;
+    padding: 14px;
+    min-height: 88px;
+  }
+  .metric-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: #fff;
-    padding: 6px 50px;
+  }
+  .metric-classes .metric-icon { background: #0f766e; }
+  .metric-terms .metric-icon { background: #2563eb; }
+  .metric-years .metric-icon { background: #7c3aed; }
+  .metric-sections .metric-icon { background: #ea580c; }
+  .metric-value {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+  .metric-label {
     font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: .08em;
+    letter-spacing: .05em;
+    color: #64748b;
+    font-weight: 600;
   }
-  .ribbon-success { background: #26B99A; }
-  .ribbon-default { background: #9e9e9e; }
+
+  .filter-panel .x_content { background: #f8fafc; border-radius: 12px; }
+  .filter-form .control-label { font-weight: 600; color: #334155; }
+  .advanced-row { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #d9e3f0; }
+  .filter-actions { display: flex; align-items: flex-end; justify-content: flex-end; }
+  .advanced-toggle { color: #2563eb; font-weight: 600; text-decoration: none; }
+
+  .action-panel .x_content { padding-top: 10px; padding-bottom: 10px; }
+  .gap-10 { gap: 10px; }
+  .read-only-alert { border-radius: 10px; border: 1px solid #bfdbfe; background: #eff6ff; }
+
+  .academic-classes-grid thead th {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: .05em;
+    color: #475569;
+  }
+  .academic-classes-grid td { vertical-align: middle; }
+  .fee-cell { white-space: nowrap; font-weight: 600; }
+  .status-badge {
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .status-active { background: #dcfce7; color: #166534; }
+  .status-inactive { background: #fee2e2; color: #991b1b; }
+
+  .selected-count { color: #64748b; font-weight: 600; }
+  .summary-panel .x_content { padding-top: 4px; }
+  .summary-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed #e2e8f0;
+  }
+  .summary-list li:last-child { border-bottom: 0; }
+  .summary-list span { color: #64748b; }
+  .summary-list strong { color: #0f172a; }
+
+  .empty-state { padding: 48px 18px; }
+  .empty-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-cards { display: none; }
+  .mobile-class-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+  .mobile-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .mobile-card-head h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .mobile-class-card p {
+    margin: 5px 0;
+    color: #475569;
+  }
+  .mobile-actions { margin-top: 10px; display: flex; gap: 8px; }
+
+  @media (max-width: 991px) {
+    .filter-actions { justify-content: flex-start; margin-top: 10px; }
+  }
+
+  @media (max-width: 767px) {
+    .desktop-grid { display: none; }
+    .mobile-cards { display: block; }
+    .right-actions .btn,
+    .right-actions .dropdown,
+    .left-actions .btn { width: 100%; }
+    .right-actions,
+    .left-actions { width: 100%; }
+  }
 </style>
 
 <script>
-  (function(){
-    function toggleView(showTable) {
-      var $tableWrap = $('#classesTableWrap');
-      var $cardsWrap = $('#classesCards');
-      if (showTable) {
-        $tableWrap.show();
-        $cardsWrap.hide();
-        $('#tableViewBtn').addClass('active');
-        $('#cardsViewBtn').removeClass('active');
-      } else {
-        $tableWrap.hide();
-        $cardsWrap.show();
-        $('#tableViewBtn').removeClass('active');
-        $('#cardsViewBtn').addClass('active');
-      }
+  (function () {
+    var table = null;
+
+    function updateSelectedCount() {
+      var selected = $('.row-check:checked').length;
+      $('#selectedRowCount').text(selected);
+      $('#checkAllRows').prop('checked', selected > 0 && selected === $('.row-check').length);
     }
 
-    $(document).ready(function() {
-      // Toggle view handlers
-      $('#tableViewBtn').on('click', function(e){ e.preventDefault(); toggleView(true); });
-      $('#cardsViewBtn').on('click', function(e){ e.preventDefault(); toggleView(false); });
+    function initDataTable() {
+      var $table = $('#academicClassesTable');
+      if (!$table.length) return;
 
-      // Hook into DataTables that is initialized globally in base.html for .datatable
-      var tryInitEnhancements = function() {
-        var $tableEl = $('#classesTable');
-        if (!$tableEl.length) return;
+      table = $table.DataTable({
+        responsive: true,
+        paging: true,
+        ordering: true,
+        searching: true,
+        pageLength: 10,
+        lengthChange: false,
+        autoWidth: false,
+        dom: 'Brt<"row mt-10"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+        buttons: [
+          { extend: 'csv', className: 'buttons-csv', title: 'Academic Classes' },
+          { extend: 'pdf', className: 'buttons-pdf', title: 'Academic Classes' },
+          { extend: 'print', className: 'buttons-print', title: 'Academic Classes' }
+        ],
+        language: {
+          info: 'Showing _START_-_END_ of _TOTAL_ classes',
+          infoEmpty: 'Showing 0-0 of 0 classes',
+          paginate: {
+            previous: '<',
+            next: '>'
+          },
+          search: '_INPUT_',
+          searchPlaceholder: 'Search...'
+        },
+        columnDefs: [
+          { orderable: false, targets: [0, -1] }
+        ]
+      });
 
-        var dt;
-        if ($.fn.dataTable.isDataTable($tableEl)) {
-          dt = $tableEl.DataTable();
+      $('.dt-buttons').hide();
+    }
+
+    function bindActions() {
+      $('#exportExcelBtn').on('click', function (e) {
+        e.preventDefault();
+        if (table) table.button('.buttons-csv').trigger();
+      });
+
+      $('#exportPdfBtn').on('click', function (e) {
+        e.preventDefault();
+        if (table) table.button('.buttons-pdf').trigger();
+      });
+
+      $('#printBtn').on('click', function (e) {
+        e.preventDefault();
+        if (table) table.button('.buttons-print').trigger();
+      });
+
+      $(document).on('change', '#checkAllRows', function () {
+        $('.row-check').prop('checked', $(this).is(':checked'));
+        updateSelectedCount();
+      });
+
+      $(document).on('change', '.row-check', function () {
+        updateSelectedCount();
+      });
+
+      $('#selectVisibleRows').on('click', function (e) {
+        e.preventDefault();
+        if (table) {
+          $(table.rows({ search: 'applied' }).nodes()).find('.row-check').prop('checked', true);
         } else {
-          // fallback if global init hasn't run yet
-          dt = $tableEl.DataTable({
-            responsive: true,
-            paging: true,
-            searching: true,
-            ordering: true,
-            pageLength: 10,
-            dom: 'lBfrtip',
-            buttons: ['csv', 'pdf', 'print']
-          });
+          $('.row-check').prop('checked', true);
+        }
+        updateSelectedCount();
+      });
+
+      $('#clearSelectedRows').on('click', function (e) {
+        e.preventDefault();
+        $('.row-check, #checkAllRows').prop('checked', false);
+        updateSelectedCount();
+      });
+
+      $('#bulkDeleteRows').on('click', function (e) {
+        e.preventDefault();
+        var selectedIds = $('.row-check:checked').map(function () {
+          return $(this).val();
+        }).get();
+
+        if (!selectedIds.length) {
+          alert('Select at least one class to delete.');
+          return;
         }
 
-        // Wire export buttons
-        $('#exportCsvBtn').off('click').on('click', function(e){ e.preventDefault(); dt.button('.buttons-csv').trigger(); });
-        $('#exportPdfBtn').off('click').on('click', function(e){ e.preventDefault(); dt.button('.buttons-pdf').trigger(); });
-        $('#printBtn').off('click').on('click', function(e){ e.preventDefault(); dt.button('.buttons-print').trigger(); });
-
-        // Add per-column filters (second header row)
-        if ($('#classesTable thead tr.filters').length === 0) {
-          var $filterRow = $('<tr class="filters"></tr>');
-          $('#classesTable thead tr:first th').each(function(index){
-            var heading = $(this).text().trim().toLowerCase();
-            if (heading === 'actions' || heading === 'fees amount') {
-              $filterRow.append('<th></th>');
-              return;
-            }
-            if (heading === 'status') {
-              var html = '<select class="form-control input-sm"><option value="">All</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>';
-              $filterRow.append('<th>'+ html +'</th>');
-            } else {
-              $filterRow.append('<th><input type="text" class="form-control input-sm" placeholder="Search '+ ($(this).text().trim() || '') +'"></th>');
-            }
-          });
-          $('#classesTable thead').append($filterRow);
-
-          // Bind change events
-          $('#classesTable thead tr.filters th').each(function(i){
-            var node = $(this).find('input,select');
-            if (!node.length) return;
-            $(node).on('keyup change', function(){
-              var val = $(this).val();
-              dt.column(i).search(val ? val : '', true, false).draw();
-            });
-          });
+        if (!confirm('Delete ' + selectedIds.length + ' selected academic class record(s)? This cannot be undone.')) {
+          return;
         }
-      };
 
-      // Run once after a small delay to ensure global init completed
-      setTimeout(tryInitEnhancements, 150);
+        $('#bulkActionInput').val('bulk_delete');
+        $('#bulkSelectedIdsInput').val(selectedIds.join(','));
+        $('#bulkActionForm').trigger('submit');
+      });
 
+      $('#streamsModal').on('show.bs.modal', function (event) {
+        var button = $(event.relatedTarget);
+        var className = button.data('class-name') || '';
+        var streamData = button.data('streams') || '';
+        var streams = streamData ? String(streamData).split('||') : [];
+
+        $('#streamsClassName').text(className);
+        var $list = $('#streamsList');
+        $list.empty();
+
+        if (!streams.length || (streams.length === 1 && !streams[0])) {
+          $list.append('<li class="list-group-item text-muted">No streams configured yet.</li>');
+          return;
+        }
+
+        streams.forEach(function (streamName) {
+          if (!streamName) return;
+          $list.append('<li class="list-group-item">' + $('<div>').text(streamName).html() + '</li>');
+        });
+      });
+    }
+
+    $(document).ready(function () {
+      initDataTable();
+      bindActions();
+      updateSelectedCount();
     });
   })();
 </script>
