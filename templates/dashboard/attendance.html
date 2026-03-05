@@ -36,12 +36,11 @@
       <div class="x_content">
         <h4 style="margin-top: 0;">Classes Not Submitted</h4>
         <h3>{{ attendance_classes_not_submitted_count|intcomma }}</h3>
-        {% widthratio attendance_classes_not_submitted_count attendance_total_class_streams 100 as class_pending_rate %}
         <div class="kpi-mini-chart">
           <div class="kpi-mini-track">
-            <span class="kpi-mini-fill danger" style="width: {{ class_pending_rate }}%;"></span>
+            <span class="kpi-mini-fill danger" style="width: {{ attendance_class_pending_rate|floatformat:0 }}%;"></span>
           </div>
-          <div class="kpi-mini-caption">Submission gap: {{ class_pending_rate }}%</div>
+          <div class="kpi-mini-caption">Submission gap: {{ attendance_class_pending_rate|floatformat:1 }}%</div>
         </div>
       </div>
     </div>
@@ -51,12 +50,11 @@
       <div class="x_content">
         <h4 style="margin-top: 0;">Teachers Not Submitted</h4>
         <h3>{{ attendance_teachers_absent_today|intcomma }}</h3>
-        {% widthratio attendance_teachers_absent_today attendance_total_teachers 100 as teacher_pending_rate %}
         <div class="kpi-mini-chart">
           <div class="kpi-mini-track">
-            <span class="kpi-mini-fill warn" style="width: {{ teacher_pending_rate }}%;"></span>
+            <span class="kpi-mini-fill warn" style="width: {{ attendance_teacher_pending_rate|floatformat:0 }}%;"></span>
           </div>
-          <div class="kpi-mini-caption">Teacher submission gap: {{ teacher_pending_rate }}%</div>
+          <div class="kpi-mini-caption">Teacher submission gap: {{ attendance_teacher_pending_rate|floatformat:1 }}%</div>
         </div>
       </div>
     </div>

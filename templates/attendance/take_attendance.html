@@ -13,35 +13,48 @@
       </div>
       <div class="x_content">
 
-        <form method="get" class="form-inline" style="margin-bottom:16px;">
-          <div class="form-group" style="margin-right: 10px; margin-bottom: 8px;">
-            <label for="class_stream">Class</label>
-            <select name="class_stream" id="class_stream" class="form-control" onchange="this.form.submit()">
+        <form method="get" class="attendance-filter-grid" style="margin-bottom: 16px;">
+          <div class="form-group">
+            <label for="class_stream" class="control-label">Class</label>
+            <select name="class_stream" id="class_stream" class="form-control">
               <option value="">Select class</option>
               {% for stream in class_streams %}
               <option value="{{ stream.id }}" {% if selected_class_stream and selected_class_stream.id == stream.id %}selected{% endif %}>{{ stream }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group" style="margin-right: 10px; margin-bottom: 8px;">
-            <label for="subject">Subject</label>
-            <select name="subject" id="subject" class="form-control" onchange="this.form.submit()">
+          <div class="form-group">
+            <label for="subject" class="control-label">Subject</label>
+            <select name="subject" id="subject" class="form-control">
               <option value="">Select subject</option>
               {% for subject in subjects %}
               <option value="{{ subject.id }}" {% if selected_subject and selected_subject.id == subject.id %}selected{% endif %}>{{ subject.name }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group" style="margin-right: 10px; margin-bottom: 8px;">
-            <label for="date">Date</label>
-            <input type="date" name="date" id="date" class="form-control" value="{% if session %}{{ session.date|date:'Y-m-d' }}{% else %}{{ request.GET.date|default:'' }}{% endif %}" onchange="this.form.submit()">
+          <div class="form-group">
+            <label for="date" class="control-label">Date</label>
+            <input type="date" name="date" id="date" class="form-control" value="{% if session %}{{ session.date|date:'Y-m-d' }}{% else %}{{ request.GET.date|default:'' }}{% endif %}">
           </div>
-          {% if session_form.time_slot.value %}
-          <input type="hidden" name="time_slot" value="{{ session_form.time_slot.value }}">
-          {% endif %}
-          <a href="{% url 'teacher_timetable' %}" class="btn btn-default" style="margin-bottom: 8px;">
-            <i class="fa fa-calendar"></i> My Timetable
-          </a>
+          <div class="form-group">
+            <label for="time_slot" class="control-label">Lesson Period</label>
+            {% with selected_time_slot=session_form.time_slot.value|stringformat:"s" %}
+            <select name="time_slot" id="time_slot" class="form-control">
+              <option value="">Auto (from timetable)</option>
+              {% for slot in session_form.fields.time_slot.queryset %}
+              <option value="{{ slot.id }}" {% if selected_time_slot == slot.id|stringformat:"s" %}selected{% endif %}>{{ slot }}</option>
+              {% endfor %}
+            </select>
+            {% endwith %}
+          </div>
+          <div class="attendance-filter-actions">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-search"></i> Load Lesson
+            </button>
+            <a href="{% url 'teacher_timetable' %}" class="btn btn-default">
+              <i class="fa fa-calendar"></i> My Timetable
+            </a>
+          </div>
         </form>
 
         {% if selected_class_stream and selected_subject and session %}
@@ -54,15 +67,15 @@
           {% endif %}
         </div>
 
-        <div class="x_panel" style="border:1px solid #dce4ec;">
+        <div class="x_panel lesson-meta-panel" style="border:1px solid #dce4ec;">
           <div class="x_content" style="padding-top: 10px;">
             <div class="row">
-              <div class="col-md-2 col-sm-4 col-xs-6"><strong>Class:</strong><br>{{ selected_class_stream }}</div>
-              <div class="col-md-2 col-sm-4 col-xs-6"><strong>Subject:</strong><br>{{ selected_subject.name }}</div>
-              <div class="col-md-2 col-sm-4 col-xs-6"><strong>Teacher:</strong><br>{{ session.teacher }}</div>
-              <div class="col-md-2 col-sm-4 col-xs-6"><strong>Date:</strong><br>{{ session.date|date:"d M Y" }}</div>
-              <div class="col-md-2 col-sm-4 col-xs-6"><strong>Lesson Period:</strong><br>{{ session.lesson_period }}</div>
-              <div class="col-md-2 col-sm-4 col-xs-6"><strong>Term / Year:</strong><br>T{{ session.term.term }} / {{ session.academic_year.academic_year }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Class:</strong><br>{{ selected_class_stream }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Subject:</strong><br>{{ selected_subject.name }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Teacher:</strong><br>{{ session.teacher }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Date:</strong><br>{{ session.date|date:"d M Y" }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Lesson Period:</strong><br>{{ session.lesson_period }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Term / Year:</strong><br>T{{ session.term.term }} / {{ session.academic_year.academic_year }}</div>
             </div>
           </div>
         </div>
@@ -85,22 +98,52 @@
           {% endif %}
           <input type="hidden" name="attendance_payload" id="attendance_payload">
 
-          <div style="margin-bottom: 10px;">
-            <button type="button" class="btn btn-success btn-sm" onclick="markAll('present')" {% if is_locked %}disabled{% endif %}>
-              <i class="fa fa-check-square-o"></i> Mark All Present
-            </button>
-            <a href="{% url 'attendance_history' %}" class="btn btn-default btn-sm">
-              <i class="fa fa-history"></i> Attendance History
-            </a>
-            {% if is_locked and can_unlock %}
-            <button type="button" class="btn btn-danger btn-sm" onclick="submitUnlockForm()">
-              <i class="fa fa-unlock"></i> Reopen Session
-            </button>
-            {% endif %}
+          <div class="attendance-toolbar">
+            <div class="attendance-toolbar-left">
+              <div class="btn-group btn-group-sm attendance-bulk-actions" role="group" aria-label="Bulk attendance actions">
+                <button type="button" class="btn btn-success" onclick="markAll('present')" {% if is_locked %}disabled{% endif %}>
+                  <i class="fa fa-check-square-o"></i> All Present
+                </button>
+                <button type="button" class="btn btn-danger" onclick="markAll('absent')" {% if is_locked %}disabled{% endif %}>
+                  <i class="fa fa-times-circle"></i> All Absent
+                </button>
+                <button type="button" class="btn btn-warning" onclick="markAll('late')" {% if is_locked %}disabled{% endif %}>
+                  <i class="fa fa-clock-o"></i> All Late
+                </button>
+                <button type="button" class="btn btn-info" onclick="markAll('excused')" {% if is_locked %}disabled{% endif %}>
+                  <i class="fa fa-medkit"></i> All Excused
+                </button>
+              </div>
+            </div>
+            <div class="attendance-toolbar-right">
+              <div class="attendance-search-wrap">
+                <i class="fa fa-search"></i>
+                <input type="text" id="studentSearchInput" class="form-control input-sm" placeholder="Search student name or reg no">
+              </div>
+              <div class="btn-group btn-group-sm attendance-status-filter" role="group" aria-label="Filter by status">
+                <button type="button" class="btn btn-default status-filter-btn active" data-filter="all">All</button>
+                <button type="button" class="btn btn-default status-filter-btn" data-filter="present">Present</button>
+                <button type="button" class="btn btn-default status-filter-btn" data-filter="absent">Absent</button>
+                <button type="button" class="btn btn-default status-filter-btn" data-filter="late">Late</button>
+                <button type="button" class="btn btn-default status-filter-btn" data-filter="excused">Excused</button>
+              </div>
+              <a href="{% url 'attendance_history' %}" class="btn btn-default btn-sm">
+                <i class="fa fa-history"></i> History
+              </a>
+              {% if is_locked and can_unlock %}
+              <button type="button" class="btn btn-danger btn-sm" onclick="submitUnlockForm()">
+                <i class="fa fa-unlock"></i> Reopen
+              </button>
+              {% endif %}
+            </div>
           </div>
 
-          <div class="table-responsive hidden-xs">
-            <table class="table table-bordered table-striped">
+          <div class="attendance-roster-meta text-muted">
+            Showing <strong id="visibleStudentsCount">{{ students|length }}</strong> of <strong>{{ students|length }}</strong> students
+          </div>
+
+          <div class="table-responsive attendance-table-wrap">
+            <table class="table table-bordered table-striped attendance-roster-table">
               <thead>
                 <tr>
                   <th>#</th>
@@ -113,21 +156,21 @@
               <tbody>
                 {% for reg in students %}
                 {% with rec=records|get_item:reg.student.id %}
-                <tr>
+                <tr class="attendance-row status-row-{{ rec.status|default:'present' }}" data-student="{{ reg.student.id }}" data-status="{{ rec.status|default:'present' }}" data-search="{{ reg.student.student_name|lower }} {{ reg.student.reg_no|lower }}">
                   <td>{{ forloop.counter }}</td>
                   <td>{{ reg.student.student_name }}</td>
                   <td>{{ reg.student.reg_no }}</td>
                   <td>
                     <input type="hidden" class="status-input" data-student="{{ reg.student.id }}" value="{{ rec.status|default:'present' }}">
-                    <div class="btn-group btn-group-sm" role="group" data-student="{{ reg.student.id }}">
-                      <button type="button" class="btn status-btn status-present {% if rec and rec.status == 'present' or not rec %}active{% endif %}" data-status="present" onclick="setStatus('{{ reg.student.id }}', 'present')">Present</button>
-                      <button type="button" class="btn status-btn status-absent {% if rec and rec.status == 'absent' %}active{% endif %}" data-status="absent" onclick="setStatus('{{ reg.student.id }}', 'absent')">Absent</button>
-                      <button type="button" class="btn status-btn status-late {% if rec and rec.status == 'late' %}active{% endif %}" data-status="late" onclick="setStatus('{{ reg.student.id }}', 'late')">Late</button>
-                      <button type="button" class="btn status-btn status-excused {% if rec and rec.status == 'excused' %}active{% endif %}" data-status="excused" onclick="setStatus('{{ reg.student.id }}', 'excused')">Excused</button>
+                    <div class="btn-group btn-group-sm attendance-status-group" role="group" data-status-group="{{ reg.student.id }}">
+                      <button type="button" class="btn status-btn status-present {% if rec and rec.status == 'present' or not rec %}active{% endif %}" data-status="present" onclick="setStatus('{{ reg.student.id }}', 'present')" {% if is_locked %}disabled{% endif %}>Present</button>
+                      <button type="button" class="btn status-btn status-absent {% if rec and rec.status == 'absent' %}active{% endif %}" data-status="absent" onclick="setStatus('{{ reg.student.id }}', 'absent')" {% if is_locked %}disabled{% endif %}>Absent</button>
+                      <button type="button" class="btn status-btn status-late {% if rec and rec.status == 'late' %}active{% endif %}" data-status="late" onclick="setStatus('{{ reg.student.id }}', 'late')" {% if is_locked %}disabled{% endif %}>Late</button>
+                      <button type="button" class="btn status-btn status-excused {% if rec and rec.status == 'excused' %}active{% endif %}" data-status="excused" onclick="setStatus('{{ reg.student.id }}', 'excused')" {% if is_locked %}disabled{% endif %}>Excused</button>
                     </div>
                   </td>
                   <td>
-                    <input type="text" class="form-control input-sm remarks-input" data-student="{{ reg.student.id }}" value="{{ rec.remarks|default:'' }}" {% if is_locked %}readonly{% endif %}>
+                    <input type="text" class="form-control input-sm remarks-input" data-student="{{ reg.student.id }}" value="{{ rec.remarks|default:'' }}" placeholder="Optional remark" {% if is_locked %}readonly{% endif %}>
                   </td>
                 </tr>
                 {% endwith %}
@@ -136,39 +179,25 @@
             </table>
           </div>
 
-          <div class="visible-xs" id="mobileAttendanceCards">
-            {% for reg in students %}
-            {% with rec=records|get_item:reg.student.id %}
-            <div class="panel panel-default" style="margin-bottom: 10px;">
-              <div class="panel-body">
-                <strong>{{ reg.student.student_name }}</strong><br>
-                <small class="text-muted">{{ reg.student.reg_no }}</small>
-                <input type="hidden" class="status-input" data-student="{{ reg.student.id }}" value="{{ rec.status|default:'present' }}">
-                <div class="btn-group btn-group-justified" style="margin-top: 8px;" data-student="{{ reg.student.id }}">
-                  <a class="btn btn-sm status-btn status-present {% if rec and rec.status == 'present' or not rec %}active{% endif %}" data-status="present" onclick="setStatus('{{ reg.student.id }}', 'present')">P</a>
-                  <a class="btn btn-sm status-btn status-absent {% if rec and rec.status == 'absent' %}active{% endif %}" data-status="absent" onclick="setStatus('{{ reg.student.id }}', 'absent')">A</a>
-                  <a class="btn btn-sm status-btn status-late {% if rec and rec.status == 'late' %}active{% endif %}" data-status="late" onclick="setStatus('{{ reg.student.id }}', 'late')">L</a>
-                  <a class="btn btn-sm status-btn status-excused {% if rec and rec.status == 'excused' %}active{% endif %}" data-status="excused" onclick="setStatus('{{ reg.student.id }}', 'excused')">E</a>
-                </div>
-                <input type="text" class="form-control input-sm remarks-input" data-student="{{ reg.student.id }}" placeholder="Remarks" style="margin-top:8px;" value="{{ rec.remarks|default:'' }}" {% if is_locked %}readonly{% endif %}>
-              </div>
-            </div>
-            {% endwith %}
-            {% endfor %}
+          <div id="noStudentsMatch" class="alert alert-warning attendance-no-match" style="display:none;">
+            No students match the current search/filter.
           </div>
 
-          <div class="row" style="margin-top: 10px; margin-bottom: 16px;">
-            <div class="col-md-3 col-sm-6 col-xs-6"><strong>Present:</strong> <span id="sumPresent">{{ summary.present }}</span></div>
-            <div class="col-md-3 col-sm-6 col-xs-6"><strong>Absent:</strong> <span id="sumAbsent">{{ summary.absent }}</span></div>
-            <div class="col-md-3 col-sm-6 col-xs-6"><strong>Late:</strong> <span id="sumLate">{{ summary.late }}</span></div>
-            <div class="col-md-3 col-sm-6 col-xs-6"><strong>Excused:</strong> <span id="sumExcused">{{ summary.excused }}</span></div>
+          <div class="row attendance-summary-row">
+            <div class="col-md-3 col-sm-6 col-xs-6"><span class="sum-pill present">Present: <strong id="sumPresent">{{ summary.present }}</strong></span></div>
+            <div class="col-md-3 col-sm-6 col-xs-6"><span class="sum-pill absent">Absent: <strong id="sumAbsent">{{ summary.absent }}</strong></span></div>
+            <div class="col-md-3 col-sm-6 col-xs-6"><span class="sum-pill late">Late: <strong id="sumLate">{{ summary.late }}</strong></span></div>
+            <div class="col-md-3 col-sm-6 col-xs-6"><span class="sum-pill excused">Excused: <strong id="sumExcused">{{ summary.excused }}</strong></span></div>
           </div>
 
           <div class="attendance-submit-bar">
-            <button type="button" class="btn btn-primary" id="submitAttendanceBtn" {% if is_locked %}disabled{% endif %}>
-              <i class="fa fa-save"></i> Submit Attendance
-            </button>
-            <a href="{% url 'attendance_dashboard' %}" class="btn btn-default">Cancel</a>
+            <div class="submit-meta text-muted">Submit to lock this lesson attendance sheet.</div>
+            <div class="submit-actions">
+              <button type="button" class="btn btn-primary" id="submitAttendanceBtn" {% if is_locked %}disabled{% endif %}>
+                <i class="fa fa-save"></i> Submit Attendance
+              </button>
+              <a href="{% url 'attendance_dashboard' %}" class="btn btn-default">Cancel</a>
+            </div>
           </div>
 
         </form>
@@ -203,32 +232,253 @@
 </div>
 
 <style>
-.status-btn { color: #fff !important; border: none; opacity: 0.75; }
-.status-btn.active { opacity: 1; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.45); }
-.status-present { background: #26b99a; }
-.status-absent { background: #d9534f; }
-.status-late { background: #f0ad4e; }
-.status-excused { background: #337ab7; }
+.attendance-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.attendance-filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.attendance-filter-actions .btn {
+  min-width: 120px;
+}
+
+.lesson-meta-panel {
+  margin-bottom: 14px;
+  background: #f9fbfe;
+  border-radius: 8px;
+}
+
+.lesson-meta-item {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.attendance-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0 10px;
+}
+
+.attendance-toolbar-left,
+.attendance-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.attendance-search-wrap {
+  position: relative;
+  min-width: 240px;
+}
+
+.attendance-search-wrap i {
+  position: absolute;
+  left: 10px;
+  top: 9px;
+  color: #8fa3b7;
+}
+
+.attendance-search-wrap input {
+  padding-left: 30px;
+}
+
+.status-filter-btn.active {
+  background: #34495e !important;
+  color: #fff !important;
+  border-color: #2c3e50 !important;
+}
+
+.attendance-roster-meta {
+  margin-bottom: 8px;
+}
+
+.attendance-table-wrap {
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.attendance-roster-table {
+  margin-bottom: 0;
+}
+
+.attendance-roster-table thead th {
+  white-space: nowrap;
+  background: #f4f8fc;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.attendance-row td {
+  vertical-align: middle !important;
+}
+
+.attendance-row.status-row-present {
+  border-left: 3px solid #26b99a;
+}
+
+.attendance-row.status-row-absent {
+  border-left: 3px solid #d9534f;
+}
+
+.attendance-row.status-row-late {
+  border-left: 3px solid #f0ad4e;
+}
+
+.attendance-row.status-row-excused {
+  border-left: 3px solid #337ab7;
+}
+
+.attendance-status-group .btn {
+  min-width: 72px;
+}
+
+.status-btn {
+  color: #fff !important;
+  border: none;
+  opacity: 0.75;
+}
+
+.status-btn.active {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+
+.status-present {
+  background: #26b99a;
+}
+
+.status-absent {
+  background: #d9534f;
+}
+
+.status-late {
+  background: #f0ad4e;
+}
+
+.status-excused {
+  background: #337ab7;
+}
+
+.attendance-summary-row {
+  margin-top: 10px;
+  margin-bottom: 16px;
+}
+
+.sum-pill {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e1e9f2;
+  background: #fff;
+}
+
+.sum-pill.present {
+  border-left: 4px solid #26b99a;
+}
+
+.sum-pill.absent {
+  border-left: 4px solid #d9534f;
+}
+
+.sum-pill.late {
+  border-left: 4px solid #f0ad4e;
+}
+
+.sum-pill.excused {
+  border-left: 4px solid #337ab7;
+}
+
 .attendance-submit-bar {
   position: sticky;
   bottom: 0;
   z-index: 20;
   background: #fff;
   border-top: 1px solid #dfe6ee;
-  padding-top: 12px;
-  padding-bottom: 4px;
+  padding: 12px 0 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
+
+.submit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 1199px) {
+  .attendance-filter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 767px) {
-  .attendance-submit-bar .btn { width: 100%; margin-bottom: 8px; }
+  .attendance-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-filter-actions {
+    justify-content: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-filter-actions .btn {
+    width: 100%;
+  }
+
+  .attendance-search-wrap {
+    min-width: 100%;
+  }
+
+  .attendance-status-group .btn {
+    min-width: auto;
+  }
+
+  .attendance-submit-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .submit-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .submit-actions .btn {
+    width: 100%;
+  }
 }
 </style>
 
 <script>
 (function () {
   var readOnly = {{ is_locked|yesno:"true,false" }};
+  var activeStatusFilter = 'all';
+
+  function setRowStatus(studentId, status) {
+    var row = document.querySelector('.attendance-row[data-student="' + studentId + '"]');
+    if (!row) {
+      return;
+    }
+    row.setAttribute('data-status', status);
+    row.classList.remove('status-row-present', 'status-row-absent', 'status-row-late', 'status-row-excused');
+    row.classList.add('status-row-' + status);
+  }
 
   function setStatusButtons(studentId, status) {
-    var groups = document.querySelectorAll('[data-student="' + studentId + '"]');
+    var groups = document.querySelectorAll('[data-status-group="' + studentId + '"]');
     groups.forEach(function (group) {
       var buttons = group.querySelectorAll('.status-btn');
       buttons.forEach(function (btn) {
@@ -249,7 +499,9 @@
     statusInputs.forEach(function (input) {
       input.value = status;
     });
+    setRowStatus(studentId, status);
     setStatusButtons(studentId, status);
+    applyRosterFilters();
     updateSummary();
   };
 
@@ -259,10 +511,58 @@
     }
     document.querySelectorAll('.status-input').forEach(function (input) {
       input.value = status;
+      setRowStatus(input.getAttribute('data-student'), status);
       setStatusButtons(input.getAttribute('data-student'), status);
     });
+    applyRosterFilters();
     updateSummary();
   };
+
+  function applyRosterFilters() {
+    var searchInput = document.getElementById('studentSearchInput');
+    var query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    var rows = document.querySelectorAll('.attendance-row');
+    var visible = 0;
+
+    rows.forEach(function (row) {
+      var searchText = (row.getAttribute('data-search') || '').toLowerCase();
+      var rowStatus = row.getAttribute('data-status') || 'present';
+      var matchesSearch = !query || searchText.indexOf(query) !== -1;
+      var matchesStatus = activeStatusFilter === 'all' || rowStatus === activeStatusFilter;
+      var show = matchesSearch && matchesStatus;
+
+      row.style.display = show ? '' : 'none';
+      if (show) {
+        visible += 1;
+      }
+    });
+
+    var visibleCount = document.getElementById('visibleStudentsCount');
+    if (visibleCount) {
+      visibleCount.textContent = visible;
+    }
+
+    var noMatch = document.getElementById('noStudentsMatch');
+    if (noMatch) {
+      noMatch.style.display = visible === 0 ? 'block' : 'none';
+    }
+  }
+
+  var searchInput = document.getElementById('studentSearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', applyRosterFilters);
+  }
+
+  document.querySelectorAll('.status-filter-btn').forEach(function (button) {
+    button.addEventListener('click', function () {
+      activeStatusFilter = this.getAttribute('data-filter') || 'all';
+      document.querySelectorAll('.status-filter-btn').forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+      this.classList.add('active');
+      applyRosterFilters();
+    });
+  });
 
   function updateSummary() {
     var summary = { present: 0, absent: 0, late: 0, excused: 0 };
@@ -329,6 +629,7 @@
     });
   }
 
+  applyRosterFilters();
   updateSummary();
 })();
 

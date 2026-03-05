@@ -8,6 +8,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from app.models.attendance import AttendanceRecord, AttendanceSession, AttendanceStatus
+from app.models.timetables import Timetable
 from app.services.level_scope import (
     get_level_academic_classes_queryset,
     get_level_class_streams_queryset,
@@ -15,6 +16,11 @@ from app.services.level_scope import (
 from app.services.school_level import get_active_school_level
 
 PRESENT_LIKE_STATUSES = [AttendanceStatus.PRESENT, AttendanceStatus.LATE]
+WEEKDAY_CODES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+
+
+def _weekday_code(for_date):
+    return WEEKDAY_CODES[for_date.weekday()]
 
 
 def _attendance_rate(queryset) -> float:
@@ -41,6 +47,8 @@ def get_attendance_context(request, scope):
     weekly_trend_rows = []
     teachers_absent_today = 0
     classes_not_submitted_count = 0
+    class_pending_rate = 0
+    teacher_pending_rate = 0
     total_teachers = 0
     total_class_streams = 0
 
@@ -66,6 +74,7 @@ def get_attendance_context(request, scope):
         ).filter(
             academic_class__in=term_scoped_academic_classes
         ).select_related("academic_class__Class", "stream")
+
         submitted_stream_ids = set(
             AttendanceSession.objects.filter(
                 academic_year=current_year,
@@ -77,7 +86,26 @@ def get_attendance_context(request, scope):
             .distinct()
         )
 
-        for class_stream in class_stream_scope:
+        scheduled_lessons_today = Timetable.objects.filter(
+            class_stream__academic_class__in=term_scoped_academic_classes,
+            weekday=_weekday_code(today),
+        )
+        scheduled_stream_ids = set(
+            scheduled_lessons_today.values_list("class_stream_id", flat=True).distinct()
+        )
+        if scheduled_stream_ids:
+            # Include streams that submitted today even if timetable setup is incomplete.
+            expected_stream_ids = scheduled_stream_ids | submitted_stream_ids
+            expected_class_streams_qs = class_stream_scope.filter(id__in=expected_stream_ids)
+        else:
+            # Fallback for schools that have not configured timetable entries.
+            expected_class_streams_qs = class_stream_scope
+
+        expected_stream_ids = set(expected_class_streams_qs.values_list("id", flat=True))
+        if expected_stream_ids:
+            submitted_stream_ids = submitted_stream_ids & expected_stream_ids
+
+        for class_stream in expected_class_streams_qs:
             submitted = class_stream.id in submitted_stream_ids
             class_submission_rows.append(
                 {
@@ -97,20 +125,41 @@ def get_attendance_context(request, scope):
             [row for row in class_submission_rows if not row["submitted"]]
         )
 
-        total_class_streams = class_stream_scope.count()
-        total_teachers = class_stream_scope.values("class_teacher_id").distinct().count()
-        teachers_submitted_today = (
+        total_class_streams = len(expected_stream_ids)
+        submitted_teacher_ids = set(
             AttendanceSession.objects.filter(
                 academic_year=current_year,
                 term=current_term,
                 date=today,
                 class_stream__academic_class__in=term_scoped_academic_classes,
             )
-            .values("teacher_id")
+            .values_list("teacher_id", flat=True)
             .distinct()
-            .count()
         )
-        teachers_absent_today = max(total_teachers - teachers_submitted_today, 0)
+        submitted_teacher_ids.discard(None)
+
+        scheduled_teacher_ids = set()
+        for teacher_id, allocation_teacher_id, class_teacher_id in scheduled_lessons_today.values_list(
+            "teacher_id",
+            "allocation__subject_teacher_id",
+            "class_stream__class_teacher_id",
+        ).distinct():
+            selected_teacher_id = teacher_id or allocation_teacher_id or class_teacher_id
+            if selected_teacher_id:
+                scheduled_teacher_ids.add(selected_teacher_id)
+        if scheduled_teacher_ids:
+            expected_teacher_ids = scheduled_teacher_ids | submitted_teacher_ids
+        else:
+            expected_teacher_ids = set(
+                expected_class_streams_qs.values_list("class_teacher_id", flat=True).distinct()
+            )
+            expected_teacher_ids.discard(None)
+            expected_teacher_ids |= submitted_teacher_ids
+
+        total_teachers = len(expected_teacher_ids)
+        teachers_absent_today = len(expected_teacher_ids - submitted_teacher_ids)
+        class_pending_rate = round((classes_not_submitted_count / total_class_streams) * 100, 1) if total_class_streams else 0
+        teacher_pending_rate = round((teachers_absent_today / total_teachers) * 100, 1) if total_teachers else 0
 
         class_attendance_agg = list(
             attendance_scope.values(
@@ -205,6 +254,8 @@ def get_attendance_context(request, scope):
         "attendance_total_teachers": total_teachers,
         "attendance_classes_not_submitted_count": classes_not_submitted_count,
         "attendance_total_class_streams": total_class_streams,
+        "attendance_class_pending_rate": class_pending_rate,
+        "attendance_teacher_pending_rate": teacher_pending_rate,
         "attendance_class_submission_rows": class_submission_rows,
         "attendance_class_rows": class_attendance_rows,
         "attendance_chronic_absentee_rows": chronic_absentee_rows,

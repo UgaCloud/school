@@ -13,8 +13,15 @@ from app.models.classes import AcademicClassStream
 from app.models.fees_payment import Payment, StudentBill, StudentBillItem
 from app.models.results import ResultBatch
 from app.models.staffs import Staff
+from app.models.timetables import Timetable
 from app.services.level_scope import get_level_academic_classes_queryset, get_level_students_queryset
 from app.services.school_level import get_active_school_level
+
+WEEKDAY_CODES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+
+
+def _weekday_code(for_date):
+    return WEEKDAY_CODES[for_date.weekday()]
 
 
 def _percent(part: float, whole: float) -> float:
@@ -101,18 +108,30 @@ def get_overview_context(request, scope):
             assessment__academic_class__academic_year=current_year,
             assessment__academic_class__term=current_term,
         ).count()
-        submitted_streams_today = (
+        submitted_stream_ids_today = set(
             AttendanceSession.objects.filter(
                 academic_year=current_year,
                 term=current_term,
                 date=today,
                 class_stream__academic_class__in=scoped_academic_classes,
             )
-            .values("class_stream_id")
+            .values_list("class_stream_id", flat=True)
             .distinct()
-            .count()
         )
-        missing_attendance_streams = max(total_streams - submitted_streams_today, 0)
+        submitted_streams_today = len(submitted_stream_ids_today)
+        scheduled_stream_ids = set(
+            Timetable.objects.filter(
+                class_stream__academic_class__in=scoped_academic_classes,
+                weekday=_weekday_code(today),
+            )
+            .values_list("class_stream_id", flat=True)
+            .distinct()
+        )
+        if scheduled_stream_ids:
+            expected_streams_today = len(scheduled_stream_ids | submitted_stream_ids_today)
+        else:
+            expected_streams_today = total_streams
+        missing_attendance_streams = max(expected_streams_today - submitted_streams_today, 0)
     else:
         total_classes = 0
         total_streams = 0

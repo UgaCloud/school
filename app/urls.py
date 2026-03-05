@@ -78,12 +78,17 @@ urlpatterns = [
     path('edit_academic_class_details/<int:id>/', edit_academic_class_details_view,name="edit_academic_class_details_page"),
     path('delete_academic_class/<int:id>/',delete_academic_class_view,name="delete_academic_class"),
     
-   #Student
+    #Student
     path('students/', manage_student_view, name="student_page"),
+    path('students/export/', export_students_csv_view, name="students_export_csv"),
+    path('students/bulk-action/', student_bulk_action_view, name="students_bulk_action"),
+    path('students/<int:id>/summary/', student_summary_api_view, name="student_summary_api"),
     path('add_student/', add_student_view, name="add_student"),
     path('students/quick-create-academic-class/', quick_create_academic_class_view, name="quick_create_academic_class"),
     path('students/quick-create-class-stream/', quick_create_class_stream_view, name="quick_create_class_stream"),
     path('student_details/<int:id>/', student_details_view, name="student_details_page"),
+    path('student_details/<int:id>/attendance/', student_details_attendance_redirect_view, name="student_details_attendance_tab"),
+    path('student_details/<int:id>/Attendance', student_details_attendance_redirect_view),
     path('student/<int:id>/upload-document/', upload_student_document, name='upload_student_document'),
     path('student/document/delete/<int:id>/', delete_student_document, name='delete_student_document'),
     path('student/<int:id>/exam-report/download/', primary(download_student_exam_report), name='download_student_exam_report'),

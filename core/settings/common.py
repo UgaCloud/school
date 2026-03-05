@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'crispy_bootstrap4',
     'widget_tweaks',
     'app',
+    'secondary',
 ]
 
 CRISPY_TEMPLATE_PACK = "bootstrap4"

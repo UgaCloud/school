@@ -238,7 +238,7 @@
                                             {% if request.user.is_superuser %}
                                                 <input type="checkbox" class="form-check-input student-checkbox" value="{{ student.id }}">
                                             {% else %}
-                                                <span class="text-muted">—</span>
+                                                <span class="text-muted">-</span>
                                             {% endif %}
                                         </td>
                                         <td class="text-muted">{{ forloop.counter }}</td>

@@ -20,7 +20,7 @@
       </div>
       <div>
         <h3 class="student-name">{{ student.student_name }}</h3>
-        <div class="student-subtext">Reg No: {{ student.reg_no }}{% if student.current_class %} · {{ student.current_class }}{% endif %}</div>
+        <div class="student-subtext">Reg No: {{ student.reg_no }}{% if student.current_class %} - {{ student.current_class }}{% endif %}</div>
       </div>
     </div>
     <div class="student-status">
@@ -85,12 +85,12 @@
 
       <!-- NAV TABS -->
       <div class="nav-tabs-modern">
-        <button class="tab-btn {% if active_tab == 'docs' %}active{% endif %}" onclick="showSection('docs')">Docs</button>
-        <button class="tab-btn {% if active_tab == 'exam' %}active{% endif %}" onclick="showSection('exam')">Exam Reports</button>
-        <button class="tab-btn {% if active_tab == 'library' %}active{% endif %}" onclick="showSection('library')">Library</button>
-        <button class="tab-btn {% if active_tab == 'extra' %}active{% endif %}" onclick="showSection('extra')">Activities</button>
-        <button class="tab-btn {% if active_tab == 'payments' %}active{% endif %}" onclick="showSection('payments')">Payments</button>
-        <button class="tab-btn {% if active_tab == 'attendance' %}active{% endif %}" onclick="showSection('attendance')">Attendance</button>
+        <button class="tab-btn {% if active_tab == 'docs' %}active{% endif %}" onclick="showSection('docs', event)">Docs</button>
+        <button class="tab-btn {% if active_tab == 'exam' %}active{% endif %}" onclick="showSection('exam', event)">Exam Reports</button>
+        <button class="tab-btn {% if active_tab == 'library' %}active{% endif %}" onclick="showSection('library', event)">Library</button>
+        <button class="tab-btn {% if active_tab == 'extra' %}active{% endif %}" onclick="showSection('extra', event)">Activities</button>
+        <button class="tab-btn {% if active_tab == 'payments' %}active{% endif %}" onclick="showSection('payments', event)">Payments</button>
+        <button class="tab-btn {% if active_tab == 'attendance' %}active{% endif %}" onclick="showSection('attendance', event)">Attendance</button>
       </div>
 
       <!-- DOCS SECTION -->
@@ -147,7 +147,8 @@
       </div>
 
       <!-- PAYMENTS SECTION -->
-      <div id="payments-section" class="content-section" style="display: none;">
+      <div id="payments-section" class="content-section"
+        style="display: {% if active_tab == 'payments' %}block{% else %}none{% endif %};">
         <div class="profile-card">
           <h6 class="fw-bold mb-2">Payment History</h6>
           <table class="table table-bordered">
@@ -361,24 +362,136 @@
         </div>
       </div>
 
-      <div id="library-section" class="content-section" style="display: none;">
+      <div id="library-section" class="content-section"
+        style="display: {% if active_tab == 'library' %}block{% else %}none{% endif %};">
         <div class="profile-card">
           <h6 class="fw-bold mb-2">Library History</h6>
           <p>Library history content will be displayed here.</p>
         </div>
       </div>
 
-      <div id="extra-section" class="content-section" style="display: none;">
+      <div id="extra-section" class="content-section"
+        style="display: {% if active_tab == 'extra' %}block{% else %}none{% endif %};">
         <div class="profile-card">
           <h6 class="fw-bold mb-2">Extra Activities</h6>
           <p>Extra activities content will be displayed here.</p>
         </div>
       </div>
 
-      <div id="attendance-section" class="content-section" style="display: none;">
+      <div id="attendance-section" class="content-section"
+        style="display: {% if active_tab == 'attendance' %}block{% else %}none{% endif %};">
         <div class="profile-card">
-          <h6 class="fw-bold mb-2">Attendance</h6>
-          <p>Attendance content will be displayed here.</p>
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h6 class="fw-bold mb-0">Attendance</h6>
+            <span class="attendance-rate-pill {% if attendance_rate >= 75 %}good{% elif attendance_rate >= 50 %}fair{% else %}low{% endif %}">
+              Effective Attendance: {{ attendance_rate|floatformat:1 }}%
+            </span>
+          </div>
+
+          <form method="get" class="attendance-filter mb-3">
+            <input type="hidden" name="tab" value="attendance">
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label for="attendance_from" class="form-label small">From</label>
+                <input type="date" id="attendance_from" name="attendance_from" class="form-control form-control-sm"
+                  value="{{ attendance_date_from|date:'Y-m-d' }}">
+              </div>
+              <div class="col-md-4">
+                <label for="attendance_to" class="form-label small">To</label>
+                <input type="date" id="attendance_to" name="attendance_to" class="form-control form-control-sm"
+                  value="{{ attendance_date_to|date:'Y-m-d' }}">
+              </div>
+              <div class="col-md-4">
+                <label for="attendance_status" class="form-label small">Status</label>
+                <select id="attendance_status" name="attendance_status" class="form-control form-control-sm">
+                  <option value="">All Statuses</option>
+                  {% for code, label in attendance_status_choices %}
+                  <option value="{{ code }}" {% if attendance_status_filter == code %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+              <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+              <a href="{% url 'student_details_page' student.id %}?tab=attendance" class="btn btn-outline-secondary btn-sm">Reset</a>
+            </div>
+          </form>
+
+          <div class="attendance-kpis">
+            <div class="attendance-kpi">
+              <span class="kpi-label">Total Sessions</span>
+              <span class="kpi-value">{{ attendance_total }}</span>
+            </div>
+            <div class="attendance-kpi">
+              <span class="kpi-label">Present</span>
+              <span class="kpi-value">{{ attendance_present }}</span>
+            </div>
+            <div class="attendance-kpi">
+              <span class="kpi-label">Late</span>
+              <span class="kpi-value">{{ attendance_late }}</span>
+            </div>
+            <div class="attendance-kpi">
+              <span class="kpi-label">Absent</span>
+              <span class="kpi-value">{{ attendance_absent }}</span>
+            </div>
+            <div class="attendance-kpi">
+              <span class="kpi-label">Excused</span>
+              <span class="kpi-value">{{ attendance_excused }}</span>
+            </div>
+          </div>
+
+          <p class="text-muted small mt-2 mb-3">
+            Showing attendance from {{ attendance_date_from|date:"M d, Y" }} to {{ attendance_date_to|date:"M d, Y" }}.
+            Effective attendance counts Present, Late, and Excused.
+          </p>
+
+          {% if attendance_records %}
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm attendance-table">
+              <thead class="table-light">
+                <tr>
+                  <th>S.No</th>
+                  <th>Date</th>
+                  <th>Subject</th>
+                  <th>Class</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                  <th>Teacher</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for record in attendance_records %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ record.session.date|date:"M d, Y" }}</td>
+                  <td>{{ record.session.subject.name|default:"-" }}</td>
+                  <td>
+                    {{ record.session.class_stream.academic_class.Class.code|default:record.session.class_stream.academic_class.Class.name|default:"-" }}
+                    - {{ record.session.class_stream.stream.stream|default:"-" }}
+                  </td>
+                  <td>
+                    {% if record.session.time_slot %}
+                    {{ record.session.time_slot.start_time|time:"H:i" }} - {{ record.session.time_slot.end_time|time:"H:i" }}
+                    {% else %}
+                    -
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="attendance-status-badge {{ record.status }}">{{ record.get_status_display }}</span>
+                  </td>
+                  <td>{{ record.session.teacher|default:"-" }}</td>
+                  <td>{{ record.remarks|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="alert alert-light border text-muted mb-0">
+            No attendance records found for the selected range.
+          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -448,7 +561,7 @@
 </div>
 
 <script>
-  function showSection(section) {
+  function showSection(section, event) {
     // Hide all sections
     const sections = document.querySelectorAll('.content-section');
     sections.forEach(sec => sec.style.display = 'none');
@@ -461,7 +574,14 @@
     document.getElementById(section + '-section').style.display = 'block';
 
     // Add active class to clicked tab
-    event.target.classList.add('active');
+    if (event && event.currentTarget) {
+      event.currentTarget.classList.add('active');
+    }
+
+    // Persist active tab in URL without page reload
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', section);
+    window.history.replaceState({}, '', url.toString());
   }
 </script>
 <style>
@@ -593,6 +713,96 @@
     box-shadow: 0 10px 20px rgba(42, 127, 219, 0.2);
   }
 
+  .attendance-rate-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+
+  .attendance-rate-pill.good {
+    background: #e8f6ee;
+    color: #1f6b3d;
+    border-color: #bfe7cf;
+  }
+
+  .attendance-rate-pill.fair {
+    background: #fff7e8;
+    color: #8f5b00;
+    border-color: #f6ddad;
+  }
+
+  .attendance-rate-pill.low {
+    background: #fdeeee;
+    color: #9b2d30;
+    border-color: #f6c9cb;
+  }
+
+  .attendance-kpis {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .attendance-kpi {
+    border: 1px solid #e8edf2;
+    border-radius: 10px;
+    background: #f9fbfd;
+    padding: 10px;
+  }
+
+  .attendance-kpi .kpi-label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8592a0;
+    margin-bottom: 4px;
+  }
+
+  .attendance-kpi .kpi-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2a37;
+  }
+
+  .attendance-status-badge {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid transparent;
+  }
+
+  .attendance-status-badge.present {
+    background: #e9f8ef;
+    color: #1f6b3d;
+    border-color: #bee5cd;
+  }
+
+  .attendance-status-badge.late {
+    background: #eef4ff;
+    color: #285ea9;
+    border-color: #cddcf8;
+  }
+
+  .attendance-status-badge.absent {
+    background: #fdeeee;
+    color: #9b2d30;
+    border-color: #f3c3c5;
+  }
+
+  .attendance-status-badge.excused {
+    background: #fff7e8;
+    color: #8f5b00;
+    border-color: #f6ddad;
+  }
+
   @media (max-width: 992px) {
     .student-header {
       flex-direction: column;
@@ -600,6 +810,9 @@
     }
     .detail-grid {
       grid-template-columns: 1fr;
+    }
+    .attendance-kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 

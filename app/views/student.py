@@ -4,8 +4,12 @@ from django.urls import reverse
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 import csv
+from decimal import Decimal
 from django.db import IntegrityError
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from app.constants import *
 import app.selectors.students as student_selectors
 import app.forms.student as student_forms
@@ -21,7 +25,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from app.models import ClassRegister
-from django.db.models import Q
+from django.db.models import Q, Sum, Avg, Count
 from app.models import (
     ClassRegister,
     AcademicClassStream,
@@ -41,58 +45,171 @@ from app.services.level_scope import (
 from app.services.school_level import get_active_school_level
 
 
+def _get_student_access_context(request):
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = staff_account.role.name if staff_account and staff_account.role else None
+    active_role = request.session.get("active_role_name")
+    effective_role = (active_role or role_name or "").strip().lower()
+    is_class_teacher = effective_role == "class teacher"
+    can_manage_students = request.user.is_superuser and effective_role not in {"teacher", "class teacher"}
+    return {
+        "staff_account": staff_account,
+        "is_class_teacher": is_class_teacher,
+        "can_manage_students": can_manage_students,
+    }
+
+
+def _get_scoped_students_for_request(request, *, active_level, base_queryset):
+    access_context = _get_student_access_context(request)
+    if access_context["is_class_teacher"]:
+        staff_account = access_context["staff_account"]
+        if not staff_account or not getattr(staff_account, "staff", None):
+            return base_queryset.none(), access_context
+        class_stream_ids = get_level_class_streams_queryset(active_level=active_level).filter(
+            class_teacher=staff_account.staff
+        ).values_list("id", flat=True)
+        return (
+            base_queryset.filter(classregister__academic_class_stream_id__in=class_stream_ids).distinct(),
+            access_context,
+        )
+    return base_queryset, access_context
+
+
+def _apply_student_filters(queryset, *, query="", selected_class_id="", selected_stream_id="", selected_gender=""):
+    filtered_scope_qs = queryset
+    if query:
+        filtered_scope_qs = filtered_scope_qs.filter(
+            Q(student_name__icontains=query)
+            | Q(reg_no__icontains=query)
+            | Q(contact__icontains=query)
+        )
+    if selected_class_id.isdigit():
+        filtered_scope_qs = filtered_scope_qs.filter(current_class_id=int(selected_class_id))
+    if selected_stream_id.isdigit():
+        filtered_scope_qs = filtered_scope_qs.filter(stream_id=int(selected_stream_id))
+    if selected_gender in {"M", "F"}:
+        filtered_scope_qs = filtered_scope_qs.filter(gender=selected_gender)
+    return filtered_scope_qs
+
+
+def _apply_student_status_filter(queryset, status_requested):
+    normalized_status = (status_requested or "").strip().lower()
+    if normalized_status == "inactive":
+        return queryset.filter(is_active=False), "inactive"
+    if normalized_status == "suspended":
+        # Placeholder until a dedicated suspended state is introduced in the student model.
+        return queryset.none(), "suspended"
+    if normalized_status == "all":
+        return queryset, "all"
+    return queryset.filter(is_active=True), "active"
+
+
+def _parse_selected_student_ids(values):
+    parsed_ids = []
+    seen = set()
+    for raw_value in values:
+        if raw_value is None:
+            continue
+        for token in str(raw_value).split(","):
+            cleaned = token.strip()
+            if not cleaned.isdigit():
+                continue
+            parsed = int(cleaned)
+            if parsed in seen:
+                continue
+            seen.add(parsed)
+            parsed_ids.append(parsed)
+    return parsed_ids
+
+
+def _redirect_to_student_page_or_next(request):
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return HttpResponseRedirect(next_url)
+    return HttpResponseRedirect(reverse("student_page"))
+
+
 
 @login_required
 def manage_student_view(request):
     active_level = get_active_school_level(request)
-    staff_account = getattr(request.user, "staff_account", None)
-    role_name = staff_account.role.name if staff_account and staff_account.role else None
-    active_role = request.session.get("active_role_name")
-    is_class_teacher = (role_name == "Class Teacher" or active_role == "Class Teacher")
-    status = request.GET.get("status", "active")
+    access_context = _get_student_access_context(request)
+    can_manage_students = access_context["can_manage_students"]
+
+    status_requested = (request.GET.get("status") or "active").strip().lower()
+    query = (request.GET.get("q") or "").strip()
+    selected_class_id = (request.GET.get("class_id") or "").strip()
+    selected_stream_id = (request.GET.get("stream_id") or "").strip()
+    selected_gender = (request.GET.get("gender") or "").strip().upper()
     page_number = request.GET.get("page", 1)
     try:
         per_page = int(request.GET.get("per_page", 25))
     except (TypeError, ValueError):
         per_page = 25
+    if per_page not in {10, 25, 50, 100}:
+        per_page = 25
 
-    scoped_students = get_level_students_queryset(active_level=active_level).select_related("current_class", "stream")
-    if is_class_teacher and staff_account and staff_account.staff:
-        class_streams = get_level_class_streams_queryset(active_level=active_level).filter(
-            class_teacher=staff_account.staff
+    base_queryset = (
+        get_level_students_queryset(active_level=active_level)
+        .select_related("current_class", "stream")
+        .only(
+            "id",
+            "student_name",
+            "gender",
+            "reg_no",
+            "contact",
+            "photo",
+            "is_active",
+            "current_class_id",
+            "current_class__code",
+            "current_class__name",
+            "stream_id",
+            "stream__stream",
         )
-        class_stream_ids = class_streams.values_list("id", flat=True)
-        base_students_qs = scoped_students.filter(
-            classregister__academic_class_stream_id__in=class_stream_ids
-        ).distinct()
-    elif is_class_teacher:
-        base_students_qs = scoped_students.none()
-    else:
-        base_students_qs = scoped_students
+    )
+    base_students_qs, _ = _get_scoped_students_for_request(
+        request,
+        active_level=active_level,
+        base_queryset=base_queryset,
+    )
+    filtered_scope_qs = _apply_student_filters(
+        base_students_qs,
+        query=query,
+        selected_class_id=selected_class_id,
+        selected_stream_id=selected_stream_id,
+        selected_gender=selected_gender,
+    )
 
-    total_all = base_students_qs.count()
-    total_active = base_students_qs.filter(is_active=True).count()
-    total_inactive = base_students_qs.filter(is_active=False).count()
+    total_all = filtered_scope_qs.count()
+    total_active = filtered_scope_qs.filter(is_active=True).count()
+    total_inactive = filtered_scope_qs.filter(is_active=False).count()
+    total_suspended = 0
 
-    if status == "inactive":
-        students_list = base_students_qs.filter(is_active=False)
-    elif status == "all":
-        students_list = base_students_qs
-    else:
-        students_list = base_students_qs.filter(is_active=True)
-    
-    # Paginate the students
+    students_list, status = _apply_student_status_filter(filtered_scope_qs, status_requested)
+
+    students_list = students_list.order_by("student_name", "reg_no")
     paginator = Paginator(students_list, per_page)
-    
     try:
         students = paginator.page(page_number)
     except PageNotAnInteger:
         students = paginator.page(1)
     except EmptyPage:
         students = paginator.page(paginator.num_pages)
-    
+    class_filter_options = Class.objects.filter(
+        id__in=base_students_qs.values_list("current_class_id", flat=True)
+    ).order_by("code", "name")
+    stream_filter_options = Stream.objects.filter(
+        id__in=base_students_qs.values_list("stream_id", flat=True)
+    ).order_by("stream")
+
     student_form = student_forms.StudentForm()
     bind_form_level_querysets(student_form, active_level=active_level)
+    quick_sections = get_level_sections_queryset(active_level=active_level)
+    quick_teachers = Staff.objects.filter(is_academic_staff=True).order_by("first_name", "last_name")
     csv_form = student_forms.StudentRegistrationCSVForm()
     current_academic_year = get_current_academic_year()
     try:
@@ -107,15 +224,227 @@ def manage_student_view(request):
         "status": status,
         "total_active": total_active,
         "total_inactive": total_inactive,
+        "total_suspended": total_suspended,
         "total_all": total_all,
         "per_page": per_page,
+        "query": query,
+        "selected_class_id": selected_class_id,
+        "selected_stream_id": selected_stream_id,
+        "selected_gender": selected_gender,
+        "class_filter_options": class_filter_options,
+        "stream_filter_options": stream_filter_options,
+        "can_manage_students": can_manage_students,
         "current_academic_year": current_academic_year,
         "current_term": current_term,
-        "quick_sections": get_level_sections_queryset(active_level=active_level),
-        "quick_teachers": Staff.objects.filter(is_academic_staff=True).order_by("first_name", "last_name"),
+        "quick_sections": quick_sections,
+        "quick_teachers": quick_teachers,
     }
     
     return render(request, "student/manage_students.html", context)
+
+
+@login_required
+def student_summary_api_view(request, id):
+    student = _get_scoped_student_or_404(request, id)
+
+    from app.models.attendance import AttendanceRecord, AttendanceStatus
+    from app.models.fees_payment import StudentBillItem, Payment, StudentCredit
+    from app.models.results import Result
+
+    attendance_qs = AttendanceRecord.objects.filter(student=student)
+    attendance_total = attendance_qs.count()
+    present_like = attendance_qs.filter(
+        status__in=[
+            AttendanceStatus.PRESENT,
+            AttendanceStatus.LATE,
+            AttendanceStatus.EXCUSED,
+        ]
+    ).count()
+    attendance_percent = round((present_like / attendance_total) * 100, 1) if attendance_total else 0.0
+
+    total_billed = StudentBillItem.objects.filter(bill__student=student).aggregate(total=Sum("amount"))["total"] or 0
+    total_paid = Payment.objects.filter(bill__student=student).aggregate(total=Sum("amount"))["total"] or 0
+    applied_credits = StudentCredit.objects.filter(student=student, amount__lt=0).aggregate(total=Sum("amount"))["total"] or 0
+    fee_balance = Decimal(str(total_billed)) - Decimal(str(total_paid)) + Decimal(str(applied_credits))
+
+    verified_qs = Result.objects.filter(student=student, status="VERIFIED")
+    verified_average = verified_qs.aggregate(avg=Avg("score"))["avg"]
+    verified_count = verified_qs.count()
+
+    class_history_qs = (
+        ClassRegister.objects.filter(student=student)
+        .select_related(
+            "academic_class_stream__academic_class__Class",
+            "academic_class_stream__academic_class__term",
+            "academic_class_stream__academic_class__academic_year",
+            "academic_class_stream__stream",
+        )
+        .order_by(
+            "-academic_class_stream__academic_class__academic_year__academic_year",
+            "-academic_class_stream__academic_class__term__term",
+        )[:8]
+    )
+    class_history = []
+    for entry in class_history_qs:
+        class_stream = entry.academic_class_stream
+        if not class_stream:
+            continue
+        academic_class = class_stream.academic_class
+        class_label = (
+            getattr(academic_class.Class, "code", None)
+            or getattr(academic_class.Class, "name", None)
+            or str(academic_class.Class)
+        )
+        stream_label = getattr(class_stream.stream, "stream", None) or "-"
+        term_label = getattr(academic_class.term, "term", None) or "-"
+        year_label = getattr(academic_class.academic_year, "academic_year", None) or "-"
+        row_text = f"{class_label} - {stream_label} • Term {term_label} ({year_label})"
+        if row_text not in class_history:
+            class_history.append(row_text)
+
+    class_stream_label = (
+        f"{(getattr(student.current_class, 'code', None) or getattr(student.current_class, 'name', None) or '-')}"
+        f" - {(getattr(student.stream, 'stream', None) or '-')}"
+    )
+
+    return JsonResponse(
+        {
+            "student": {
+                "id": student.id,
+                "name": student.student_name,
+                "reg_no": student.reg_no,
+                "gender": "Male" if student.gender == "M" else "Female",
+                "class_stream": class_stream_label,
+                "contact": student.contact or "-",
+                "status": "Active" if student.is_active else "Inactive",
+                "photo_url": student.photo.url if student.photo else "",
+            },
+            "attendance_percent": attendance_percent,
+            "attendance_records": attendance_total,
+            "fee_balance": float(fee_balance),
+            "academic_average": round(float(verified_average), 1) if verified_average is not None else None,
+            "verified_results": verified_count,
+            "class_history": class_history,
+        }
+    )
+
+
+@login_required
+def export_students_csv_view(request):
+    active_level = get_active_school_level(request)
+
+    status_requested = (request.GET.get("status") or "active").strip().lower()
+    query = (request.GET.get("q") or "").strip()
+    selected_class_id = (request.GET.get("class_id") or "").strip()
+    selected_stream_id = (request.GET.get("stream_id") or "").strip()
+    selected_gender = (request.GET.get("gender") or "").strip().upper()
+    selected_ids = _parse_selected_student_ids(
+        request.GET.getlist("selected_ids") + request.GET.getlist("selected_id")
+    )
+
+    base_queryset = get_level_students_queryset(active_level=active_level).select_related("current_class", "stream")
+    base_students_qs, _ = _get_scoped_students_for_request(
+        request,
+        active_level=active_level,
+        base_queryset=base_queryset,
+    )
+    filtered_scope_qs = _apply_student_filters(
+        base_students_qs,
+        query=query,
+        selected_class_id=selected_class_id,
+        selected_stream_id=selected_stream_id,
+        selected_gender=selected_gender,
+    )
+
+    export_qs, _ = _apply_student_status_filter(filtered_scope_qs, status_requested)
+    if selected_ids:
+        export_qs = export_qs.filter(id__in=selected_ids)
+
+    export_qs = export_qs.order_by("student_name", "reg_no")
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=students_export.csv"
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            "Student Name",
+            "Registration Number",
+            "Gender",
+            "Class",
+            "Stream",
+            "Guardian",
+            "Guardian Contact",
+            "Status",
+        ]
+    )
+    for student in export_qs.iterator():
+        class_label = (
+            getattr(student.current_class, "code", None)
+            or getattr(student.current_class, "name", None)
+            or "-"
+        )
+        stream_label = getattr(student.stream, "stream", "-")
+        writer.writerow(
+            [
+                student.student_name,
+                student.reg_no,
+                "Male" if student.gender == "M" else "Female",
+                class_label,
+                stream_label,
+                student.guardian,
+                student.contact,
+                "Active" if student.is_active else "Inactive",
+            ]
+        )
+    return response
+
+
+@login_required
+def student_bulk_action_view(request):
+    if request.method != "POST":
+        return HttpResponseRedirect(reverse("student_page"))
+
+    active_level = get_active_school_level(request)
+    access_context = _get_student_access_context(request)
+    if not access_context["can_manage_students"]:
+        messages.error(request, "You are not allowed to perform bulk student actions.")
+        return _redirect_to_student_page_or_next(request)
+
+    action = (request.POST.get("action") or "").strip().lower()
+    selected_ids = _parse_selected_student_ids(
+        request.POST.getlist("selected_ids") + request.POST.getlist("selected_id")
+    )
+    if not selected_ids:
+        messages.warning(request, "Select at least one student first.")
+        return _redirect_to_student_page_or_next(request)
+
+    base_queryset = get_level_students_queryset(active_level=active_level)
+    scoped_qs, _ = _get_scoped_students_for_request(
+        request,
+        active_level=active_level,
+        base_queryset=base_queryset,
+    )
+    target_qs = scoped_qs.filter(id__in=selected_ids)
+    matched_total = target_qs.count()
+    if not matched_total:
+        messages.warning(request, "No selectable students found for the chosen action.")
+        return _redirect_to_student_page_or_next(request)
+
+    if action == "deactivate":
+        updated = target_qs.filter(is_active=True).update(is_active=False)
+        if updated:
+            messages.success(request, f"Deactivated {updated} student(s).")
+        else:
+            messages.info(request, "All selected students are already inactive.")
+    elif action == "reactivate":
+        updated = target_qs.filter(is_active=False).update(is_active=True)
+        if updated:
+            messages.success(request, f"Reactivated {updated} student(s).")
+        else:
+            messages.info(request, "All selected students are already active.")
+    else:
+        messages.error(request, "Unsupported bulk action.")
+    return _redirect_to_student_page_or_next(request)
 
 
 @login_required
@@ -322,6 +651,7 @@ def student_details_view(request, id):
     # Fetch exam reports 
     from app.models.results import Result
     from app.models import AcademicYear, Term, AssessmentType
+    from app.models.attendance import AttendanceRecord, AttendanceStatus
     
     academic_year_id = request.GET.get('academic_year')
     term_id = request.GET.get('term')
@@ -359,10 +689,59 @@ def student_details_view(request, id):
     ).distinct().order_by('name')
     
     # Performance analysis
-    from django.db.models import Avg
     overall_avg = exam_reports.aggregate(avg=Avg('score'))['avg'] or 0
     assessment_performance = exam_reports.values('assessment__assessment_type__name').annotate(avg_score=Avg('score')).order_by('assessment__assessment_type__name')
     subject_performance = exam_reports.values('assessment__subject__name').annotate(avg_score=Avg('score')).order_by('assessment__subject__name')
+
+    attendance_from_raw = (request.GET.get("attendance_from") or "").strip()
+    attendance_to_raw = (request.GET.get("attendance_to") or "").strip()
+    attendance_status_filter = (request.GET.get("attendance_status") or "").strip().lower()
+    valid_attendance_statuses = {value for value, _ in AttendanceStatus.choices}
+    if attendance_status_filter not in valid_attendance_statuses:
+        attendance_status_filter = ""
+
+    today = timezone.localdate()
+    attendance_date_from = parse_date(attendance_from_raw) if attendance_from_raw else today.replace(day=1)
+    attendance_date_to = parse_date(attendance_to_raw) if attendance_to_raw else today
+    if attendance_date_from and attendance_date_to and attendance_date_from > attendance_date_to:
+        attendance_date_from, attendance_date_to = attendance_date_to, attendance_date_from
+
+    attendance_records_base = (
+        AttendanceRecord.objects.filter(
+            student=student,
+            session__date__gte=attendance_date_from,
+            session__date__lte=attendance_date_to,
+        )
+        .select_related(
+            "session__subject",
+            "session__teacher",
+            "session__class_stream__academic_class__Class",
+            "session__class_stream__stream",
+            "session__time_slot",
+        )
+        .order_by("-session__date", "-session__time_slot__start_time", "session__subject__name")
+    )
+    attendance_records = attendance_records_base
+    if attendance_status_filter:
+        attendance_records = attendance_records.filter(status=attendance_status_filter)
+
+    attendance_breakdown = {value: 0 for value, _ in AttendanceStatus.choices}
+    for row in attendance_records_base.values("status").annotate(total=Count("id")):
+        attendance_breakdown[row["status"]] = row["total"]
+
+    attendance_total = sum(attendance_breakdown.values())
+    attendance_present = attendance_breakdown[AttendanceStatus.PRESENT]
+    attendance_late = attendance_breakdown[AttendanceStatus.LATE]
+    attendance_absent = attendance_breakdown[AttendanceStatus.ABSENT]
+    attendance_excused = attendance_breakdown[AttendanceStatus.EXCUSED]
+    attendance_effective = attendance_present + attendance_late + attendance_excused
+    attendance_rate = round((attendance_effective / attendance_total) * 100, 1) if attendance_total else 0.0
+
+    requested_tab = (request.GET.get("tab") or "").strip().lower()
+    valid_tabs = {"docs", "exam", "library", "extra", "payments", "attendance"}
+    active_tab = requested_tab if requested_tab in valid_tabs else ""
+    if not active_tab:
+        active_tab = "exam" if (academic_year_id or term_id or assessment_type_id) else "docs"
 
     context = {
         "student": student,
@@ -376,11 +755,34 @@ def student_details_view(request, id):
         "selected_academic_year": academic_year_id,
         "selected_term": term_id,
         "selected_assessment_type": assessment_type_id,
-        "active_tab": request.GET.get('tab') or ("exam" if (academic_year_id or term_id or assessment_type_id) else "docs"),
+        "active_tab": active_tab,
         "assessment_performance": assessment_performance,
         "subject_performance": subject_performance,
+        "attendance_records": attendance_records,
+        "attendance_date_from": attendance_date_from,
+        "attendance_date_to": attendance_date_to,
+        "attendance_status_filter": attendance_status_filter,
+        "attendance_status_choices": AttendanceStatus.choices,
+        "attendance_total": attendance_total,
+        "attendance_present": attendance_present,
+        "attendance_late": attendance_late,
+        "attendance_absent": attendance_absent,
+        "attendance_excused": attendance_excused,
+        "attendance_effective": attendance_effective,
+        "attendance_rate": attendance_rate,
     }
     return render(request, "student/student_details.html", context)
+
+
+@login_required
+def student_details_attendance_redirect_view(request, id):
+    _get_scoped_student_or_404(request, id)
+    params = request.GET.copy()
+    params["tab"] = "attendance"
+    target_url = reverse("student_details_page", args=[id])
+    if params:
+        return HttpResponseRedirect(f"{target_url}?{params.urlencode()}")
+    return HttpResponseRedirect(f"{target_url}?tab=attendance")
 
 
     

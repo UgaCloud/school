@@ -2140,6 +2140,36 @@ def build_student_report_context(student, term_id, academic_class=None):
 
     academic_year_str = academic_year.academic_year if academic_year else "-"
     term_name = term.term if term else "-"
+    class_display = "-"
+    if resolved_academic_class and getattr(resolved_academic_class, "Class", None):
+        class_display = (
+            getattr(resolved_academic_class.Class, "code", None)
+            or getattr(resolved_academic_class.Class, "name", None)
+            or str(resolved_academic_class.Class)
+        )
+    elif getattr(student, "current_class", None):
+        class_display = (
+            getattr(student.current_class, "code", None)
+            or getattr(student.current_class, "name", None)
+            or str(student.current_class)
+        )
+
+    overall_average_float = float(overall_average) if overall_average is not None else 0.0
+    if overall_average_float >= 85:
+        discipline_rating = "Excellent"
+        discipline_rating_ar = "ممتاز"
+    elif overall_average_float >= 75:
+        discipline_rating = "Very Good"
+        discipline_rating_ar = "جيد جدا"
+    elif overall_average_float >= 65:
+        discipline_rating = "Good"
+        discipline_rating_ar = "جيد"
+    elif overall_average_float >= 50:
+        discipline_rating = "Fair"
+        discipline_rating_ar = "مقبول"
+    else:
+        discipline_rating = "Needs Improvement"
+        discipline_rating_ar = "يحتاج إلى تحسين"
 
     # --- Find next term ---
     next_term = None
@@ -2193,6 +2223,7 @@ def build_student_report_context(student, term_id, academic_class=None):
         'assessment_types': assessment_types,
         'term': term_name,
         'academic_year': academic_year_str,
+        'class_display': class_display,
         'total_marks': float(total_marks),
         'overall_average': float(overall_average),
         'overall_grade': overall_grade,
@@ -2212,6 +2243,8 @@ def build_student_report_context(student, term_id, academic_class=None):
         'printed_at': printed_at,
         'report_reference': report_reference,
         'class_size': class_size,
+        'discipline_rating': discipline_rating,
+        'discipline_rating_ar': discipline_rating_ar,
     }
 
 
