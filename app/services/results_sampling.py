@@ -109,7 +109,8 @@ def update_sample_mark(sample, dos_mark, user):
     settings = ResultVerificationSetting.get_settings()
     tolerance = Decimal(str(settings.tolerance_marks))
     is_match = abs(Decimal(str(dos_mark)) - Decimal(str(sample.result.score))) <= tolerance
-    sample.dos_mark = dos_mark if not is_match else None
+    # Always persist the entered verifier mark for auditability.
+    sample.dos_mark = dos_mark
     sample.checked_by = user
     sample.checked_at = timezone.now()
     sample.matched = is_match
@@ -119,6 +120,9 @@ def update_sample_mark(sample, dos_mark, user):
 def evaluate_batch_verification(batch, user, rejection_reason=None):
     samples = VerificationSample.objects.filter(result__batch=batch)
     if not samples.exists():
+        return batch.status
+
+    if samples.filter(checked_at__isnull=True).exists():
         return batch.status
 
     checked_samples = samples.exclude(checked_at__isnull=True)

@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+from django.conf import settings
 
 from app.constants import TERMS
 
@@ -77,6 +78,7 @@ class AcademicClassStream(models.Model):
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
     class_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
     class_teacher_signature = models.ImageField(upload_to="signatures", blank=True ,null=True)
+    is_timetable_locked = models.BooleanField(default=False)
     
 
     class Meta:
@@ -100,9 +102,63 @@ class ClassSubjectAllocation(models.Model):
     class Meta:
         verbose_name = ("classsubjectallocation")
         verbose_name_plural = ("classsubjectallocations")
+        unique_together = [('academic_class_stream', 'subject')]
 
     def __str__(self):
         return f"{self.academic_class_stream} - {self.subject} - {self.subject_teacher}"
 
     def get_absolute_url(self):
         return reverse("classsubjectallocation_detail", kwargs={"pk": self.pk})
+
+
+class StudentPromotionHistory(models.Model):
+    source_academic_class = models.ForeignKey(
+        "app.AcademicClass",
+        on_delete=models.PROTECT,
+        related_name="promotion_history_as_source",
+    )
+    target_academic_class = models.ForeignKey(
+        "app.AcademicClass",
+        on_delete=models.PROTECT,
+        related_name="promotion_history_as_target",
+    )
+    source_stream = models.ForeignKey(
+        "app.AcademicClassStream",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promotion_history_rows",
+    )
+    promoted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="student_promotion_history_rows",
+    )
+    active_students_only = models.BooleanField(default=True)
+    total_candidates = models.PositiveIntegerField(default=0)
+    promoted_count = models.PositiveIntegerField(default=0)
+    already_registered_count = models.PositiveIntegerField(default=0)
+    skipped_inactive_count = models.PositiveIntegerField(default=0)
+    skipped_duplicate_source_count = models.PositiveIntegerField(default=0)
+    updated_student_snapshots = models.PositiveIntegerField(default=0)
+    missing_stream_names = models.JSONField(default=list, blank=True)
+    promoted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Student promotion history"
+        verbose_name_plural = "Student promotion history"
+        ordering = ("-promoted_at", "-id")
+        indexes = [
+            models.Index(fields=("promoted_at",), name="sph_promoted_at_idx"),
+            models.Index(fields=("source_academic_class", "promoted_at"), name="sph_src_promoted_idx"),
+            models.Index(fields=("target_academic_class", "promoted_at"), name="sph_tgt_promoted_idx"),
+            models.Index(fields=("promoted_by", "promoted_at"), name="sph_user_promoted_idx"),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.source_academic_class} -> {self.target_academic_class} "
+            f"({self.promoted_count}/{self.total_candidates})"
+        )

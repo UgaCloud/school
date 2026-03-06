@@ -97,7 +97,7 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h4 class="mb-0">{{ students|length|floatformat:0 }}</h4>
-                            <p class="mb-0">Pending Actions</p>
+                            <p class="mb-0">Visible Students</p>
                         </div>
                         <div class="align-self-center">
                             <i class="fa fa-exclamation-triangle fa-2x opacity-75"></i>
@@ -109,7 +109,7 @@
     </div>
 
     <!-- Search and Filter Section -->
-    <div class="row mb-4">
+    <div class="row mb-4 sticky-toolbar">
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-body">
@@ -207,7 +207,7 @@
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-body p-0">
-                    <div class="table-responsive">
+                    <div class="table-responsive students-table-wrap">
                         <table class="table table-hover mb-0" id="studentsTable">
                             <thead class="table-light">
                                 <tr>
@@ -238,7 +238,7 @@
                                             {% if request.user.is_superuser %}
                                                 <input type="checkbox" class="form-check-input student-checkbox" value="{{ student.id }}">
                                             {% else %}
-                                                <span class="text-muted">—</span>
+                                                <span class="text-muted">-</span>
                                             {% endif %}
                                         </td>
                                         <td class="text-muted">{{ forloop.counter }}</td>
@@ -246,11 +246,10 @@
                                             <div class="d-flex align-items-center">
                                                 <div class="avatar-sm me-3">
                                                     {% if student.photo %}
-                                                        <img src="{{ student.photo.url }}" class="rounded-circle" alt="Avatar" style="width: 40px; height: 40px; object-fit: cover;">
+                                                        <img src="{{ student.photo.url }}" class="rounded-circle student-avatar" alt="" style="width: 40px; height: 40px; object-fit: cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                                        <div class="avatar-fallback rounded-circle" style="display:none;">{{ student.student_name|slice:":1"|upper }}</div>
                                                     {% else %}
-                                                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                                            <i class="fa fa-user text-white"></i>
-                                                        </div>
+                                                        <div class="avatar-fallback rounded-circle d-flex">{{ student.student_name|slice:":1"|upper }}</div>
                                                     {% endif %}
                                                 </div>
                                                 <div>
@@ -267,8 +266,8 @@
                                         </td>
                                         <td>
                                             <div>
-                                                <span class="badge bg-primary">{{ student.current_class.code }}</span>
-                                                <span class="badge bg-secondary">{{ student.stream.stream }}</span>
+                                            <span class="badge class-chip">{{ student.current_class.code }}</span>
+                                                <span class="badge stream-chip">{{ student.stream.stream }}</span>
                                             </div>
                                         </td>
                                         <td>
@@ -289,9 +288,9 @@
                                                     <a href="{% url 'student_details_page' student.id %}" class="btn btn-outline-primary btn-sm" title="View Details">
                                                         <i class="fa fa-eye"></i>
                                                     </a>
-                                                    <a href="{% url 'edit_student_page' student.id %}" class="btn btn-outline-warning btn-sm" title="Edit">
+                                                    <button type="button" class="btn btn-outline-warning btn-sm open-edit-student-modal" data-url="{% url 'edit_student_page' student.id %}" title="Edit">
                                             <i class="fa fa-edit"></i>
-                                        </a>
+                                        </button>
                                                     <a href="{% url 'delete_student_page' student.id %}" class="btn btn-outline-danger btn-sm" title="Delete" onclick="return confirm('Are you sure you want to delete this student?')">
                                                         <i class="fa fa-trash"></i>
                                                     </a>
@@ -340,11 +339,10 @@
                                 <div class="d-flex align-items-center mb-3">
                                     <div class="avatar-lg me-3">
                                         {% if student.photo %}
-                                            <img src="{{ student.photo.url }}" class="rounded-circle" alt="Avatar" style="width: 60px; height: 60px; object-fit: cover;">
+                                            <img src="{{ student.photo.url }}" class="rounded-circle student-avatar" alt="" style="width: 60px; height: 60px; object-fit: cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                            <div class="avatar-fallback avatar-fallback-lg rounded-circle" style="display:none;">{{ student.student_name|slice:":1"|upper }}</div>
                                         {% else %}
-                                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
-                                                <i class="fa fa-user text-white fa-2x"></i>
-                                            </div>
+                                            <div class="avatar-fallback avatar-fallback-lg rounded-circle d-flex">{{ student.student_name|slice:":1"|upper }}</div>
                                         {% endif %}
                                     </div>
                                     <div class="flex-grow-1">
@@ -392,9 +390,9 @@
                                         <a href="{% url 'student_details_page' student.id %}" class="btn btn-outline-primary btn-sm">
                                             <i class="fa fa-eye me-1"></i>View
                                         </a>
-                                        <a href="{% url 'edit_student_page' student.id %}" class="btn btn-outline-warning btn-sm">
+                                        <button type="button" class="btn btn-outline-warning btn-sm open-edit-student-modal" data-url="{% url 'edit_student_page' student.id %}">
                                             <i class="fa fa-edit me-1"></i>Edit
-                                        </a>
+                                        </button>
                                         <a href="{% url 'delete_student_page' student.id %}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this student?')">
                                             <i class="fa fa-trash me-1"></i>Delete
                                         </a>
@@ -546,6 +544,7 @@
                             {{ student_form.stream|as_crispy_field }}
                         </div>
                     </div>
+
                     <div class="row">
                         <div class="col-md-6">
                             {{ student_form.term|as_crispy_field }}
@@ -555,6 +554,66 @@
                         </div>
                     </div>
                 </form>
+
+                <div class="card border-info mt-3">
+                    <div class="card-header bg-light">
+                        <strong><i class="fa fa-bolt me-1 text-info"></i>Quick Setup (Use only if setup is missing)</strong>
+                        <div class="small text-muted">
+                            Current Context:
+                            Year: <strong>{{ current_academic_year|default:"Not Set" }}</strong>,
+                            Term: <strong>{{ current_term|default:"Not Set" }}</strong>,
+                            Class: <strong id="quick_selected_class_text">Not selected</strong>,
+                            Stream: <strong id="quick_selected_stream_text">Not selected</strong>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Create Missing Academic Class</h6>
+                                <form method="POST" action="{% url 'quick_create_academic_class' %}" class="quick-setup-form" id="quickAcademicClassForm">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="quick_selected_class_id" id="quick_selected_class_id">
+                                    <div class="form-group mb-2">
+                                        <label>Section</label>
+                                        <select name="quick_section_id" class="form-control" required>
+                                            <option value="">Select section</option>
+                                            {% for sec in quick_sections %}
+                                            <option value="{{ sec.id }}">{{ sec.section_name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="form-group mb-2">
+                                        <label>Fees Amount</label>
+                                        <input type="number" min="0" name="quick_fees_amount" class="form-control" placeholder="e.g. 150000" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-info">
+                                        <i class="fa fa-plus-circle me-1"></i>Create Academic Class
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Create Missing Class Stream</h6>
+                                <form method="POST" action="{% url 'quick_create_class_stream' %}" class="quick-setup-form" id="quickClassStreamForm">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="quick_selected_class_id" id="quick_stream_selected_class_id">
+                                    <input type="hidden" name="quick_selected_stream_id" id="quick_selected_stream_id">
+                                    <div class="form-group mb-2">
+                                        <label>Class Teacher</label>
+                                        <select name="quick_teacher_id" class="form-control" required>
+                                            <option value="">Select teacher</option>
+                                            {% for t in quick_teachers %}
+                                            <option value="{{ t.id }}">{{ t.first_name }} {{ t.last_name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-info">
+                                        <i class="fa fa-plus-circle me-1"></i>Create Class Stream
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">
@@ -594,7 +653,7 @@
                         </label>
                         {{ csv_form.file_name }}
                         <small class="form-text text-muted">
-                            Supported formats: .csv, .xlsx. Maximum file size: 10MB
+                            Supported format: .csv. Maximum file size: 10MB
                         </small>
                     </div>
                 </form>
@@ -611,8 +670,35 @@
     </div>
 </div> 
 
+<!-- Edit Student Modal -->
+<div class="modal fade edit-student-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h4 class="modal-title">
+                    <i class="fa fa-edit me-2"></i>Edit Student
+                </h4>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="editStudentModalBody">
+                <div class="text-center py-4 text-muted">
+                    <i class="fa fa-spinner fa-spin me-2"></i>Loading form...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Custom CSS -->
 <style>
+:root {
+    --student-primary: #0d4a8c;
+    --student-accent: #0a7f79;
+    --student-soft: #f3f8ff;
+}
+
 .avatar-sm {
     width: 40px;
     height: 40px;
@@ -625,7 +711,9 @@
 
 .student-card {
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    border: 1px solid #e9ecef;
+    border: 1px solid #d8e2ef;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
 }
 
 .student-card:hover {
@@ -634,11 +722,58 @@
 }
 
 .table-hover tbody tr:hover {
-    background-color: rgba(0,123,255,0.05);
+    background-color: #eef6ff;
 }
 
 .badge {
     font-size: 0.75em;
+}
+
+.class-chip {
+    background: #e6f0ff;
+    color: #0d4a8c;
+    border: 1px solid #bfd5f2;
+}
+
+.stream-chip {
+    background: #e8f8f7;
+    color: #0a7f79;
+    border: 1px solid #bfe5e3;
+}
+
+.avatar-fallback {
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--student-primary), #2f74bf);
+}
+
+.avatar-fallback-lg {
+    width: 60px;
+    height: 60px;
+    font-size: 1.2rem;
+}
+
+.sticky-toolbar {
+    position: sticky;
+    top: 8px;
+    z-index: 40;
+}
+
+.students-table-wrap {
+    max-height: 64vh;
+    overflow: auto;
+}
+
+#studentsTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #f8fbff;
+    box-shadow: inset 0 -1px 0 #d5e4f5;
 }
 
 .btn-group-sm .btn {
@@ -685,6 +820,122 @@
 <!-- JavaScript -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Edit student modal (load + submit via AJAX)
+    const editStudentModalBody = document.getElementById('editStudentModalBody');
+    function openEditModal(url) {
+        editStudentModalBody.innerHTML = '<div class="text-center py-4 text-muted"><i class="fa fa-spinner fa-spin me-2"></i>Loading form...</div>';
+        $('.edit-student-modal').modal('show');
+        fetch(url + '?modal=1', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.text())
+            .then(html => { editStudentModalBody.innerHTML = html; })
+            .catch(() => {
+                editStudentModalBody.innerHTML = '<div class="alert alert-danger">Failed to load edit form.</div>';
+            });
+    }
+
+    document.querySelectorAll('.open-edit-student-modal').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const url = this.getAttribute('data-url');
+            if (url) openEditModal(url);
+        });
+    });
+
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+        if (form && form.id === 'editStudentFormModal') {
+            e.preventDefault();
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(async (r) => {
+                const data = await r.json();
+                if (r.ok && data.ok) {
+                    const container = document.querySelector('.container-fluid.mt-4');
+                    if (container) {
+                        const flash = document.createElement('div');
+                        flash.className = 'alert alert-success alert-dismissible fade show';
+                        flash.setAttribute('role', 'alert');
+                        flash.innerHTML = `
+                            <i class="fa fa-check-circle me-1"></i>${data.message || 'Changes saved successfully.'}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        `;
+                        container.prepend(flash);
+                    }
+                    $('.edit-student-modal').modal('hide');
+                    window.location.reload();
+                    return;
+                }
+                if (data.html) {
+                    editStudentModalBody.innerHTML = data.html;
+                } else {
+                    editStudentModalBody.innerHTML = '<div class="alert alert-danger">Failed to save changes.</div>';
+                }
+            })
+            .catch(() => {
+                editStudentModalBody.innerHTML = '<div class="alert alert-danger">Network error while saving changes.</div>';
+            });
+        }
+    });
+
+    // Prefill quick setup selectors from Add Student selections
+    const addClassSelect = document.getElementById('id_current_class');
+    const addStreamSelect = document.getElementById('id_stream');
+    const quickSelectedClass = document.getElementById('quick_selected_class_id');
+    const quickStreamSelectedClass = document.getElementById('quick_stream_selected_class_id');
+    const quickSelectedStream = document.getElementById('quick_selected_stream_id');
+    const quickClassText = document.getElementById('quick_selected_class_text');
+    const quickStreamText = document.getElementById('quick_selected_stream_text');
+    const quickAcademicClassForm = document.getElementById('quickAcademicClassForm');
+    const quickClassStreamForm = document.getElementById('quickClassStreamForm');
+
+    function selectedLabel(selectEl) {
+        if (!selectEl || !selectEl.value) return 'Not selected';
+        const option = selectEl.options[selectEl.selectedIndex];
+        return option ? option.text.trim() : 'Not selected';
+    }
+
+    function syncQuickSetupFields() {
+        const classValue = (addClassSelect && addClassSelect.value) ? addClassSelect.value : '';
+        const streamValue = (addStreamSelect && addStreamSelect.value) ? addStreamSelect.value : '';
+
+        if (quickSelectedClass) quickSelectedClass.value = classValue;
+        if (quickStreamSelectedClass) quickStreamSelectedClass.value = classValue;
+        if (quickSelectedStream) quickSelectedStream.value = streamValue;
+        if (quickClassText) quickClassText.textContent = selectedLabel(addClassSelect);
+        if (quickStreamText) quickStreamText.textContent = selectedLabel(addStreamSelect);
+    }
+
+    function validateQuickSetupSelection(needsStream) {
+        const hasClass = addClassSelect && addClassSelect.value;
+        const hasStream = addStreamSelect && addStreamSelect.value;
+        if (!hasClass || (needsStream && !hasStream)) {
+            alert(needsStream
+                ? 'Please select Class and Stream in the student form first.'
+                : 'Please select Class in the student form first.');
+            return false;
+        }
+        return true;
+    }
+
+    if (addClassSelect) addClassSelect.addEventListener('change', syncQuickSetupFields);
+    if (addStreamSelect) addStreamSelect.addEventListener('change', syncQuickSetupFields);
+    if (quickAcademicClassForm) {
+        quickAcademicClassForm.addEventListener('submit', function(e) {
+            if (!validateQuickSetupSelection(false)) e.preventDefault();
+        });
+    }
+    if (quickClassStreamForm) {
+        quickClassStreamForm.addEventListener('submit', function(e) {
+            if (!validateQuickSetupSelection(true)) e.preventDefault();
+        });
+    }
+    syncQuickSetupFields();
+
     // View toggle functionality
     const tableViewBtn = document.getElementById('tableViewBtn');
     const cardViewBtn = document.getElementById('cardViewBtn');
@@ -781,7 +1032,6 @@ document.addEventListener('DOMContentLoaded', function() {
             let matchesGender = true;
             if (genderValue) {
                 matchesGender = studentGender === genderValue;
-                console.log('Row:', studentName, 'Data Gender:', studentGender, 'Filter:', genderValue, 'Matches:', matchesGender);
             }
             
             const matchesClass = !classValue || studentClass.toLowerCase().includes(classValue.toLowerCase());
@@ -810,7 +1060,6 @@ document.addEventListener('DOMContentLoaded', function() {
             let matchesGender = true;
             if (genderValue) {
                 matchesGender = studentGender === genderValue;
-                console.log('Card:', studentName, 'Data Gender:', studentGender, 'Filter:', genderValue, 'Matches:', matchesGender);
             }
             
             const matchesClass = !classValue || studentClass.toLowerCase().includes(classValue.toLowerCase());

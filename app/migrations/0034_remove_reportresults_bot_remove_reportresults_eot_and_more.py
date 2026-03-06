@@ -4,6 +4,66 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+class RemoveFieldIfExists(migrations.RemoveField):
+    """Remove a field only when the corresponding DB column exists."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = from_state.apps.get_model(app_label, self.model_name)
+        table_name = model._meta.db_table
+        field = model._meta.get_field(self.name)
+        column_name = field.column
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return
+            existing_columns = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            }
+
+        if column_name not in existing_columns:
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
+class AddFieldIfMissing(migrations.AddField):
+    """Add a field only when the DB column is missing."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        table_name = model._meta.db_table
+        field = model._meta.get_field(self.name)
+        column_name = field.column
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return super().database_forwards(app_label, schema_editor, from_state, to_state)
+            existing_columns = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            }
+
+        if column_name in existing_columns:
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
+class CreateModelIfMissing(migrations.CreateModel):
+    """Create a model table only when it does not already exist."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.name)
+        table_name = model._meta.db_table
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name in schema_editor.connection.introspection.table_names(cursor):
+                return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,30 +71,30 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='reportresults',
             name='bot',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='reportresults',
             name='eot',
         ),
-        migrations.RemoveField(
+        RemoveFieldIfExists(
             model_name='reportresults',
             name='mot',
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='reportresults',
             name='term',
             field=models.ForeignKey(default='', on_delete=django.db.models.deletion.CASCADE, to='app.term'),
             preserve_default=False,
         ),
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='schoolsetting',
             name='assessment_method',
             field=models.CharField(choices=[('CUMULATIVE', 'Cumulative'), ('NON_CUMULATIVE', 'Non-Cumulative')], default='CUMULATIVE', max_length=15),
         ),
-        migrations.CreateModel(
+        CreateModelIfMissing(
             name='ReportResultDetail',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),

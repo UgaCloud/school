@@ -3,6 +3,28 @@
 from django.db import migrations, models
 
 
+class AddFieldIfMissing(migrations.AddField):
+    """Add a field only when the database column is not already present."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        table_name = model._meta.db_table
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name not in schema_editor.connection.introspection.table_names(cursor):
+                return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+            existing_columns = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            }
+
+        if self.name in existing_columns:
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,7 +32,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
+        AddFieldIfMissing(
             model_name='expenditure',
             name='vat',
             field=models.DecimalField(decimal_places=2, default=1, max_digits=10),

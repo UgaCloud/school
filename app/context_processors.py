@@ -1,10 +1,15 @@
 from app.models.school_settings import SchoolSetting
 from app.models.results import ResultVerificationNotification, ResultBatch, Assessment, Result
-from app.models.classes import AcademicClassStream, ClassSubjectAllocation, Term
+from app.models.classes import AcademicClassStream, Term
 from app.models.students import ClassRegister
 from app.models.communications import Announcement, Event, AnnouncementTarget, MessageThread, Message
 from app.models.accounts import StaffAccount
 from app.selectors.school_settings import get_current_academic_year
+from app.services.school_level import get_active_school_level, get_enabled_levels, get_level_label
+from app.services.teacher_assignments import (
+    get_teacher_assignments,
+    get_teacher_ids_for_class_streams,
+)
 from django.db.models import Count, F, Q, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -17,6 +22,17 @@ logger = logging.getLogger(__name__)
 def school_settings(request):
     
     school_settings = SchoolSetting.load()  # Use SingletonModel's `load()` method to get the instance
+    enabled_levels = get_enabled_levels(school_settings)
+    active_school_level = get_active_school_level(request, school_setting=school_settings)
+    is_primary_mode = active_school_level == SchoolSetting.EducationLevel.PRIMARY
+    is_secondary_lower_mode = active_school_level == SchoolSetting.EducationLevel.SECONDARY_LOWER
+    is_secondary_upper_mode = active_school_level == SchoolSetting.EducationLevel.SECONDARY_UPPER
+    is_secondary_mode = active_school_level in {
+        SchoolSetting.EducationLevel.SECONDARY_LOWER,
+        SchoolSetting.EducationLevel.SECONDARY_UPPER,
+    }
+    enabled_school_levels = [{"value": level, "label": get_level_label(level)} for level in enabled_levels]
+    can_switch_school_level = len(enabled_school_levels) > 1
 
     active_role = None
     staff_account = None
@@ -70,7 +86,7 @@ def school_settings(request):
         if role_name in {"Teacher", "Class Teacher"} or active_role in {"Teacher", "Class Teacher"}:
             is_teacher_user = True
 
-        if is_dos_user:
+        if is_primary_mode and is_dos_user:
             pending_batches = ResultBatch.objects.filter(status="PENDING").select_related("assessment")
             logger.info(
                 "verification context: pending_batches=%s",
@@ -100,19 +116,19 @@ def school_settings(request):
                 read=False,
             ).update(read=True, read_at=timezone.now())
 
-        if is_teacher_user and staff_account and getattr(staff_account, "staff", None):
+        if is_primary_mode and is_teacher_user and staff_account and getattr(staff_account, "staff", None):
             current_year = get_current_academic_year()
             current_term = Term.objects.filter(is_current=True).first()
             if current_year and current_term:
-                allocations = ClassSubjectAllocation.objects.filter(
-                    subject_teacher=staff_account.staff,
-                    academic_class_stream__academic_class__academic_year=current_year,
-                    academic_class_stream__academic_class__term=current_term,
-                ).select_related("academic_class_stream__academic_class", "subject")
+                assignments = get_teacher_assignments(
+                    staff_account.staff,
+                    current_year=current_year,
+                    current_term=current_term,
+                )
 
-                subject_ids = list(allocations.values_list("subject_id", flat=True).distinct())
-                class_ids = list(
-                    allocations.values_list("academic_class_stream__academic_class_id", flat=True).distinct()
+                subject_ids = sorted({row.subject_id for row in assignments})
+                class_ids = sorted(
+                    {row.academic_class_stream.academic_class_id for row in assignments}
                 )
 
                 if subject_ids and class_ids:
@@ -137,12 +153,13 @@ def school_settings(request):
                     pending_teacher_mark_count = pending_marks_qs.count()
                     pending_teacher_mark_notifications = list(pending_marks_qs[:5])
 
-        notifications_qs = ResultVerificationNotification.objects.filter(
-            recipient=request.user,
-            read=False
-        ).select_related("batch", "batch__assessment").order_by("-created_at")
-        pending_verification_count = notifications_qs.count()
-        pending_verification_notifications = list(notifications_qs[:10])
+        if is_primary_mode:
+            notifications_qs = ResultVerificationNotification.objects.filter(
+                recipient=request.user,
+                read=False
+            ).select_related("batch", "batch__assessment").order_by("-created_at")
+            pending_verification_count = notifications_qs.count()
+            pending_verification_notifications = list(notifications_qs[:10])
 
         now = timezone.now()
         user_role = active_role or role_name
@@ -199,10 +216,7 @@ def school_settings(request):
                 ).values_list("id", flat=True)
             )
             if class_stream_ids:
-                class_stream_teacher_ids = ClassSubjectAllocation.objects.filter(
-                    academic_class_stream_id__in=class_stream_ids
-                ).values_list("subject_teacher_id", flat=True)
-                targeted_teacher_ids = set(class_stream_teacher_ids)
+                targeted_teacher_ids = get_teacher_ids_for_class_streams(class_stream_ids)
                 targeted_teacher_ids.add(staff_account.staff.id)
                 if targeted_teacher_ids:
                     targeted_teacher_accounts = StaffAccount.objects.filter(
@@ -228,10 +242,34 @@ def school_settings(request):
             latest_activity_at=Coalesce("latest_message_at", "updated_at"),
         ).order_by("-latest_activity_at")
 
+        try:
+            announcement_notifications = list(
+                announcement_qs.order_by("-starts_at").values("id", "title", "starts_at")[:5]
+            )
+        except UnicodeDecodeError:
+            logger.exception("Unable to decode one or more announcement records for top-nav notifications.")
+            announcement_notifications = []
+
+        try:
+            event_notifications = list(
+                event_qs.order_by("start_datetime").values("id", "title", "start_datetime")[:5]
+            )
+        except UnicodeDecodeError:
+            logger.exception("Unable to decode one or more event records for top-nav notifications.")
+            event_notifications = []
+
+        try:
+            message_notifications = list(
+                message_threads.values("id", "updated_at", "latest_activity_at")[:5]
+            )
+        except UnicodeDecodeError:
+            logger.exception("Unable to decode one or more message thread records for top-nav notifications.")
+            message_notifications = []
+
         comm_notifications = {
-            "announcements": announcement_qs.order_by("-starts_at")[:5],
-            "events": event_qs.order_by("start_datetime")[:5],
-            "messages": message_threads[:5],
+            "announcements": announcement_notifications,
+            "events": event_notifications,
+            "messages": message_notifications,
         }
 
         if last_comm_seen:
@@ -256,6 +294,14 @@ def school_settings(request):
     return {
         'school_settings': school_settings,
         'active_role': active_role,
+        'active_school_level': active_school_level,
+        'active_school_level_label': get_level_label(active_school_level),
+        'enabled_school_levels': enabled_school_levels,
+        'can_switch_school_level': can_switch_school_level,
+        'is_secondary_mode': is_secondary_mode,
+        'is_primary_mode': is_primary_mode,
+        'is_secondary_lower_mode': is_secondary_lower_mode,
+        'is_secondary_upper_mode': is_secondary_upper_mode,
         'pending_verification_count': pending_verification_count,
         'pending_verification_notifications': pending_verification_notifications,
         'pending_teacher_assessment_count': pending_teacher_assessment_count,

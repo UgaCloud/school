@@ -1,0 +1,748 @@
+{% load static report_tags %}
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tahfiz End of Term Report - {{ student.student_name }} | {{ school.school_name }}</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&family=Source+Sans+3:wght@400;600;700;800&display=swap');
+
+    @page {
+        size: A4;
+        margin: 11mm;
+    }
+
+    :root {
+        --navy-900: #1E2A38;
+        --navy-700: #2b3b4d;
+        --ink: #233244;
+        --muted: #5f6f81;
+        --line: #d4dce5;
+        --panel: #f4f6f8;
+        --panel-strong: #eef2f6;
+        --paper: #ffffff;
+        --font-ar: "Noto Naskh Arabic", "Amiri", serif;
+        --font-en: "Source Sans 3", "Segoe UI", sans-serif;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        background: #edf1f5;
+        color: var(--ink);
+        font-family: var(--font-en);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .report-sheet {
+        width: 100%;
+        max-width: 190mm;
+        margin: 40px auto 24px;
+        padding: 14mm 14mm 12mm;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        box-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+    }
+
+    .control-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 18px;
+        font-size: 13px;
+    }
+
+    .control-bar form {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .control-bar label {
+        color: var(--muted);
+        font-weight: 600;
+    }
+
+    .control-bar select,
+    .control-bar button {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--ink);
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: var(--font-en);
+    }
+
+    .control-bar button {
+        background: var(--navy-900);
+        color: #fff;
+        border-color: var(--navy-900);
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .report-header {
+        margin-bottom: 24px;
+    }
+
+    .school-head {
+        display: grid;
+        grid-template-columns: 96px 1fr;
+        gap: 14px;
+        align-items: start;
+    }
+
+    .logo-wrap {
+        width: 96px;
+        height: 96px;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .logo-wrap img {
+        width: 88px;
+        height: 88px;
+        object-fit: contain;
+    }
+
+    .school-copy {
+        text-align: center;
+        color: var(--navy-900);
+    }
+
+    .school-name {
+        margin: 0;
+        font-size: 36px;
+        line-height: 1;
+        letter-spacing: 0.03em;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .school-tagline {
+        margin: 4px 0 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--navy-700);
+    }
+
+    .school-meta {
+        margin: 8px 0 0;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--muted);
+        font-weight: 600;
+    }
+
+    .bismillah {
+        margin: 14px 0 0;
+        text-align: center;
+        font-family: var(--font-ar);
+        font-size: 32px;
+        line-height: 1.2;
+        color: var(--navy-900);
+        direction: rtl;
+    }
+
+    .header-divider {
+        margin: 14px 0 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .report-title {
+        margin-top: 16px;
+        text-align: center;
+    }
+
+    .report-title .en {
+        margin: 0;
+        color: var(--navy-900);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 800;
+        font-size: 26px;
+        line-height: 1.1;
+    }
+
+    .report-title .ar {
+        margin: 4px 0 0;
+        color: var(--navy-900);
+        font-family: var(--font-ar);
+        font-size: 28px;
+        line-height: 1.2;
+        direction: rtl;
+        font-weight: 700;
+    }
+
+    .info-section,
+    .subjects-section,
+    .comments-section,
+    .discipline-section,
+    .report-footer {
+        margin-top: 24px;
+    }
+
+    .info-grid {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        display: grid;
+        grid-template-columns: 1.1fr 1.4fr 1.1fr 1.1fr;
+        overflow: hidden;
+    }
+
+    .info-cell {
+        min-height: 62px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+    }
+
+    .info-cell:nth-child(4n+1) {
+        border-left: none;
+    }
+
+    .info-cell:nth-last-child(-n+4) {
+        border-bottom: none;
+    }
+
+    .info-label {
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        background: var(--panel-strong);
+        text-align: right;
+        direction: rtl;
+        gap: 2px;
+    }
+
+    .info-label .ar {
+        font-family: var(--font-ar);
+        font-size: 16px;
+        color: var(--navy-900);
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .info-label .en {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .info-value {
+        font-size: 18px;
+        color: var(--ink);
+        font-weight: 700;
+    }
+
+    .subjects-panel {
+        border: 1px solid var(--line);
+        position: relative;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .table-watermark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        opacity: 0.06;
+        z-index: 0;
+    }
+
+    .table-watermark img {
+        width: 58%;
+        max-width: 340px;
+        height: auto;
+    }
+
+    .marks-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        position: relative;
+        z-index: 1;
+    }
+
+    .marks-table th,
+    .marks-table td {
+        border: 1px solid var(--line);
+        padding: 12px 10px;
+        text-align: center;
+        vertical-align: middle;
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    .marks-table th {
+        font-size: 13px;
+        color: var(--navy-900);
+        letter-spacing: 0.02em;
+        font-weight: 800;
+        background: #f8fafc;
+    }
+
+    .marks-table .serial-col {
+        width: 48px;
+        font-weight: 700;
+    }
+
+    .marks-table .marks-col,
+    .marks-table .percent-col,
+    .marks-table .grade-col {
+        width: 110px;
+    }
+
+    .marks-table td.subject-ar {
+        text-align: right;
+        direction: rtl;
+        font-family: var(--font-ar);
+        font-weight: 700;
+        color: var(--navy-900);
+        font-size: 16px;
+    }
+
+    .marks-table td.subject-en {
+        text-align: left;
+        direction: ltr;
+        color: var(--muted);
+        font-size: 15px;
+        font-weight: 600;
+    }
+
+    .marks-table td.percent,
+    .marks-table td.number,
+    .marks-table td.grade {
+        font-weight: 700;
+        color: var(--ink);
+    }
+
+    .marks-table .total-row td {
+        background: #f1f4f8;
+        font-weight: 800;
+        color: var(--navy-900);
+    }
+
+    .section-card {
+        border: 1px solid var(--line);
+        background: #fff;
+        padding: 16px;
+    }
+
+    .comment-block + .comment-block {
+        margin-top: 20px;
+    }
+
+    .comment-title {
+        margin: 0;
+        font-size: 17px;
+        color: var(--navy-900);
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
+    .comment-title .ar {
+        display: block;
+        direction: rtl;
+        font-family: var(--font-ar);
+        font-size: 18px;
+        margin-top: 2px;
+        color: var(--ink);
+        font-weight: 700;
+    }
+
+    .comment-text {
+        margin: 12px 0 0;
+        min-height: 52px;
+        color: var(--ink);
+        font-size: 16px;
+        line-height: 1.65;
+        direction: rtl;
+        font-family: var(--font-ar);
+        background: #fafbfd;
+        border: 1px solid #e3e8ef;
+        padding: 10px 12px;
+    }
+
+    .signature-row {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: end;
+        gap: 10px;
+    }
+
+    .signature-label {
+        font-size: 14px;
+        color: var(--muted);
+        font-weight: 700;
+    }
+
+    .signature-line {
+        min-height: 30px;
+        border-bottom: 1px solid var(--navy-700);
+        display: flex;
+        align-items: end;
+        justify-content: flex-start;
+        padding-bottom: 2px;
+    }
+
+    .signature-line img {
+        max-height: 26px;
+        width: auto;
+    }
+
+    .discipline-row {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        display: grid;
+        grid-template-columns: 170px 1fr;
+        align-items: stretch;
+    }
+
+    .discipline-label,
+    .discipline-value {
+        padding: 12px 14px;
+        min-height: 58px;
+        display: flex;
+        align-items: center;
+    }
+
+    .discipline-label {
+        border-right: 1px solid var(--line);
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        background: var(--panel-strong);
+        color: var(--navy-900);
+        font-weight: 700;
+        line-height: 1.15;
+    }
+
+    .discipline-label .ar {
+        direction: rtl;
+        font-family: var(--font-ar);
+        font-size: 16px;
+        margin-top: 2px;
+    }
+
+    .discipline-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--ink);
+        justify-content: flex-start;
+        gap: 8px;
+    }
+
+    .discipline-value .ar {
+        direction: rtl;
+        font-family: var(--font-ar);
+        font-size: 18px;
+    }
+
+    .stamp {
+        text-align: center;
+        color: var(--navy-900);
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.45;
+    }
+
+    .stamp .ar {
+        display: block;
+        direction: rtl;
+        font-family: var(--font-ar);
+        font-size: 18px;
+        margin-top: 2px;
+    }
+
+    .printed-on {
+        margin-top: 10px;
+        text-align: right;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    @media (max-width: 760px) {
+        .report-sheet {
+            margin: 10px;
+            padding: 16px;
+        }
+
+        .school-head {
+            grid-template-columns: 1fr;
+            justify-items: center;
+        }
+
+        .school-name {
+            font-size: 30px;
+        }
+
+        .school-tagline {
+            font-size: 16px;
+        }
+
+        .bismillah {
+            font-size: 29px;
+        }
+
+        .report-title .en {
+            font-size: 22px;
+        }
+
+        .report-title .ar {
+            font-size: 24px;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .info-cell {
+            border-left: none;
+        }
+
+        .info-cell:nth-child(2n) {
+            border-left: 1px solid var(--line);
+        }
+
+        .info-cell:nth-last-child(-n+2) {
+            border-bottom: none;
+        }
+
+        .marks-table th,
+        .marks-table td {
+            padding: 10px 8px;
+            font-size: 12px;
+        }
+
+        .marks-table td.subject-ar,
+        .marks-table td.subject-en {
+            font-size: 13px;
+        }
+
+        .discipline-row {
+            grid-template-columns: 1fr;
+        }
+
+        .discipline-label {
+            border-right: none;
+            border-bottom: 1px solid var(--line);
+        }
+    }
+
+    @media print {
+        body {
+            background: #fff;
+        }
+
+        .control-bar {
+            display: none;
+        }
+
+        .report-sheet {
+            margin: 0 auto;
+            box-shadow: none;
+        }
+
+        .marks-table th,
+        .marks-table td {
+            padding: 10px 8px;
+        }
+    }
+</style>
+</head>
+<body>
+<div class="report-sheet">
+    {% if not is_bulk_report %}
+    <div class="control-bar">
+        <form method="get">
+            <label for="term_id">الفترة / Term</label>
+            <select name="term_id" id="term_id" onchange="this.form.submit()">
+                {% for t in terms %}
+                <option value="{{ t.id }}" {% if t.id|stringformat:"s" == selected_term_id %}selected{% endif %}>{{ t.term }}</option>
+                {% endfor %}
+            </select>
+            <label for="report_format">التنسيق / Format</label>
+            <select name="report_format" id="report_format" onchange="this.form.submit()">
+                <option value="standard" {% if selected_report_format == "standard" %}selected{% endif %}>Standard</option>
+                <option value="tahfiz" {% if selected_report_format == "tahfiz" %}selected{% endif %}>Tahfiz</option>
+            </select>
+        </form>
+        <button onclick="window.print()" type="button">Print Report</button>
+    </div>
+    {% endif %}
+
+    <header class="report-header">
+        <div class="school-head">
+            <div class="logo-wrap">
+                {% if school.school_logo %}
+                <img src="{{ school.school_logo.url }}" alt="School Logo" />
+                {% endif %}
+            </div>
+            <div class="school-copy">
+                <h1 class="school-name">{{ school.school_name|default:"BAYAN LEARNING CENTER" }}</h1>
+                <p class="school-tagline">Education with a Divine Purpose</p>
+                <p class="school-meta">
+                    Tel: {{ school.mobile|default:"+256 779 776 731" }}{% if school.office_phone_number1 %} | {{ school.office_phone_number1 }}{% elif not school.mobile %} | +256 708 776 731{% endif %}{% if school.office_phone_number2 %} | {{ school.office_phone_number2 }}{% endif %}<br>
+                    Email: {{ school.email|default:"bayancenterbudo@gmail.com" }}<br>
+                    {{ school.address|default:"Kisozi, Budo - Along Kitemu-Nsaggu Rd." }}
+                </p>
+            </div>
+        </div>
+        <p class="bismillah">بِسْمِ ٱللَّٰهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
+        <div class="header-divider"></div>
+
+        <div class="report-title">
+            <p class="en">END OF TERM REPORT</p>
+            <p class="ar">تقرير نهاية الفصل الدراسي</p>
+        </div>
+    </header>
+
+    <section class="info-section">
+        <div class="info-grid">
+            <div class="info-cell info-label"><span class="ar">الاسم</span><span class="en">Name</span></div>
+            <div class="info-cell info-value">{{ student.student_name|default:"-" }}</div>
+            <div class="info-cell info-label"><span class="ar">الفترة</span><span class="en">Term</span></div>
+            <div class="info-cell info-value">{{ term|default:"-" }}</div>
+
+            <div class="info-cell info-label"><span class="ar">العام الدراسي</span><span class="en">Academic Year</span></div>
+            <div class="info-cell info-value">{{ academic_year|default:"-" }}</div>
+            <div class="info-cell info-label"><span class="ar">الترتيب</span><span class="en">Position</span></div>
+            <div class="info-cell info-value">{{ selected_division|default:"-" }}</div>
+
+            <div class="info-cell info-label"><span class="ar">الفصل</span><span class="en">Class</span></div>
+            <div class="info-cell info-value">{{ class_display|default:student.current_class.name|default:"-" }}</div>
+            <div class="info-cell info-label"><span class="ar">عدد الطلبة</span><span class="en">Students</span></div>
+            <div class="info-cell info-value">{{ class_size|default:"-" }}</div>
+        </div>
+    </section>
+
+    <section class="subjects-section">
+        <div class="subjects-panel">
+            {% if school.school_logo %}
+            <div class="table-watermark">
+                <img src="{{ school.school_logo.url }}" alt="" />
+            </div>
+            {% endif %}
+
+            <table class="marks-table">
+                <thead>
+                    <tr>
+                        <th class="serial-col">#</th>
+                        <th>المادة الدراسية</th>
+                        <th>Subject</th>
+                        <th class="marks-col">Marks</th>
+                        <th class="percent-col">%</th>
+                        <th class="grade-col">Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if report_data %}
+                        {% for item in report_data %}
+                        <tr>
+                            <td class="serial-col">{{ forloop.counter }}</td>
+                            <td class="subject-ar">{{ item.subject|subject_ar }}</td>
+                            <td class="subject-en">{{ item.subject|default:"-" }}</td>
+                            <td class="number">{{ item.average|floatformat:0|default:"-" }}</td>
+                            <td class="percent">{{ item.average|floatformat:0|default:"0" }}%</td>
+                            <td class="grade">{{ item.average|remark_ar }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="padding: 18px; font-weight: 700; color: var(--navy-900);">لا توجد بيانات تقرير متاحة.</td>
+                        </tr>
+                    {% endif %}
+
+                    <tr class="total-row">
+                        <td class="serial-col"></td>
+                        <td class="subject-ar">المجموع</td>
+                        <td class="subject-en">TOTAL MARKS</td>
+                        <td>{{ total_marks|floatformat:0|default:"-" }}</td>
+                        <td>{{ overall_average|floatformat:1|default:"0" }}%</td>
+                        <td>{{ overall_average|remark_ar }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="comments-section section-card">
+        <div class="comment-block">
+            <h3 class="comment-title">
+                Class Teacher's Comment
+                <span class="ar">تعليق معلم الفصل</span>
+            </h3>
+            <p class="comment-text">{{ class_teacher_remark|default:"-" }}</p>
+            <div class="signature-row">
+                <span class="signature-label">Signature:</span>
+                <span class="signature-line">
+                    {% if class_teacher_signature %}
+                    <img src="{{ class_teacher_signature.url }}" alt="Class Teacher Signature" />
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div class="comment-block">
+            <h3 class="comment-title">
+                Director's Comment
+                <span class="ar">تعليق المدير</span>
+            </h3>
+            <p class="comment-text">{{ head_teacher_remark|default:"-" }}</p>
+            <div class="signature-row">
+                <span class="signature-label">Signature:</span>
+                <span class="signature-line">
+                    {% if head_teacher_signature and head_teacher_signature.signature %}
+                    <img src="{{ head_teacher_signature.signature.url }}" alt="Director Signature" />
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <section class="discipline-section">
+        <div class="discipline-row">
+            <div class="discipline-label">
+                <span>Discipline</span>
+                <span class="ar">الانضباط</span>
+            </div>
+            <div class="discipline-value">
+                <span>{{ discipline_rating|default:overall_grade|default:"-" }}</span>
+                <span class="ar">{{ discipline_rating_ar|default:"-" }}</span>
+            </div>
+        </div>
+    </section>
+
+    <footer class="report-footer">
+        <div class="stamp">
+            Official School Stamp
+            <span class="ar">ختم المدرسة</span>
+        </div>
+        <div class="printed-on">Printed on: {{ printed_at|date:"d F Y" }}</div>
+    </footer>
+</div>
+</body>
+</html>

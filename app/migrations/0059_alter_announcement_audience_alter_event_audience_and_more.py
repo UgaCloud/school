@@ -5,6 +5,20 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+class CreateModelIfMissing(migrations.CreateModel):
+    """Create a model table only when it does not already exist."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.name)
+        table_name = model._meta.db_table
+
+        with schema_editor.connection.cursor() as cursor:
+            if table_name in schema_editor.connection.introspection.table_names(cursor):
+                return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -23,7 +37,8 @@ class Migration(migrations.Migration):
             name='audience',
             field=models.CharField(choices=[('all', 'All Staff'), ('teachers', 'Teachers'), ('head', 'Head Teacher'), ('bursar', 'Bursar'), ('dos', 'Director of Studies'), ('class_teacher', 'Class Teacher'), ('class_stream', 'Class Stream Teachers')], default='all', max_length=20),
         ),
-        migrations.CreateModel(
+        # Guard against pre-existing messaging tables in drifted production schemas.
+        CreateModelIfMissing(
             name='MessageThread',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -37,7 +52,7 @@ class Migration(migrations.Migration):
                 'ordering': ['-updated_at'],
             },
         ),
-        migrations.CreateModel(
+        CreateModelIfMissing(
             name='Message',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -50,7 +65,7 @@ class Migration(migrations.Migration):
                 'ordering': ['created_at'],
             },
         ),
-        migrations.CreateModel(
+        CreateModelIfMissing(
             name='AnnouncementTarget',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),

@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect,get_object_or_404
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.urls import reverse
@@ -73,7 +73,12 @@ def edit_bill_item_view(request,id):
     return render(request,"fees/edit_bill_item.html",context)
 
 
+@login_required
 def delete_bill_item_view(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponseRedirect(reverse(manage_bill_items_view))
+
     bill_item = get_model_record(BillItem, id)
     
     bill_item.delete()
@@ -106,7 +111,7 @@ def manage_student_bills_view(request):
     classes = Class.objects.all()
 
     # Start with all student bills
-    student_bills = StudentBill.objects.select_related(
+    student_bills = StudentBill.objects.filter(student__is_active=True).select_related(
         'student', 'academic_class', 'academic_class__academic_year',
         'academic_class__term', 'academic_class__Class'
     ).order_by('-bill_date')
@@ -227,13 +232,107 @@ def add_student_payment_view(request, id):
                 payment.reference_no = f"PMT-{bill.id}-{timezone.now().strftime('%Y%m%d%H%M%S%f')}"
             payment.save()
             
+            # Refresh the bill to get updated values
+            bill.refresh_from_db()
+            
+            # Check for overpayment and auto-apply to next term
+            from app.models.fees_payment import StudentCredit
+            from app.models.classes import AcademicClass, Term
+            
+            # Get the current bill's balance after payment
+            current_balance = bill.balance
+            
+            # If there's an overpayment (negative balance means they paid more than owed)
+            if current_balance < 0:
+                overpayment_amount = abs(current_balance)
+                
+                # Find the next term's bill for this student
+                current_class = bill.academic_class
+                if current_class and current_class.term:
+                    current_term = current_class.term
+                    current_year = current_term.academic_year
+                    
+                    # Find the next term
+                    all_terms = Term.objects.filter(academic_year=current_year).order_by('term')
+                    next_term = None
+                    for term in all_terms:
+                        if int(term.term) > int(current_term.term):
+                            next_term = term
+                            break
+                    
+                    # If no next term in current year, try first term of next year
+                    if not next_term:
+                        next_year_terms = Term.objects.filter(academic_year__academic_year__gt=current_year.academic_year).order_by('academic_year__academic_year', 'term')
+                        if next_year_terms:
+                            next_term = next_year_terms.first()
+                    
+                    if next_term:
+                        # Find or create the next term's bill for this student
+                        next_class = AcademicClass.objects.filter(
+                            Class=current_class.Class,
+                            academic_year=next_term.academic_year,
+                            term=next_term
+                        ).first()
+                        
+                        if next_class:
+                            from app.models.fees_payment import StudentBill
+                            next_bill = StudentBill.objects.filter(
+                                student=bill.student,
+                                academic_class=next_class
+                            ).first()
+                            
+                            if next_bill:
+                                # Create credit from overpayment and apply to next bill
+                                credit = StudentCredit.objects.create(
+                                    student=bill.student,
+                                    amount=overpayment_amount,
+                                    description=f"Auto-transfer from {current_term.academic_year.academic_year} Term {current_term.term} overpayment",
+                                    original_bill=bill,
+                                    applied_to_bill=next_bill,
+                                    is_applied=True,
+                                    applied_date=timezone.now().date()
+                                )
+                                messages.info(request, f"Overpayment of UGX {overpayment_amount:,.0f} automatically applied to next term's bill.")
+            
             messages.success(request, SUCCESS_ADD_MESSAGE)
+            return HttpResponseRedirect(reverse('student_fees_history', args=[bill.student.id]))
         else:
+            # Print errors for debugging
+            print("Form errors:", form.errors)
             messages.error(request, FAILURE_MESSAGE)
     else:
-        messages.warning(request, "Not a Post Method")
-        
+        # Show the payment form
+        form = PaymentForm(initial={'bill': bill, 'payment_date': timezone.now().date()})
+        return render(request, 'fees/payment_form_page.html', {'form': form, 'bill': bill})
+    
     return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill.id]))
+
+
+@login_required
+def ajax_payment_form_view(request, bill_id):
+    """AJAX view to get payment form for a bill (used in modal)"""
+    from django.http import JsonResponse
+    from django.middleware.csrf import get_token
+    
+    bill = get_object_or_404(StudentBill, pk=bill_id, student__is_active=True)
+    
+    if request.method == 'POST':
+        form = PaymentForm(request.POST)
+        if form.is_valid():
+            payment = form.save(commit=False)
+            payment.bill = bill
+            payment.recorded_by = getattr(request.user, 'username', '') or getattr(request.user, 'get_username', lambda: '')()
+            if not getattr(payment, 'reference_no', None) or str(payment.reference_no).strip() == '':
+                payment.reference_no = f'PMT-{bill.id}-{timezone.now().strftime("%Y%m%d%H%M%S%f")}'
+            payment.save()
+            return JsonResponse({'success': True, 'message': 'Payment recorded successfully!'})
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors})
+    else:
+        # Return the form for GET request
+        form = PaymentForm(initial={'bill': bill, 'payment_date': timezone.now().date()})
+        form_html = render_to_string('fees/payment_form_partial.html', {'bill': bill, 'payment_form': form, 'today': timezone.now().date()}, request=request)
+        return JsonResponse({'form_html': form_html})
     
 
   
@@ -248,6 +347,7 @@ def student_fees_status_view(request):
     selected_academic_class = request.GET.get("academic_class")
     selected_term_id = request.GET.get("term")
     selected_year_id = request.GET.get("year")
+    selected_status = (request.GET.get("status") or "").strip().lower()
 
     # Resolve selected academic year (defaults to current)
     selected_year = None
@@ -282,6 +382,7 @@ def student_fees_status_view(request):
     bills_qs = StudentBill.objects.filter(
         academic_class__academic_year=selected_year,
         academic_class__term=term_obj,
+        student__is_active=True,
     )
     if selected_academic_class:
         bills_qs = bills_qs.filter(academic_class__Class_id=selected_academic_class)
@@ -312,6 +413,7 @@ def student_fees_status_view(request):
 
         student_fees_data.append({
             "student": bill.student,
+            "student_id": bill.student.id,
             "academic_class": bill.academic_class,
             "academic_year": bill.academic_class.academic_year,
             "term": bill.academic_class.term,
@@ -331,7 +433,10 @@ def student_fees_status_view(request):
         from django.db.models import Max
         # Find latest term (by start_date) within selected year that has any StudentBill
         term_ids_with_bills = (
-            StudentBill.objects.filter(academic_class__academic_year=selected_year)
+            StudentBill.objects.filter(
+                academic_class__academic_year=selected_year,
+                student__is_active=True,
+            )
             .values_list('academic_class__term_id', flat=True)
             .distinct()
         )
@@ -346,6 +451,7 @@ def student_fees_status_view(request):
             bills_qs = StudentBill.objects.filter(
                 academic_class__academic_year=selected_year,
                 academic_class__term=term_obj,
+                student__is_active=True,
             )
             if selected_academic_class:
                 bills_qs = bills_qs.filter(academic_class__Class_id=selected_academic_class)
@@ -389,10 +495,25 @@ def student_fees_status_view(request):
             # Update the effective filters
             selected_term_id = str(fallback_term.id)
 
+    # Optional payment status filter (applies after class/year/term scope)
+    status_filters = {
+        "outstanding": {"Unpaid", "Partial", "Overdue"},
+        "paid": {"Paid"},
+        "overpaid": {"Overpaid"},
+        "unpaid": {"Unpaid"},
+        "partial": {"Partial"},
+        "overdue": {"Overdue"},
+        "no_bill": {"No Bill"},
+    }
+    if selected_status in status_filters:
+        allowed_statuses = status_filters[selected_status]
+        student_fees_data = [row for row in student_fees_data if row.get("payment_status") in allowed_statuses]
+
     # Summary metrics for UX
     total_fees = sum(row["total_amount"] for row in student_fees_data)
     total_paid = sum(row["amount_paid"] for row in student_fees_data)
     total_balance = sum(row["balance"] for row in student_fees_data if row.get("balance_label") != "CR")
+    collection_rate = (total_paid / total_fees * 100) if total_fees > 0 else 0
 
     if request.GET.get("download_pdf"):
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -440,6 +561,7 @@ def student_fees_status_view(request):
         <b>Academic Year:</b> {selected_year.academic_year if selected_year else 'All Years'}<br/>
         <b>Term:</b> {term_obj.term if term_obj else 'All Terms'}<br/>
         <b>Class Filter:</b> {AcademicClass.objects.filter(id=selected_academic_class).first().Class.name if selected_academic_class else 'All Classes'}<br/>
+        <b>Status Filter:</b> {selected_status.replace('_', ' ').title() if selected_status else 'All Statuses'}<br/>
         <b>Total Students:</b> {len(student_fees_data)}<br/>
         <b>Total Fees:</b> UGX {total_fees:,.0f}<br/>
         <b>Total Paid:</b> UGX {total_paid:,.0f}<br/>
@@ -520,10 +642,151 @@ def student_fees_status_view(request):
         "total_fees": total_fees,
         "total_paid": total_paid,
         "total_balance": total_balance,
+        "collection_rate": collection_rate,
+        "status_filter": selected_status,
         "current_term": term_obj if 'term_obj' in locals() and term_obj else current_term,
         "current_year": selected_year,
     }
     return render(request, "fees/student_fees_status.html", context)
+
+
+@login_required
+def student_fees_history_view(request, student_id):
+    """Show all bills for a particular student across every academic year and term."""
+    student = get_object_or_404(Student, pk=student_id, is_active=True)
+    
+    # Get selected year from query params
+    selected_year_id = request.GET.get('year')
+    
+    # Get all academic years for the student (for filter dropdown)
+    student_years = AcademicYear.objects.filter(
+        academicclass__studentbill__student=student
+    ).distinct().order_by('-academic_year')
+    
+    # Base query - get all bills for student
+    bills_qs = (
+        StudentBill.objects
+        .filter(student=student)
+        .select_related('academic_class', 'academic_class__Class',
+                        'academic_class__academic_year', 'academic_class__term')
+        .prefetch_related('items', 'items__bill_item', 'payments')
+    )
+    
+    # Get all bills for lifetime calculation (always show all years)
+    # We'll calculate lifetime from years_data after it's built
+    lifetime_billed = 0
+    lifetime_paid = 0
+    
+    # Query for display (with prefetch for efficiency)
+    bills_qs = (
+        StudentBill.objects
+        .filter(student=student)
+        .select_related('academic_class', 'academic_class__Class',
+                        'academic_class__academic_year', 'academic_class__term')
+        .prefetch_related('items', 'items__bill_item', 'payments')
+    )
+    if selected_year_id:
+        bills_qs = bills_qs.filter(academic_class__academic_year_id=selected_year_id)
+    
+    # Order by term
+    bills_qs = bills_qs.order_by('-academic_class__term__term')
+    
+    # Deduplicate bills by ID (prefetch_related can cause duplicates)
+    bills_qs = list({bill.id: bill for bill in bills_qs}.values())
+    
+    now = timezone.now().date()
+    lifetime_outstanding = 0
+
+    # Group bills by academic year (only for filtered/displayed bills)
+    from collections import OrderedDict
+    years_data = OrderedDict()
+
+    for bill in bills_qs:
+        total_amount = bill.total_amount
+        amount_paid = bill.amount_paid
+        balance = total_amount - amount_paid
+
+        # Payment status
+        if total_amount == 0 and amount_paid == 0:
+            payment_status = "No Bill"
+            balance_label = ""
+        elif amount_paid >= total_amount and total_amount > 0:
+            payment_status = "Paid"
+            balance_label = ""
+            balance = 0
+        elif amount_paid > total_amount:
+            payment_status = "Overpaid"
+            balance_label = "CR"
+            balance = abs(balance)
+        elif amount_paid == 0 and total_amount > 0:
+            is_overdue = bool(bill.due_date and now > bill.due_date)
+            payment_status = "Overdue" if is_overdue else "Unpaid"
+            balance_label = "DR"
+            balance = abs(balance)
+        else:
+            is_overdue = bool(bill.due_date and now > bill.due_date and amount_paid < total_amount)
+            payment_status = "Overdue" if is_overdue else "Partial"
+            balance_label = "DR"
+            balance = abs(balance)
+
+        bill_data = {
+            "bill": bill,
+            "academic_class": bill.academic_class,
+            "term": bill.academic_class.term,
+            "total_amount": total_amount,
+            "amount_paid": amount_paid,
+            "balance": balance,
+            "balance_label": balance_label,
+            "payment_status": payment_status,
+            "progress": (amount_paid / total_amount * 100) if total_amount > 0 else 0,
+            "items": bill.items.all(),
+            "payments": bill.payments.all().order_by('-payment_date'),
+        }
+
+        year_obj = bill.academic_class.academic_year
+        year_key = year_obj.id
+        if year_key not in years_data:
+            years_data[year_key] = {
+                "year": year_obj,
+                "bills": [],
+                "year_total": 0,
+                "year_paid": 0,
+                "year_outstanding": 0,
+            }
+        years_data[year_key]["bills"].append(bill_data)
+        years_data[year_key]["year_total"] += total_amount
+        years_data[year_key]["year_paid"] += amount_paid
+    
+    # Calculate lifetime totals from years_data (sums all years - this is the correct way)
+    # This ensures we get all bills regardless of any year filter
+    lifetime_billed = sum(yt['year_total'] for yt in years_data.values())
+    lifetime_paid = sum(yt['year_paid'] for yt in years_data.values())
+    
+    # Calculate year_outstanding for each year as net: total - paid (can be negative)
+    for year_key in years_data:
+        yt = years_data[year_key]
+        yt["year_outstanding"] = yt["year_total"] - yt["year_paid"]
+        yt["year_outstanding_abs"] = abs(yt["year_outstanding"]) if yt["year_outstanding"] < 0 else 0
+
+    # Calculate correct net balance: total billed - total paid
+    # Positive = outstanding (student owes), Negative = credit (student overpaid)
+    lifetime_outstanding = lifetime_billed - lifetime_paid
+    lifetime_outstanding_abs = abs(lifetime_outstanding) if lifetime_outstanding < 0 else 0
+
+    context = {
+        "student": student,
+        "years_data": years_data,
+        "student_years": student_years,
+        "selected_year_id": int(selected_year_id) if selected_year_id else None,
+        "lifetime_billed": lifetime_billed,
+        "lifetime_paid": lifetime_paid,
+        "lifetime_outstanding": lifetime_outstanding,
+        "lifetime_outstanding_abs": lifetime_outstanding_abs,
+        "lifetime_progress": (lifetime_paid / lifetime_billed * 100) if lifetime_billed > 0 else 0,
+        "bill_count": len(bills_qs),
+        "today": timezone.now().date(),
+    }
+    return render(request, "fees/student_fees_history.html", context)
 
 
 @login_required
@@ -550,12 +813,168 @@ def upload_bill_document(request, id):
 
 @login_required
 def delete_bill_document(request, id):
-    document = get_object_or_404(StudentDocument, id=id)
+    document = get_object_or_404(StudentDocument, id=id, student__is_active=True)
     bill_id = document.bill.id
     document.delete()
     messages.success(request, DELETE_MESSAGE)
     return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill_id]))
 
 
+@login_required
+def student_fees_receipt_pdf_view(request, student_id):
+    """Generate a PDF receipt for all student fees payments across all years."""
+    from collections import OrderedDict
+    from app.utils.pdf_utils import generate_student_fees_receipt_pdf
+    from app.models.school_settings import SchoolSetting
+    
+    student = get_object_or_404(Student, pk=student_id, is_active=True)
+    
+    # Get all bills for the student
+    bills_qs = (
+        StudentBill.objects
+        .filter(student=student)
+        .select_related('academic_class', 'academic_class__Class',
+                        'academic_class__academic_year', 'academic_class__term')
+        .prefetch_related('items', 'items__bill_item', 'payments')
+        .order_by('-academic_class__academic_year__id', '-academic_class__term__id')
+    )
+    
+    now = timezone.now().date()
+    
+    # Build years_data structure for PDF
+    years_data = OrderedDict()
+    
+    for bill in bills_qs:
+        total_amount = bill.total_amount
+        amount_paid = bill.amount_paid
+        balance = total_amount - amount_paid
+        
+        # Determine balance label
+        if total_amount == 0 and amount_paid == 0:
+            balance_label = ""
+        elif amount_paid >= total_amount and total_amount > 0:
+            balance_label = ""
+            balance = 0
+        elif amount_paid > total_amount:
+            balance_label = "CR"
+            balance = abs(balance)
+        else:
+            balance_label = "DR"
+            balance = abs(balance)
+        
+        # Get term name
+        term_obj = bill.academic_class.term if bill.academic_class else None
+        term_name = str(term_obj) if term_obj else "N/A"
+        
+        # Build bill data for PDF
+        bill_data = {
+            "description": f"Term {term_name}",
+            "term": term_name,
+            "total_amount": total_amount,
+            "amount_paid": amount_paid,
+            "balance": balance,
+        }
+        
+        year_obj = bill.academic_class.academic_year
+        year_key = str(year_obj.academic_year)  # Use year string as key
+        
+        if year_key not in years_data:
+            years_data[year_key] = {
+                "year": year_obj,
+                "bills": [],
+            }
+        years_data[year_key]["bills"].append(bill_data)
+    
+    # Get school settings
+    try:
+        school = SchoolSetting.objects.first()
+    except:
+        school = None
+    
+    # Generate PDF
+    pdf_buffer = generate_student_fees_receipt_pdf(student, years_data, school)
+    
+    # Return PDF response
+    response = HttpResponse(pdf_buffer, content_type='application/pdf')
+    filename = f"Receipt_{student.reg_no}_{timezone.now().strftime('%Y%m%d')}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
+@login_required
+def reconcile_student_overpayments(request, student_id):
+    """Reconcile overpayments from later terms to cover earlier term balances."""
+    from app.models.fees_payment import StudentBill, StudentCredit
+    from app.models.classes import AcademicClass
+    
+    student = get_object_or_404(Student, pk=student_id, is_active=True)
+    
+    # Get all bills for student ordered by term (earliest first)
+    bills = (
+        StudentBill.objects
+        .filter(student=student)
+        .select_related('academic_class__term', 'academic_class__academic_year')
+        .order_by('academic_class__academic_year__academic_year', 'academic_class__term__term')
+    )
+    
+    bills_list = list(bills)
+    total_transferred = 0
+    
+    # Get all existing credits to avoid duplicates
+    existing_credits = StudentCredit.objects.filter(
+        student=student,
+        is_applied=True
+    ).values_list('original_bill_id', 'applied_to_bill_id')
+    existing_pairs = set(existing_credits)
+    
+    # Find overpayments in later terms (higher index) and apply to earlier term balances (lower index)
+    # Iterate from the last bill (latest term) backwards to the first (earliest term)
+    for i in range(len(bills_list) - 1, -1, -1):
+        later_bill = bills_list[i]
+        later_bill.refresh_from_db()
+        
+        # Use raw balance (total_amount - amount_paid)
+        raw_balance = later_bill.total_amount - later_bill.amount_paid
+        
+        # If there's a raw overpayment (paid more than billed)
+        if raw_balance < 0:
+            overpayment = abs(raw_balance)
+            
+            # Find earlier bills with outstanding balances (index < i)
+            for j in range(i):
+                if overpayment <= 0:
+                    break
+                    
+                earlier_bill = bills_list[j]
+                earlier_bill.refresh_from_db()
+                
+                # Use raw balance for earlier bills too
+                earlier_raw_balance = earlier_bill.total_amount - earlier_bill.amount_paid
+                
+                if earlier_raw_balance > 0:  # Earlier bill has outstanding balance
+                    # Calculate how much can be transferred
+                    transfer_amount = min(overpayment, earlier_raw_balance)
+                    
+                    # Check if this credit already exists
+                    credit_key = (later_bill.id, earlier_bill.id)
+                    if credit_key not in existing_pairs:
+                        # Create credit (negative amount to reduce balance)
+                        StudentCredit.objects.create(
+                            student=student,
+                            amount=-transfer_amount,
+                            description=f"Auto-transfer from Term {later_bill.academic_class.term} overpayment to cover earlier balance",
+                            original_bill=later_bill,
+                            applied_to_bill=earlier_bill,
+                            is_applied=True,
+                            applied_date=timezone.now().date()
+                        )
+                        existing_pairs.add(credit_key)
+                        total_transferred += transfer_amount
+                        overpayment -= transfer_amount
+    
+    if total_transferred > 0:
+        messages.success(request, f"Successfully transferred UGX {total_transferred:,.0f} from overpayments to cover earlier balances.")
+    else:
+        messages.info(request, "No overpayments to reconcile.")
+    
+    return HttpResponseRedirect(reverse('student_fees_history', args=[student.id]))

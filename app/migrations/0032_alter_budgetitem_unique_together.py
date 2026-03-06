@@ -3,6 +3,37 @@
 from django.db import migrations
 
 
+class AlterUniqueTogetherIfMissing(migrations.AlterUniqueTogether):
+    """Apply unique_together only when equivalent unique constraints are absent."""
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        desired_uniques = self.unique_together or set()
+        if not desired_uniques:
+            return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+        model = to_state.apps.get_model(app_label, self.name)
+        table_name = model._meta.db_table
+
+        desired_column_sets = set()
+        for field_names in desired_uniques:
+            columns = tuple(model._meta.get_field(field_name).column for field_name in field_names)
+            desired_column_sets.add(frozenset(columns))
+
+        with schema_editor.connection.cursor() as cursor:
+            constraints = schema_editor.connection.introspection.get_constraints(cursor, table_name)
+
+        existing_unique_column_sets = {
+            frozenset(info.get("columns") or [])
+            for info in constraints.values()
+            if info.get("unique") and info.get("columns")
+        }
+
+        if desired_column_sets.issubset(existing_unique_column_sets):
+            return
+
+        return super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,7 +41,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterUniqueTogether(
+        AlterUniqueTogetherIfMissing(
             name='budgetitem',
             unique_together={('budget', 'department', 'expense')},
         ),

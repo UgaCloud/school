@@ -11,7 +11,12 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 import json
 from .models import Classroom, TimeSlot, BreakPeriod, Timetable
-from app.models.attendance import AttendanceSession, AttendanceRecord
+from app.models.attendance import (
+    AttendanceAuditLog,
+    AttendancePolicy,
+    AttendanceRecord,
+    AttendanceSession,
+)
 
 # admin.site.register(Staff)
 admin.site.register(Role)
@@ -40,6 +45,7 @@ admin.site.register(Stream)
 @admin.register(SchoolSetting)
 class SchoolSettingAdmin(admin.ModelAdmin):
     filter_horizontal = ("division_critical_subjects",)
+
 
 admin.site.register(Department)
 
@@ -160,6 +166,31 @@ class AcademicClassStreamAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related('academic_class', 'stream', 'class_teacher')
+
+
+@admin.register(StudentPromotionHistory)
+class StudentPromotionHistoryAdmin(admin.ModelAdmin):
+    list_display = (
+        "promoted_at",
+        "promoted_by",
+        "source_academic_class",
+        "target_academic_class",
+        "total_candidates",
+        "promoted_count",
+        "already_registered_count",
+    )
+    list_filter = (
+        "promoted_at",
+        "active_students_only",
+        "source_academic_class",
+        "target_academic_class",
+    )
+    search_fields = (
+        "promoted_by__username",
+        "source_academic_class__Class__name",
+        "target_academic_class__Class__name",
+    )
+    readonly_fields = ("promoted_at",)
     
     
 
@@ -219,6 +250,52 @@ class AttendanceRecordAdmin(admin.ModelAdmin):
     list_display = ("session", "student", "status", "captured_by", "captured_at")
     list_filter = ("status", "captured_at")
     search_fields = ("student__student_name", "session__class_stream__academic_class__Class__name")
+
+
+@admin.register(AttendancePolicy)
+class AttendancePolicyAdmin(admin.ModelAdmin):
+    list_display = (
+        "minimum_attendance_percent",
+        "allow_teacher_edit_locked_sessions",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return not AttendancePolicy.objects.exists()
+
+
+@admin.register(AttendanceAuditLog)
+class AttendanceAuditLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "action",
+        "session",
+        "record",
+        "actor",
+        "old_status",
+        "new_status",
+        "reason",
+        "created_at",
+    )
+    list_filter = ("action", "created_at")
+    search_fields = (
+        "session__class_stream__academic_class__Class__name",
+        "session__subject__name",
+        "record__student__student_name",
+        "actor__username",
+        "reason",
+    )
+    readonly_fields = (
+        "session",
+        "record",
+        "action",
+        "actor",
+        "old_status",
+        "new_status",
+        "reason",
+        "details",
+        "created_at",
+    )
+
 
 # Register BreakPeriod model
 @admin.register(BreakPeriod)

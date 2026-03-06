@@ -32,13 +32,11 @@ class PaymentForm(ModelForm):
     
     class Meta:
         model = Payment
-        fields = ("__all__")
+        fields = ["payment_date", "amount", "payment_method", "reference_no"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.Helper = FormHelper()
-        self.fields["bill"].widget = HiddenInput()
-        self.fields["recorded_by"].widget = HiddenInput()
         # Allow auto-generation of reference number when not provided
         if "reference_no" in self.fields:
             self.fields["reference_no"].required = False

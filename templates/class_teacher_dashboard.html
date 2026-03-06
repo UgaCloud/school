@@ -1,111 +1,66 @@
 {% load static %}
 
 <ul class="nav side-menu">
-
-  <!-- DASHBOARD -->
   <li>
     <a href="{% url 'index_page' %}">
       <i class="fa fa-dashboard"></i> Dashboard
     </a>
   </li>
 
-  <!-- MY CLASS -->
   <li>
-    <a>
+    <a href="{% url 'academic_class_page' %}">
       <i class="fa fa-users"></i> My Class
-      <span class="fa fa-chevron-down"></span>
     </a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'academic_class_page' %}">Class Overview</a></li>
-      <li><a href="{% url 'class_subject_allocation_page' %}">Subject Allocation</a></li>
-    </ul>
   </li>
 
-  <!-- STUDENTS -->
   <li>
-    <a>
-      <i class="fa fa-user"></i> Students
-      <span class="fa fa-chevron-down"></span>
+    <a href="{% url 'attendance_dashboard' %}">
+      <i class="fa fa-calendar-check-o"></i> Attendance
     </a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'student_page' %}">Student List</a></li>
-    </ul>
   </li>
 
-  <!-- ATTENDANCE -->
   <li>
-    <a>
-      <i class="fa fa-check-square-o"></i> Attendance
-      <span class="fa fa-chevron-down"></span>
+    <a href="{% url 'student_page' %}">
+      <i class="fa fa-user"></i> Student Profiles
     </a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'attendance_dashboard' %}">Attendance Overview</a></li>
-      <li><a href="{% url 'take_attendance' %}">Take Attendance</a></li>
-      <li><a href="{% url 'student_attendance_report' %}">Student Reports</a></li>
-      <li><a href="{% url 'class_attendance_report' %}">Class Reports</a></li>
-    </ul>
   </li>
 
-  <!-- TIMETABLE -->
   <li>
-    <a>
-      <i class="fa fa-calendar"></i> Timetable
-      <span class="fa fa-chevron-down"></span>
+    <a href="{% url 'under_construction' %}">
+      <i class="fa fa-exclamation-triangle"></i> Behaviour Log
     </a>
-    <ul class="nav child_menu">
-      <li><a href="#">My Teaching Timetable</a></li>
-      <li><a href="#">Exam Timetable</a></li>
-    </ul>
   </li>
 
-  <!-- RESULTS -->
   <li>
-    <a>
-      <i class="fa fa-graduation-cap"></i> Results
-      <span class="fa fa-chevron-down"></span>
+    <a href="{% url 'message_inbox' %}">
+      <i class="fa fa-comments"></i> Parent Communication
     </a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'add_results_page' %}">Enter Results</a></li>
-      <li><a href="{% url 'class_stream_filter' %}">View Results</a></li>
-      <li><a href="{% url 'assessment_sheet' %}">Assessment Sheets</a></li>
-    </ul>
   </li>
 
-  <!-- COMMUNICATION -->
+  <li>
+    <a href="{% url 'class_bulk_reports' %}">
+      <i class="fa fa-file-text-o"></i> Report Cards
+    </a>
+  </li>
+
+  <li>
+    <a href="{% url 'class_stream_filter' %}">
+      <i class="fa fa-flag"></i> At-Risk Students
+    </a>
+  </li>
+
   <li>
     <a>
-      <i class="fa fa-bullhorn"></i> Communication
+      <i class="fa fa-bullhorn"></i> Announcements
       {% if comm_unread_count > 0 %}
-        <span class="badge bg-green">{{ comm_unread_count }}</span>
+      <span class="badge bg-green">{{ comm_unread_count }}</span>
       {% endif %}
       <span class="fa fa-chevron-down"></span>
     </a>
     <ul class="nav child_menu">
-      <li>
-        <a href="{% url 'announcement_list' %}">
-          Announcements
-          {% if comm_unread_breakdown.announcements > 0 %}
-            <span class="badge bg-green">{{ comm_unread_breakdown.announcements }}</span>
-          {% endif %}
-        </a>
-      </li>
-      <li>
-        <a href="{% url 'event_list' %}">
-          Events
-          {% if comm_unread_breakdown.events > 0 %}
-            <span class="badge bg-green">{{ comm_unread_breakdown.events }}</span>
-          {% endif %}
-        </a>
-      </li>
-      <li>
-        <a href="{% url 'message_inbox' %}">
-          Messages
-          {% if comm_unread_breakdown.messages > 0 %}
-            <span class="badge bg-green">{{ comm_unread_breakdown.messages }}</span>
-          {% endif %}
-        </a>
-      </li>
+      <li><a href="{% url 'announcement_list' %}">Announcements</a></li>
+      <li><a href="{% url 'event_list' %}">Events</a></li>
+      <li><a href="{% url 'message_inbox' %}">Messages</a></li>
     </ul>
   </li>
-
 </ul>

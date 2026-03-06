@@ -6,8 +6,43 @@
         <div class="nav toggle">
             <a id="menu_toggle"><i class="fa fa-bars"></i></a>
         </div>
+        <div class="topnav-global-search-wrap">
+            <form method="get" action="{% url 'global_search' %}" class="topnav-global-search-form">
+                <div class="input-group input-group-sm">
+                    <input
+                        type="text"
+                        name="q"
+                        class="form-control"
+                        value="{% if request.resolver_match.url_name == 'global_search' %}{{ request.GET.q }}{% endif %}"
+                        placeholder="Search students, staff, classes..."
+                        aria-label="Global search"
+                    >
+                    <span class="input-group-btn">
+                        <button class="btn btn-primary" type="submit"><i class="fa fa-search"></i></button>
+                    </span>
+                </div>
+            </form>
+        </div>
         <nav class="nav navbar-nav">
             <ul class=" navbar-right">
+                <li class="nav-item" style="padding: 8px 12px 0 0;">
+                    {% if can_switch_school_level %}
+                    <form method="post" action="{% url 'switch_school_level' %}" class="form-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <select name="active_school_level" class="form-control input-sm" onchange="this.form.submit()">
+                            {% for level in enabled_school_levels %}
+                            <option value="{{ level.value }}" {% if level.value == active_school_level %}selected{% endif %}>
+                                {{ level.label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% else %}
+                    <span class="label label-primary" style="font-size: 11px;">{{ active_school_level_label }}</span>
+                    {% endif %}
+                </li>
+
                 <li class="nav-item dropdown open" style="padding-left: 15px;">
                     <a href="javascript:;" class="user-profile dropdown-toggle" aria-haspopup="true" id="navbarDropdown"
                         data-toggle="dropdown" aria-expanded="false">
@@ -43,6 +78,7 @@
 
 
 
+                {% if is_primary_mode %}
                 <li role="presentation" class="nav-item dropdown open">
                     {% pending_verification_count as p_count %}
                     <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdown1"
@@ -86,6 +122,7 @@
                         </li>
                     </ul>
                 </li>
+                {% endif %}
 
                 <li role="presentation" class="nav-item dropdown open">
                     <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdownComm"

@@ -3,6 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Term Report - {{ student.student_name }} | {{ school.school_name }}</title>
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}" />
     <style>
@@ -125,6 +126,13 @@
             text-align: right;
             margin-bottom: 1cm;
         }
+        .term-filter-form form {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
 
         .print-btn {
             background-color: var(--primary-color);
@@ -241,6 +249,7 @@
             </div>
         </div>
         <div class="title">END OF TERM {{ term|default:"-" }} REPORT CARD - {{ academic_year|default:"-" }}</div>
+        {% if not is_bulk_report %}
         <div class="term-filter-form">
             <form method="get">
                 <label for="term_id"><strong>Select Term:</strong></label>
@@ -251,8 +260,14 @@
                     </option>
                     {% endfor %}
                 </select>
+                <label for="report_format"><strong>Report Format:</strong></label>
+                <select name="report_format" id="report_format" onchange="this.form.submit()">
+                    <option value="standard" {% if selected_report_format == "standard" %}selected{% endif %}>Standard</option>
+                    <option value="tahfiz" {% if selected_report_format == "tahfiz" %}selected{% endif %}>Tahfiz</option>
+                </select>
             </form>
         </div>
+        {% endif %}
         <div class="info">
             <div class="info-photo">
                 {% if student.photo %}
@@ -269,7 +284,9 @@
             </div>
         </div>
         
+        {% if not is_bulk_report %}
         <button onclick="window.print()" class="print-btn">Print Report</button>
+        {% endif %}
         {% if not report_data %}
         <p style="color: red;">No report data available.</p>
         {% endif %}

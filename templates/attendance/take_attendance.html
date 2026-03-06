@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% load get_item %}
-{% load static %}
 
 {% block page_title %}Take Attendance{% endblock page_title %}
 
@@ -9,145 +8,169 @@
   <div class="col-md-12">
     <div class="x_panel">
       <div class="x_title">
-        <h2><i class="fa fa-pencil-square-o"></i> Take Attendance</h2>
-        <ul class="nav navbar-right panel_toolbox">
-          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
-        </ul>
+        <h2><i class="fa fa-pencil-square-o"></i> Lesson Attendance</h2>
         <div class="clearfix"></div>
       </div>
       <div class="x_content">
-        
-        <!-- Filter Section -->
-        <form method="get" class="form-inline mb-3" id="attendanceFilterForm">
-          <div class="form-group mr-2">
-            <label for="class_stream"><strong>Class:</strong></label>
-            <select name="class_stream" id="class_stream" class="form-control ml-2" onchange="this.form.submit()">
-              <option value="">-- Select Class --</option>
+
+        <form method="get" class="attendance-filter-grid" style="margin-bottom: 16px;">
+          <div class="form-group">
+            <label for="class_stream" class="control-label">Class</label>
+            <select name="class_stream" id="class_stream" class="form-control">
+              <option value="">Select class</option>
               {% for stream in class_streams %}
-              <option value="{{ stream.id }}" {% if request.GET.class_stream == stream.id|stringformat:"s" %}selected{% endif %}>{{ stream }}</option>
+              <option value="{{ stream.id }}" {% if selected_class_stream and selected_class_stream.id == stream.id %}selected{% endif %}>{{ stream }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group mr-2">
-            <label for="subject"><strong>Subject:</strong></label>
-            <select name="subject" id="subject" class="form-control ml-2" onchange="this.form.submit()">
-              <option value="">-- Select Subject --</option>
+          <div class="form-group">
+            <label for="subject" class="control-label">Subject</label>
+            <select name="subject" id="subject" class="form-control">
+              <option value="">Select subject</option>
               {% for subject in subjects %}
-              <option value="{{ subject.id }}" {% if request.GET.subject == subject.id|stringformat:"s" %}selected{% endif %}>
-                {{ subject.name }}
-              </option>
+              <option value="{{ subject.id }}" {% if selected_subject and selected_subject.id == subject.id %}selected{% endif %}>{{ subject.name }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group mr-2">
-            <label for="quick_date"><strong>Quick Date:</strong></label>
-            <select name="quick_date" id="quick_date" class="form-control ml-2" onchange="quickDateSelect(this.value)">
-              <option value="">-- Select --</option>
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="this_week">This Week</option>
-            </select>
+          <div class="form-group">
+            <label for="date" class="control-label">Date</label>
+            <input type="date" name="date" id="date" class="form-control" value="{% if session %}{{ session.date|date:'Y-m-d' }}{% else %}{{ request.GET.date|default:'' }}{% endif %}">
           </div>
-          <button type="submit" class="btn btn-primary">
-            <i class="fa fa-search"></i> Load
-          </button>
+          <div class="form-group">
+            <label for="time_slot" class="control-label">Lesson Period</label>
+            {% with selected_time_slot=session_form.time_slot.value|stringformat:"s" %}
+            <select name="time_slot" id="time_slot" class="form-control">
+              <option value="">Auto (from timetable)</option>
+              {% for slot in session_form.fields.time_slot.queryset %}
+              <option value="{{ slot.id }}" {% if selected_time_slot == slot.id|stringformat:"s" %}selected{% endif %}>{{ slot }}</option>
+              {% endfor %}
+            </select>
+            {% endwith %}
+          </div>
+          <div class="attendance-filter-actions">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-search"></i> Load Lesson
+            </button>
+            <a href="{% url 'teacher_timetable' %}" class="btn btn-default">
+              <i class="fa fa-calendar"></i> My Timetable
+            </a>
+          </div>
         </form>
 
-        {% if request.GET.class_stream and request.GET.subject %}
+        {% if selected_class_stream and selected_subject and session %}
 
-        <!-- Locked Warning - Only shown to admins -->
-        {% if is_locked and can_unlock %}
-        <div class="alert alert-warning d-flex align-items-center justify-content-between">
-          <div>
-            <i class="fa fa-lock mr-2"></i> 
-            <strong>This attendance session is locked.</strong> No further edits are allowed.
-          </div>
-          {% if session %}
-          <a href="{% url 'unlock_attendance' session.id %}" class="btn btn-sm btn-danger"
-            onclick="return confirm('Unlock this attendance session for editing?');">
-            <i class="fa fa-unlock"></i> Unlock
-          </a>
+        <div class="alert {% if is_locked %}alert-success{% else %}alert-info{% endif %}" style="margin-bottom: 12px;">
+          {% if is_locked %}
+          <strong><i class="fa fa-check-circle"></i> Attendance submitted successfully.</strong> Editing locked.
+          {% else %}
+          <strong><i class="fa fa-info-circle"></i> Active lesson attendance sheet loaded.</strong>
           {% endif %}
         </div>
+
+        <div class="x_panel lesson-meta-panel" style="border:1px solid #dce4ec;">
+          <div class="x_content" style="padding-top: 10px;">
+            <div class="row">
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Class:</strong><br>{{ selected_class_stream }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Subject:</strong><br>{{ selected_subject.name }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Teacher:</strong><br>{{ session.teacher }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Date:</strong><br>{{ session.date|date:"d M Y" }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Lesson Period:</strong><br>{{ session.lesson_period }}</div>
+              <div class="col-md-2 col-sm-4 col-xs-6 lesson-meta-item"><strong>Term / Year:</strong><br>T{{ session.term.term }} / {{ session.academic_year.academic_year }}</div>
+            </div>
+          </div>
+        </div>
+
+        {% if is_locked and can_unlock %}
+        <form method="post" action="{% url 'unlock_attendance' session.id %}" id="unlockSessionForm" style="display:none;">
+          {% csrf_token %}
+          <input type="hidden" name="reason" value="Admin override from lesson attendance page">
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        </form>
         {% endif %}
 
-        <!-- Attendance Form -->
-        <form method="post">
+        <form method="post" id="attendanceForm">
           {% csrf_token %}
-          <input type="hidden" name="class_stream" value="{{ request.GET|get_item:'class_stream'|default:'' }}">
-          <input type="hidden" name="subject" value="{{ request.GET|get_item:'subject'|default:'' }}">
+          <input type="hidden" name="class_stream" value="{{ selected_class_stream.id }}">
+          <input type="hidden" name="subject" value="{{ selected_subject.id }}">
+          <input type="hidden" name="date" value="{{ session.date|date:'Y-m-d' }}">
+          {% if session.time_slot_id %}
+          <input type="hidden" name="time_slot" value="{{ session.time_slot_id }}">
+          {% endif %}
+          <input type="hidden" name="attendance_payload" id="attendance_payload">
 
-          <!-- Date and Time -->
-          <div class="row mb-3">
-            <div class="col-md-2">
-              <div class="form-group">
-                <label><strong>Date</strong></label>
-                {{ session_form.date }}
+          <div class="attendance-toolbar">
+            <div class="attendance-toolbar-left">
+              <div class="btn-group btn-group-sm attendance-bulk-actions" role="group" aria-label="Bulk attendance actions">
+                <button type="button" class="btn btn-success" onclick="markAll('present')" {% if is_locked %}disabled{% endif %}>
+                  <i class="fa fa-check-square-o"></i> All Present
+                </button>
+                <button type="button" class="btn btn-danger" onclick="markAll('absent')" {% if is_locked %}disabled{% endif %}>
+                  <i class="fa fa-times-circle"></i> All Absent
+                </button>
+                <button type="button" class="btn btn-warning" onclick="markAll('late')" {% if is_locked %}disabled{% endif %}>
+                  <i class="fa fa-clock-o"></i> All Late
+                </button>
+                <button type="button" class="btn btn-info" onclick="markAll('excused')" {% if is_locked %}disabled{% endif %}>
+                  <i class="fa fa-medkit"></i> All Excused
+                </button>
               </div>
             </div>
-            <div class="col-md-3">
-              <div class="form-group">
-                <label><strong>Time Slot</strong></label>
-                {{ session_form.time_slot }}
+            <div class="attendance-toolbar-right">
+              <div class="attendance-search-wrap">
+                <i class="fa fa-search"></i>
+                <input type="text" id="studentSearchInput" class="form-control input-sm" placeholder="Search student name or reg no">
               </div>
-            </div>
-            <div class="col-md-7 text-right">
-              <div class="mt-4">
-                <span class="badge bg-primary fs-6">{{ students|length }} Students</span>
+              <div class="btn-group btn-group-sm attendance-status-filter" role="group" aria-label="Filter by status">
+                <button type="button" class="btn btn-default status-filter-btn active" data-filter="all">All</button>
+                <button type="button" class="btn btn-default status-filter-btn" data-filter="present">Present</button>
+                <button type="button" class="btn btn-default status-filter-btn" data-filter="absent">Absent</button>
+                <button type="button" class="btn btn-default status-filter-btn" data-filter="late">Late</button>
+                <button type="button" class="btn btn-default status-filter-btn" data-filter="excused">Excused</button>
               </div>
+              <a href="{% url 'attendance_history' %}" class="btn btn-default btn-sm">
+                <i class="fa fa-history"></i> History
+              </a>
+              {% if is_locked and can_unlock %}
+              <button type="button" class="btn btn-danger btn-sm" onclick="submitUnlockForm()">
+                <i class="fa fa-unlock"></i> Reopen
+              </button>
+              {% endif %}
             </div>
           </div>
 
-          {% if students %}
-          <!-- Students Table with Photos -->
-          <div class="table-responsive">
-            <table class="table table-hover table-bordered" style="background: white;">
-              <thead class="thead-dark">
+          <div class="attendance-roster-meta text-muted">
+            Showing <strong id="visibleStudentsCount">{{ students|length }}</strong> of <strong>{{ students|length }}</strong> students
+          </div>
+
+          <div class="table-responsive attendance-table-wrap">
+            <table class="table table-bordered table-striped attendance-roster-table">
+              <thead>
                 <tr>
-                  <th width="50">#</th>
-                  <th width="60">Photo</th>
+                  <th>#</th>
                   <th>Student Name</th>
                   <th>Reg No</th>
-                  <th>Status</th>
+                  <th style="min-width:250px;">Status</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
               <tbody>
                 {% for reg in students %}
                 {% with rec=records|get_item:reg.student.id %}
-                <tr>
+                <tr class="attendance-row status-row-{{ rec.status|default:'present' }}" data-student="{{ reg.student.id }}" data-status="{{ rec.status|default:'present' }}" data-search="{{ reg.student.student_name|lower }} {{ reg.student.reg_no|lower }}">
                   <td>{{ forloop.counter }}</td>
-                  <td>
-                    {% if reg.student.photo %}
-                    <img src="{{ reg.student.photo.url }}" alt="{{ reg.student.student_name }}" 
-                         class="rounded-circle" width="40" height="40" style="object-fit: cover;">
-                    {% else %}
-                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" 
-                         style="width: 40px; height: 40px;">
-                      <i class="fa fa-user text-white"></i>
-                    </div>
-                    {% endif %}
-                  </td>
-                  <td><strong>{{ reg.student.student_name }}</strong></td>
+                  <td>{{ reg.student.student_name }}</td>
                   <td>{{ reg.student.reg_no }}</td>
                   <td>
-                    <div class="custom-control custom-checkbox">
-                      <input type="checkbox" class="custom-control-input attendance-present" 
-                             id="student_{{ reg.student.id }}" 
-                             data-student="{{ reg.student.id }}"
-                             {% if rec and rec.status == "present" %}checked{% endif %} 
-                             {% if is_locked and not can_unlock %}disabled{% endif %}>
-                      <label class="custom-control-label text-success font-weight-bold" for="student_{{ reg.student.id }}">
-                        Present
-                      </label>
+                    <input type="hidden" class="status-input" data-student="{{ reg.student.id }}" value="{{ rec.status|default:'present' }}">
+                    <div class="btn-group btn-group-sm attendance-status-group" role="group" data-status-group="{{ reg.student.id }}">
+                      <button type="button" class="btn status-btn status-present {% if rec and rec.status == 'present' or not rec %}active{% endif %}" data-status="present" onclick="setStatus('{{ reg.student.id }}', 'present')" {% if is_locked %}disabled{% endif %}>Present</button>
+                      <button type="button" class="btn status-btn status-absent {% if rec and rec.status == 'absent' %}active{% endif %}" data-status="absent" onclick="setStatus('{{ reg.student.id }}', 'absent')" {% if is_locked %}disabled{% endif %}>Absent</button>
+                      <button type="button" class="btn status-btn status-late {% if rec and rec.status == 'late' %}active{% endif %}" data-status="late" onclick="setStatus('{{ reg.student.id }}', 'late')" {% if is_locked %}disabled{% endif %}>Late</button>
+                      <button type="button" class="btn status-btn status-excused {% if rec and rec.status == 'excused' %}active{% endif %}" data-status="excused" onclick="setStatus('{{ reg.student.id }}', 'excused')" {% if is_locked %}disabled{% endif %}>Excused</button>
                     </div>
                   </td>
                   <td>
-                    <input type="text" class="form-control form-control-sm attendance-remarks" 
-                           data-student="{{ reg.student.id }}"
-                           placeholder="Enter remarks"
-                           value="{{ rec.remarks|default:"" }}" 
-                           {% if is_locked and not can_unlock %}disabled{% endif %}>
+                    <input type="text" class="form-control input-sm remarks-input" data-student="{{ reg.student.id }}" value="{{ rec.remarks|default:'' }}" placeholder="Optional remark" {% if is_locked %}readonly{% endif %}>
                   </td>
                 </tr>
                 {% endwith %}
@@ -156,92 +179,468 @@
             </table>
           </div>
 
-          <input type="hidden" name="attendance_payload" id="attendance_payload">
-          
-          <div class="mt-3">
-            {% if is_locked %}
-            {% if can_unlock %}
-            <span class="badge bg-warning"><i class="fa fa-lock"></i> Locked - Only admins can edit</span>
-            {% else %}
-            <span class="badge bg-secondary"><i class="fa fa-lock"></i> Attendance Locked - View Only</span>
-            {% endif %}
-            {% else %}
-            <button type="button" class="btn btn-outline-success" onclick="toggleAllPresent(true)">
-              <i class="fa fa-check-square"></i> Mark All Present
-            </button>
-            <button type="button" class="btn btn-outline-secondary" onclick="toggleAllPresent(false)">
-              <i class="fa fa-square"></i> Unmark All
-            </button>
-            <button type="submit" class="btn btn-success btn-lg" onclick="prepareAttendancePayload(); return true;">
-              <i class="fa fa-save"></i> Save Attendance
-            </button>
-            {% endif %}
-            <span class="ml-3 text-muted">
-              <i class="fa fa-info-circle"></i> Check the students who are present
-            </span>
+          <div id="noStudentsMatch" class="alert alert-warning attendance-no-match" style="display:none;">
+            No students match the current search/filter.
           </div>
-          {% else %}
-          <div class="alert alert-warning">No students found for this class stream.</div>
-          {% endif %}
+
+          <div class="row attendance-summary-row">
+            <div class="col-md-3 col-sm-6 col-xs-6"><span class="sum-pill present">Present: <strong id="sumPresent">{{ summary.present }}</strong></span></div>
+            <div class="col-md-3 col-sm-6 col-xs-6"><span class="sum-pill absent">Absent: <strong id="sumAbsent">{{ summary.absent }}</strong></span></div>
+            <div class="col-md-3 col-sm-6 col-xs-6"><span class="sum-pill late">Late: <strong id="sumLate">{{ summary.late }}</strong></span></div>
+            <div class="col-md-3 col-sm-6 col-xs-6"><span class="sum-pill excused">Excused: <strong id="sumExcused">{{ summary.excused }}</strong></span></div>
+          </div>
+
+          <div class="attendance-submit-bar">
+            <div class="submit-meta text-muted">Submit to lock this lesson attendance sheet.</div>
+            <div class="submit-actions">
+              <button type="button" class="btn btn-primary" id="submitAttendanceBtn" {% if is_locked %}disabled{% endif %}>
+                <i class="fa fa-save"></i> Submit Attendance
+              </button>
+              <a href="{% url 'attendance_dashboard' %}" class="btn btn-default">Cancel</a>
+            </div>
+          </div>
+
         </form>
+
         {% else %}
-        <div class="alert alert-info">
-          <i class="fa fa-info-circle mr-2"></i> 
-          Select a class stream and subject to load the attendance list.
-        </div>
+        <div class="alert alert-warning">Select class and subject from your timetable allocations to start attendance.</div>
         {% endif %}
+
       </div>
     </div>
   </div>
 </div>
 
+<div class="modal fade" id="confirmSubmitModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Confirm Attendance Submission</h4>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to submit attendance for
+        <strong>{% if selected_class_stream %}{{ selected_class_stream }}{% endif %} - {% if selected_subject %}{{ selected_subject.name }}{% endif %}</strong>
+        {% if session and session.lesson_period %}({{ session.lesson_period }}){% endif %}?<br>
+        This action will lock editing.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmSubmitBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.attendance-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.attendance-filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.attendance-filter-actions .btn {
+  min-width: 120px;
+}
+
+.lesson-meta-panel {
+  margin-bottom: 14px;
+  background: #f9fbfe;
+  border-radius: 8px;
+}
+
+.lesson-meta-item {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.attendance-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0 10px;
+}
+
+.attendance-toolbar-left,
+.attendance-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.attendance-search-wrap {
+  position: relative;
+  min-width: 240px;
+}
+
+.attendance-search-wrap i {
+  position: absolute;
+  left: 10px;
+  top: 9px;
+  color: #8fa3b7;
+}
+
+.attendance-search-wrap input {
+  padding-left: 30px;
+}
+
+.status-filter-btn.active {
+  background: #34495e !important;
+  color: #fff !important;
+  border-color: #2c3e50 !important;
+}
+
+.attendance-roster-meta {
+  margin-bottom: 8px;
+}
+
+.attendance-table-wrap {
+  border: 1px solid #e3e9ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.attendance-roster-table {
+  margin-bottom: 0;
+}
+
+.attendance-roster-table thead th {
+  white-space: nowrap;
+  background: #f4f8fc;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.attendance-row td {
+  vertical-align: middle !important;
+}
+
+.attendance-row.status-row-present {
+  border-left: 3px solid #26b99a;
+}
+
+.attendance-row.status-row-absent {
+  border-left: 3px solid #d9534f;
+}
+
+.attendance-row.status-row-late {
+  border-left: 3px solid #f0ad4e;
+}
+
+.attendance-row.status-row-excused {
+  border-left: 3px solid #337ab7;
+}
+
+.attendance-status-group .btn {
+  min-width: 72px;
+}
+
+.status-btn {
+  color: #fff !important;
+  border: none;
+  opacity: 0.75;
+}
+
+.status-btn.active {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+
+.status-present {
+  background: #26b99a;
+}
+
+.status-absent {
+  background: #d9534f;
+}
+
+.status-late {
+  background: #f0ad4e;
+}
+
+.status-excused {
+  background: #337ab7;
+}
+
+.attendance-summary-row {
+  margin-top: 10px;
+  margin-bottom: 16px;
+}
+
+.sum-pill {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e1e9f2;
+  background: #fff;
+}
+
+.sum-pill.present {
+  border-left: 4px solid #26b99a;
+}
+
+.sum-pill.absent {
+  border-left: 4px solid #d9534f;
+}
+
+.sum-pill.late {
+  border-left: 4px solid #f0ad4e;
+}
+
+.sum-pill.excused {
+  border-left: 4px solid #337ab7;
+}
+
+.attendance-submit-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  background: #fff;
+  border-top: 1px solid #dfe6ee;
+  padding: 12px 0 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.submit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 1199px) {
+  .attendance-filter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .attendance-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-filter-actions {
+    justify-content: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-filter-actions .btn {
+    width: 100%;
+  }
+
+  .attendance-search-wrap {
+    min-width: 100%;
+  }
+
+  .attendance-status-group .btn {
+    min-width: auto;
+  }
+
+  .attendance-submit-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .submit-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .submit-actions .btn {
+    width: 100%;
+  }
+}
+</style>
+
 <script>
-function quickDateSelect(value) {
-  if (!value) return;
-  
-  const today = new Date();
-  let dateStr;
-  
-  switch(value) {
-    case 'today':
-      dateStr = today.toISOString().split('T')[0];
-      break;
-    case 'yesterday':
-      const yesterday = new Date(today);
-      yesterday.setDate(today.getDate() - 1);
-      dateStr = yesterday.toISOString().split('T')[0];
-      break;
-    case 'this_week':
-      const dayOfWeek = today.getDay();
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - dayOfWeek);
-      dateStr = monday.toISOString().split('T')[0];
-      break;
-  }
-  
-  const dateInput = document.querySelector('input[name="date"]');
-  if (dateInput) {
-    dateInput.value = dateStr;
-  }
-}
+(function () {
+  var readOnly = {{ is_locked|yesno:"true,false" }};
+  var activeStatusFilter = 'all';
 
-function toggleAllPresent(checked) {
-  document.querySelectorAll('.attendance-present').forEach(function(checkbox) {
-    checkbox.checked = checked;
-  });
-}
+  function setRowStatus(studentId, status) {
+    var row = document.querySelector('.attendance-row[data-student="' + studentId + '"]');
+    if (!row) {
+      return;
+    }
+    row.setAttribute('data-status', status);
+    row.classList.remove('status-row-present', 'status-row-absent', 'status-row-late', 'status-row-excused');
+    row.classList.add('status-row-' + status);
+  }
 
-function prepareAttendancePayload() {
-  var payload = {};
-  document.querySelectorAll('.attendance-present').forEach(function(checkbox) {
-    var studentId = checkbox.getAttribute('data-student');
-    var remarks = document.querySelector('.attendance-remarks[data-student="' + studentId + '"]');
-    payload[studentId] = {
-      status: checkbox.checked ? 'present' : 'absent',
-      remarks: remarks ? remarks.value : ''
-    };
+  function setStatusButtons(studentId, status) {
+    var groups = document.querySelectorAll('[data-status-group="' + studentId + '"]');
+    groups.forEach(function (group) {
+      var buttons = group.querySelectorAll('.status-btn');
+      buttons.forEach(function (btn) {
+        if (btn.getAttribute('data-status') === status) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    });
+  }
+
+  window.setStatus = function (studentId, status) {
+    if (readOnly) {
+      return;
+    }
+    var statusInputs = document.querySelectorAll('.status-input[data-student="' + studentId + '"]');
+    statusInputs.forEach(function (input) {
+      input.value = status;
+    });
+    setRowStatus(studentId, status);
+    setStatusButtons(studentId, status);
+    applyRosterFilters();
+    updateSummary();
+  };
+
+  window.markAll = function (status) {
+    if (readOnly) {
+      return;
+    }
+    document.querySelectorAll('.status-input').forEach(function (input) {
+      input.value = status;
+      setRowStatus(input.getAttribute('data-student'), status);
+      setStatusButtons(input.getAttribute('data-student'), status);
+    });
+    applyRosterFilters();
+    updateSummary();
+  };
+
+  function applyRosterFilters() {
+    var searchInput = document.getElementById('studentSearchInput');
+    var query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    var rows = document.querySelectorAll('.attendance-row');
+    var visible = 0;
+
+    rows.forEach(function (row) {
+      var searchText = (row.getAttribute('data-search') || '').toLowerCase();
+      var rowStatus = row.getAttribute('data-status') || 'present';
+      var matchesSearch = !query || searchText.indexOf(query) !== -1;
+      var matchesStatus = activeStatusFilter === 'all' || rowStatus === activeStatusFilter;
+      var show = matchesSearch && matchesStatus;
+
+      row.style.display = show ? '' : 'none';
+      if (show) {
+        visible += 1;
+      }
+    });
+
+    var visibleCount = document.getElementById('visibleStudentsCount');
+    if (visibleCount) {
+      visibleCount.textContent = visible;
+    }
+
+    var noMatch = document.getElementById('noStudentsMatch');
+    if (noMatch) {
+      noMatch.style.display = visible === 0 ? 'block' : 'none';
+    }
+  }
+
+  var searchInput = document.getElementById('studentSearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', applyRosterFilters);
+  }
+
+  document.querySelectorAll('.status-filter-btn').forEach(function (button) {
+    button.addEventListener('click', function () {
+      activeStatusFilter = this.getAttribute('data-filter') || 'all';
+      document.querySelectorAll('.status-filter-btn').forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+      this.classList.add('active');
+      applyRosterFilters();
+    });
   });
-  document.getElementById('attendance_payload').value = JSON.stringify(payload);
+
+  function updateSummary() {
+    var summary = { present: 0, absent: 0, late: 0, excused: 0 };
+    var seen = {};
+    document.querySelectorAll('.status-input').forEach(function (input) {
+      var sid = input.getAttribute('data-student');
+      if (seen[sid]) {
+        return;
+      }
+      seen[sid] = true;
+      var status = input.value || 'present';
+      if (!summary.hasOwnProperty(status)) {
+        status = 'present';
+      }
+      summary[status] += 1;
+    });
+    document.getElementById('sumPresent').textContent = summary.present;
+    document.getElementById('sumAbsent').textContent = summary.absent;
+    document.getElementById('sumLate').textContent = summary.late;
+    document.getElementById('sumExcused').textContent = summary.excused;
+  }
+
+  function buildPayload() {
+    var payload = {};
+    var seen = {};
+    document.querySelectorAll('.status-input').forEach(function (input) {
+      var sid = input.getAttribute('data-student');
+      if (seen[sid]) {
+        return;
+      }
+      seen[sid] = true;
+      var status = input.value || 'present';
+      var remarksInput = document.querySelector('.remarks-input[data-student="' + sid + '"]');
+      payload[sid] = {
+        status: status,
+        remarks: remarksInput ? remarksInput.value : ''
+      };
+    });
+    document.getElementById('attendance_payload').value = JSON.stringify(payload);
+  }
+
+  var submitButton = document.getElementById('submitAttendanceBtn');
+  var confirmButton = document.getElementById('confirmSubmitBtn');
+  if (submitButton) {
+    submitButton.addEventListener('click', function () {
+      if (readOnly) {
+        return;
+      }
+      updateSummary();
+      $('#confirmSubmitModal').modal('show');
+    });
+  }
+  if (confirmButton) {
+    confirmButton.addEventListener('click', function () {
+      buildPayload();
+      $('#confirmSubmitModal').modal('hide');
+      document.getElementById('attendanceForm').submit();
+    });
+  }
+
+  if (readOnly) {
+    document.querySelectorAll('.status-btn').forEach(function (btn) {
+      btn.classList.add('disabled');
+    });
+  }
+
+  applyRosterFilters();
+  updateSummary();
+})();
+
+function submitUnlockForm() {
+  if (!confirm('Reopen this locked session?')) {
+    return;
+  }
+  var unlockForm = document.getElementById('unlockSessionForm');
+  if (unlockForm) {
+    unlockForm.submit();
+  }
 }
 </script>
 {% endblock content %}

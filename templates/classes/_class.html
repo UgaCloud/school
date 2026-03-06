@@ -28,7 +28,7 @@
                 <!-- Action Bar -->
                 <div class="row mb-3">
                     <div class="col-md-12">
-                        {% if active_role != "Class Teacher" and request.user.staff_account.role.name != "Class Teacher" %}
+                        {% if can_manage_classes %}
                         <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target=".bs-example-modal-lg">
                             <i class="fa fa-plus"></i> Add New Class
                         </button>
@@ -53,7 +53,7 @@
                                 <th class="column-title" style="width: 20%;">Class Code</th>
                                 <th class="column-title" style="width: 30%;">Class Name</th>
                                 <th class="column-title" style="width: 20%;">Section</th>
-                                {% if active_role != "Class Teacher" and request.user.staff_account.role.name != "Class Teacher" %}
+                                {% if can_manage_classes %}
                                 <th class="column-title" style="width: 22%;">Actions</th>
                                 {% else %}
                                 <th class="column-title" style="width: 22%;">Details</th>
@@ -82,7 +82,7 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if active_role != "Class Teacher" and request.user.staff_account.role.name != "Class Teacher" %}
+                                    {% if can_manage_classes %}
                                     <a href="{% url 'edit_class' class.id %}" 
                                        class="btn btn-info btn-xs" 
                                        title="Edit Class">
@@ -115,7 +115,7 @@
                             <i class="fa fa-info-circle" style="font-size: 48px; margin-bottom: 15px;"></i>
                             <h4>No Classes Available</h4>
                             <p>Get started by adding your first class to the system.</p>
-                            {% if active_role != "Class Teacher" and request.user.staff_account.role.name != "Class Teacher" %}
+                            {% if can_manage_classes %}
                             <button type="button" class="btn btn-success" data-toggle="modal" data-target=".bs-example-modal-lg">
                                 <i class="fa fa-plus"></i> Add Your First Class
                             </button>
@@ -130,6 +130,7 @@
 </div>
 
 <!-- Add Class Modal -->
+{% if can_manage_classes %}
 <div class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="addClassModal" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -158,6 +159,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <style>
     /* Subtle enhancements for Gentelella theme */

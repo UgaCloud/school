@@ -101,6 +101,12 @@
                 </select>
             </div>
             <div class="col-md-3">
+                <select name="report_format" id="report_format" class="form-control" required>
+                    <option value="standard" {% if selected_report_format == "standard" %}selected{% endif %}>Standard Report</option>
+                    <option value="tahfiz" {% if selected_report_format == "tahfiz" %}selected{% endif %}>Tahfiz Report</option>
+                </select>
+            </div>
+            <div class="col-md-3">
                 <select name="class_id" id="class_id" class="form-control" required>
                     <option value="">-- Select Class --</option>
                     {% for c in classes %}
@@ -123,7 +129,7 @@
             <div class="col-12 text-end">
                 <button type="submit" class="btn btn-primary">Filter</button>
                 {% if academic_class_exists %}
-                    <a href="{% url 'class_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}"
+                    <a href="{% url 'class_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}&report_format={{ selected_report_format }}"
                        class="btn btn-success" target="_blank">Print Bulk Reports</a>
                     {% if selected_assessment_type %}
                         <a href="{% url 'class_assessment_type_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}&assessment_type_id={{ selected_assessment_type }}"

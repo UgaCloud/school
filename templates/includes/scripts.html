@@ -59,6 +59,32 @@
 
 <script>
     $(document).ready(function () {
+        function markLegacyDataTablesForMobileScroll() {
+            var legacySelectors = '#datatable, #datatable-checkbox, #datatable-keytable, #datatable-responsive, #datatable-fixed-header, #datatable-scroller';
+            $(legacySelectors).each(function () {
+                if (!$.fn.dataTable || !$.fn.dataTable.isDataTable(this)) return;
+
+                var $table = $(this);
+                $table.closest('.dataTables_wrapper').addClass('mobile-scroll-dt');
+
+                var api = $table.DataTable();
+                if (api.columns) {
+                    api.columns.adjust();
+                }
+                if (api.responsive && api.responsive.recalc) {
+                    api.responsive.recalc();
+                }
+            });
+        }
+
+        function wrapPlainTablesForMobileScroll() {
+            $('table').each(function () {
+                var $table = $(this);
+                if ($table.closest('.table-responsive').length || $table.closest('.dataTables_wrapper').length) return;
+                $table.wrap('<div class="table-responsive auto-table-responsive"></div>');
+            });
+        }
+
         // Initialize DataTables only for tables with .datatable class that aren't already initialized
         $('.datatable').each(function () {
             if (!$.fn.dataTable.isDataTable(this)) {
@@ -101,6 +127,9 @@
                 $table.buttons().container().addClass('dt-buttons-wrap');
             }
         });
+
+        markLegacyDataTablesForMobileScroll();
+        wrapPlainTablesForMobileScroll();
     });
 </script>
 
@@ -124,5 +153,232 @@
             card.classList.add('selected');
             radio.checked = true;
         }, false);
+    })();
+</script>
+
+<script>
+    (function () {
+        function isMobileSidebar() {
+            return window.matchMedia('(max-width: 991px)').matches;
+        }
+
+        function closeSidebarIfOpen() {
+            if (!document.body.classList.contains('nav-sm')) return;
+            var toggle = document.getElementById('menu_toggle');
+            if (toggle) toggle.click();
+        }
+
+        function mobileDrawerIsOpen() {
+            return isMobileSidebar() && document.body.classList.contains('nav-sm');
+        }
+
+        var drawerSelector = '.container.body .col-md-3.left_col > .left_col.scroll-view';
+        var lockedScrollY = 0;
+        var touchStartY = 0;
+
+        function lockPageScroll() {
+            if (document.body.dataset.mobileScrollLocked === '1') return;
+
+            lockedScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+            document.body.dataset.mobileScrollLocked = '1';
+            document.body.style.position = 'fixed';
+            document.body.style.top = '-' + lockedScrollY + 'px';
+            document.body.style.left = '0';
+            document.body.style.right = '0';
+            document.body.style.width = '100%';
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+            document.documentElement.style.height = '100%';
+        }
+
+        function unlockPageScroll() {
+            if (document.body.dataset.mobileScrollLocked !== '1') return;
+
+            document.body.dataset.mobileScrollLocked = '0';
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.left = '';
+            document.body.style.right = '';
+            document.body.style.width = '';
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.height = '';
+            window.scrollTo(0, lockedScrollY);
+        }
+
+        function syncPageScrollLock() {
+            if (mobileDrawerIsOpen()) {
+                lockPageScroll();
+            } else {
+                unlockPageScroll();
+            }
+        }
+
+        // Close drawer when tapping outside on mobile.
+        document.addEventListener('click', function (e) {
+            if (!isMobileSidebar()) return;
+            if (!document.body.classList.contains('nav-sm')) return;
+
+            var clickedToggle = e.target.closest('#menu_toggle');
+            var insideSidebar = e.target.closest('.left_col');
+            if (clickedToggle || insideSidebar) return;
+
+            closeSidebarIfOpen();
+        }, false);
+
+        // After navigating from a leaf menu item, collapse the drawer.
+        document.addEventListener('click', function (e) {
+            if (!isMobileSidebar()) return;
+            var link = e.target.closest('#sidebar-menu a');
+            if (!link) return;
+
+            var parentLi = link.closest('li');
+            if (parentLi && parentLi.querySelector('ul.child_menu')) return;
+
+            setTimeout(closeSidebarIfOpen, 0);
+        }, false);
+
+        // Prevent background page scroll when the mobile drawer is open.
+        document.addEventListener('touchstart', function (e) {
+            if (!mobileDrawerIsOpen()) return;
+            var drawer = e.target.closest(drawerSelector);
+            if (!drawer || !e.touches || !e.touches.length) return;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', function (e) {
+            if (!mobileDrawerIsOpen()) return;
+
+            var drawer = e.target.closest(drawerSelector);
+            if (!drawer) {
+                e.preventDefault();
+                return;
+            }
+
+            if (!e.touches || !e.touches.length) return;
+            var currentY = e.touches[0].clientY;
+            var deltaY = currentY - touchStartY;
+            var atTop = drawer.scrollTop <= 0;
+            var atBottom = Math.ceil(drawer.scrollTop + drawer.clientHeight) >= drawer.scrollHeight;
+
+            if ((atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.addEventListener('wheel', function (e) {
+            var drawer = e.target.closest(drawerSelector);
+
+            if (mobileDrawerIsOpen()) {
+                if (drawer) return;
+                e.preventDefault();
+                return;
+            }
+
+            if (!drawer) return;
+
+            // Keep wheel scroll isolated to sidebar on desktop/laptop.
+            if (e.deltaY) drawer.scrollTop += e.deltaY;
+            if (e.deltaX) drawer.scrollLeft += e.deltaX;
+            e.preventDefault();
+        }, { passive: false });
+
+        var bodyClassObserver = new MutationObserver(syncPageScrollLock);
+        bodyClassObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        window.addEventListener('resize', syncPageScrollLock);
+        window.addEventListener('orientationchange', syncPageScrollLock);
+
+        syncPageScrollLock();
+    })();
+</script>
+
+<script>
+    (function () {
+        var menu = document.querySelector('.admin-side-menu');
+        if (!menu) return;
+
+        var sections = Array.prototype.slice.call(menu.querySelectorAll('li.has-admin-section[data-section-id]'));
+        if (!sections.length) return;
+
+        var storageKey = 'adminSidebarSectionStateV1';
+
+        function readState() {
+            try {
+                var raw = localStorage.getItem(storageKey);
+                return raw ? JSON.parse(raw) : {};
+            } catch (err) {
+                return {};
+            }
+        }
+
+        function writeState(state) {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(state));
+            } catch (err) {
+                // no-op
+            }
+        }
+
+        function sectionIsOpen(section) {
+            var child = section.querySelector('ul.child_menu');
+            if (!child) return false;
+            if (child.style.display === 'block') return true;
+            return section.classList.contains('active')
+                || section.classList.contains('open')
+                || section.classList.contains('current-page');
+        }
+
+        function setSectionOpen(section, shouldOpen) {
+            var child = section.querySelector('ul.child_menu');
+            if (!child) return;
+            section.classList.toggle('active', shouldOpen);
+            section.classList.toggle('open', shouldOpen);
+            child.style.display = shouldOpen ? 'block' : 'none';
+        }
+
+        function saveCurrentState() {
+            var state = {};
+            sections.forEach(function (section) {
+                var id = section.getAttribute('data-section-id');
+                if (!id) return;
+                state[id] = sectionIsOpen(section);
+            });
+            writeState(state);
+        }
+
+        function applyState(state) {
+            sections.forEach(function (section) {
+                var id = section.getAttribute('data-section-id');
+                if (!id || !Object.prototype.hasOwnProperty.call(state, id)) return;
+                setSectionOpen(section, !!state[id]);
+            });
+        }
+
+        function toggleAll(open) {
+            sections.forEach(function (section) {
+                setSectionOpen(section, open);
+            });
+            saveCurrentState();
+        }
+
+        setTimeout(function () {
+            applyState(readState());
+        }, 140);
+
+        menu.addEventListener('click', function (e) {
+            var toggle = e.target.closest('a.admin-section-toggle');
+            if (!toggle) return;
+            setTimeout(saveCurrentState, 120);
+        });
+
+        var tools = document.querySelector('.admin-menu-tools');
+        if (!tools) return;
+        tools.addEventListener('click', function (e) {
+            var button = e.target.closest('[data-admin-menu-action]');
+            if (!button) return;
+            var action = button.getAttribute('data-admin-menu-action');
+            if (action === 'expand') toggleAll(true);
+            if (action === 'collapse') toggleAll(false);
+        });
     })();
 </script>

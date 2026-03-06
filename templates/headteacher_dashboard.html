@@ -1,156 +1,53 @@
 {% load static %}
 
-<style>
-  .nav.child_menu {
-    max-height: 360px;
-    overflow-y: auto;
-  }
-
-  .nav.child_menu > li > a {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-  }
-
-  .nav.child_menu .nav.child_menu {
-    margin-left: 10px;
-    padding-left: 10px;
-    border-left: 2px solid #e4e7ea;
-  }
-</style>
-
 <ul class="nav side-menu">
-
-  <!-- DASHBOARD -->
   <li>
     <a href="{% url 'index_page' %}">
       <i class="fa fa-dashboard"></i> Dashboard
     </a>
   </li>
 
-  <!-- ADMINISTRATION -->
   <li>
-    <a><i class="fa fa-cogs"></i> Administration <span class="fa fa-chevron-down"></span></a>
+    <a href="{% url 'school_results_dashboard' %}">
+      <i class="fa fa-line-chart"></i> School Performance
+    </a>
+  </li>
+
+  <li>
+    <a href="{% url 'attendance_dashboard' %}">
+      <i class="fa fa-calendar-check-o"></i> Attendance Overview
+    </a>
+  </li>
+
+  <li>
+    <a href="{% url 'under_construction' %}">
+      <i class="fa fa-exclamation-triangle"></i> Discipline Center
+    </a>
+  </li>
+
+  <li>
+    <a href="{% url 'staff_page' %}">
+      <i class="fa fa-users"></i> Staff Overview
+    </a>
+  </li>
+
+  <li>
+    <a>
+      <i class="fa fa-bar-chart"></i> Reports & Analytics
+      <span class="fa fa-chevron-down"></span>
+    </a>
     <ul class="nav child_menu">
-      <li><a href="{% url 'settings_page' %}">School Profile</a></li>
-      <li><a href="#">System Requirements</a></li>
+      <li><a href="{% url 'class_performance_summary' %}">Academic Reports</a></li>
+      <li><a href="{% url 'financial_summary_report' %}">Financial Reports</a></li>
+      <li><a href="{% url 'verification_overview' %}">Verification Reports</a></li>
     </ul>
   </li>
 
-  <!-- ACADEMIC STRUCTURE -->
   <li>
-    <a><i class="fa fa-book"></i> Academic Structure <span class="fa fa-chevron-down"></span></a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'class_page' %}">Classes</a></li>
-      <li><a href="{% url 'stream_page' %}">Streams</a></li>
-      <li><a href="{% url 'subjects_page' %}">Subjects</a></li>
-      <li><a href="{% url 'subject_allocation_page' %}">Subject Allocation</a></li>
-      <li><a href="{% url 'academic_class_page' %}">Academic Classes</a></li>
-    </ul>
-  </li>
-
-  <!-- STUDENTS -->
-  <li>
-    <a><i class="fa fa-users"></i> Students <span class="fa fa-chevron-down"></span></a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'student_page' %}">Student Records</a></li>
-      <li><a href="{% url 'student_attendance_report' %}">Attendance Reports</a></li>
-      <li><a href="{% url 'class_attendance_report' %}">Class Attendance</a></li>
-    </ul>
-  </li>
-
-  <!-- STAFF / HR -->
-  <li>
-    <a><i class="fa fa-id-badge"></i> Human Resource <span class="fa fa-chevron-down"></span></a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'staff_page' %}">Manage Staff</a></li>
-      <li><a href="{% url 'attendance_dashboard' %}">Staff Attendance</a></li>
-      <li><a href="{% url 'attendance_analysis' %}">Attendance Analysis</a></li>
-    </ul>
-  </li>
-
-  <!-- TIMETABLE -->
-  <li>
-    <a><i class="fa fa-calendar"></i> Timetable <span class="fa fa-chevron-down"></span></a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'school_timetable' %}">School Timetable</a></li>
-      <li><a href="{% url 'class_timetable' %}">Class Timetable</a></li>
-    </ul>
-  </li>
-
-  <!-- FEES MANAGEMENT -->
-  <li>
-    <a><i class="fa fa-money"></i> Fees Management <span class="fa fa-chevron-down"></span></a>
-    <ul class="nav child_menu">
-      <li><a href="{% url 'bill_item_page' %}">Bill Items</a></li>
-      <li><a href="{% url 'student_bill_page' %}">Student Billing</a></li>
-      <li><a href="{% url 'class_bill_list' %}">Class Billing</a></li>
-      <li><a href="{% url 'fees_status' %}">Fees Status</a></li>
-    </ul>
-  </li>
-
-  <!-- FINANCE -->
-  <li>
-    <a><i class="fa fa-chart-line"></i> Finance <span class="fa fa-chevron-down"></span></a>
-    <ul class="nav child_menu">
-
-      <li><a href="{% url 'financial_dashboard' %}">Financial Dashboard</a></li>
-
-      <li>
-        <a>Configuration <span class="fa fa-chevron-down"></span></a>
-        <ul class="nav child_menu">
-          <li><a href="{% url 'income_source_page' %}">Income Sources</a></li>
-          <li><a href="{% url 'expense_page' %}">Expense Categories</a></li>
-          <li><a href="{% url 'budget_page' %}">Budget Management</a></li>
-          <li><a href="{% url 'vendor_page' %}">Vendors</a></li>
-        </ul>
-      </li>
-
-      <li>
-        <a>Operations <span class="fa fa-chevron-down"></span></a>
-        <ul class="nav child_menu">
-          <li><a href="{% url 'expenditure_page' %}">Expenditures</a></li>
-          <li><a href="{% url 'bank_reconciliation' %}">Bank Reconciliation</a></li>
-        </ul>
-      </li>
-
-      <li>
-        <a>Reports <span class="fa fa-chevron-down"></span></a>
-        <ul class="nav child_menu">
-          <li><a href="{% url 'financial_summary_report' %}">Financial Summary</a></li>
-          <li><a href="{% url 'income_statement' %}">Income Statement</a></li>
-          <li><a href="{% url 'cash_flow' %}">Cash Flow Report</a></li>
-          <li><a href="{% url 'vendor_report' %}">Vendor Payments</a></li>
-        </ul>
-      </li>
-
-    </ul>
-  </li>
-
-  <!-- RESULTS & EXAMINATION -->
-  <li>
-    <a><i class="fa fa-graduation-cap"></i> Results & Examination <span class="fa fa-chevron-down"></span></a>
-    <ul class="nav child_menu">
-
-      <li><a href="{% url 'class_performance_summary' %}">Results Dashboard</a></li>
-      <li><a href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
-      <li><a href="{% url 'assessment_create' %}">Exam Setup</a></li>
-      <li><a href="{% url 'add_grading_system_page' %}">Grading Structure</a></li>
-      <li><a href="{% url 'add_results_page' %}">Enter Results</a></li>
-      <li><a href="{% url 'bulk_result_entry' %}">Bulk Import</a></li>
-      <li><a href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
-      <li><a href="{% url 'assessment_sheet' %}">Assessment Sheets</a></li>
-      <li><a href="{% url 'class_bulk_reports' %}">Result Card Generator</a></li>
-
-    </ul>
-  </li>
-
-  <!-- COMMUNICATION -->
-  <li>
-    <a><i class="fa fa-bullhorn"></i> Communication
+    <a>
+      <i class="fa fa-bullhorn"></i> Announcements
       {% if comm_unread_count > 0 %}
-        <span class="badge bg-green">{{ comm_unread_count }}</span>
+      <span class="badge bg-green">{{ comm_unread_count }}</span>
       {% endif %}
       <span class="fa fa-chevron-down"></span>
     </a>
@@ -160,5 +57,4 @@
       <li><a href="{% url 'message_inbox' %}">Messages</a></li>
     </ul>
   </li>
-
 </ul>

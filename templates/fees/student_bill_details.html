@@ -21,20 +21,20 @@
 </div>
 
 <style>
-    /* Gentellela Theme Colors */
+    /* Professional palette */
     :root {
-        --primary-color: #2563eb;
-        --primary-hover: #1d4ed8;
-        --secondary-color: #64748b;
-        --success-color: #22c55e;
-        --warning-color: #f59e0b;
-        --danger-color: #ef4444;
+        --primary-color: #1e4f9a;
+        --primary-hover: #173f7b;
+        --secondary-color: #5f6f86;
+        --success-color: #0f766e;
+        --warning-color: #b7791f;
+        --danger-color: #b42318;
         --info-color: #2563eb;
         --text-primary: #1f2a44;
-        --text-secondary: #64748b;
-        --bg-light: #f8fafc;
+        --text-secondary: #607089;
+        --bg-light: #f5f8fc;
         --bg-card: #ffffff;
-        --border-color: #e6edf5;
+        --border-color: #dde5ef;
         --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.06);
         --shadow-md: 0 6px 16px -4px rgba(15, 23, 42, 0.12);
         --shadow-lg: 0 18px 30px -12px rgba(15, 23, 42, 0.18);
@@ -143,6 +143,54 @@
         font-weight: 500;
     }
 
+    .student-identity {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .student-avatar {
+        width: 68px;
+        height: 68px;
+        border-radius: 14px;
+        object-fit: cover;
+        border: 2px solid #d7e2ef;
+        background: #eef3fa;
+    }
+
+    .student-avatar-fallback {
+        width: 68px;
+        height: 68px;
+        border-radius: 14px;
+        border: 2px solid #d7e2ef;
+        background: #eef3fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #516179;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .student-meta-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+    }
+
+    .student-meta-pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 12px;
+        font-weight: 600;
+        color: #4f627d;
+        background: #f3f7fc;
+        border: 1px solid #dde6f2;
+        border-radius: 999px;
+        padding: 4px 10px;
+    }
+
     /* Progress Bars */
     .progress-container {
         background: var(--bg-light);
@@ -238,6 +286,17 @@
         letter-spacing: 0.05em;
         font-weight: 600;
     }
+
+    .balance-indicator {
+        margin-top: 0.25rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+    }
+
+    .balance-indicator.cr { color: var(--success-color); }
+    .balance-indicator.dr { color: var(--danger-color); }
+    .balance-indicator.balanced { color: var(--secondary-color); }
 
     /* Tables */
     .table-modern {
@@ -511,14 +570,20 @@
         <div class="col-lg-4 col-md-12 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar avatar-xl me-3">
-                            <img src="{{ student_bill.student.photo.url }}" alt="Student Photo" class="rounded-circle" style="width: 64px; height: 64px; object-fit: cover;">
+                    <div class="student-identity">
+                        <div>
+                            {% if student_bill.student.photo %}
+                            <img src="{{ student_bill.student.photo.url }}" alt="Student Photo" class="student-avatar">
+                            {% else %}
+                            <div class="student-avatar-fallback">{{ student_bill.student.student_name|slice:":1"|upper }}</div>
+                            {% endif %}
                         </div>
                         <div>
                             <h4 class="text-display mb-0">{{ student_bill.student.student_name }}</h4>
-                            <p class="text-subtitle mb-0">Reg No: {{ student_bill.student.reg_no }}</p>
-                            <p class="text-subtitle mb-0">Class: {{ student_bill.student.current_class.code }}</p>
+                            <div class="student-meta-row">
+                                <span class="student-meta-pill">Reg No: {{ student_bill.student.reg_no }}</span>
+                                <span class="student-meta-pill">Class: {{ student_bill.student.current_class.code }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -540,8 +605,17 @@
                         </div>
                         <div class="col-6">
                             <div class="stat-card" style="background: linear-gradient(135deg, #fef2f2, #fee2e2);">
-                                <div class="stat-value" style="color: var(--danger-color);">UGX {{ balance|intcomma }}</div>
+                                <div class="stat-value" style="color: var(--danger-color);">
+                                    UGX {{ balance|floatformat:2|intcomma }}
+                                </div>
                                 <div class="stat-label">Outstanding</div>
+                                {% if payment_status == "CR" %}
+                                <div class="balance-indicator cr">CR (Credit)</div>
+                                {% elif payment_status == "DR" %}
+                                <div class="balance-indicator dr">DR (Debit)</div>
+                                {% else %}
+                                <div class="balance-indicator balanced">Balanced</div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -550,7 +624,10 @@
                     <div class="mb-4">
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-subtitle">Payment Progress</span>
-                            <span class="text-subtitle">{{ amount_paid_percentage|floatformat:1 }}% Paid</span>
+                            <span class="text-subtitle">
+                                {{ amount_paid_percentage|floatformat:1 }}% Paid
+                                {% if payment_status == "CR" %}(CR){% elif payment_status == "DR" %}(DR){% endif %}
+                            </span>
                         </div>
                         <div class="progress-container">
                             <div class="progress-bar-modern progress-bar-paid" id="payment-progress-bar"></div>
@@ -559,7 +636,11 @@
 
                     <!-- Status Badge -->
                     <div class="mb-4">
-                        {% if balance <= 0 %}
+                        {% if payment_status == "CR" %}
+                        <span class="badge badge-success">
+                            <i class="fa fa-check-circle"></i> Credit Balance
+                        </span>
+                        {% elif balance <= 0 %}
                         <span class="badge badge-success">
                             <i class="fa fa-check-circle"></i> Paid in Full
                         </span>
@@ -1079,6 +1160,7 @@ function printReceipt() {
         <head>
             <title>Fee Receipt - {{ student_bill.student.student_name }}</title>
             <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
                 *{ box-sizing:border-box; }
                 body{
@@ -1270,9 +1352,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const paymentProgressBar = document.getElementById('payment-progress-bar');
     if (paymentProgressBar) {
         const percentage = parseFloat('{{ amount_paid_percentage|floatformat:2 }}');
+        const visualPercentage = Math.max(0, Math.min(percentage, 100));
         paymentProgressBar.style.width = '0%';
         setTimeout(() => {
-            paymentProgressBar.style.width = percentage + '%';
+            paymentProgressBar.style.width = visualPercentage + '%';
         }, 100);
     }
     

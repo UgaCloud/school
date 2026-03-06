@@ -23,7 +23,7 @@
                         <p class="text-muted">Maintain a consistent grading scale across assessments and reports.</p>
                     </div>
                     <div class="hero-actions">
-                        {% if is_dos %}
+                        {% if can_manage_grading %}
                         <button type="button" class="btn btn-success" data-toggle="modal" data-target="#grading_system_modal">
                             <i class="fa fa-plus-circle"></i> Add New Grading
                         </button>
@@ -35,10 +35,10 @@
 
                 <div class="row" style="margin-bottom:12px;">
                     <div class="col-md-6">
-                        {% if is_dos %}
+                        {% if can_manage_grading %}
                         <p class="text-muted">You can add, edit, or delete grading bands below.</p>
                         {% else %}
-                        <p class="text-muted">Only the Director of Studies can add grading systems.</p>
+                        <p class="text-muted">Only Admin or Director of Studies can add grading systems.</p>
                         {% endif %}
                     </div>
                     <div class="col-md-6">
@@ -62,7 +62,7 @@
                                     <th>Max Score</th>
                                     <th>Grade</th>
                                     <th>Points</th>
-                                    {% if is_dos %}
+                                    {% if can_manage_grading %}
                                     <th style="width: 15%">Actions</th>
                                     {% endif %}
                                 </tr>
@@ -75,7 +75,7 @@
                                     <td>{{ grading_system.max_score }}</td>
                                     <td><strong>{{ grading_system.grade }}</strong></td>
                                     <td>{{ grading_system.points }}</td>
-                                    {% if is_dos %}
+                                    {% if can_manage_grading %}
                                     <td>
                                         <a href="{% url 'edit_grading_system' grading_system.id %}" class="btn btn-info btn-sm" title="Edit Grading">
                                             <i class="fa fa-edit"></i> 
@@ -95,7 +95,7 @@
                         <div class="alert alert-info" role="alert">
                             <i class="fa fa-info-circle fa-2x"></i>
                             <h4>No Grading Systems Available</h4>
-                            <p>{% if is_dos %}Get started by adding grading systems using the button above.{% else %}No grading systems have been configured yet.{% endif %}</p>
+                            <p>{% if can_manage_grading %}Get started by adding grading systems using the button above.{% else %}No grading systems have been configured yet.{% endif %}</p>
                         </div>
                     </div>
                 {% endif %}
@@ -104,7 +104,7 @@
     </div>
 </div>
 
-{% if is_dos %}
+{% if can_manage_grading %}
 <div class="modal fade" id="grading_system_modal" tabindex="-1" role="dialog" aria-labelledby="gradingSystemLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">

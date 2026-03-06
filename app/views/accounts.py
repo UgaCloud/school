@@ -26,8 +26,8 @@ from django.template.loader import render_to_string
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.mixins import LoginRequiredMixin
-from app.models.classes import ClassSubjectAllocation
 from app.constants import ROLE_PRIORITY
+from app.services.teacher_assignments import get_teacher_assignments
 
 
 
@@ -109,6 +109,9 @@ def user_login(request):
     """
     error_message = None
     school_settings = SchoolSetting.objects.first()
+    notice_message = (request.GET.get("notice") or request.GET.get("restore_notice") or "").strip()
+    if len(notice_message) > 500:
+        notice_message = f"{notice_message[:497]}..."
 
     if request.method == 'POST':
         form = CustomLoginForm(request, data=request.POST)
@@ -138,6 +141,7 @@ def user_login(request):
         'form': form,
         'school_settings': school_settings,
         'error_message': error_message,
+        'notice_message': notice_message,
     }
     return render(request, 'accounts/login.html', context)
 
@@ -156,13 +160,34 @@ def switch_role(request):
     """
     Switch the active role in SESSION only.
     """
-    staff_account = get_object_or_404(StaffAccount, user=request.user)
+    staff_account = (
+        StaffAccount.objects.select_related("staff", "role")
+        .filter(user=request.user)
+        .first()
+    )
+    if not staff_account or not getattr(staff_account, "staff", None):
+        messages.error(
+            request,
+            "No staff account is linked to this user, so role switching is unavailable.",
+        )
+        return redirect("index_page")
 
-    # Access the related Staff instance
     staff = staff_account.staff
+    assigned_roles = staff.roles.all().order_by("name")
+    if not assigned_roles.exists():
+        messages.error(
+            request,
+            "No roles are assigned to your staff profile. Contact an administrator.",
+        )
+        return redirect("index_page")
 
-    # Retrieve only the roles assigned to this Staff member
-    assigned_roles = staff.roles.all()
+    active_role_name = (request.session.get("active_role_name") or "").strip()
+    if not active_role_name and getattr(staff_account.role, "name", None):
+        active_role_name = staff_account.role.name
+        request.session["active_role_name"] = active_role_name
+
+    active_role_obj = assigned_roles.filter(name=active_role_name).first()
+    initial_role = active_role_obj or assigned_roles.first()
 
     if request.method == 'POST':
         form = RoleSwitchForm(request.POST)
@@ -172,21 +197,30 @@ def switch_role(request):
             selected_role = form.cleaned_data['role']
             request.session['active_role_name'] = selected_role.name
             messages.success(request, f"Switched active role to {selected_role.name}.")
-            return redirect(index_view)
+            return redirect("index_page")
         else:
             messages.error(request, "Invalid role selection.")
     else:
-        form = RoleSwitchForm()
+        form = RoleSwitchForm(initial={"role": initial_role.id if initial_role else None})
         form.fields['role'].queryset = assigned_roles
 
-    return render(request, 'accounts/switch_role.html', {'form': form, 'roles': assigned_roles})
+    return render(
+        request,
+        'accounts/switch_role.html',
+        {
+            'form': form,
+            'roles': assigned_roles,
+            'active_role_name': active_role_name,
+            'staff_primary_role': getattr(staff_account.role, "name", "-"),
+        },
+    )
 
 
 def logout_view(request):
     logout(request)  
     return redirect('login')
 
-class UserListView(ListView):
+class UserListView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'accounts/user_list.html'
     context_object_name = 'users'
@@ -249,13 +283,7 @@ class UserDetailView(LoginRequiredMixin, DetailView):
 
         # Get teaching assignments for staff with optimized queries
         if staff:
-            teaching_assignments = ClassSubjectAllocation.objects.filter(
-                subject_teacher=staff
-            ).select_related(
-                'academic_class_stream__academic_class__Class',
-                'academic_class_stream__stream',
-                'subject'
-            ).order_by('academic_class_stream__academic_class__Class__name')
+            teaching_assignments = get_teacher_assignments(staff)
         else:
             teaching_assignments = None
 
@@ -274,7 +302,22 @@ class UserDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
+@login_required
 def delete_user_view(request, id):
+    if request.method != "POST":
+        messages.error(request, "Delete requests must be submitted via POST.")
+        return HttpResponseRedirect(reverse('user_list'))
+
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = getattr(getattr(staff_account, "role", None), "name", "")
+    if role_name not in {"Admin", "Head master", "Head Teacher"} and not request.user.is_superuser:
+        messages.error(request, "Only administrators can delete user accounts.")
+        return HttpResponseRedirect(reverse('user_list'))
+
+    if request.user.id == id:
+        messages.error(request, "You cannot delete your own account while signed in.")
+        return HttpResponseRedirect(reverse('user_list'))
+
     user = get_model_record(User,id)
     user.delete()
     messages.success(request, "User deleted successfully.")
