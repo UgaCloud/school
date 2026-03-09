@@ -371,6 +371,7 @@ def index_view(request):
     # Basic student statistics (visible to academic and admin roles)
     if user_role in academic_roles:
         total_students = scoped_students.filter(is_active=True).count()
+        new_students = Student.objects.filter(term = Term.objects.filter(is_current = True).first())
         total_male_students = scoped_students.filter(gender='M', is_active=True).count()
         total_female_students = scoped_students.filter(gender='F', is_active=True).count()
         male_students_percentage = (total_male_students / total_students * 100) if total_students > 0 else 0
@@ -1770,6 +1771,7 @@ def index_view(request):
         'pending_tasks': pending_tasks,
         'quick_actions': quick_actions,
         'active_classes': active_classes,
+        'new_students': new_students,
         'total_subjects': total_subjects,
         'total_teachers': total_teachers,
         'active_users_count': active_users_count,

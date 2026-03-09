@@ -18,6 +18,10 @@ lib/
 lib64/
 parts/
 
+# removed migrations to avoid conflicts at the main branch
+migrations/
+secondary/migrations/
+
 var/
 wheels/
 share/python-wheels/
