@@ -79,7 +79,7 @@
                 <option value="">All Subjects</option>
                 {% for s in subjects %}
                   <option value="{{ s.id }}" {% if selected_subject_id == s.id|stringformat:"s" %}selected{% endif %}>
-                    {{ s.name }}
+                    {{ s.name }} ({{s.section}})
                   </option>
                 {% endfor %}
               </select>
