@@ -2,7 +2,6 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 import app.views.index_views as index
 import app.views.dashboard as dashboard_views
-import app.views.ux as ux
 from app.views.classes import *
 from app.views.school_settings import *
 from app.views.student import *
@@ -26,7 +25,6 @@ urlpatterns = [
     path('index/', index.index_view, name="index_page"),
     path('search/', index.global_search_view, name="global_search"),
     path('coming-soon/', index.under_construction_view, name="under_construction"),
-    path('fees/quick-payment/', ux.bursar_quick_payment_view, name="bursar_quick_payment"),
     path('dashboard/overview/', dashboard_views.dashboard_overview_view, name='dashboard_overview'),
     path('dashboard/finance/', dashboard_views.dashboard_finance_view, name='dashboard_finance'),
     path('dashboard/academics/', dashboard_views.dashboard_academics_view, name='dashboard_academics'),
