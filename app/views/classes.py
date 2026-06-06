@@ -22,11 +22,12 @@ from app.forms.classes import (
 )
 from app.models.students import ClassRegister
 from app.forms.fees_payment import StudentBillItemForm,ClassBillForm
+import app.forms.student as student_forms
 from app.selectors.model_selectors import *
 import app.selectors.classes as class_selectors
 import app.selectors.school_settings as school_settings_selectors
 import app.selectors.fees_selectors as fees_selectors
-from app.services.students import create_class_bill_item
+from app.services.students import create_class_bill_item, create_student_bill
 from django.contrib.auth.decorators import login_required
 from app.decorators.decorators import *
 from app.models.accounts import *
@@ -86,6 +87,11 @@ def _can_manage_stream_records(effective_role):
 def _can_manage_promotions(effective_role):
     normalized_role = (effective_role or "").strip().lower()
     return normalized_role in PROMOTION_MANAGE_ROLES
+
+
+def _is_term_three_current(academic_class):
+    term = getattr(academic_class, "term", None)
+    return bool(term and term.is_current and str(term.term) == "3")
 
 
 def _format_academic_class_label(academic_class):
@@ -218,7 +224,7 @@ def delete_class_view(request, id):
     active_level = get_active_school_level(request)
     classe = get_object_or_404(get_level_classes_queryset(active_level=active_level), pk=id)
     if request.method != "POST":
-        messages.error(request, "Delete requests must be submitted via POST.")
+        messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect("class_page")
     
     classe.delete()
@@ -300,7 +306,7 @@ def delete_stream_view(request, id):
     try:
         stream = Stream.objects.get(pk=id)
         if request.method != "POST":
-            messages.error(request, "Delete requests must be submitted via POST.")
+            messages.error(request, "Deactivate requests must be submitted via POST.")
             return redirect("stream_page")
         
         stream.delete()
@@ -353,7 +359,8 @@ def academic_class_view(request):
         if staff_account and staff_account.staff:
             base_queryset = scoped_academic_classes.filter(
                 id__in=ClassSubjectAllocation.objects.filter(
-                    subject_teacher=staff_account.staff
+                    subject_teacher=staff_account.staff,
+                    is_active=True,
                 ).values_list("academic_class_stream__academic_class_id", flat=True)
             ).distinct()
         else:
@@ -362,6 +369,10 @@ def academic_class_view(request):
         base_queryset = scoped_academic_classes
     else:
         base_queryset = scoped_academic_classes.none()
+
+    # Academic Classes page should show active academic classes only.
+    # In this system active classes are those attached to the current term.
+    base_queryset = base_queryset.filter(term__is_current=True)
 
     search_query = (request.GET.get("search") or "").strip()
     academic_year_filter = request.GET.get('academic_year')
@@ -439,13 +450,13 @@ def academic_class_view(request):
     if academic_year_filter and academic_year_filter != '':
         try:
             selected_year = all_academic_years.get(id=academic_year_filter)
-            all_terms = selected_year.term_set.all()
+            all_terms = selected_year.term_set.filter(is_current=True)
             selected_year_label = selected_year.academic_year
         except:
             all_terms = []
     else:
         # Get all terms from all years
-        all_terms = Term.objects.all()
+        all_terms = Term.objects.filter(is_current=True)
 
     context = {
         "form": academic_class_form,
@@ -564,7 +575,7 @@ def delete_academic_class_view(request, id):
     active_level = get_active_school_level(request)
     academic_class = get_object_or_404(get_level_academic_classes_queryset(active_level=active_level), id=id)
     if request.method != "POST":
-        messages.error(request, "Delete requests must be submitted via POST.")
+        messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect("academic_class_page")
     
     academic_class.delete()
@@ -579,6 +590,7 @@ def academic_class_details_view(request, id):
     effective_role, _ = _get_effective_role_and_staff_account(request)
     can_manage_class_detail = effective_role in ACADEMIC_CLASS_MANAGE_ROLES
     can_manage_promotions = _can_manage_promotions(effective_role)
+    promotion_actions_enabled = can_manage_promotions and _is_term_three_current(academic_class)
 
     academic_class_streams = (
         class_selectors.get_academic_class_streams(academic_class)
@@ -621,6 +633,7 @@ def academic_class_details_view(request, id):
         target_queryset=get_level_academic_classes_queryset(active_level=active_level),
     )
     bill_item_form = StudentBillItemForm()
+    class_scoped_student_form = student_forms.ClassScopedStudentForm(academic_class=academic_class)
 
     # Calculate student statistics
     total_students = class_register_all.values("student_id").distinct().count()
@@ -670,6 +683,7 @@ def academic_class_details_view(request, id):
         class_stream_id__in=stream_ids,
         academic_year=academic_class.academic_year,
         term=academic_class.term,
+        is_locked=True,
     )
     lessons_conducted = attendance_sessions.count()
     attendance_records = AttendanceRecord.objects.filter(session__in=attendance_sessions)
@@ -759,6 +773,8 @@ def academic_class_details_view(request, id):
         "bill_item_form": bill_item_form,
         "can_manage_class_detail": can_manage_class_detail,
         "can_manage_promotions": can_manage_promotions,
+        "promotion_actions_enabled": promotion_actions_enabled,
+        "class_scoped_student_form": class_scoped_student_form,
         # Student statistics
         "total_students": total_students,
         "male_students": male_students,
@@ -781,6 +797,56 @@ def academic_class_details_view(request, id):
     }
 
     return render(request, "classes/academic_class_details.html", context)
+
+
+@login_required
+def register_student_in_academic_class(request, id):
+    active_level = get_active_school_level(request)
+    academic_class = get_object_or_404(get_level_academic_classes_queryset(active_level=active_level), pk=id)
+    effective_role, _ = _get_effective_role_and_staff_account(request)
+    if effective_role not in ACADEMIC_CLASS_MANAGE_ROLES:
+        messages.error(request, "You do not have permission to register students in this class.")
+        return redirect(f"{reverse('academic_class_details_page', args=[academic_class.id])}#class-register-section")
+
+    if request.method != "POST":
+        return redirect(f"{reverse('academic_class_details_page', args=[academic_class.id])}#class-register-section")
+
+    form = student_forms.ClassScopedStudentForm(
+        request.POST,
+        request.FILES,
+        academic_class=academic_class,
+    )
+    if not form.is_valid():
+        for field_name, field_errors in form.errors.items():
+            field_label = form.fields.get(field_name).label if field_name in form.fields else field_name
+            for error in field_errors:
+                messages.error(request, f"{field_label}: {error}")
+        return redirect(f"{reverse('academic_class_details_page', args=[academic_class.id])}#registerStudentModal")
+
+    class_stream = form.cleaned_data["academic_class_stream"]
+    if class_stream.academic_class_id != academic_class.id:
+        messages.error(request, "Select a stream that belongs to this academic class.")
+        return redirect(f"{reverse('academic_class_details_page', args=[academic_class.id])}#registerStudentModal")
+
+    student = form.save(commit=False)
+    student.academic_year = academic_class.academic_year
+    student.current_class = academic_class.Class
+    student.stream = class_stream.stream
+    student.term = academic_class.term
+    student.is_active = True
+    student.save()
+
+    ClassRegister.objects.get_or_create(
+        academic_class_stream=class_stream,
+        student=student,
+    )
+    create_student_bill(student, academic_class)
+    messages.success(
+        request,
+        f"{student.student_name} registered in {academic_class.Class.name or academic_class.Class.code} "
+        f"Stream {class_stream.stream.stream}.",
+    )
+    return redirect(f"{reverse('academic_class_details_page', args=[academic_class.id])}#class-register-section")
 
 
 def _build_promotion_filter_query(
@@ -924,6 +990,7 @@ def _build_student_promotion_rows(
             AttendanceRecord.objects.filter(
                 session__class_stream__academic_class=source_academic_class,
                 student_id__in=student_ids,
+                session__is_locked=True,
             )
             .values("student_id")
             .annotate(
@@ -1439,6 +1506,9 @@ def promote_academic_class_students(request, id):
             "Only Admin or Director of Studies can run class promotions.",
         )
         return redirect("academic_class_details_page", id=source_class.id)
+    if not _is_term_three_current(source_class):
+        messages.error(request, "Class promotion is enabled only when the current term is Term 3.")
+        return redirect(f"{reverse('academic_class_details_page', args=[source_class.id])}#class-register-section")
 
     form = ClassPromotionForm(
         request.POST,
@@ -1598,7 +1668,7 @@ def delete_class_stream(request, id):
     class_stream = get_object_or_404(get_level_class_streams_queryset(active_level=active_level), id=id)
     academic_class_id = class_stream.academic_class_id
     if request.method != "POST":
-        messages.error(request, "Delete requests must be submitted via POST.")
+        messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect(reverse("academic_class_details_page", args=[academic_class_id]))
 
     class_stream.delete()
@@ -1870,7 +1940,7 @@ def edit_class_bill_item_view(request, id):
 @login_required
 def delete_class_bill_item_view(request, id):
     if request.method != "POST":
-        messages.error(request, "Delete requests must be submitted via POST.")
+        messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect("class_bill_list")
 
     active_level = get_active_school_level(request)
@@ -1996,7 +2066,7 @@ def add_class_subject_allocation(request):
 
     if request.method == "POST":
         action = request.POST.get("action")
-        if action in {"add_allocation", "edit_allocation", "delete_allocation"} and not can_manage:
+        if action in {"add_allocation", "edit_allocation", "delete_allocation", "deactivate_allocation"} and not can_manage:
             messages.error(
                 request,
                 "You have view-only access. Only Admin or Academic Head can manage allocations.",
@@ -2063,7 +2133,7 @@ def add_class_subject_allocation(request):
             messages.success(request, SUCCESS_EDIT_MESSAGE)
             return redirect(_build_redirect_url())
 
-        if action == "delete_allocation":
+        if action in {"delete_allocation", "deactivate_allocation"}:
             allocation_id = request.POST.get("allocation_id")
             allocation = get_object_or_404(
                 get_allocation_queryset(
@@ -2072,7 +2142,7 @@ def add_class_subject_allocation(request):
                 id=allocation_id,
             )
             delete_class_subject_allocation_record(allocation)
-            messages.success(request, DELETE_MESSAGE)
+            messages.success(request, "Subject allocation deactivated successfully. Historical records were preserved.")
             return redirect(_build_redirect_url())
 
     allocations = (
@@ -2130,6 +2200,45 @@ def add_class_subject_allocation(request):
         else 0
     )
 
+    allocation_rows = []
+    for allocation in allocations:
+        teacher = allocation.subject_teacher
+        teacher_key = str(allocation.subject_teacher_id)
+        workload = teacher_stats.get(teacher_key, {})
+        first_initial = (getattr(teacher, "first_name", "") or "?")[:1]
+        last_initial = (getattr(teacher, "last_name", "") or "")[:1]
+        allocation_rows.append({
+            "allocation": allocation,
+            "subject_name": allocation.subject.name,
+            "subject_code": allocation.subject.code,
+            "category": allocation.subject.type or "Core",
+            "teacher": teacher,
+            "teacher_name": str(teacher),
+            "teacher_department": getattr(teacher, "department", "") or "Academic",
+            "teacher_initials": f"{first_initial}{last_initial}".upper(),
+            "teacher_load": workload.get("subjects_count", 0),
+            "teacher_classes": workload.get("class_streams", []),
+            "status": "Active" if allocation.is_active else "Inactive",
+        })
+
+    total_subjects = subjects.count()
+    subjects_allocated_count = allocations.count()
+    assigned_staff_count = allocations.values("subject_teacher_id").distinct().count()
+    unassigned_count = max(total_subjects - subjects_allocated_count, 0)
+    workload_alert_count = sum(1 for row in allocation_rows if row["teacher_load"] >= 8)
+    conflict_alerts = []
+    if unassigned_count:
+        conflict_alerts.append({"level": "warning", "message": f"{unassigned_count} subject(s) still need a teacher."})
+    if workload_alert_count:
+        conflict_alerts.append({"level": "warning", "message": f"{workload_alert_count} teacher workload warning(s) detected."})
+    if not conflict_alerts:
+        conflict_alerts.append({"level": "success", "message": "No duplicate, missing-teacher, or heavy-workload alerts for this class stream."})
+
+    recent_activities = [
+        f"{row['subject_name']} assigned to {row['teacher_name']}"
+        for row in allocation_rows[:5]
+    ]
+
     context = {
         "academic_years": academic_years,
         "terms": terms,
@@ -2148,7 +2257,13 @@ def add_class_subject_allocation(request):
         "is_admin": is_admin,
         "class_teacher_name": class_teacher_name,
         "total_students": total_students,
-        "subjects_allocated_count": allocations.count(),
+        "subjects_allocated_count": subjects_allocated_count,
+        "total_subjects": total_subjects,
+        "assigned_staff_count": assigned_staff_count,
+        "unassigned_count": unassigned_count,
+        "allocation_rows": allocation_rows,
+        "conflict_alerts": conflict_alerts,
+        "recent_activities": recent_activities,
     }
     return render(request, "classes/classsubjectallocation_form.html", context)
 
@@ -2182,10 +2297,10 @@ def delete_class_subject_allocation(request, id):
     is_admin = effective_role in {"admin", "head master", "head teacher", "headteacher"}
 
     if not (is_dos or is_admin):
-        messages.error(request, "Only Admin or the Director of Studies can manage subject allocations.")
+        messages.error(request, "Only Admin or the Director of Studies can deactivate subject allocations.")
         return redirect("subject_allocation_page")
     if request.method != "POST":
-        messages.error(request, "Delete requests must be submitted via POST.")
+        messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect("subject_allocation_page")
 
     allocation = get_object_or_404(
@@ -2196,7 +2311,7 @@ def delete_class_subject_allocation(request, id):
     )
 
     delete_class_subject_allocation_record(allocation)
-    messages.success(request, DELETE_MESSAGE)
+    messages.success(request, "Subject allocation deactivated successfully. Historical records were preserved.")
     redirect_url = (
         f"{reverse('subject_allocation_page')}"
         f"?academic_year={allocation.academic_class_stream.academic_class.academic_year_id}"

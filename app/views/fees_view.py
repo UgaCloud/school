@@ -4,6 +4,7 @@ from django.template.loader import render_to_string
 from django.contrib import messages
 from django.urls import reverse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.utils.http import url_has_allowed_host_and_scheme
 from app.selectors.model_selectors import *
 from app.constants import *
 from app.selectors.fees_selectors import * 
@@ -43,6 +44,21 @@ STUDENT_BILL_MANAGE_ROLES = {
     "bursar",
     "finance",
 }
+
+
+def _payment_return_url(request, bill):
+    fallback_url = reverse(manage_student_bill_details_view, args=[bill.id])
+    target_url = (request.POST.get("next") or request.META.get("HTTP_REFERER") or "").strip()
+    receipt_path = reverse("student_payment_receipt", args=[0]).replace("0/", "")
+
+    if (
+        target_url
+        and url_has_allowed_host_and_scheme(target_url, allowed_hosts={request.get_host()})
+        and receipt_path not in target_url
+    ):
+        return target_url
+
+    return fallback_url
 
 
 def _get_effective_role(request):
@@ -277,8 +293,8 @@ def add_student_payment_view(request, id):
             if not getattr(payment, "reference_no", None) or str(payment.reference_no).strip() == "":
                 payment.reference_no = f"PMT-{bill.id}-{timezone.now().strftime('%Y%m%d%H%M%S%f')}"
             payment.save()
-            messages.success(request, "Payment recorded successfully. Print or save the official receipt.")
-            return HttpResponseRedirect(reverse('student_payment_receipt', args=[payment.id]))
+            messages.success(request, "Payment recorded successfully.")
+            return HttpResponseRedirect(_payment_return_url(request, bill))
         else:
             # Print errors for debugging
             print("Form errors:", form.errors)
@@ -313,7 +329,6 @@ def ajax_payment_form_view(request, bill_id):
             return JsonResponse({
                 'success': True,
                 'message': 'Payment recorded successfully!',
-                'receipt_url': reverse('student_payment_receipt', args=[payment.id]),
             })
         else:
             return JsonResponse({'success': False, 'errors': form.errors})
@@ -433,6 +448,9 @@ def student_fees_status_view(request):
     selected_term_id = request.GET.get("term")
     selected_year_id = request.GET.get("year")
     selected_status = (request.GET.get("status") or "").strip().lower()
+    page_size = request.GET.get("page_size") or "25"
+    if page_size not in {"10", "25", "50", "100"}:
+        page_size = "25"
 
     # Resolve selected academic year (defaults to current)
     selected_year = None
@@ -476,15 +494,15 @@ def student_fees_status_view(request):
         amount_paid = bill.amount_paid
         due_date = bill.due_date
 
-        if amount_paid >= total_amount and total_amount > 0:
+        if amount_paid > total_amount:
+            payment_status = "Overpaid"; balance = abs(total_amount - amount_paid); balance_label = "CR"
+        elif amount_paid == total_amount and total_amount > 0:
             payment_status = "Paid"; balance = 0; balance_label = ""
         elif amount_paid == 0 and total_amount == 0:
             payment_status = "No Bill"; balance = 0; balance_label = ""
         else:
             balance = abs(total_amount - amount_paid)
-            if amount_paid > total_amount:
-                payment_status = "Overpaid"; balance_label = "CR"
-            elif amount_paid == 0 and total_amount > 0:
+            if amount_paid == 0 and total_amount > 0:
                 is_overdue = bool(due_date and now > due_date)
                 payment_status = "Overdue" if is_overdue else "Unpaid"; balance_label = "DR"
             else:
@@ -504,6 +522,7 @@ def student_fees_status_view(request):
             "total_amount": total_amount,
             "amount_paid": amount_paid,
             "amount_paid_percentage": (amount_paid / total_amount * 100) if total_amount > 0 else 0,
+            "progress_width": min((amount_paid / total_amount * 100), 100) if total_amount > 0 else 0,
             "payment_status": payment_status,
             "balance": balance if 'balance' in locals() else 0,
             "balance_label": balance_label if 'balance_label' in locals() else "",
@@ -543,15 +562,15 @@ def student_fees_status_view(request):
                 total_amount = bill.total_amount
                 amount_paid = bill.amount_paid
                 due_date = bill.due_date
-                if amount_paid >= total_amount and total_amount > 0:
+                if amount_paid > total_amount:
+                    payment_status = "Overpaid"; balance = abs(total_amount - amount_paid); balance_label = "CR"
+                elif amount_paid == total_amount and total_amount > 0:
                     payment_status = "Paid"; balance = 0; balance_label = ""
                 elif amount_paid == 0 and total_amount == 0:
                     payment_status = "No Bill"; balance = 0; balance_label = ""
                 else:
                     balance = abs(total_amount - amount_paid)
-                    if amount_paid > total_amount:
-                        payment_status = "Overpaid"; balance_label = "CR"
-                    elif amount_paid == 0 and total_amount > 0:
+                    if amount_paid == 0 and total_amount > 0:
                         is_overdue = bool(due_date and now > due_date)
                         payment_status = "Overdue" if is_overdue else "Unpaid"; balance_label = "DR"
                     else:
@@ -562,12 +581,14 @@ def student_fees_status_view(request):
                 )
                 student_fees_data.append({
                     "student": bill.student,
+                    "student_id": bill.student.id,
                     "academic_class": bill.academic_class,
                     "academic_year": bill.academic_class.academic_year,
                     "term": bill.academic_class.term,
                     "total_amount": total_amount,
                     "amount_paid": amount_paid,
                     "amount_paid_percentage": (amount_paid / total_amount * 100) if total_amount > 0 else 0,
+                    "progress_width": min((amount_paid / total_amount * 100), 100) if total_amount > 0 else 0,
                     "payment_status": payment_status,
                     "balance": balance if 'balance' in locals() else 0,
                     "balance_label": balance_label if 'balance_label' in locals() else "",
@@ -712,6 +733,13 @@ def student_fees_status_view(request):
         response['Content-Disposition'] = f'attachment; filename="student_fees_status_{timezone.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
         return response
 
+    paginator = Paginator(student_fees_data, int(page_size))
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    page_query = request.GET.copy()
+    page_query.pop("page", None)
+    page_querystring = page_query.urlencode()
+
     context = {
         "academic_years": academic_years,
         "academic_classes": academic_classes,
@@ -720,7 +748,11 @@ def student_fees_status_view(request):
         "academic_class_filter": int(selected_academic_class) if selected_academic_class else "",
         "term_filter": int(selected_term_id) if selected_term_id else (current_term.id if current_term else ""),
         "year_filter": int(selected_year.id) if selected_year else "",
-        "student_fees_data": student_fees_data,
+        "student_fees_data": page_obj.object_list,
+        "all_student_fees_count": len(student_fees_data),
+        "page_obj": page_obj,
+        "page_size": page_size,
+        "page_querystring": page_querystring,
         "total_fees": total_fees,
         "total_paid": total_paid,
         "total_balance": total_balance,
@@ -981,14 +1013,14 @@ def student_fees_history_view(request, student_id):
         if total_amount == 0 and amount_paid == 0:
             payment_status = "No Bill"
             balance_label = ""
-        elif amount_paid >= total_amount and total_amount > 0:
-            payment_status = "Paid"
-            balance_label = ""
-            balance = 0
         elif amount_paid > total_amount:
             payment_status = "Overpaid"
             balance_label = "CR"
             balance = abs(balance)
+        elif amount_paid == total_amount and total_amount > 0:
+            payment_status = "Paid"
+            balance_label = ""
+            balance = 0
         elif amount_paid == 0 and total_amount > 0:
             is_overdue = bool(bill.due_date and now > bill.due_date)
             payment_status = "Overdue" if is_overdue else "Unpaid"
@@ -1188,12 +1220,12 @@ def student_fees_receipt_pdf_view(request, student_id):
         # Determine balance label
         if total_amount == 0 and amount_paid == 0:
             balance_label = ""
-        elif amount_paid >= total_amount and total_amount > 0:
-            balance_label = ""
-            balance = 0
         elif amount_paid > total_amount:
             balance_label = "CR"
             balance = abs(balance)
+        elif amount_paid == total_amount and total_amount > 0:
+            balance_label = ""
+            balance = 0
         else:
             balance_label = "DR"
             balance = abs(balance)

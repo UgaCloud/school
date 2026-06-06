@@ -130,24 +130,23 @@
               Selected Bill #{{ selected_bill.id }} · Total UGX {{ selected_bill.total_amount|floatformat:0|intcomma }} · Paid UGX {{ selected_bill.amount_paid|floatformat:0|intcomma }} · Balance <strong>UGX {{ selected_bill.balance|floatformat:0|intcomma }}</strong>
             </div>
             {% if not selected_bill_has_balance %}
-              <div class="ux-empty">This bill is fully paid. Select another bill or open the learner’s full bill page.</div>
-            {% else %}
-              <form method="post" id="quickPaymentForm"
-                    data-student="{{ selected_student.student_name }}"
-                    data-student-id="{{ selected_student.display_student_id }}"
-                    data-term="{{ selected_bill.academic_class.term|default:'N/A' }} {{ selected_bill.academic_class.academic_year.academic_year|default:'' }}"
-                    data-balance="UGX {{ selected_bill.balance|floatformat:0|intcomma }}">
-                {% csrf_token %}
-                <input type="hidden" name="bill" value="{{ selected_bill.id }}">
-                {{ payment_form|crispy }}
-                <div class="alert alert-warning" style="margin-top:10px;">
-                  <strong>Before saving:</strong> confirm the learner, term, method and amount. A saved payment will immediately appear on receipts, statements and the ledger.
-                </div>
-                <button type="submit" class="btn btn-success btn-lg"><i class="fa fa-check"></i> Record Payment</button>
-                <a href="{% url 'student_bill_details_page' selected_bill.id %}" class="btn btn-default btn-lg">Open Bill Details</a>
-                <a href="{% url 'student_fees_history' selected_student.id %}" class="btn btn-default btn-lg">View Statement</a>
-              </form>
+              <div class="alert alert-warning">This bill is fully paid. Any extra payment recorded here will appear as student credit.</div>
             {% endif %}
+            <form method="post" id="quickPaymentForm"
+                  data-student="{{ selected_student.student_name }}"
+                  data-student-id="{{ selected_student.display_student_id }}"
+                  data-term="{{ selected_bill.academic_class.term|default:'N/A' }} {{ selected_bill.academic_class.academic_year.academic_year|default:'' }}"
+                  data-balance="UGX {{ selected_bill.balance|floatformat:0|intcomma }}">
+              {% csrf_token %}
+              <input type="hidden" name="bill" value="{{ selected_bill.id }}">
+              {{ payment_form|crispy }}
+              <div class="alert alert-warning" style="margin-top:10px;">
+                <strong>Before saving:</strong> confirm the learner, term, method and amount. A saved payment will immediately appear on receipts, statements and the ledger.
+              </div>
+              <button type="submit" class="btn btn-success btn-lg"><i class="fa fa-check"></i> Record Payment</button>
+              <a href="{% url 'student_bill_details_page' selected_bill.id %}" class="btn btn-default btn-lg">Open Bill Details</a>
+              <a href="{% url 'student_fees_history' selected_student.id %}" class="btn btn-default btn-lg">View Statement</a>
+            </form>
           {% endif %}
         {% else %}
           <div class="ux-empty">No bill found for this learner. Create a bill first before recording payment.</div>

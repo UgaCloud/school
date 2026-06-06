@@ -98,6 +98,7 @@ class ClassSubjectAllocation(models.Model):
     academic_class_stream = models.ForeignKey("app.AcademicClassStream",on_delete=models.CASCADE, related_name="subjects")
     subject = models.ForeignKey("app.Subject", on_delete=models.CASCADE, related_name="subjects")
     subject_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE, related_name="subjects")
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = ("classsubjectallocation")

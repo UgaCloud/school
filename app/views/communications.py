@@ -71,6 +71,7 @@ def announcement_list(request):
         if staff_account and staff_account.staff:
             class_streams = AcademicClassStream.objects.filter(class_teacher=staff_account.staff)
             teacher_ids = ClassSubjectAllocation.objects.filter(
+                is_active=True,
                 academic_class_stream__in=class_streams
             ).values_list("subject_teacher_id", flat=True)
             announcements = announcements | Announcement.objects.filter(
@@ -118,6 +119,7 @@ def announcement_create(request):
                 if staff_account and staff_account.staff:
                     class_streams = AcademicClassStream.objects.filter(class_teacher=staff_account.staff)
                     teacher_ids = ClassSubjectAllocation.objects.filter(
+                        is_active=True,
                         academic_class_stream__in=class_streams
                     ).values_list("subject_teacher_id", flat=True)
                     AnnouncementTarget.objects.bulk_create([
@@ -153,6 +155,7 @@ def announcement_edit(request, pk):
                 if staff_account and staff_account.staff:
                     class_streams = AcademicClassStream.objects.filter(class_teacher=staff_account.staff)
                     teacher_ids = ClassSubjectAllocation.objects.filter(
+                        is_active=True,
                         academic_class_stream__in=class_streams
                     ).values_list("subject_teacher_id", flat=True)
                     AnnouncementTarget.objects.bulk_create([

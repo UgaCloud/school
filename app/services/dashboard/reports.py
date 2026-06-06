@@ -795,6 +795,7 @@ def get_reports_context(request, scope):
     attendance_scope = AttendanceRecord.objects.filter(
         session__class_stream__academic_class__in=term_scoped_academic_classes,
         session__date__range=(attendance_from, attendance_to),
+        session__is_locked=True,
     )
     if attendance_class_id:
         attendance_scope = attendance_scope.filter(

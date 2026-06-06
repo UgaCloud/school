@@ -54,14 +54,8 @@ class PaymentForm(ModelForm):
         cleaned_data = super().clean()
         amount = cleaned_data.get("amount")
 
-        if self.bill and amount is not None:
-            balance = self.bill.balance or 0
-            if balance <= 0:
-                raise forms.ValidationError("This bill has no outstanding balance.")
-            if amount > balance:
-                raise forms.ValidationError(
-                    f"Amount exceeds the outstanding balance of UGX {balance:,.0f}."
-                )
+        if amount is not None and amount <= 0:
+            raise forms.ValidationError("Payment amount must be greater than zero.")
 
         if self.bill and not cleaned_data.get("fee_category"):
             categories = [

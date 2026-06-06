@@ -40,6 +40,7 @@
                 <th>Date</th>
                 <th>Class</th>
                 <th>Subject</th>
+                <th>Unmarked</th>
                 <th>Present</th>
                 <th>Absent</th>
                 <th>Late</th>
@@ -54,6 +55,7 @@
                 <td>{{ session.date|date:"d/m/Y" }}<br><small class="text-muted">{{ session.lesson_period }}</small></td>
                 <td>{{ session.class_stream }}</td>
                 <td>{{ session.subject.name }}</td>
+                <td>{{ session.unmarked_count }}</td>
                 <td>{{ session.present_count }}</td>
                 <td>{{ session.absent_count }}</td>
                 <td>{{ session.late_count }}</td>
@@ -61,8 +63,10 @@
                 <td>
                   {% if session.is_locked %}
                   <span class="label label-success">Locked</span>
+                  {% if session.submitted_at %}<br><small class="text-muted">{{ session.submitted_at|date:"d/m/Y H:i" }}</small>{% endif %}
                   {% else %}
                   <span class="label label-info">Draft</span>
+                  <br><small class="text-muted">Not official</small>
                   {% endif %}
                 </td>
                 <td>
@@ -81,7 +85,7 @@
               </tr>
               {% empty %}
               <tr>
-                <td colspan="9" class="text-center text-muted">No attendance sessions found for the selected filters.</td>
+                <td colspan="10" class="text-center text-muted">No attendance sessions found for the selected filters.</td>
               </tr>
               {% endfor %}
             </tbody>

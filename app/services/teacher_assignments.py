@@ -137,7 +137,7 @@ def get_teacher_assignments(
         )
 
     allocation_rows = _apply_allocation_filters(
-        ClassSubjectAllocation.objects.filter(subject_teacher=staff).select_related(
+        ClassSubjectAllocation.objects.filter(subject_teacher=staff, is_active=True).select_related(
             "academic_class_stream__academic_class__Class",
             "academic_class_stream__academic_class__academic_year",
             "academic_class_stream__academic_class__term",
@@ -227,7 +227,8 @@ def get_class_stream_assignments(
 
     allocation_rows = _apply_allocation_filters(
         ClassSubjectAllocation.objects.filter(
-            academic_class_stream_id__in=class_stream_ids
+            academic_class_stream_id__in=class_stream_ids,
+            is_active=True,
         ).select_related(
             "academic_class_stream__academic_class__Class",
             "academic_class_stream__academic_class__academic_year",
@@ -283,7 +284,7 @@ def get_teacher_ids_for_class_streams(
         class_stream_ids=ids,
     )
     allocation_qs = _apply_allocation_filters(
-        ClassSubjectAllocation.objects.filter(academic_class_stream_id__in=ids),
+        ClassSubjectAllocation.objects.filter(academic_class_stream_id__in=ids, is_active=True),
         current_year=current_year,
         current_term=current_term,
         class_stream_ids=ids,
@@ -347,6 +348,7 @@ def get_class_subject_teacher_rows(
         ClassSubjectAllocation.objects.filter(
             academic_class_stream__academic_class_id__in=class_id_set,
             subject_id__in=subject_id_set,
+            is_active=True,
         ).values(
             "academic_class_stream__academic_class_id",
             "subject_id",
@@ -391,11 +393,14 @@ def get_allocation_queryset(
     class_streams: Sequence[AcademicClassStream] | None = None,
     class_stream_ids: Sequence[int] | None = None,
     subject_ids: Sequence[int] | None = None,
+    include_inactive: bool = False,
 ):
     stream_id_set = _as_ids(class_stream_ids)
     subject_id_set = _as_ids(subject_ids)
 
     queryset = ClassSubjectAllocation.objects.all()
+    if not include_inactive:
+        queryset = queryset.filter(is_active=True)
     if teacher is not None:
         queryset = queryset.filter(subject_teacher=teacher)
     queryset = _apply_allocation_filters(
@@ -430,7 +435,7 @@ def upsert_class_subject_allocation(
     return ClassSubjectAllocation.objects.update_or_create(
         academic_class_stream=class_stream,
         subject=subject,
-        defaults={"subject_teacher": subject_teacher},
+        defaults={"subject_teacher": subject_teacher, "is_active": True},
     )
 
 
@@ -444,12 +449,16 @@ def save_class_subject_allocation(
     allocation.academic_class_stream = class_stream
     allocation.subject = subject
     allocation.subject_teacher = subject_teacher
+    allocation.is_active = True
     allocation.save()
     return allocation
 
 
 def delete_class_subject_allocation_record(allocation: ClassSubjectAllocation):
-    allocation.delete()
+    """Soft-deactivate an allocation so historical records are not destroyed."""
+    allocation.is_active = False
+    allocation.save(update_fields=["is_active"])
+    return allocation
 
 
 def copy_allocations_for_term_transition(

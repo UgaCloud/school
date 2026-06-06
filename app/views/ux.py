@@ -122,8 +122,8 @@ def bursar_quick_payment_view(request):
             selected_bill.refresh_from_db()
             selected_bill.status = "Paid" if _money(selected_bill.balance) <= 0 else "Unpaid"
             selected_bill.save(update_fields=["status"])
-            messages.success(request, f"Payment of UGX {payment.amount:,.0f} recorded for {selected_student.student_name}. Print or save the official receipt.")
-            return redirect(reverse('student_payment_receipt', args=[payment.id]))
+            messages.success(request, f"Payment of UGX {payment.amount:,.0f} recorded for {selected_student.student_name}.")
+            return redirect(request.get_full_path())
         messages.error(request, "Please correct the payment details and try again.")
     elif selected_bill:
         payment_form = PaymentForm(

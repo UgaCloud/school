@@ -11,6 +11,7 @@ from app.models.timetables import TimeSlot, Timetable
 
 
 class AttendanceStatus(models.TextChoices):
+    UNMARKED = "unmarked", "Unmarked"
     PRESENT = "present", "Present"
     LATE = "late", "Late"
     ABSENT = "absent", "Absent"
@@ -35,6 +36,7 @@ class AttendanceSession(models.Model):
     date = models.DateField(default=timezone.now)
     time_slot = models.ForeignKey(TimeSlot, on_delete=models.SET_NULL, null=True, blank=True)
     is_locked = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -97,7 +99,7 @@ class AttendanceRecord(models.Model):
     )
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="attendance_records")
     status = models.CharField(
-        max_length=20, choices=AttendanceStatus.choices, default=AttendanceStatus.PRESENT
+        max_length=20, choices=AttendanceStatus.choices, default=AttendanceStatus.UNMARKED
     )
     remarks = models.CharField(max_length=255, blank=True)
     captured_by = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True)

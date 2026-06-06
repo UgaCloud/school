@@ -29,6 +29,19 @@ def _get_current_year_and_term():
     current_term = Term.objects.filter(is_current=True, academic_year=current_year).first() if current_year else Term.objects.filter(is_current=True).first()
     return current_year, current_term
 
+def _sync_budget_statuses():
+    current_year, current_term = _get_current_year_and_term()
+    if current_year and current_term:
+        current_budget_filter = Q(
+            academic_year=current_year,
+            term__term=current_term.term,
+        )
+        Budget.objects.filter(current_budget_filter).exclude(status="Open").update(status="Open")
+        Budget.objects.exclude(current_budget_filter).exclude(status="Closed").update(status="Closed")
+    else:
+        Budget.objects.exclude(status="Closed").update(status="Closed")
+    return current_year, current_term
+
 def _parse_date_any(value):
     """
     Accepts 'YYYY-MM-DD' (HTML date inputs) and common 'DD/MM/YYYY' or 'MM/DD/YYYY' forms.
@@ -595,18 +608,20 @@ def delete_vendor(request, id):
 @login_required
 def manage_budgets(request):
     form = finance_forms.BudgetForm()
-    # By default show only the active term's budget; allow ?all=1 to show all
-    show_all = request.GET.get('all') == '1' or request.GET.get('show_all') == '1'
-    if show_all:
-        budgets = get_all_model_records(Budget)
-    else:
-        current_year, current_term = _get_current_year_and_term()
-        budgets = Budget.objects.filter(academic_year=current_year, term=current_term) if (current_year and current_term) else Budget.objects.none()
+    current_year, current_term = _sync_budget_statuses()
+    scope = (request.GET.get("scope") or "all").strip().lower()
+    show_current = scope == "current"
+    budgets = Budget.objects.select_related("academic_year", "term").all()
+    if show_current:
+        budgets = budgets.filter(academic_year=current_year, term__term=current_term.term) if (current_year and current_term) else Budget.objects.none()
     
     context = {
         "budgets": budgets,
         "form": form,
-        "show_all": show_all
+        "show_current": show_current,
+        "current_year": current_year,
+        "current_term": current_term,
+        "all_budgets_count": Budget.objects.count(),
     }
     return render(request, "finance/budgets.html", context)
 
@@ -617,6 +632,7 @@ def add_budget(request):
         
         if form.is_valid():
             form.save()
+            _sync_budget_statuses()
             
             messages.success(request, SUCCESS_ADD_MESSAGE)
         else:
@@ -633,6 +649,7 @@ def edit_budgets(request, id):
         
         if form.is_valid():
             form.save()
+            _sync_budget_statuses()
             messages.success(request,SUCCESS_ADD_MESSAGE)
             return HttpResponsePermanentRedirect(reverse(manage_budgets))
         else:

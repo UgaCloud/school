@@ -458,6 +458,7 @@ def index_view(request):
                     today_attendance_qs = AttendanceRecord.objects.filter(
                         session__date=today,
                         session__class_stream__academic_class_id__in=class_ids,
+                        session__is_locked=True,
                     )
                     teacher_present_today_count = today_attendance_qs.filter(
                         status__in=[AttendanceStatus.PRESENT, AttendanceStatus.LATE]
@@ -1092,6 +1093,7 @@ def index_view(request):
                     session__academic_year=current_year,
                     session__term=current_term,
                     session__class_stream__academic_class__in=scoped_academic_classes,
+                    session__is_locked=True,
                 )
                 .values("session__date")
                 .annotate(
@@ -1402,6 +1404,7 @@ def index_view(request):
             session__academic_year=current_year,
             session__term=current_term,
             session__class_stream__academic_class__in=scoped_academic_classes,
+            session__is_locked=True,
         )
         attendance_total = attendance_scope.count()
         attendance_present = attendance_scope.filter(

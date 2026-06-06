@@ -352,6 +352,7 @@ def _teacher_has_assessment_allocation(staff_member, assessment):
     if not staff_member or not assessment:
         return False
     return ClassSubjectAllocation.objects.filter(
+        is_active=True,
         subject_teacher=staff_member,
         academic_class_stream__academic_class=assessment.academic_class,
         subject=assessment.subject,
@@ -1311,6 +1312,7 @@ def class_assessment_list_view(request):
     elif role_key in {'teacher', 'class teacher', 'class_teacher'} and staff_account and getattr(staff_account, 'staff', None):
         # Subject-teacher allocations (any term) -> AcademicClass ids
         allocated_academic_class_ids = ClassSubjectAllocation.objects.filter(
+            is_active=True,
             subject_teacher=staff_account.staff
         ).values_list('academic_class_stream__academic_class_id', flat=True).distinct()
         # Class-teacher assignments (any term) -> AcademicClass ids
@@ -1379,6 +1381,7 @@ def list_assessments_view(request, class_id):
                     base_qs = Assessment.objects.none()
             elif role_key == "teacher":
                 teacher_allocations = ClassSubjectAllocation.objects.filter(
+                    is_active=True,
                     subject_teacher=staff_account.staff,
                     academic_class_stream__academic_class=academic_class,
                 )
@@ -3319,8 +3322,9 @@ def assessment_sheet_view(request):
     if term_scoped_class_ids:
         subject_allocations = list(
             ClassSubjectAllocation.objects.filter(
-            academic_class_stream__academic_class__id__in=term_scoped_class_ids,
-        ).select_related("subject_teacher", "subject", "academic_class_stream")
+                is_active=True,
+                academic_class_stream__academic_class__id__in=term_scoped_class_ids,
+            ).select_related("subject_teacher", "subject", "academic_class_stream")
         )
         allocation_subject_ids = {
             allocation.subject_id
@@ -3444,6 +3448,7 @@ def assessment_sheet_view(request):
                 try:
                     fallback_alloc_stream = (
                         ClassSubjectAllocation.objects.filter(
+                            is_active=True,
                             academic_class_stream_id=register.academic_class_stream_id
                         )
                         .filter(
@@ -4182,6 +4187,7 @@ def verification_report_view(request, assessment_id):
     teacher_performance = []
     try:
         allocations = ClassSubjectAllocation.objects.filter(
+            is_active=True,
             academic_class_stream__academic_class=assessment.academic_class,
             subject=assessment.subject,
         ).select_related("subject_teacher", "academic_class_stream__stream")
@@ -4348,6 +4354,7 @@ def assessment_verified_sheet_view(request, assessment_id):
 
     subject_teacher = None
     subject_allocation = ClassSubjectAllocation.objects.filter(
+        is_active=True,
         academic_class_stream=class_stream,
         subject=assessment.subject,
     ).select_related("subject_teacher").first() if class_stream else None

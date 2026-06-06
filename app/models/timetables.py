@@ -85,6 +85,7 @@ class Timetable(models.Model):
 
         ClassSubjectAllocation = apps.get_model("app", "ClassSubjectAllocation")
         allocation_qs = ClassSubjectAllocation.objects.filter(
+            is_active=True,
             academic_class_stream_id=self.class_stream_id,
             subject_id=self.subject_id,
         )

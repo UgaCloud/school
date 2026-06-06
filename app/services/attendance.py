@@ -68,7 +68,7 @@ def initialize_session_records(session):
         AttendanceRecord(
             session=session,
             student_id=student_id,
-            status=AttendanceStatus.PRESENT,
+            status=AttendanceStatus.UNMARKED,
         )
         for student_id in students
         if student_id not in existing
@@ -82,9 +82,9 @@ def save_attendance_records(session, payload, captured_by, actor_user=None):
     allowed_statuses = {value for value, _ in AttendanceStatus.choices}
     for student_id, row in payload.items():
         student_pk = int(student_id)
-        status = row.get("status") or AttendanceStatus.PRESENT
+        status = row.get("status") or AttendanceStatus.UNMARKED
         if status not in allowed_statuses:
-            status = AttendanceStatus.PRESENT
+            status = AttendanceStatus.UNMARKED
         remarks = row.get("remarks") or ""
         existing_record = AttendanceRecord.objects.filter(
             session=session,
@@ -117,7 +117,8 @@ def lock_session(session, *, actor_user=None, reason="Submitted by teacher"):
     if session.is_locked:
         return session
     session.is_locked = True
-    session.save(update_fields=["is_locked", "updated_at"])
+    session.submitted_at = timezone.now()
+    session.save(update_fields=["is_locked", "submitted_at", "updated_at"])
     AttendanceAuditLog.objects.create(
         session=session,
         action=AttendanceAuditLog.ACTION_SUBMITTED,

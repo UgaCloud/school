@@ -100,6 +100,7 @@ class MessageThreadForm(forms.ModelForm):
             if effective_role == "Class Teacher":
                 class_streams = AcademicClassStream.objects.filter(class_teacher=sender.staff_account.staff)
                 teacher_ids = ClassSubjectAllocation.objects.filter(
+                    is_active=True,
                     academic_class_stream__in=class_streams
                 ).values_list("subject_teacher_id", flat=True)
                 staff_qs = staff_qs.filter(staff_id__in=teacher_ids)

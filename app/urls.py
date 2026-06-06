@@ -72,6 +72,11 @@ urlpatterns = [
     path('academic_classes/student-promotion/', student_promotion_workflow, name="student_promotion_workflow"),
     path('academic_class_details/<int:id>/', academic_class_details_view, name="academic_class_details_page"),
     path(
+        'academic_class_details/<int:id>/register-student/',
+        register_student_in_academic_class,
+        name='register_student_in_academic_class',
+    ),
+    path(
         'academic_class_details/<int:id>/promote/',
         promote_academic_class_students,
         name='promote_academic_class_students',

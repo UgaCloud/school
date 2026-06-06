@@ -253,7 +253,7 @@ def student_summary_api_view(request, id):
     from app.models.fees_payment import StudentBillItem, Payment, StudentCredit
     from app.models.results import Result
 
-    attendance_qs = AttendanceRecord.objects.filter(student=student)
+    attendance_qs = AttendanceRecord.objects.filter(student=student, session__is_locked=True)
     attendance_total = attendance_qs.count()
     present_like = attendance_qs.filter(
         status__in=[
@@ -716,6 +716,7 @@ def student_details_view(request, id):
             student=student,
             session__date__gte=attendance_date_from,
             session__date__lte=attendance_date_to,
+            session__is_locked=True,
         )
         .select_related(
             "session__subject",

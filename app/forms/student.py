@@ -20,6 +20,41 @@ class StudentForm(ModelForm):
                     "type": "date",
                 })
 
+
+class ClassScopedStudentForm(ModelForm):
+    academic_class_stream = forms.ModelChoiceField(
+        queryset=AcademicClassStream.objects.none(),
+        label="Stream",
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    class Meta:
+        model = Student
+        fields = (
+            "student_name",
+            "gender",
+            "birthdate",
+            "nationality",
+            "religion",
+            "address",
+            "guardian",
+            "relationship",
+            "contact",
+            "photo",
+        )
+
+    def __init__(self, *args, academic_class=None, **kwargs):
+        self.academic_class = academic_class
+        super().__init__(*args, **kwargs)
+        self.Helper = FormHelper()
+        self.fields["birthdate"].widget = DateInput(attrs={"type": "date"})
+        if academic_class is not None:
+            self.fields["academic_class_stream"].queryset = (
+                AcademicClassStream.objects.filter(academic_class=academic_class)
+                .select_related("stream")
+                .order_by("stream__stream")
+            )
+
 class StudentRegistrationCSVForm(ModelForm):
     class Meta:
         model = StudentRegistrationCSV

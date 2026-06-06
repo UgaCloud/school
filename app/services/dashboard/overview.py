@@ -89,6 +89,7 @@ def get_overview_context(request, scope):
         attendance_scope = AttendanceRecord.objects.filter(
             session__academic_year=current_year,
             session__term=current_term,
+            session__is_locked=True,
             session__class_stream__academic_class__in=scoped_academic_classes,
         )
         attendance_today_rate = _attendance_rate(attendance_scope.filter(session__date=today))
@@ -113,6 +114,7 @@ def get_overview_context(request, scope):
                 academic_year=current_year,
                 term=current_term,
                 date=today,
+                is_locked=True,
                 class_stream__academic_class__in=scoped_academic_classes,
             )
             .values_list("class_stream_id", flat=True)
@@ -144,6 +146,29 @@ def get_overview_context(request, scope):
         missing_attendance_streams = 0
 
     outstanding_fees = max(total_fees_expected - total_fees_collected, 0)
+    collection_rate = _percent(total_fees_collected, total_fees_expected)
+    outstanding_rate = _percent(outstanding_fees, total_fees_expected)
+    operational_health_score = round(
+        (collection_rate + attendance_today_rate + attendance_week_rate) / 3, 1
+    ) if total_fees_expected or attendance_today_rate or attendance_week_rate else 0
+
+    overview_finance_labels = ["Collected", "Outstanding"]
+    overview_finance_values = [float(total_fees_collected or 0), float(outstanding_fees or 0)]
+    overview_operations_labels = ["Students", "Teachers", "Classes", "Streams"]
+    overview_operations_values = [
+        total_students_active,
+        total_teachers,
+        total_classes,
+        total_streams,
+    ]
+    overview_attendance_labels = ["Today", "This Week"]
+    overview_attendance_values = [attendance_today_rate, attendance_week_rate]
+    overview_risk_labels = ["Overdue Bills", "Verification Pending", "Attendance Gaps"]
+    overview_risk_values = [
+        overdue_bills_count,
+        verification_pending_count,
+        missing_attendance_streams,
+    ]
 
     alerts = [
         {
@@ -195,9 +220,19 @@ def get_overview_context(request, scope):
         "total_fees_expected": total_fees_expected,
         "total_fees_collected": total_fees_collected,
         "outstanding_fees": outstanding_fees,
-        "collection_rate": _percent(total_fees_collected, total_fees_expected),
+        "collection_rate": collection_rate,
+        "outstanding_rate": outstanding_rate,
+        "operational_health_score": operational_health_score,
         "attendance_today_rate": attendance_today_rate,
         "attendance_week_rate": attendance_week_rate,
         "overview_alerts": alerts,
         "overview_quick_actions": quick_actions,
+        "overview_finance_labels": overview_finance_labels,
+        "overview_finance_values": overview_finance_values,
+        "overview_operations_labels": overview_operations_labels,
+        "overview_operations_values": overview_operations_values,
+        "overview_attendance_labels": overview_attendance_labels,
+        "overview_attendance_values": overview_attendance_values,
+        "overview_risk_labels": overview_risk_labels,
+        "overview_risk_values": overview_risk_values,
     }

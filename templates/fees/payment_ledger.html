@@ -47,7 +47,20 @@
 /* Ledger table */
 .ledger-wrap{overflow-x:auto;border-radius:12px;border:1px solid #e2e8f0;}
 .ledger-tbl{width:100%;border-collapse:collapse;font-size:.82rem;}
-.ledger-tbl thead th{position:sticky;top:0;z-index:10;background:#1e3a5f;color:#fff;padding:10px 12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:.75rem;white-space:nowrap;border:none;}
+.ledger-tbl thead th,
+#ledgerTable thead tr th{position:sticky;top:0;z-index:10;background:#f8fafc!important;color:#0f172a!important;padding:10px 12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:.75rem;white-space:nowrap;border:none;border-bottom:1px solid #cbd5e1!important;}
+.ledger-tbl thead th a,
+.ledger-tbl thead th i,
+.ledger-tbl thead th span,
+.ledger-tbl thead th div,
+.ledger-tbl thead th::before,
+.ledger-tbl thead th::after,
+#ledgerTable thead th a,
+#ledgerTable thead th i,
+#ledgerTable thead th span,
+#ledgerTable thead th div,
+#ledgerTable thead th::before,
+#ledgerTable thead th::after{color:#0f172a!important;}
 .ledger-tbl tbody tr{border-bottom:1px solid #f1f5f9;transition:background .1s;}
 .ledger-tbl tbody tr:hover{background:#f8fafc;}
 .ledger-tbl td{padding:8px 12px;vertical-align:middle;white-space:nowrap;}

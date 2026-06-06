@@ -39,6 +39,7 @@ from app.services.attendance import (
 from app.services.teacher_assignments import get_teacher_assignments
 
 WEEKDAY_CODES = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+PRESENT_LIKE_STATUSES = [AttendanceStatus.PRESENT, AttendanceStatus.LATE]
 
 
 def _weekday_code(for_date):
@@ -128,16 +129,21 @@ def _session_status_map_for_lessons(lessons, lesson_date):
                 "icon": "⏳",
                 "css": "label-warning",
                 "session": None,
+                "unmarked_count": None,
             }
         else:
             label = "Taken" if session.is_locked else "Draft"
             icon = "✅" if session.is_locked else "📝"
             css = "label-success" if session.is_locked else "label-info"
+            unmarked_count = (
+                0 if session.is_locked else session.records.filter(status=AttendanceStatus.UNMARKED).count()
+            )
             status_map[lesson.pk] = {
                 "label": label,
                 "icon": icon,
                 "css": css,
                 "session": session,
+                "unmarked_count": unmarked_count,
             }
     return status_map
 
@@ -255,6 +261,27 @@ def _build_attendance_summary(session):
     return counts
 
 
+def _session_redirect_path(request, class_stream, subject, target_date, session):
+    return (
+        f"{request.path}?class_stream={class_stream.pk}&subject={subject.pk}"
+        f"&date={target_date.isoformat()}&time_slot={session.time_slot_id or ''}"
+    )
+
+
+def _validate_attendance_ready(students, payload):
+    """Return learner ids that are not ready for official submission."""
+    valid_student_ids = {str(reg.student_id) for reg in students}
+    provided_student_ids = set(payload.keys()) & valid_student_ids
+    missing_student_ids = valid_student_ids - provided_student_ids
+    unmarked_student_ids = {
+        student_id
+        for student_id in provided_student_ids
+        if (payload.get(student_id, {}).get("status") or AttendanceStatus.UNMARKED)
+        == AttendanceStatus.UNMARKED
+    }
+    return missing_student_ids | unmarked_student_ids
+
+
 @login_required
 def attendance_dashboard(request):
     staff = _get_staff(request)
@@ -272,16 +299,20 @@ def attendance_dashboard(request):
     completed = sum(1 for row in lesson_status.values() if row["label"] == "Taken")
     pending = max(len(lessons) - completed, 0)
 
-    today_sessions = AttendanceSession.objects.filter(
+    submitted_today_sessions = AttendanceSession.objects.filter(
         teacher=staff,
         date=today,
+        is_locked=True,
     ).prefetch_related("records")
-    total_records = sum(session.records.count() for session in today_sessions)
+    draft_lessons_count = sum(1 for row in lesson_status.values() if row["label"] == "Draft")
+    total_records = sum(session.records.count() for session in submitted_today_sessions)
     total_present = sum(
-        session.records.filter(status=AttendanceStatus.PRESENT).count()
-        for session in today_sessions
+        session.records.filter(status__in=PRESENT_LIKE_STATUSES).count()
+        for session in submitted_today_sessions
     )
     attendance_rate = round((total_present / total_records) * 100, 1) if total_records else 0
+    pending_lessons_rate = round((pending / len(lessons)) * 100, 1) if lessons else 0
+    completed_lessons_rate = round((completed / len(lessons)) * 100, 1) if lessons else 0
 
     lesson_rows = []
     for lesson in lessons:
@@ -307,6 +338,9 @@ def attendance_dashboard(request):
         "today_lessons_count": len(lessons),
         "pending_lessons_count": pending,
         "completed_lessons_count": completed,
+        "draft_lessons_count": draft_lessons_count,
+        "pending_lessons_rate": pending_lessons_rate,
+        "completed_lessons_rate": completed_lessons_rate,
         "attendance_rate": attendance_rate,
         "lesson_rows": lesson_rows,
     }
@@ -426,12 +460,22 @@ def take_attendance(request):
                     captured_by=staff,
                     actor_user=request.user,
                 )
+
+            unmarked_student_ids = _validate_attendance_ready(students, sanitized_payload)
+            if not valid_student_ids:
+                messages.error(request, "Attendance cannot be submitted because this class has no registered learners.")
+                return redirect(_session_redirect_path(request, class_stream, subject, target_date, session))
+            if unmarked_student_ids:
+                messages.error(
+                    request,
+                    f"Attendance not submitted. {len(unmarked_student_ids)} learner(s) are still unmarked. "
+                    "Mark every learner as Present, Absent, Late or Excused before submitting.",
+                )
+                return redirect(_session_redirect_path(request, class_stream, subject, target_date, session))
+
             lock_session(session, actor_user=request.user)
-            messages.success(request, "Attendance submitted successfully. Editing is now locked.")
-            return redirect(
-                f"{request.path}?class_stream={class_stream.pk}&subject={subject.pk}"
-                f"&date={target_date.isoformat()}&time_slot={session.time_slot_id or ''}"
-            )
+            messages.success(request, "Attendance submitted successfully. Editing is now locked and included in official reports.")
+            return redirect(_session_redirect_path(request, class_stream, subject, target_date, session))
 
     summary = _build_attendance_summary(session)
 
@@ -519,6 +563,7 @@ def attendance_history(request):
             sessions = sessions.filter(date__lte=date_to)
 
     sessions = sessions.annotate(
+        unmarked_count=Count("records", filter=Q(records__status=AttendanceStatus.UNMARKED)),
         present_count=Count("records", filter=Q(records__status=AttendanceStatus.PRESENT)),
         absent_count=Count("records", filter=Q(records__status=AttendanceStatus.ABSENT)),
         late_count=Count("records", filter=Q(records__status=AttendanceStatus.LATE)),
@@ -575,24 +620,31 @@ def attendance_analysis(request):
             sessions = sessions.filter(date__lte=date_to)
 
     sessions = sessions.order_by("date", "time_slot__start_time")
+    draft_sessions_count = sessions.filter(is_locked=False).count()
+    metric_sessions = sessions.filter(is_locked=True)
 
-    status_aggregate = AttendanceRecord.objects.filter(session__in=sessions).values("status").annotate(
+    status_aggregate = AttendanceRecord.objects.filter(session__in=metric_sessions).values("status").annotate(
         total=Count("id")
     )
     status_map = {value: 0 for value, _ in AttendanceStatus.choices}
     for row in status_aggregate:
         status_map[row["status"]] = row["total"]
 
-    total_marked = sum(status_map.values())
-    present_total = status_map[AttendanceStatus.PRESENT]
+    total_marked = (
+        status_map[AttendanceStatus.PRESENT]
+        + status_map[AttendanceStatus.LATE]
+        + status_map[AttendanceStatus.ABSENT]
+        + status_map[AttendanceStatus.EXCUSED]
+    )
+    present_total = status_map[AttendanceStatus.PRESENT] + status_map[AttendanceStatus.LATE]
     average_rate = round((present_total / total_marked) * 100, 1) if total_marked else 0
 
     policy = AttendancePolicy.load()
     minimum_threshold = policy.minimum_attendance_percent
 
-    student_rollups = AttendanceRecord.objects.filter(session__in=sessions).values("student").annotate(
+    student_rollups = AttendanceRecord.objects.filter(session__in=metric_sessions).values("student").annotate(
         total=Count("id"),
-        present=Count("id", filter=Q(status=AttendanceStatus.PRESENT)),
+        present=Count("id", filter=Q(status__in=PRESENT_LIKE_STATUSES)),
     )
     students_below_threshold = 0
     for row in student_rollups:
@@ -601,9 +653,9 @@ def attendance_analysis(request):
             students_below_threshold += 1
 
     daily_rollups = list(
-        sessions.values("date").annotate(
+        metric_sessions.values("date").annotate(
             total=Count("records"),
-            present=Count("records", filter=Q(records__status=AttendanceStatus.PRESENT)),
+            present=Count("records", filter=Q(records__status__in=PRESENT_LIKE_STATUSES)),
         ).order_by("date")
     )
     trend_labels = [item["date"].strftime("%Y-%m-%d") for item in daily_rollups]
@@ -613,10 +665,10 @@ def attendance_analysis(request):
     ]
 
     term_rollups = list(
-        sessions.values("academic_year__academic_year", "term__term")
+        metric_sessions.values("academic_year__academic_year", "term__term")
         .annotate(
             total=Count("records"),
-            present=Count("records", filter=Q(records__status=AttendanceStatus.PRESENT)),
+            present=Count("records", filter=Q(records__status__in=PRESENT_LIKE_STATUSES)),
         )
         .order_by("academic_year__academic_year", "term__term")
     )
@@ -632,18 +684,20 @@ def attendance_analysis(request):
         "filter_form": filter_form,
         "average_rate": average_rate,
         "students_below_threshold": students_below_threshold,
-        "total_lessons": sessions.count(),
+        "total_lessons": metric_sessions.count(),
+        "draft_sessions_count": draft_sessions_count,
         "minimum_threshold": minimum_threshold,
         "distribution": status_map,
         "trend_labels_json": json.dumps(trend_labels),
         "trend_values_json": json.dumps(trend_values),
-        "distribution_labels_json": json.dumps(["Present", "Absent", "Late", "Excused"]),
+        "distribution_labels_json": json.dumps(["Present", "Absent", "Late", "Excused", "Unmarked"]),
         "distribution_values_json": json.dumps(
             [
                 status_map[AttendanceStatus.PRESENT],
                 status_map[AttendanceStatus.ABSENT],
                 status_map[AttendanceStatus.LATE],
                 status_map[AttendanceStatus.EXCUSED],
+                status_map[AttendanceStatus.UNMARKED],
             ]
         ),
         "term_labels_json": json.dumps(term_labels),
@@ -669,6 +723,7 @@ def student_attendance_report(request):
             student = Student.objects.get(pk=student_id)
             records = AttendanceRecord.objects.filter(
                 student=student,
+                session__is_locked=True,
                 session__date__gte=parsed_from,
                 session__date__lte=parsed_to,
             ).select_related(
@@ -682,6 +737,7 @@ def student_attendance_report(request):
 
     total = records.count()
     present = records.filter(status=AttendanceStatus.PRESENT).count()
+    present_like = records.filter(status__in=PRESENT_LIKE_STATUSES).count()
     absent = records.filter(status=AttendanceStatus.ABSENT).count()
     late = records.filter(status=AttendanceStatus.LATE).count()
     excused = records.filter(status=AttendanceStatus.EXCUSED).count()
@@ -697,7 +753,7 @@ def student_attendance_report(request):
         "absent": absent,
         "late": late,
         "excused": excused,
-        "attendance_percentage": round((present / total) * 100, 1) if total > 0 else 0,
+        "attendance_percentage": round((present_like / total) * 100, 1) if total > 0 else 0,
     }
     return render(request, "attendance/student_attendance_report.html", context)
 
@@ -725,6 +781,7 @@ def class_attendance_report(request):
                 class_stream=class_stream,
                 date__gte=parsed_from,
                 date__lte=parsed_to,
+                is_locked=True,
             )
             if subject_id:
                 try:
@@ -749,6 +806,7 @@ def class_attendance_report(request):
                 )
                 total = records.count()
                 present = records.filter(status=AttendanceStatus.PRESENT).count()
+                present_like = records.filter(status__in=PRESENT_LIKE_STATUSES).count()
                 absent = records.filter(status=AttendanceStatus.ABSENT).count()
                 student_summary.append(
                     {
@@ -756,7 +814,7 @@ def class_attendance_report(request):
                         "total": total,
                         "present": present,
                         "absent": absent,
-                        "percentage": round((present / total) * 100, 1) if total else 0,
+                        "percentage": round((present_like / total) * 100, 1) if total else 0,
                     }
                 )
 
@@ -877,6 +935,9 @@ def export_attendance_csv(request):
         "student",
         "captured_by",
     )
+    include_drafts = (request.GET.get("include_drafts") or "").lower() in {"1", "true", "yes"}
+    if not include_drafts:
+        records = records.filter(session__is_locked=True)
     if date_from:
         records = records.filter(session__date__gte=date_from)
     if date_to:

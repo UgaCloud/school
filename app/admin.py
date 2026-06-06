@@ -452,7 +452,7 @@ class TimeSlotAdmin(admin.ModelAdmin):
 
 @admin.register(AttendanceSession)
 class AttendanceSessionAdmin(admin.ModelAdmin):
-    list_display = ("class_stream", "subject", "teacher", "date", "time_slot", "is_locked")
+    list_display = ("class_stream", "subject", "teacher", "date", "time_slot", "is_locked", "submitted_at")
     list_filter = ("date", "class_stream", "subject", "teacher", "is_locked")
     search_fields = (
         "class_stream__academic_class__Class__name",
