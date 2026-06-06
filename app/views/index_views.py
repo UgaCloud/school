@@ -22,7 +22,6 @@ from app.models.results import Assessment, Result, GradingSystem, ResultBatch, V
 from app.models.subjects import Subject
 from app.models.communications import Announcement, Event
 from app.models.attendance import AttendanceRecord, AttendanceStatus
-from app.models.audit import AuditLog
 from app.models.accounts import StaffAccount
 from app.models.timetables import Timetable
 from app.selectors.school_settings import get_current_academic_year
@@ -138,64 +137,6 @@ def _render_index_template(request, context):
             "Dashboard template encoding issue detected. A fallback page is being shown.",
         )
         return _safe_dashboard_fallback_response()
-
-
-def _audit_target_label(log: AuditLog) -> str:
-    object_repr = (log.object_repr or "").strip()
-    if object_repr:
-        return object_repr
-    if log.content_type_id:
-        model_label = f"{log.content_type.app_label}.{log.content_type.model}"
-        if log.object_id:
-            return f"{model_label} ({log.object_id})"
-        return model_label
-    path = (log.path or "").strip()
-    if path:
-        return path
-    return "System record"
-
-
-def _audit_change_summary(log: AuditLog) -> str:
-    changes = log.changes if isinstance(log.changes, dict) else {}
-    action = (log.action or "").lower()
-
-    if action == AuditLog.ACTION_LOGIN:
-        return "Successful login"
-    if action == AuditLog.ACTION_LOGOUT:
-        return "Successful logout"
-
-    if action == AuditLog.ACTION_UPDATE:
-        changed_fields = [str(field) for field in changes.keys() if field not in {"old", "new"}]
-        if changed_fields:
-            preview = ", ".join(changed_fields[:3])
-            if len(changed_fields) > 3:
-                preview = f"{preview} (+{len(changed_fields) - 3} more)"
-            return f"Fields changed: {preview}"
-        return "Updated record"
-
-    if action == AuditLog.ACTION_CREATE:
-        created_values = changes.get("new")
-        if isinstance(created_values, dict):
-            set_fields = [str(key) for key, value in created_values.items() if value not in (None, "", [], {})]
-            if set_fields:
-                preview = ", ".join(set_fields[:3])
-                if len(set_fields) > 3:
-                    preview = f"{preview} (+{len(set_fields) - 3} more)"
-                return f"Created with: {preview}"
-        return "Created record"
-
-    if action == AuditLog.ACTION_DELETE:
-        deleted_values = changes.get("old")
-        if isinstance(deleted_values, dict):
-            previous_fields = [str(key) for key, value in deleted_values.items() if value not in (None, "", [], {})]
-            if previous_fields:
-                preview = ", ".join(previous_fields[:3])
-                if len(previous_fields) > 3:
-                    preview = f"{preview} (+{len(previous_fields) - 3} more)"
-                return f"Deleted record data: {preview}"
-        return "Deleted record"
-
-    return "-"
 
 
 def under_construction_view(request):
@@ -1353,31 +1294,6 @@ def index_view(request):
     ).distinct().count()
     active_users_count = User.objects.filter(is_active=True).count()
     total_roles_count = Role.objects.count()
-    recent_activity_scope = (
-        AuditLog.objects.select_related("user", "content_type")
-        .filter(
-            Q(action__in=[AuditLog.ACTION_LOGIN, AuditLog.ACTION_LOGOUT])
-            | (
-                Q(action__in=[AuditLog.ACTION_CREATE, AuditLog.ACTION_UPDATE, AuditLog.ACTION_DELETE])
-                & Q(content_type__app_label__in=["app", "secondary"])
-            )
-        )
-        .exclude(content_type__app_label__in=["sessions", "admin", "contenttypes"])
-        .exclude(content_type__model__in=["session", "logentry"])
-        .order_by("-timestamp")[:20]
-    )
-    recent_activity_logs = []
-    for log in recent_activity_scope:
-        username = (log.username or (log.user.username if log.user_id else "")).strip() or "System"
-        recent_activity_logs.append({
-            "timestamp": log.timestamp,
-            "username": username,
-            "action": log.get_action_display(),
-            "target": _audit_target_label(log),
-            "details": _audit_change_summary(log),
-        })
-        if len(recent_activity_logs) >= 8:
-            break
     verification_pending_count = 0
     verification_flagged_count = 0
     admin_verification_queue = []
@@ -1674,7 +1590,6 @@ def index_view(request):
         # Recent activities
         'recent_payments': recent_payments,
         'recent_registrations': recent_registrations,
-        'recent_activity_logs': recent_activity_logs,
 
         # Performance metrics
         'assessment_completion_rate': round(assessment_completion_rate, 1),
