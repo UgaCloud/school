@@ -5,6 +5,7 @@ from app.constants import GENDERS, NATIONALITIES, RELIGIONS, DOCUMENT_TYPES
 
 class Student(models.Model):
     reg_no = models.CharField(max_length=30, unique=True)
+    student_number = models.CharField(max_length=6, unique=True, null=True, blank=True, db_index=True)
     student_name = models.CharField(max_length=50)
     gender = models.CharField(max_length=2, choices=GENDERS)
     birthdate = models.DateField(auto_now=False)
@@ -28,11 +29,14 @@ class Student(models.Model):
     def __str__(self):
         return self.student_name
 
+    @property
+    def display_student_id(self):
+        return self.student_number or self.reg_no or str(self.pk)
+
     def get_absolute_url(self):
         return reverse("student_detail", kwargs={"pk": self.pk})
 
     def save(self, *args, **kwargs):
-       
         is_new = self.pk is None
         needs_generation = is_new or not self.reg_no
 
@@ -42,6 +46,9 @@ class Student(models.Model):
 
         if needs_generation:
             self.reg_no = self._build_unique_reg_no()
+
+        if not self.student_number:
+            self.student_number = self._build_unique_student_number()
 
         super().save(*args, **kwargs)
 
@@ -75,6 +82,27 @@ class Student(models.Model):
             next_seq += 1
             candidate = f"{prefix}{next_seq}"
         return candidate
+
+    def _build_unique_student_number(self) -> str:
+        """Generate a safe 6-digit learner ID without changing existing database PKs."""
+        existing_numbers = Student.objects.exclude(student_number__isnull=True).exclude(student_number="").values_list("student_number", flat=True)
+        max_number = 100000
+        for value in existing_numbers:
+            value = str(value or "").strip()
+            if value.isdigit():
+                max_number = max(max_number, int(value))
+
+        candidate = max_number + 1
+        while candidate <= 999999:
+            candidate_text = f"{candidate:06d}"
+            qs = Student.objects.filter(student_number=candidate_text)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if not qs.exists():
+                return candidate_text
+            candidate += 1
+
+        raise ValueError("Unable to generate a unique 6-digit student ID; the numeric range is exhausted.")
 
 class StudentRegistrationCSV(models.Model):
     file_name = models.FileField(upload_to='media/csvs/')

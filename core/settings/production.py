@@ -1,47 +1,61 @@
-"""
-Production settings - uses MySQL and environment variables
-"""
 import os
 from .common import *
-from decouple import config
+import pymysql
+pymysql.install_as_MySQLdb()
 
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = False
 
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = os.environ['SECRET_KEY']
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS').split(',')
+
+ALLOWED_HOSTS = ["bayan-learningcenter.com", "www.bayan-learningcenter.com"]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-# MySQL Database from environment variables
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'schooldb',
+#         'USER': 'schooluser',
+#         'PASSWORD': 'root@admin',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': config('DB_ENGINE', default='django.db.backends.mysql'),
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST', default='127.0.0.1'),
-        'PORT': config('DB_PORT', default=3306),
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'bayezieu_schooldb',
+        'USER': 'bayezieu_bayan_user',
+        'PASSWORD': '@bayan%dbuser',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
         'OPTIONS': {
             'charset': 'utf8mb4',
             'use_unicode': True,
+            'init_command': "SET NAMES 'utf8mb4'"
         },
     }
 }
 
-# Email Configuration from environment variables
+
+
+
+# Email Configuration for SMTP (Using Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = config('EMAIL_HOST', default='')
-EMAIL_PORT = config('EMAIL_PORT', default=465, cast=int)
-EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=True, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_USER', default='')
-EMAIL_HOST_PASSWORD = config('EMAIL_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='')
+EMAIL_HOST = "bayern-learningcenter.com"
+EMAIL_PORT = 465 
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = "bayan-learningcenter@bayern-learningcenter.com"
+EMAIL_HOST_PASSWORD = "Mypp3[xD_Vdi" 
+DEFAULT_FROM_EMAIL = "bayan-learningcenter@bayern-learningcenter.com"
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

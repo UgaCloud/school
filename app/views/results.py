@@ -55,6 +55,7 @@ from collections import Counter, defaultdict
 import logging
 import tempfile
 import io
+import re
 
 from xhtml2pdf import pisa
 
@@ -68,6 +69,226 @@ except Exception:
     get_column_letter = None
 
 from reportlab.pdfgen import canvas
+
+
+_ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF]")
+_TAHFIZ_SECTION_KEYS = {"tahfiz", "tahfith", "tafith", "tafiz"}
+_TAHFIZ_SUBJECT_KEYS = {
+    "quran",
+    "quranrecitation",
+    "quranmemorization",
+    "fiqh",
+    "fiqih",
+    "tarbia",
+    "tarbiah",
+    "lugha",
+    "lughaarabia",
+    "arabic",
+    "arabiclanguage",
+    "tawheed",
+    "tawhid",
+    "tauheed",
+    "islamicstudies",
+}
+_TAHFIZ_SUBJECT_PRIORITY = {
+    "quran": 0,
+    "quranrecitation": 0,
+    "quranmemorization": 0,
+    "tarbiamalezi": 1,
+    "tarbia": 1,
+    "tarbiah": 1,
+    "fiqh": 2,
+    "fiqih": 2,
+    "lughaarabia": 3,
+    "arabiclanguage": 3,
+    "arabic": 3,
+    "lugha": 3,
+    "tawheed": 4,
+    "tawhid": 4,
+    "tauheed": 4,
+    "islamicstudies": 5,
+}
+
+
+def _normalized_lookup_key(value):
+    text = str(value or "").strip().lower()
+    text = text.replace("'", "")
+    text = text.replace("’", "")
+    return re.sub(r"[^a-z0-9]+", "", text)
+
+
+def _is_tahfiz_section_name(section_name):
+    normalized = _normalized_lookup_key(section_name)
+    return normalized in _TAHFIZ_SECTION_KEYS or "tahf" in normalized or "fith" in normalized
+
+
+def _is_tahfiz_subject(subject):
+    if not subject:
+        return False
+
+    subject_name = (getattr(subject, "name", "") or "").strip()
+    section_name = getattr(getattr(subject, "section", None), "section_name", "")
+    if _is_tahfiz_section_name(section_name):
+        return True
+
+    if _ARABIC_CHAR_RE.search(subject_name):
+        return True
+
+    name_key = _normalized_lookup_key(subject_name)
+    code_key = _normalized_lookup_key(getattr(subject, "code", ""))
+    return name_key in _TAHFIZ_SUBJECT_KEYS or code_key in _TAHFIZ_SUBJECT_KEYS
+
+
+def _is_combined_report_subject_visible(subject, report_format):
+    if not subject:
+        return False
+
+    subject_name = (getattr(subject, "name", "") or "").strip()
+    if subject_name == "القرآن":
+        return False
+
+    is_tahfiz_subject = _is_tahfiz_subject(subject)
+    if report_format == "tahfiz":
+        return is_tahfiz_subject
+    return not is_tahfiz_subject
+
+
+def _tahfiz_subject_sort_key(subject):
+    name_key = _normalized_lookup_key(getattr(subject, "name", ""))
+    code_key = _normalized_lookup_key(getattr(subject, "code", ""))
+    priority = _TAHFIZ_SUBJECT_PRIORITY.get(
+        name_key,
+        _TAHFIZ_SUBJECT_PRIORITY.get(code_key, 99),
+    )
+    return (
+        priority,
+        (getattr(subject, "name", "") or "").strip().lower(),
+        getattr(subject, "id", 0),
+    )
+
+
+def _get_combined_report_subject_scope(class_obj, assessment_type_ids, report_format):
+    subject_candidates = (
+        Subject.objects.filter(
+            assessments__academic_class=class_obj,
+            assessments__assessment_type_id__in=assessment_type_ids,
+        )
+        .select_related("section")
+        .distinct()
+        .order_by("name", "id")
+    )
+    filtered_subjects = [
+        subject
+        for subject in subject_candidates
+        if _is_combined_report_subject_visible(subject, report_format)
+    ]
+    if report_format == "tahfiz":
+        return sorted(filtered_subjects, key=_tahfiz_subject_sort_key)
+    return filtered_subjects
+
+
+def _assessment_type_order_case(field_name="name"):
+    def contains(text, rank):
+        return When(**{f"{field_name}__icontains": text}, then=Value(rank))
+
+    return Case(
+        contains("BEGINNING OF TERM", 1),
+        contains("MID TERM", 2),
+        contains("MID OF TERM", 2),
+        contains("END OF TERM INTERNAL", 3),
+        contains("END OF TERM EXTERNAL", 4),
+        contains("END OF TERM", 5),
+        default=Value(6),
+        output_field=IntegerField(),
+    )
+
+
+def _build_division_payload_from_report_rows(report_rows):
+    total_aggregates = Decimal("0.0")
+    subject_grades = {}
+
+    for row in report_rows:
+        if not row.get("include_in_totals", True):
+            continue
+
+        subject_name = row.get("subject")
+        if not subject_name:
+            continue
+
+        raw_points = row.get("points")
+        try:
+            points = Decimal(str(raw_points))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+
+        total_aggregates += points
+        subject_grades[subject_name] = {
+            "grade": row.get("grade", ""),
+            "points": float(points),
+        }
+
+    return int(total_aggregates), subject_grades
+
+
+def _build_combined_report_heading(selected_assessment_types, term_value, academic_year):
+    stage_label = None
+    stage_rank = -1
+
+    for assessment_type in selected_assessment_types or []:
+        name = (getattr(assessment_type, "name", "") or "").strip().upper()
+        if not name:
+            continue
+
+        if "END OF TERM" in name and stage_rank < 3:
+            stage_label = "END OF TERM"
+            stage_rank = 3
+        elif ("MID TERM" in name or "MID OF TERM" in name) and stage_rank < 2:
+            stage_label = "MID TERM"
+            stage_rank = 2
+        elif "BEGINNING OF TERM" in name and stage_rank < 1:
+            stage_label = "BEGINNING OF TERM"
+            stage_rank = 1
+
+    if stage_label:
+        parts = [stage_label]
+        if term_value not in (None, ""):
+            parts.append(str(term_value))
+        parts.append("REPORT")
+        if academic_year not in (None, ""):
+            parts.append(str(academic_year))
+        return " ".join(parts)
+
+    fallback_parts = []
+    if term_value not in (None, ""):
+        fallback_parts.append(f"TERM {term_value}")
+    fallback_parts.append("COMBINED REPORT")
+    if academic_year not in (None, ""):
+        fallback_parts.append(str(academic_year))
+    return " ".join(fallback_parts)
+
+
+def _build_combined_report_card_title(selected_assessment_types):
+    stage_label = None
+    stage_rank = -1
+
+    for assessment_type in selected_assessment_types or []:
+        name = (getattr(assessment_type, "name", "") or "").strip().upper()
+        if not name:
+            continue
+
+        if "END OF TERM" in name and stage_rank < 3:
+            stage_label = "END OF TERM REPORT"
+            stage_rank = 3
+        elif ("MID TERM" in name or "MID OF TERM" in name) and stage_rank < 2:
+            stage_label = "MID TERM REPORT"
+            stage_rank = 2
+        elif "BEGINNING OF TERM" in name and stage_rank < 1:
+            stage_label = "BEGINNING OF TERM REPORT"
+            stage_rank = 1
+
+    return stage_label or "COMBINED REPORT"
+
+
 from reportlab.lib.units import inch, cm
 from reportlab.lib.pagesizes import A4, letter, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -230,6 +451,319 @@ def _submission_gate_errors(assessment, students):
     return errors
 
 
+def _get_active_results_scope():
+    current_year = get_current_academic_year()
+    current_term = get_current_term()
+
+    if not current_term and current_year:
+        current_term = Term.objects.filter(
+            academic_year=current_year,
+            is_current=True,
+        ).order_by("start_date").first()
+
+    if not current_term:
+        current_term = Term.objects.filter(is_current=True).select_related("academic_year").order_by("start_date").first()
+
+    if not current_year and current_term:
+        current_year = current_term.academic_year
+
+    return current_year, current_term
+
+
+def _assessment_hub_queryset():
+    return Assessment.objects.select_related(
+        "academic_class__Class",
+        "academic_class__term",
+        "academic_class__academic_year",
+        "subject",
+        "assessment_type",
+        "result_batch",
+        "result_batch__submitted_by",
+        "result_batch__verified_by",
+    ).annotate(
+        total_students=Count(
+            "academic_class__class_streams__classregister",
+            filter=Q(academic_class__class_streams__classregister__student__is_active=True),
+            distinct=True,
+        ),
+        entered_results=Count(
+            "results",
+            filter=Q(results__student__is_active=True),
+            distinct=True,
+        ),
+    )
+
+
+def _serialize_teacher_hub_row(assessment):
+    batch = getattr(assessment, "result_batch", None)
+    status = batch.status if batch else "DRAFT"
+    total_students = int(getattr(assessment, "total_students", 0) or 0)
+    entered_results = int(getattr(assessment, "entered_results", 0) or 0)
+    missing_results = max(total_students - entered_results, 0)
+    progress_percent = int(round((entered_results / total_students) * 100)) if total_students else 0
+
+    if status == "FLAGGED":
+        action_label = "Fix flagged batch"
+        action_tone = "danger"
+        note = batch.rejection_reason or "Verification flagged this batch for correction."
+    elif status == "PENDING":
+        action_label = "View submitted batch"
+        action_tone = "info"
+        note = (
+            f"Submitted by {batch.submitted_by.username} on {batch.submitted_at:%d %b %Y %H:%M}."
+            if batch and batch.submitted_by and batch.submitted_at
+            else "Waiting for DOS verification."
+        )
+    elif status == "VERIFIED":
+        action_label = "View locked results"
+        action_tone = "default"
+        note = (
+            f"Approved on {batch.verified_at:%d %b %Y %H:%M}."
+            if batch and batch.verified_at
+            else "This batch is locked after approval."
+        )
+    elif entered_results == 0:
+        action_label = "Start entry"
+        action_tone = "primary"
+        note = "No marks entered yet for this assessment."
+    elif missing_results == 0:
+        action_label = "Review and submit"
+        action_tone = "success"
+        note = "All marks are entered. Review once, then submit for verification."
+    else:
+        action_label = "Continue entry"
+        action_tone = "primary"
+        note = f"{missing_results} student(s) still need marks."
+
+    return {
+        "assessment_id": assessment.id,
+        "class_label": str(assessment.academic_class.Class),
+        "subject_label": assessment.subject.name,
+        "assessment_type_label": assessment.assessment_type.name,
+        "out_of": assessment.out_of,
+        "date": assessment.date,
+        "status": status,
+        "status_label": status.title(),
+        "status_key": status.lower(),
+        "entered_results": entered_results,
+        "total_students": total_students,
+        "missing_results": missing_results,
+        "progress_percent": progress_percent,
+        "progress_label": f"{entered_results} of {total_students} entered" if total_students else "No registered students",
+        "note": note,
+        "action_url": reverse("add_results", args=[assessment.id]),
+        "action_label": action_label,
+        "action_tone": action_tone,
+        "secondary_url": reverse("bulk_result_entry", args=[assessment.id]),
+        "secondary_label": "Upload CSV",
+    }
+
+
+def _serialize_verification_hub_row(assessment, sample_counts):
+    batch = getattr(assessment, "result_batch", None)
+    status = batch.status if batch else "DRAFT"
+    counts = sample_counts.get(assessment.id, {})
+    sampled_count = int(counts.get("sampled_count", 0) or 0)
+    reviewed_count = int(counts.get("reviewed_count", 0) or 0)
+    mismatch_count = int(counts.get("mismatch_count", 0) or 0)
+    total_students = int(getattr(assessment, "total_students", 0) or 0)
+    entered_results = int(getattr(assessment, "entered_results", 0) or 0)
+    progress_percent = int(round((reviewed_count / sampled_count) * 100)) if sampled_count else 0
+
+    if status == "PENDING":
+        action_label = "Verify scripts"
+        action_url = reverse("verification_queue", args=[assessment.id])
+        action_tone = "primary"
+        note = (
+            f"{sampled_count} sampled script(s); {reviewed_count} reviewed so far."
+            if sampled_count
+            else "Ready for verification."
+        )
+    elif status == "FLAGGED":
+        action_label = "Open report"
+        action_url = reverse("verification_report", args=[assessment.id])
+        action_tone = "danger"
+        note = batch.rejection_reason or "Teacher corrections are required before resubmission."
+    elif status == "VERIFIED":
+        action_label = "View report"
+        action_url = reverse("verification_report", args=[assessment.id])
+        action_tone = "success"
+        note = (
+            f"Verified on {batch.verified_at:%d %b %Y %H:%M}."
+            if batch and batch.verified_at
+            else "Verification completed."
+        )
+    else:
+        action_label = "Open assessment"
+        action_url = reverse("list_assessments", args=[assessment.academic_class_id])
+        action_tone = "default"
+        note = f"{entered_results} of {total_students} marks entered."
+
+    return {
+        "assessment_id": assessment.id,
+        "class_label": str(assessment.academic_class.Class),
+        "subject_label": assessment.subject.name,
+        "assessment_type_label": assessment.assessment_type.name,
+        "out_of": assessment.out_of,
+        "date": assessment.date,
+        "status": status,
+        "status_label": status.title(),
+        "status_key": status.lower(),
+        "sampled_count": sampled_count,
+        "reviewed_count": reviewed_count,
+        "mismatch_count": mismatch_count,
+        "progress_percent": progress_percent,
+        "progress_label": (
+            f"{reviewed_count} of {sampled_count} sampled"
+            if sampled_count
+            else "No samples yet"
+        ),
+        "submitted_by": batch.submitted_by.username if batch and batch.submitted_by else "-",
+        "submitted_at": batch.submitted_at,
+        "note": note,
+        "action_url": action_url,
+        "action_label": action_label,
+        "action_tone": action_tone,
+        "report_url": reverse("verification_report", args=[assessment.id]),
+    }
+
+
+def _build_mark_entry_hub_context(request):
+    role_name = _effective_role_name(request) or "User"
+    role_key = _effective_role_key(request)
+    current_year, current_term = _get_active_results_scope()
+    scope_year_label = getattr(current_year, "academic_year", "All years")
+    scope_term_label = getattr(current_term, "get_term_display", lambda: "All terms")()
+
+    base_qs = _assessment_hub_queryset()
+    if current_year:
+        base_qs = base_qs.filter(academic_class__academic_year=current_year)
+    if current_term:
+        base_qs = base_qs.filter(academic_class__term=current_term)
+
+    context = {
+        "hub_mode": "generic",
+        "role_label": role_name,
+        "scope_year_label": scope_year_label,
+        "scope_term_label": scope_term_label,
+        "teacher_rows": [],
+        "verification_rows": [],
+        "summary_cards": [],
+        "hub_title": "Marks and Verification Hub",
+        "hub_intro": "Use the shortcuts below to jump into the work that needs attention now.",
+    }
+
+    staff_account = getattr(request.user, "staff_account", None)
+    staff_member = getattr(staff_account, "staff", None)
+
+    if role_key == "teacher":
+        teacher_qs = base_qs
+        if staff_member:
+            teacher_qs = teacher_qs.filter(
+                academic_class__class_streams__subjects__subject_teacher=staff_member,
+                academic_class__class_streams__subjects__subject_id=F("subject_id"),
+            ).distinct()
+        else:
+            teacher_qs = teacher_qs.none()
+
+        teacher_rows = [
+            _serialize_teacher_hub_row(assessment)
+            for assessment in teacher_qs.order_by(
+                Case(
+                    When(result_batch__status="FLAGGED", then=Value(0)),
+                    When(result_batch__status="DRAFT", then=Value(1)),
+                    When(result_batch__status__isnull=True, then=Value(1)),
+                    When(result_batch__status="PENDING", then=Value(2)),
+                    When(result_batch__status="VERIFIED", then=Value(3)),
+                    default=Value(4),
+                    output_field=IntegerField(),
+                ),
+                "academic_class__Class__name",
+                "subject__name",
+                "date",
+            )
+        ]
+
+        ready_to_submit = sum(
+            1 for row in teacher_rows
+            if row["status"] == "DRAFT" and row["total_students"] > 0 and row["missing_results"] == 0
+        )
+        context.update(
+            {
+                "hub_mode": "teacher",
+                "hub_title": "Marks Queue",
+                "hub_intro": "Teachers should land on work, not on navigation. Pick an assessment below and continue from where you stopped.",
+                "teacher_rows": teacher_rows,
+                "summary_cards": [
+                    {"label": "Assessments", "value": len(teacher_rows), "tone": "primary"},
+                    {"label": "Need marks", "value": sum(1 for row in teacher_rows if row["status"] == "DRAFT" and row["missing_results"] > 0), "tone": "warning"},
+                    {"label": "Ready to submit", "value": ready_to_submit, "tone": "success"},
+                    {"label": "Flagged", "value": sum(1 for row in teacher_rows if row["status"] == "FLAGGED"), "tone": "danger"},
+                ],
+            }
+        )
+        return context
+
+    if request.user.is_superuser or role_key in VERIFICATION_ROLE_KEYS:
+        verification_qs = base_qs.filter(
+            result_batch__status__in=["PENDING", "FLAGGED", "VERIFIED", "DRAFT"]
+        ).distinct()
+        assessment_ids = list(verification_qs.values_list("id", flat=True))
+        sample_counts = {
+            row["result__assessment_id"]: row
+            for row in VerificationSample.objects.filter(result__assessment_id__in=assessment_ids).values(
+                "result__assessment_id"
+            ).annotate(
+                sampled_count=Count("id"),
+                reviewed_count=Count("id", filter=Q(checked_at__isnull=False)),
+                mismatch_count=Count("id", filter=Q(matched=False)),
+            )
+        }
+
+        verification_rows = [
+            _serialize_verification_hub_row(assessment, sample_counts)
+            for assessment in verification_qs.order_by(
+                Case(
+                    When(result_batch__status="PENDING", then=Value(0)),
+                    When(result_batch__status="FLAGGED", then=Value(1)),
+                    When(result_batch__status="DRAFT", then=Value(2)),
+                    When(result_batch__status="VERIFIED", then=Value(3)),
+                    default=Value(4),
+                    output_field=IntegerField(),
+                ),
+                "-result_batch__submitted_at",
+                "-date",
+            )[:20]
+        ]
+
+        context.update(
+            {
+                "hub_mode": "verification",
+                "hub_title": "Verification Work Queue",
+                "hub_intro": "DOS and admin users can jump straight into pending scripts and flagged batches from one place.",
+                "verification_rows": verification_rows,
+                "summary_cards": [
+                    {"label": "Pending", "value": sum(1 for row in verification_rows if row["status"] == "PENDING"), "tone": "warning"},
+                    {"label": "Flagged", "value": sum(1 for row in verification_rows if row["status"] == "FLAGGED"), "tone": "danger"},
+                    {"label": "Draft", "value": sum(1 for row in verification_rows if row["status"] == "DRAFT"), "tone": "info"},
+                    {"label": "Verified", "value": sum(1 for row in verification_rows if row["status"] == "VERIFIED"), "tone": "success"},
+                ],
+            }
+        )
+        return context
+
+    if role_key in {"class teacher", "class_teacher"}:
+        context.update(
+            {
+                "hub_mode": "class_teacher",
+                "hub_title": "Assessment Readiness",
+                "hub_intro": "Class teachers do not enter subject marks directly, but you can still monitor assessment readiness and follow up with subject teachers.",
+            }
+        )
+        return context
+
+    return context
+
 
 
 
@@ -238,7 +772,8 @@ def _submission_gate_errors(assessment, students):
 @login_required
 def add_results_view(request, assessment_id=None):
     if not assessment_id:
-        return redirect('class_assessment_list')
+        hub_context = _build_mark_entry_hub_context(request)
+        return render(request, 'results/mark_entry_hub.html', hub_context)
 
     # Load the assessment and associated class
     assessment = get_object_or_404(Assessment, id=assessment_id)
@@ -771,6 +1306,8 @@ def class_assessment_list_view(request):
 
     if request.user.is_superuser and role_key not in {'teacher', 'class teacher', 'class_teacher'}:
         academic_classes = AcademicClass.objects.all()
+    elif role_key in MARK_ENTRY_ADMIN_ROLE_KEYS:
+        academic_classes = AcademicClass.objects.all()
     elif role_key in {'teacher', 'class teacher', 'class_teacher'} and staff_account and getattr(staff_account, 'staff', None):
         # Subject-teacher allocations (any term) -> AcademicClass ids
         allocated_academic_class_ids = ClassSubjectAllocation.objects.filter(
@@ -828,8 +1365,10 @@ def list_assessments_view(request, class_id):
         role_name = session_role if session_role else (staff_account.role.name if staff_account and getattr(staff_account, "role", None) else None)
         role_key = (role_name or "").strip().lower()
         if staff_account or role_key:
+            if role_key in MARK_ENTRY_ADMIN_ROLE_KEYS:
+                base_qs = Assessment.objects.filter(academic_class=academic_class)
             # Teachers: only their subject assessments; Class Teachers: all assessments in the class
-            if role_key in {"class teacher", "class_teacher"}:
+            elif role_key in {"class teacher", "class_teacher"}:
                 is_class_teacher = AcademicClassStream.objects.filter(
                     class_teacher=staff_account.staff,
                     academic_class=academic_class,
@@ -1688,14 +2227,7 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     )
 
     # Order assessment types like term report (for consistent UI)
-    assessment_order = Case(
-        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
-        When(name__iexact="MID OF TERM", then=Value(2)),
-        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
-        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
-        default=Value(5),
-        output_field=IntegerField()
-    )
+    assessment_order = _assessment_type_order_case()
     assessment_types = AssessmentType.objects.all().order_by(assessment_order, 'name')
 
     # Augment context for template dropdowns (preserve any fallback term chosen in builder)
@@ -1996,23 +2528,9 @@ def build_student_report_context(student, term_id, academic_class=None):
         )
 
     # ---- Custom order definition for assessment types ----
-    assessment_order = Case(
-        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
-        When(name__iexact="MID OF TERM", then=Value(2)),
-        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
-        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
-        default=Value(5),
-        output_field=IntegerField()
-    )
+    assessment_order = _assessment_type_order_case()
 
-    results_order = Case(
-        When(assessment__assessment_type__name__iexact="BEGINNING OF TERM", then=Value(1)),
-        When(assessment__assessment_type__name__iexact="MID OF TERM", then=Value(2)),
-        When(assessment__assessment_type__name__iexact="END OF TERM INTERNAL", then=Value(3)),
-        When(assessment__assessment_type__name__iexact="END OF TERM EXTERNAL", then=Value(4)),
-        default=Value(5),
-        output_field=IntegerField()
-    )
+    results_order = _assessment_type_order_case("assessment__assessment_type__name")
 
     # Fetch assessment types in the desired order
     assessment_types = AssessmentType.objects.all().order_by(assessment_order, 'name')
@@ -2060,7 +2578,8 @@ def build_student_report_context(student, term_id, academic_class=None):
             subject_summary[subject_name] = {
                 'assessments': {},
                 'total_score': Decimal('0.0'),
-                'total_weight': Decimal('0.0')
+                'total_weight': Decimal('0.0'),
+                'include_in_totals': not exclude_from_totals,
             }
 
         grade, points = get_grade_and_points(score)
@@ -2093,6 +2612,7 @@ def build_student_report_context(student, term_id, academic_class=None):
             'average': float(avg),
             'grade': grade,
             'points': points,
+            'include_in_totals': data.get('include_in_totals', True),
             'assessments': {
                 at.name: data['assessments'].get(
                     at.name,
@@ -2108,13 +2628,7 @@ def build_student_report_context(student, term_id, academic_class=None):
     ).quantize(Decimal('0.01')) if total_weight else Decimal('0.00')
     overall_grade, overall_points = get_grade_and_points(overall_average)
 
-    subject_grades = {
-        item['subject']: {
-            'grade': item['grade'],
-            'points': item['points']
-        }
-        for item in report_data
-    }
+    total_aggregates, subject_grades = _build_division_payload_from_report_rows(report_data)
 
     # Calculate assessment divisions (per assessment type)
     assessment_divisions = {}
@@ -2125,14 +2639,9 @@ def build_student_report_context(student, term_id, academic_class=None):
             get_division(total_points, subject_grades) if count > 0 else "-"
         )
 
-    total_aggregates = sum(
-        assessment_totals[at.name]['points'] for at in assessment_types
-        if assessment_totals[at.name]['count'] > 0
-    )
-
     if total_aggregates:
         selected_division, division_override_note = get_division_with_override(
-            int(total_aggregates),
+            total_aggregates,
             subject_grades
         )
     else:
@@ -2282,6 +2791,7 @@ def class_bulk_reports(request):
     ).values_list('student_id', flat=True).distinct()
     
     students = Student.objects.filter(is_active=True, id__in=student_ids).order_by('student_name')
+    class_size = students.count()
     school = SchoolSetting.load()
    
 
@@ -2638,6 +3148,9 @@ def assessment_sheet_view(request):
         text = f"{(name or '')} {(desc or '')}".upper().replace(" ", "")
         return "READING" in text or "RELIGIOUSEDUCATION" in text
 
+    def is_sheet_hidden_subject(subject) -> bool:
+        return _is_tahfiz_subject(subject)
+
     def get_division(aggregates):
         """Determine division based on total aggregates"""
         if aggregates <= 12:
@@ -2654,6 +3167,57 @@ def assessment_sheet_view(request):
     def norm_key(s: str) -> str:
         """Normalize subject-like labels for reliable dict keys."""
         return (s or "").strip().upper()
+
+    def division_rank(label):
+        mapping = {
+            "Division 1": 1,
+            "Division 2": 2,
+            "Division 3": 3,
+            "Division 4": 4,
+            "U": 5,
+            None: 99,
+            "-": 99,
+        }
+        return mapping.get(label, 99)
+
+    def division_count_key(label):
+        mapping = {
+            "Division 1": 1,
+            "Division 2": 2,
+            "Division 3": 3,
+            "Division 4": 4,
+            "U": "U",
+            1: 1,
+            2: 2,
+            3: 3,
+            4: 4,
+        }
+        return mapping.get(label)
+
+    def student_sort_key(student):
+        subjects = student.get("subjects") or {}
+        has_results = bool(subjects)
+
+        try:
+            total_marks = int(student.get("total_marks") or 0)
+        except (TypeError, ValueError):
+            total_marks = 0
+
+        try:
+            total_aggregates = float(student.get("total_aggregates"))
+        except (TypeError, ValueError):
+            total_aggregates = float("inf")
+
+        if not has_results:
+            total_aggregates = float("inf")
+
+        return (
+            0 if has_results else 1,
+            -total_marks,
+            total_aggregates,
+            division_rank(student.get("division")),
+            (student.get("name") or "").lower(),
+        )
 
     # Get all unique grades (classes)
     unique_grades = Class.objects.values_list("name", flat=True).distinct()
@@ -2727,29 +3291,22 @@ def assessment_sheet_view(request):
     assessment_type = get_object_or_404(AssessmentType, id=selected_assessment_type_id) if selected_assessment_type_id else None
 
     # Order assessment types
-    assessment_order = Case(
-        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
-        When(name__iexact="MID OF TERM", then=Value(2)),
-        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
-        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
-        default=Value(5),
-        output_field=IntegerField(),
-    )
+    assessment_order = _assessment_type_order_case()
     assessment_types = AssessmentType.objects.all().order_by(assessment_order, "name")
+    term_scoped_academic_classes = academic_classes.filter(term_id=selected_term_id)
+    term_scoped_class_ids = list(term_scoped_academic_classes.values_list("id", flat=True))
 
     # Registers
     class_registers = ClassRegister.objects.filter(
-        academic_class_stream__academic_class__id__in=class_ids,
-        academic_class_stream__academic_class__term_id=selected_term_id,
+        academic_class_stream__academic_class__id__in=term_scoped_class_ids,
         student__is_active=True,
     ).select_related("student", "academic_class_stream__academic_class").order_by("student__student_name")
 
     # Dynamically fetch class teacher
     class_teacher = "Tr. [Teacher Name]"
-    if academic_classes.exists():
+    if term_scoped_class_ids:
         first_class_stream = AcademicClassStream.objects.filter(
-            academic_class__id__in=class_ids,
-            academic_class__term_id=selected_term_id,
+            academic_class__id__in=term_scoped_class_ids,
         ).select_related("class_teacher").first()
         if first_class_stream and first_class_stream.class_teacher:
             class_teacher = f"Tr. {first_class_stream.class_teacher.first_name} {first_class_stream.class_teacher.last_name}"
@@ -2758,17 +3315,34 @@ def assessment_sheet_view(request):
     subject_name_to_ids = defaultdict(set)
     subject_teachers_map = defaultdict(set)
     alloc_map = {}
-    if academic_classes.exists():
-        related_subjects = Subject.objects.filter(
-            assessments__academic_class__id__in=class_ids
-        ).distinct()
-        for s in related_subjects:
-            subject_name_to_ids[norm_key(getattr(s, "name", ""))].add(s.id)
-        subject_allocations = ClassSubjectAllocation.objects.filter(
-            academic_class_stream__academic_class__id__in=class_ids,
-            academic_class_stream__academic_class__term_id=selected_term_id,
+    allocation_subject_ids = set()
+    if term_scoped_class_ids:
+        subject_allocations = list(
+            ClassSubjectAllocation.objects.filter(
+            academic_class_stream__academic_class__id__in=term_scoped_class_ids,
         ).select_related("subject_teacher", "subject", "academic_class_stream")
+        )
+        allocation_subject_ids = {
+            allocation.subject_id
+            for allocation in subject_allocations
+            if not is_sheet_hidden_subject(allocation.subject)
+        }
+
+        related_subjects = Subject.objects.filter(
+            assessments__academic_class__id__in=term_scoped_class_ids
+        )
+        if assessment_type:
+            related_subjects = related_subjects.filter(assessments__assessment_type=assessment_type)
+        if allocation_subject_ids:
+            related_subjects = related_subjects.filter(id__in=allocation_subject_ids)
+        related_subjects = related_subjects.distinct()
+        for s in related_subjects:
+            if is_sheet_hidden_subject(s):
+                continue
+            subject_name_to_ids[norm_key(getattr(s, "name", ""))].add(s.id)
         for allocation in subject_allocations:
+            if allocation.subject_id not in allocation_subject_ids:
+                continue
             subj_key = norm_key(getattr(allocation.subject, "name", ""))
             teacher_name = f"Tr. {allocation.subject_teacher.first_name} {allocation.subject_teacher.last_name}".strip()
             if teacher_name:
@@ -2785,18 +3359,22 @@ def assessment_sheet_view(request):
         student = register.student
         results = Result.objects.filter(
             student=student,
-            assessment__academic_class__term_id=selected_term_id,
+            assessment__academic_class__id__in=term_scoped_class_ids,
             student__is_active=True,
         ).select_related("assessment__subject", "assessment__assessment_type")
 
         if assessment_type:
             results = results.filter(assessment__assessment_type=assessment_type)
+        if allocation_subject_ids:
+            results = results.filter(assessment__subject_id__in=allocation_subject_ids)
 
         subjects_payload = {}
         total_marks_sum = Decimal("0")
         total_aggregates_sum = 0
 
         for r in results:
+            if is_sheet_hidden_subject(r.assessment.subject):
+                continue
             subj_name = r.assessment.subject.name or ""
             subj_desc = r.assessment.subject.description or ""
             subj_key = norm_key(subj_name)
@@ -2913,6 +3491,8 @@ def assessment_sheet_view(request):
 
         students_data.append(student_record)
 
+    students_data.sort(key=student_sort_key)
+
     # Initialize subject_grade_dist with all unique_subjects
     subject_grade_dist = {subject: {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0} for subject in unique_subjects}
 
@@ -2934,7 +3514,7 @@ def assessment_sheet_view(request):
     # Calculate division counts
     division_counts = {1: 0, 2: 0, 3: 0, 4: 0, "U": 0}
     for student in students_data:
-        division = student["division"]
+        division = division_count_key(student["division"])
         if division in division_counts:
             division_counts[division] += 1
 
@@ -2997,14 +3577,12 @@ def assessment_sheet_view(request):
                 # 1) Same grade + selected term
                 if combined_ids:
                     qs = qs_base.filter(
-                        academic_class_stream__academic_class__id__in=class_ids,
-                        academic_class_stream__academic_class__term_id=selected_term_id,
+                        academic_class_stream__academic_class__id__in=term_scoped_class_ids,
                         subject_id__in=combined_ids,
                     )
                 else:
                     qs = qs_base.filter(
-                        academic_class_stream__academic_class__id__in=class_ids,
-                        academic_class_stream__academic_class__term_id=selected_term_id,
+                        academic_class_stream__academic_class__id__in=term_scoped_class_ids,
                     ).filter(
                         Q(subject__name__iexact=subj)
                         | Q(subject__name__icontains=subj)
@@ -3012,66 +3590,23 @@ def assessment_sheet_view(request):
                     )
                 add_names(qs)
 
-                # 2) Same grade, any term in current academic year
+                # 2) Same grade, any term in the selected academic year
                 if not names:
                     if combined_ids:
                         qs = qs_base.filter(
-                            academic_class_stream__academic_class__id__in=class_ids,
-                            subject_id__in=combined_ids,
-                        )
-                    else:
-                        qs = qs_base.filter(
-                            academic_class_stream__academic_class__id__in=class_ids,
-                        ).filter(
-                            Q(subject__name__iexact=subj)
-                            | Q(subject__name__icontains=subj)
-                            | Q(subject__description__icontains=subj)
-                        )
-                    add_names(qs)
-
-                # 3) Any grade in current academic year, selected term
-                if not names:
-                    if combined_ids:
-                        qs = qs_base.filter(
-                            academic_class_stream__academic_class__academic_year=current_academic_year,
-                            academic_class_stream__academic_class__term_id=selected_term_id,
-                            subject_id__in=combined_ids,
-                        )
-                    else:
-                        qs = qs_base.filter(
-                            academic_class_stream__academic_class__academic_year=current_academic_year,
-                            academic_class_stream__academic_class__term_id=selected_term_id,
-                        ).filter(
-                            Q(subject__name__iexact=subj)
-                            | Q(subject__name__icontains=subj)
-                            | Q(subject__description__icontains=subj)
-                        )
-                    add_names(qs)
-
-                # 4) Any grade in current academic year, any term
-                if not names:
-                    if combined_ids:
-                        qs = qs_base.filter(
+                            academic_class_stream__academic_class__Class__name=selected_grade,
                             academic_class_stream__academic_class__academic_year=current_academic_year,
                             subject_id__in=combined_ids,
                         )
                     else:
                         qs = qs_base.filter(
+                            academic_class_stream__academic_class__Class__name=selected_grade,
                             academic_class_stream__academic_class__academic_year=current_academic_year,
                         ).filter(
                             Q(subject__name__iexact=subj)
                             | Q(subject__name__icontains=subj)
                             | Q(subject__description__icontains=subj)
                         )
-                    add_names(qs)
-
-                # 5) Global fallback by subject name anywhere
-                if not names:
-                    qs = qs_base.filter(
-                        Q(subject__name__iexact=subj)
-                        | Q(subject__name__icontains=subj)
-                        | Q(subject__description__icontains=subj)
-                    )
                     add_names(qs)
 
             except Exception:
@@ -3500,6 +4035,8 @@ def verification_queue_view(request, assessment_id):
     sampled_count = len(samples)
     reviewed_count = len([sample for sample in samples if sample.checked_at])
     pending_sample_count = max(sampled_count - reviewed_count, 0)
+    matched_count = len([sample for sample in samples if sample.matched is True])
+    mismatch_count = len([sample for sample in samples if sample.matched is False])
     sampled_progress_percent = int((reviewed_count / sampled_count) * 100) if sampled_count else 0
     can_finalize_verification = batch.submitted_by_id != request.user.id
 
@@ -3599,6 +4136,8 @@ def verification_queue_view(request, assessment_id):
         'reviewed_count': reviewed_count,
         'sampled_count': sampled_count,
         'pending_sample_count': pending_sample_count,
+        'matched_count': matched_count,
+        'mismatch_count': mismatch_count,
         'sampled_progress_percent': sampled_progress_percent,
         'total_scripts': total_scripts,
         'can_finalize_verification': can_finalize_verification,
@@ -3982,6 +4521,7 @@ def class_assessment_combined_view(request):
     subjects = []
     selected_assessment_types = []
     students_data = []
+    report_state_message = ""
     ready = False
 
     # Resolve core scope only when all required filters are present
@@ -3995,95 +4535,109 @@ def class_assessment_combined_view(request):
         if not class_obj:
             messages.warning(request, "No Academic Class found for the selected Academic Year, Term and Class.")
         else:
-            # Selected assessment types (ordered by custom order for consistent columns)
-            assessment_order = Case(
-                When(name__iexact="BEGINNING OF TERM", then=Value(1)),
-                When(name__iexact="MID OF TERM", then=Value(2)),
-                When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
-                When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
-                default=Value(5),
-                output_field=IntegerField(),
-            )
-            selected_assessment_types = list(AssessmentType.objects.filter(id__in=selected_assessment_type_ids).order_by(assessment_order, 'name'))
-            if not selected_assessment_types:
-                messages.warning(request, "Please choose at least one assessment type.")
+            if len(selected_assessment_type_ids) < 2:
+                report_state_message = "Please choose at least two assessment types for a combined report."
             else:
-                # Map weights for weighted average per subject
-                weights = {a.id: (a.weight or 1) for a in selected_assessment_types}
-                at_order = [a.id for a in selected_assessment_types]
+                # Selected assessment types (ordered by custom order for consistent columns)
+                assessment_order = _assessment_type_order_case()
+                selected_assessment_types = list(AssessmentType.objects.filter(id__in=selected_assessment_type_ids).order_by(assessment_order, 'name'))
+                if not selected_assessment_types:
+                    messages.warning(request, "Please choose at least two assessment types.")
+                else:
+                    ready = True
+                    # Map weights for weighted average per subject
+                    weights = {a.id: (a.weight or 1) for a in selected_assessment_types}
+                    at_order = [a.id for a in selected_assessment_types]
+                    subject_scope = _get_combined_report_subject_scope(class_obj, at_order, report_format)
+                    subject_ids = [subject.id for subject in subject_scope]
 
-                # Use ClassRegister to get students who were enrolled in this academic class
-                # This ensures promoted students still appear in historical reports
-                student_ids = ClassRegister.objects.filter(
-                    academic_class_stream__academic_class=class_obj,
-                    student__is_active=True,
-                ).values_list('student_id', flat=True).distinct()
-                
-                students = Student.objects.filter(
-                    is_active=True,
-                    id__in=student_ids,
-                ).order_by('student_name')
+                    # Use ClassRegister to get students who were enrolled in this academic class
+                    # This ensures promoted students still appear in historical reports
+                    student_ids = ClassRegister.objects.filter(
+                        academic_class_stream__academic_class=class_obj,
+                        student__is_active=True,
+                    ).values_list('student_id', flat=True).distinct()
+                    
+                    students = Student.objects.filter(
+                        is_active=True,
+                        id__in=student_ids,
+                    ).order_by('student_name')
 
-                # Subjects in scope (those that appear in assessments within this class and selected assessment types)
-                _subjects_qs = Subject.objects.filter(
-                    assessments__academic_class=class_obj,
-                    assessments__assessment_type_id__in=at_order
-                ).distinct().order_by('name')
-                # Exclude القرآن for combined report
-                _subjects_qs = _subjects_qs.exclude(name__iexact='القرآن')
-                subjects = list(_subjects_qs.values_list('name', flat=True))
+                    subjects = [subject.name for subject in subject_scope]
 
-                # Get all results in 1 query
-                results_qs = (
-                    Result.objects
-                    .filter(
+                    # Get all results in 1 query
+                    results_qs = (
+                        Result.objects
+                        .filter(
+                            assessment__academic_class=class_obj,
+                            assessment__assessment_type_id__in=at_order,
+                            assessment__subject_id__in=subject_ids,
+                            status="VERIFIED",
+                            student__is_active=True,
+                        )
+                        .select_related('student', 'assessment__subject', 'assessment__assessment_type')
+                    )
+                    all_results_qs = Result.objects.filter(
                         assessment__academic_class=class_obj,
                         assessment__assessment_type_id__in=at_order,
-                        status="VERIFIED",
+                        assessment__subject_id__in=subject_ids,
                         student__is_active=True,
                     )
-                    .select_related('student', 'assessment__subject', 'assessment__assessment_type')
-                )
 
-                # Build fast lookup: (student_id, subject_name, assessment_type_id) -> score
-                data = {}
-                for r in results_qs:
-                    s_id = r.student_id
-                    subj = (r.assessment.subject.name or '').strip()
-                    at_id = r.assessment.assessment_type_id
-                    if not subj:
-                        continue
-                    data.setdefault(s_id, {}).setdefault(subj, {})[at_id] = float(r.score)
+                    if not subject_ids:
+                        report_state_message = (
+                            "No Tahfiz subjects match the selected class and assessment types."
+                            if report_format == "tahfiz"
+                            else "No subjects match the selected class and assessment types."
+                        )
+                    elif not all_results_qs.exists():
+                        report_state_message = (
+                            "No results have been entered for the selected class and assessment types yet."
+                        )
+                    elif not results_qs.exists():
+                        report_state_message = (
+                            "Results for the selected class and assessment types are not verified yet. "
+                            "Please complete verification first."
+                        )
+                    
+                    if not report_state_message:
+                        # Build fast lookup: (student_id, subject_name, assessment_type_id) -> score
+                        data = {}
+                        for r in results_qs:
+                            s_id = r.student_id
+                            subj = (r.assessment.subject.name or '').strip()
+                            at_id = r.assessment.assessment_type_id
+                            if not subj:
+                                continue
+                            data.setdefault(s_id, {}).setdefault(subj, {})[at_id] = float(r.score)
 
-                # Assemble per-student rows
-                for idx, student in enumerate(students, start=1):
-                    per_subject = {}
-                    for subj in subjects:
-                        # Per assessment type scores
-                        scores_by_at = {}
-                        sum_w = 0.0
-                        sum_ws = 0.0
-                        for at_id in at_order:
-                            score = None
-                            if data.get(student.id, {}).get(subj, {}).get(at_id) is not None:
-                                score = data[student.id][subj][at_id]
-                                w = float(weights.get(at_id, 1))
-                                sum_w += w
-                                sum_ws += (score * w)
-                            scores_by_at[at_id] = score
-                        avg = round(sum_ws / sum_w, 2) if sum_w > 0 else None
-                        per_subject[subj] = {
-                            'scores': scores_by_at,
-                            'avg': avg
-                        }
+                        # Assemble per-student rows
+                        for idx, student in enumerate(students, start=1):
+                            per_subject = {}
+                            for subj in subjects:
+                                # Per assessment type scores
+                                scores_by_at = {}
+                                sum_w = 0.0
+                                sum_ws = 0.0
+                                for at_id in at_order:
+                                    score = None
+                                    if data.get(student.id, {}).get(subj, {}).get(at_id) is not None:
+                                        score = data[student.id][subj][at_id]
+                                        w = float(weights.get(at_id, 1))
+                                        sum_w += w
+                                        sum_ws += (score * w)
+                                    scores_by_at[at_id] = score
+                                avg = round(sum_ws / sum_w, 2) if sum_w > 0 else None
+                                per_subject[subj] = {
+                                    'scores': scores_by_at,
+                                    'avg': avg
+                                }
 
-                    students_data.append({
-                        'no': idx,
-                        'student': student,
-                        'subjects': per_subject
-                    })
-
-                ready = True
+                            students_data.append({
+                                'no': idx,
+                                'student': student,
+                                'subjects': per_subject
+                            })
 
     context = {
         # Filter options and selections
@@ -4102,6 +4656,7 @@ def class_assessment_combined_view(request):
         'subjects': subjects,
         'selected_assessment_types': selected_assessment_types,
         'students_data': students_data,
+        'report_state_message': report_state_message,
         'ready': ready,
     }
     return render(request, 'results/combined_assessments.html', context)
@@ -4185,6 +4740,11 @@ def class_assessment_combined_print(request):
             at_multi = [p.strip() for p in raw.split(',') if p and p.strip().isdigit()]
     selected_assessment_type_ids = [to_int(x) for x in at_multi if to_int(x)]
 
+    if selected_assessment_type_ids and len(selected_assessment_type_ids) < 2:
+        messages.error(request, "Please choose at least two assessment types for a combined report.")
+        redirect_url = f"{reverse('class_assessment_combined')}?{request.GET.urlencode()}"
+        return redirect(redirect_url)
+
     # Defaults for Academic Year and Term (use current if not provided)
     if not academic_year_id:
         current_year = AcademicYear.objects.filter(is_current=True).first()
@@ -4210,14 +4770,7 @@ def class_assessment_combined_print(request):
         return redirect('class_assessment_combined')
 
     # Selected assessment types (ordered for consistent column order)
-    assessment_order = Case(
-        When(name__iexact="BEGINNING OF TERM", then=Value(1)),
-        When(name__iexact="MID OF TERM", then=Value(2)),
-        When(name__iexact="END OF TERM INTERNAL", then=Value(3)),
-        When(name__iexact="END OF TERM EXTERNAL", then=Value(4)),
-        default=Value(5),
-        output_field=IntegerField(),
-    )
+    assessment_order = _assessment_type_order_case()
     selected_assessment_types = list(
         AssessmentType.objects.filter(id__in=selected_assessment_type_ids).order_by(assessment_order, 'name')
     )
@@ -4229,6 +4782,19 @@ def class_assessment_combined_print(request):
     at_order = [a.id for a in selected_assessment_types]
     at_name_by_id = {a.id: a.name for a in selected_assessment_types}
     at_weight = {a.id: (a.weight or 1) for a in selected_assessment_types}
+    subject_scope = _get_combined_report_subject_scope(class_obj, at_order, report_format)
+    subject_ids = [subject.id for subject in subject_scope]
+    subject_names = [subject.name for subject in subject_scope]
+
+    if not subject_ids:
+        message = (
+            "No Tahfiz subjects match the selected class and assessment types."
+            if report_format == "tahfiz"
+            else "No subjects match the selected class and assessment types."
+        )
+        messages.warning(request, message)
+        redirect_url = f"{reverse('class_assessment_combined')}?{request.GET.urlencode()}"
+        return redirect(redirect_url)
 
     # Load data
     school = SchoolSetting.load()
@@ -4240,6 +4806,7 @@ def class_assessment_combined_print(request):
     ).values_list('student_id', flat=True).distinct()
 
     students = Student.objects.filter(is_active=True, id__in=student_ids).order_by('student_name')
+    class_size = students.count()
 
     # Get all results in 1 query (within scope)
     results_qs = (
@@ -4247,11 +4814,32 @@ def class_assessment_combined_print(request):
         .filter(
             assessment__academic_class=class_obj,
             assessment__assessment_type_id__in=at_order,
+            assessment__subject_id__in=subject_ids,
             status="VERIFIED",
             student__is_active=True,
         )
         .select_related('student', 'assessment__subject', 'assessment__assessment_type')
     )
+    all_results_qs = Result.objects.filter(
+        assessment__academic_class=class_obj,
+        assessment__assessment_type_id__in=at_order,
+        assessment__subject_id__in=subject_ids,
+        student__is_active=True,
+    )
+    if not all_results_qs.exists():
+        messages.warning(
+            request,
+            "No results have been entered for the selected class and assessment types yet."
+        )
+        redirect_url = f"{reverse('class_assessment_combined')}?{request.GET.urlencode()}"
+        return redirect(redirect_url)
+    if not results_qs.exists():
+        messages.warning(
+            request,
+            "Results for the selected class and assessment types are not verified yet."
+        )
+        redirect_url = f"{reverse('class_assessment_combined')}?{request.GET.urlencode()}"
+        return redirect(redirect_url)
 
     # Organize: student_id -> subject_name -> at_id -> {"score": x, "points": y}
     data = {}
@@ -4301,6 +4889,7 @@ def class_assessment_combined_print(request):
         data.setdefault(s_id, {}).setdefault(subj, {})[at_id] = {
             'score': float(score_val),
             'points': float(points_val) if points_val is not None else 0.0,
+            'out_of': getattr(r.assessment, 'out_of', 100) or 100,
         }
 
     # Next term info (for header detail)
@@ -4364,9 +4953,9 @@ def class_assessment_combined_print(request):
                 subj_map.setdefault(subj, {})[at_id] = {
                     'score': float(score_val),
                     'points': float(points_val) if points_val is not None else 0.0,
+                    'out_of': getattr(r.assessment, 'out_of', 100) or 100,
                 }
-        # Exclude القرآن for combined report
-        subjects = sorted([n for n in subj_map.keys() if n != 'القرآن'])
+        subjects = [name for name in subject_names if name in subj_map]
 
         # Totals per assessment type for student (marks and points)
         assessment_totals = {at.name: {'marks': Decimal('0.0'), 'points': Decimal('0.0'), 'count': 0} for at in selected_assessment_types}
@@ -4377,6 +4966,8 @@ def class_assessment_combined_print(request):
             cell_map = {}  # key: at.name -> {"score": -, "points": -}
             sum_w = Decimal('0.0')
             sum_ws = Decimal('0.0')
+            subject_total_score = Decimal('0.0')
+            subject_total_out_of = Decimal('0.0')
             # Exclude specific subjects from totals but still display them in the table
             subject_key = (subject_name or '').upper().replace(' ', '')
             excluded_from_totals = ('READING' in subject_key) or ('RELIGIOUSEDUCATION' in subject_key)
@@ -4387,10 +4978,14 @@ def class_assessment_combined_print(request):
                 if rec:
                     score = Decimal(str(rec['score']))
                     pts = Decimal(str(rec['points']))
+                    out_of = Decimal(str(rec.get('out_of') or 0))
                     w = Decimal(str(at_weight.get(at_id, 1)))
                     # weighted avg components
                     sum_w += w
                     sum_ws += (score * w)
+                    subject_total_score += score
+                    if out_of > 0:
+                        subject_total_out_of += out_of
                     # cell value
                     cell_map[at_name] = {
                         'score': float(score),
@@ -4408,11 +5003,23 @@ def class_assessment_combined_print(request):
                         'points': '-',
                     }
 
-            average = float((sum_ws / sum_w).quantize(Decimal('0.01'))) if sum_w > 0 else 0.0
+            if subject_total_out_of > 0:
+                percentage = ((subject_total_score / subject_total_out_of) * Decimal('100')).quantize(Decimal('0.01'))
+            elif sum_w > 0:
+                percentage = (sum_ws / sum_w).quantize(Decimal('0.01'))
+            else:
+                percentage = Decimal('0.0')
+            grade, points = get_grade_and_points(percentage)
 
             report_rows.append({
                 'subject': subject_name,
-                'average': average,
+                'average': float(percentage),
+                'percentage': float(percentage),
+                'total_score': float(subject_total_score),
+                'out_of_total': float(subject_total_out_of),
+                'grade': grade,
+                'points': points,
+                'include_in_totals': not excluded_from_totals,
                 'assessments': cell_map,  # at.name -> {score, points}
             })
 
@@ -4423,23 +5030,23 @@ def class_assessment_combined_print(request):
             count = assessment_totals[at.name]['count']
             assessment_divisions[at.name] = get_division(tot_pts) if count > 0 else "-"
 
-        subject_grades = {}
-        for row in report_rows:
-            subject_name = row.get('subject')
-            points_val = None
-            for at in selected_assessment_types:
-                data = row.get('assessments', {}).get(at.name, {})
-                pts = data.get('points')
-                if isinstance(pts, (int, float)):
-                    points_val = pts
-                    break
-                try:
-                    pts_num = float(pts)
-                    points_val = pts_num
-                    break
-                except (TypeError, ValueError):
-                    continue
-            subject_grades[subject_name] = {"grade": "", "points": points_val}
+        included_rows = [row for row in report_rows if row.get('include_in_totals', True)]
+        total_marks = sum(
+            (Decimal(str(row.get('total_score', 0) or 0)) for row in included_rows),
+            Decimal('0.0'),
+        )
+        total_out_of = sum(
+            (Decimal(str(row.get('out_of_total', 0) or 0)) for row in included_rows),
+            Decimal('0.0'),
+        )
+        overall_average = (
+            ((total_marks / total_out_of) * Decimal('100')).quantize(Decimal('0.01'))
+            if total_out_of > 0
+            else Decimal('0.0')
+        )
+        overall_grade, overall_points = get_grade_and_points(overall_average)
+
+        total_aggregates, subject_grades = _build_division_payload_from_report_rows(report_rows)
 
         # Class teacher signature for the student's stream
         class_teacher_signature = None
@@ -4474,14 +5081,9 @@ def class_assessment_combined_print(request):
             class_teacher_remark = ''
             head_teacher_remark = ''
         
-        total_aggregates = sum(
-            assessment_totals[at.name]['points']
-            for at in selected_assessment_types
-            if assessment_totals[at.name]['count'] > 0
-        )
         if total_aggregates:
             selected_division, division_override_note = get_division_with_override(
-                int(total_aggregates),
+                total_aggregates,
                 subject_grades
             )
         else:
@@ -4491,9 +5093,22 @@ def class_assessment_combined_print(request):
             'student': student,
             'report_data': report_rows,
             'assessment_types': selected_assessment_types,
+            'division_colspan': (len(selected_assessment_types) * 2) + (2 if report_format == 'tahfiz' else 1),
             'term': class_obj.term.term,
             'term_id': class_obj.term.id,
             'academic_year': class_obj.academic_year.academic_year,
+            'report_heading': _build_combined_report_heading(
+                selected_assessment_types,
+                class_obj.term.term,
+                class_obj.academic_year.academic_year,
+            ),
+            'report_card_title': _build_combined_report_card_title(selected_assessment_types),
+            'class_size': class_size,
+            'total_marks': float(total_marks),
+            'total_out_of': float(total_out_of),
+            'overall_average': float(overall_average),
+            'overall_grade': overall_grade,
+            'overall_points': overall_points,
             'assessment_totals': assessment_totals,
             'assessment_divisions': assessment_divisions,
             'selected_division': selected_division,

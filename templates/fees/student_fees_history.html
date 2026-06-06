@@ -25,7 +25,7 @@
                         <img src="{{ student.photo.url }}" alt="{{ student.student_name }}" class="sfh-avatar">
                         <div>
                             <div class="sfh-name">{{ student.student_name }}</div>
-                            <div class="sfh-meta">Reg No: {{ student.reg_no }}</div>
+                            <div class="sfh-meta">Student ID: {{ student.display_student_id }}</div>
                             <div class="sfh-meta">Class: {{ student.current_class.name }}</div>
                         </div>
                     </div>
@@ -209,27 +209,44 @@
                                                         {% csrf_token %}
                                                         <div class="modal-body">
                                                             <div class="form-group">
+                                                                <label>Outstanding</label>
+                                                                <input type="text" class="form-control" value="UGX {{ bd.balance|floatformat:0 }}" readonly>
+                                                            </div>
+                                                            <div class="form-group">
                                                                 <label>Payment Date *</label>
                                                                 <input type="date" name="payment_date" class="form-control" value="{{ today }}" required>
                                                             </div>
                                                             <div class="form-group">
+                                                                <label>Category</label>
+                                                                <select name="fee_category" class="form-control">
+                                                                    <option value="">Auto-detect</option>
+                                                                    <option value="Tuition">Tuition</option>
+                                                                    <option value="Transport">Transport</option>
+                                                                    <option value="Uniform">Uniform</option>
+                                                                    <option value="Other">Other</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="form-group">
                                                                 <label>Amount *</label>
-                                                                <input type="number" name="amount" class="form-control" placeholder="Enter amount" required min="1" step="0.01">
+                                                                <input type="number" name="amount" class="form-control" placeholder="Enter amount" required min="1" max="{{ bd.balance|floatformat:2 }}" step="0.01">
                                                             </div>
                                                             <div class="form-group">
                                                                 <label>Payment Method *</label>
                                                                 <select name="payment_method" class="form-control" required>
                                                                     <option value="">Select method</option>
                                                                     <option value="Cash">Cash</option>
-                                                                    <option value="Bank Transfer">Bank Transfer</option>
-                                                                    <option value="Mobile Money">Mobile Money</option>
-                                                                    <option value="Cheque">Cheque</option>
+                                                                    <option value="SchoolPay">SchoolPay</option>
+                                                                    <option value="Bank">Bank</option>
                                                                     <option value="Other">Other</option>
                                                                 </select>
                                                             </div>
                                                             <div class="form-group">
                                                                 <label>Reference No</label>
                                                                 <input type="text" name="reference_no" class="form-control" placeholder="Auto-generated if blank">
+                                                            </div>
+                                                            <div class="form-group">
+                                                                <label>Notes</label>
+                                                                <textarea name="notes" class="form-control" rows="3" placeholder="Optional remarks"></textarea>
                                                             </div>
                                                         </div>
                                                         <div class="modal-footer">

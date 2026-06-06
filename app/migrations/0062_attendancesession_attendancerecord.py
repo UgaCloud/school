@@ -26,7 +26,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Attendance tables may exist already on long-lived databases; keep migration re-runnable.
         CreateModelIfMissing(
             name='AttendanceSession',
             fields=[

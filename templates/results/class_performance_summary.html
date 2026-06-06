@@ -1,58 +1,36 @@
 {% extends 'base.html' %}
 {% load static %}
 
-<!-- {% block title %}Class Performance Summary{% endblock %} -->
+{% block title %}Class Performance Summary{% endblock %}
+{% block page_title %}Class Performance Summary{% endblock %}
 
-{% block content %}
-{% if messages %}
-  {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}">
-      {{ message }}
-    </div>
-  {% endfor %}
-{% endif %}
-
-<!-- <div class="comm-header">
-    <div class="comm-title">
-        <span class="comm-icon"><i class="fa fa-line-chart"></i></span>
-        <div>
-            <h2>Class Performance Summary</h2>
-            <p class="text-muted">School Analytics Dashboard</p>
-        </div>
-    </div> -->
-    <div class="comm-meta">
-        Academic Year: <strong>{{ selected_academic_year_name|default:"All" }}</strong>
-        <span class="comm-sep">|</span>
-        Term: <strong>{{ selected_term_name|default:"All" }}</strong>
-    </div>
-</div>
-
-<div class="clearfix"></div>
-
+{% block extra_css %}
 <style>
-    .right_col{overflow-x:hidden;}
+    .performance-summary-page{overflow-x:hidden;}
     .comm-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;}
     .comm-title{display:flex;gap:12px;align-items:center;}
-    .comm-title h2{margin:0;font-weight:700;}
-    .comm-title p{margin:4px 0 0;}
-    .comm-icon{width:46px;height:46px;border-radius:12px;background:#e0e7ff;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-size:18px;}
-    .comm-meta{font-size:13px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;padding:8px 12px;border-radius:999px;}
+    .comm-title h2{margin:0;font-weight:700;color:#0f172a;font-size:24px;line-height:1.2;}
+    .comm-title p{margin:4px 0 0;color:#64748b;}
+    .comm-icon{width:46px;height:46px;border-radius:10px;background:#e0e7ff;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 46px;}
+    .comm-meta{font-size:13px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;padding:8px 12px;border-radius:999px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
     .comm-sep{margin:0 8px;color:#cbd5f5;}
 
-    .filter-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;box-shadow:0 6px 16px rgba(0,0,0,0.04);margin-bottom:16px;}
+    .filter-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;box-shadow:0 6px 16px rgba(0,0,0,0.04);margin-bottom:16px;}
     .filter-card h3{margin:0 0 12px;font-weight:700;color:#1f2937;}
     .filter-card .row{row-gap:12px;}
     .filter-card .form-control{min-height:40px;}
+    .filter-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;}
+    .filter-actions .btn{margin:0;white-space:nowrap;}
 
     .dashboard-content{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px;}
-    .kpi-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;box-shadow:0 6px 16px rgba(0,0,0,0.04);text-align:left;}
+    .kpi-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;box-shadow:0 6px 16px rgba(0,0,0,0.04);text-align:left;min-width:0;}
     .kpi-card i{color:#1d4ed8;}
     .kpi-stats{font-size:22px;font-weight:700;color:#0f172a;margin-top:6px;word-break:break-word;}
     .kpi-subtitle{color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;}
 
-    .dashboard-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;box-shadow:0 6px 16px rgba(0,0,0,0.04);overflow:hidden;}
+    .dashboard-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;box-shadow:0 6px 16px rgba(0,0,0,0.04);overflow:hidden;height:100%;}
     .dashboard-card h3{margin:0 0 12px;font-weight:700;color:#1f2937;font-size:16px;}
-    .dashboard-card canvas{max-width:100%;height:260px !important;}
+    .dashboard-card canvas{display:block;max-width:100%;height:260px !important;}
 
     .table-responsive{margin-top:12px;}
     .table{margin-bottom:0;}
@@ -63,17 +41,39 @@
     .heatmap-medium{background:#f59e0b;color:#fff;}
     .heatmap-low{background:#ef4444;color:#fff;}
 
-    .mini-stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;text-align:left;}
+    .mini-stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:left;}
     .mini-stat h5{margin:0 0 6px;font-weight:700;color:#1f2937;}
     .mini-stat .kpi-stats{font-size:20px;}
 
     .row.mb-4{row-gap:16px;}
+    .empty-state{background:#fff;border:1px dashed #cbd5e1;border-radius:10px;padding:30px 16px;color:#64748b;text-align:center;}
 
     @media (max-width: 768px) {
-        .comm-meta{width:100%;text-align:center;}
+        .comm-header{align-items:flex-start;}
+        .comm-meta{width:100%;justify-content:center;text-align:center;border-radius:10px;}
+        .filter-actions{justify-content:stretch;}
+        .filter-actions .btn{flex:1 1 180px;}
         .dashboard-card canvas{height:220px !important;}
     }
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="performance-summary-page">
+    <div class="comm-header">
+        <div class="comm-title">
+            <span class="comm-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <div>
+                <h2>Class Performance Summary</h2>
+                <p>School analytics dashboard</p>
+            </div>
+        </div>
+        <div class="comm-meta">
+            <span>Academic Year: <strong>{{ selected_academic_year_name|default:"All" }}</strong></span>
+            <span class="comm-sep">|</span>
+            <span>Term: <strong>{{ selected_term_name|default:"All" }}</strong></span>
+        </div>
+    </div>
 
 <!-- Filter Form -->
 <div class="filter-card">
@@ -126,7 +126,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-12 text-end">
+            <div class="col-12 filter-actions">
                 <button type="submit" class="btn btn-primary">Filter</button>
                 {% if academic_class_exists %}
                     <a href="{% url 'class_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}&report_format={{ selected_report_format }}"
@@ -151,27 +151,27 @@
 <!-- 1. Top Summary Cards (KPIs) -->
 <div class="dashboard-content">
     <div class="kpi-card">
-        <i class="fa fa-users fa-2x text-primary mb-2"></i>
+        <i class="fa-solid fa-users fa-2x text-primary mb-2"></i>
         <div class="kpi-stats">{{ total_students }}</div>
         <div class="kpi-subtitle">Total Students</div>
     </div>
     <div class="kpi-card">
-        <i class="fa fa-chart-line fa-2x text-success mb-2"></i>
+        <i class="fa-solid fa-chart-line fa-2x text-success mb-2"></i>
         <div class="kpi-stats">{{ average_score|floatformat:1 }}%</div>
         <div class="kpi-subtitle">Average Score</div>
     </div>
     <div class="kpi-card">
-        <i class="fa fa-percentage fa-2x text-info mb-2"></i>
+        <i class="fa-solid fa-percent fa-2x text-info mb-2"></i>
         <div class="kpi-stats">{{ pass_rate|floatformat:0 }}%</div>
         <div class="kpi-subtitle">Pass Rate</div>
     </div>
     <div class="kpi-card">
-        <i class="fa fa-trophy fa-2x text-warning mb-2"></i>
+        <i class="fa-solid fa-trophy fa-2x text-warning mb-2"></i>
         <div class="kpi-stats">{{ top_performer.student__student_name|default:"N/A" }}</div>
         <div class="kpi-subtitle">Top Performer</div>
     </div>
     <div class="kpi-card">
-        <i class="fa fa-graduation-cap fa-2x text-danger mb-2"></i>
+        <i class="fa-solid fa-graduation-cap fa-2x text-danger mb-2"></i>
         <div class="kpi-stats">{{ current_term|default:"N/A" }}</div>
         <div class="kpi-subtitle">Current Term</div>
     </div>
@@ -208,24 +208,26 @@
     <div class="col-md-6">
         <div class="dashboard-card">
             <h3>Top 10 Students</h3>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Class</th>
-                        <th>Average</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for student in top_students %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
                         <tr>
-                            <td>{{ student.student__student_name }}</td>
-                            <td>{{ student.student__current_class__name }}</td>
-                            <td>{{ student.average|floatformat:2 }}%</td>
+                            <th>Name</th>
+                            <th>Class</th>
+                            <th>Average</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for student in top_students %}
+                            <tr>
+                                <td>{{ student.student__student_name }}</td>
+                                <td>{{ student.student__current_class__name }}</td>
+                                <td>{{ student.average|floatformat:2 }}%</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -277,26 +279,28 @@
     <div class="col-md-6">
         <div class="dashboard-card">
             <h3>Subject Difficulty Heatmap</h3>
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>Subject</th>
-                        <th>Average Score</th>
-                        <th>Performance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for subject, avg in subject_heatmap.items %}
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
                         <tr>
-                            <td>{{ subject }}</td>
-                            <td>{{ avg|floatformat:2 }}%</td>
-                            <td class="heatmap-cell {% if avg >= 80 %}heatmap-high{% elif avg >= 60 %}heatmap-medium{% else %}heatmap-low{% endif %}">
-                                {% if avg >= 80 %}High{% elif avg >= 60 %}Medium{% else %}Low{% endif %}
-                            </td>
+                            <th>Subject</th>
+                            <th>Average Score</th>
+                            <th>Performance</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for subject, avg in subject_heatmap.items %}
+                            <tr>
+                                <td>{{ subject }}</td>
+                                <td>{{ avg|floatformat:2 }}%</td>
+                                <td class="heatmap-cell {% if avg >= 80 %}heatmap-high{% elif avg >= 60 %}heatmap-medium{% else %}heatmap-low{% endif %}">
+                                    {% if avg >= 80 %}High{% elif avg >= 60 %}Medium{% else %}Low{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -307,22 +311,23 @@
     <div class="row">
         <div class="col-md-6">
             <a href="{% url 'class_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}" class="btn btn-success btn-lg w-100 mb-2" target="_blank">
-                <i class="fa fa-download"></i> Detailed Results PDF
+                <i class="fa-solid fa-download"></i> Detailed Results PDF
             </a>
         </div>
         <div class="col-md-6">
             <a href="{% url 'class_assessment_type_bulk_reports' %}?academic_year_id={{ selected_academic_year }}&term_id={{ selected_term }}&class_id={{ selected_class }}&assessment_type_id={{ selected_assessment_type }}" class="btn btn-info btn-lg w-100 mb-2" target="_blank">
-                <i class="fa fa-download"></i> Class Averages by Subject
+                <i class="fa-solid fa-download"></i> Class Averages by Subject
             </a>
         </div>
     </div>
 </div>
 
 {% else %}
-    <p class="text-center text-muted">
+    <div class="empty-state">
         Please select Academic Year, Term, and Class to see performance data.
-    </p>
+    </div>
 {% endif %}
+</div>
 
 <!-- Chart.js Scripts -->
 {% if academic_class_exists %}

@@ -278,7 +278,7 @@
             </div>
 
             <div class="title">
-                END TERM REPORT - TERM {{ rep.term|default:"-" }} | {{ rep.academic_year|default:"-" }}
+                {{ rep.report_heading|default:"REPORT" }}
             </div>
 
             <div class="info">
@@ -346,9 +346,12 @@
 
                 <tr>
                     <td><strong>DIVISION</strong></td>
-                    <td colspan="{{ rep.assessment_types|length|add:rep.assessment_types|length|add:1 }}">
-                        {{ rep.selected_division }}
+                    {% for at in rep.assessment_types %}
+                    <td colspan="2">
+                        {{ rep.assessment_divisions|get_item:at.name|default:"-" }}
                     </td>
+                    {% endfor %}
+                    <td></td>
                 </tr>
             </table>
 
@@ -377,8 +380,6 @@
                                 {% if rep.class_teacher_signature and rep.class_teacher_signature.url %}
                                 <img src="{{ rep.class_teacher_signature.url }}" alt="Class Teacher Signature"
                                     style="height:30px; object-fit:contain;" />
-                                {% else %}
-
                                 {% endif %}
                             </td>
                         </tr>
@@ -395,8 +396,6 @@
                                 {% if rep.head_teacher_signature and rep.head_teacher_signature.signature %}
                                 <img src="{{ rep.head_teacher_signature.signature.url }}" alt="Head Teacher Signature"
                                     style="height:30px; object-fit:contain;" />
-                                {% else %}
-                                .
                                 {% endif %}
                             </td>
                         </tr>

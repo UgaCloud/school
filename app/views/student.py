@@ -81,6 +81,7 @@ def _apply_student_filters(queryset, *, query="", selected_class_id="", selected
         filtered_scope_qs = filtered_scope_qs.filter(
             Q(student_name__icontains=query)
             | Q(reg_no__icontains=query)
+            | Q(student_number__icontains=query)
             | Q(contact__icontains=query)
         )
     if selected_class_id.isdigit():
@@ -161,6 +162,7 @@ def manage_student_view(request):
             "student_name",
             "gender",
             "reg_no",
+            "student_number",
             "contact",
             "photo",
             "is_active",
@@ -191,7 +193,7 @@ def manage_student_view(request):
 
     students_list, status = _apply_student_status_filter(filtered_scope_qs, status_requested)
 
-    students_list = students_list.order_by("student_name", "reg_no")
+    students_list = students_list.order_by("student_name", "student_number", "reg_no")
     paginator = Paginator(students_list, per_page)
     try:
         students = paginator.page(page_number)
@@ -313,6 +315,7 @@ def student_summary_api_view(request, id):
                 "id": student.id,
                 "name": student.student_name,
                 "reg_no": student.reg_no,
+                "student_number": student.student_number or student.reg_no,
                 "gender": "Male" if student.gender == "M" else "Female",
                 "class_stream": class_stream_label,
                 "contact": student.contact or "-",
@@ -360,7 +363,7 @@ def export_students_csv_view(request):
     if selected_ids:
         export_qs = export_qs.filter(id__in=selected_ids)
 
-    export_qs = export_qs.order_by("student_name", "reg_no")
+    export_qs = export_qs.order_by("student_name", "student_number", "reg_no")
 
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = "attachment; filename=students_export.csv"
@@ -368,7 +371,8 @@ def export_students_csv_view(request):
     writer.writerow(
         [
             "Student Name",
-            "Registration Number",
+            "Student ID",
+            "Reg. No.",
             "Gender",
             "Class",
             "Stream",
@@ -387,6 +391,7 @@ def export_students_csv_view(request):
         writer.writerow(
             [
                 student.student_name,
+                student.student_number or student.reg_no,
                 student.reg_no,
                 "Male" if student.gender == "M" else "Female",
                 class_label,
@@ -801,7 +806,7 @@ def download_student_template_csv(request):
     writer.writerow([heading_text.upper()])
     
     writer.writerow(
-        ['Reg No', 'Student Name', 'Gender', 'Birth Date (YYYY-MM-DD)', 'Nationality', 'Religion', 'Address',
+        ['Student ID (optional 6 digits)', 'Reg No', 'Student Name', 'Gender', 'Birth Date (YYYY-MM-DD)', 'Nationality', 'Religion', 'Address',
          'Guardian', 'Relationship', 'Guardian Contact', 'Academic Year', 'Current Class', 'Stream', 'Term (1/2/3)'])
 
     # Return the response
@@ -878,12 +883,27 @@ def edit_student_view(request, id):
 
 @login_required
 def delete_student_view(request, id):
+    if request.method != "POST":
+        messages.error(request, "Student status changes must be submitted via POST.")
+        return HttpResponseRedirect(reverse(manage_student_view))
+
     student = _get_scoped_student_or_404(request, id)
+    action = (request.POST.get("action") or "").strip().lower()
 
-    student.is_active = False
-    student.save()
-
-    messages.success(request, "Student deactivated successfully.")
+    if action == "reactivate":
+        if student.is_active:
+            messages.info(request, "Student is already active.")
+        else:
+            student.is_active = True
+            student.save(update_fields=["is_active"])
+            messages.success(request, "Student reactivated successfully.")
+    else:
+        if not student.is_active:
+            messages.info(request, "Student is already inactive.")
+        else:
+            student.is_active = False
+            student.save(update_fields=["is_active"])
+            messages.success(request, "Student deactivated successfully.")
 
     return HttpResponseRedirect(reverse(manage_student_view))
 

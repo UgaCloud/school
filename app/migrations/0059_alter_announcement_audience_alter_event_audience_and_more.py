@@ -37,7 +37,6 @@ class Migration(migrations.Migration):
             name='audience',
             field=models.CharField(choices=[('all', 'All Staff'), ('teachers', 'Teachers'), ('head', 'Head Teacher'), ('bursar', 'Bursar'), ('dos', 'Director of Studies'), ('class_teacher', 'Class Teacher'), ('class_stream', 'Class Stream Teachers')], default='all', max_length=20),
         ),
-        # Guard against pre-existing messaging tables in drifted production schemas.
         CreateModelIfMissing(
             name='MessageThread',
             fields=[

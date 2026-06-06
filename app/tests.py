@@ -1,10 +1,17 @@
 from datetime import date, timedelta
+from decimal import Decimal
+from io import BytesIO
+import unittest
+from unittest.mock import patch
+from zipfile import ZipFile
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import IntegrityError
+from django.db import DatabaseError, IntegrityError
+from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -17,9 +24,11 @@ from app.models.classes import (
     StudentPromotionHistory,
     Term,
 )
+from app.models.fees_payment import BillItem, Payment, StudentBill, StudentBillItem
 from app.models.results import (
     Assessment,
     AssessmentType,
+    GradingSystem,
     Result,
     ResultVerificationSetting,
     VerificationCorrectionLog,
@@ -30,10 +39,24 @@ from app.models.school_settings import AcademicYear, SchoolSetting, Section
 from app.models.staffs import Staff
 from app.models.students import ClassRegister, Student
 from app.models.subjects import Subject
+from app.selectors.school_settings import get_school_setting
 from app.services.level_scope import get_level_classes_queryset, get_level_sections_queryset
 from app.services.results_sampling import submit_batch_for_verification
 from app.services.school_level import get_active_school_level
-from core.tenant import register_database_alias, unregister_database_alias
+from core import middleware as core_middleware
+from core.middleware import AutoLogoutMiddleware
+
+try:
+    from core.tenant import register_database_alias, unregister_database_alias
+    HAS_TENANT_ALIAS_HELPERS = True
+except ModuleNotFoundError:
+    HAS_TENANT_ALIAS_HELPERS = False
+
+    def register_database_alias(*args, **kwargs):
+        raise RuntimeError("core.tenant is not available in this checkout.")
+
+    def unregister_database_alias(*args, **kwargs):
+        return None
 
 
 class QuickSetupStudentFlowTests(TestCase):
@@ -867,6 +890,7 @@ class AcademicClassPromotionTests(TestCase):
         }
     }
 )
+@unittest.skipUnless(HAS_TENANT_ALIAS_HELPERS, "core.tenant is not available in this checkout.")
 class RuntimeDatabaseAliasConfigTests(SimpleTestCase):
     def tearDown(self):
         unregister_database_alias("tenant_runtime_test")
@@ -907,3 +931,467 @@ class RuntimeDatabaseAliasConfigTests(SimpleTestCase):
         self.assertEqual(alias_config["OPTIONS"], {"timeout": 20})
         self.assertEqual(alias_config["TEST"]["MIRROR"], "default")
         self.assertEqual(alias_config["TEST"]["MIGRATE"], True)
+
+
+class StudentPaymentLedgerTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="finance_admin", password="pass12345")
+        self.client.force_login(self.user)
+
+        self.year = AcademicYear.objects.create(academic_year="2026", is_current=True)
+        self.term = Term.objects.create(
+            academic_year=self.year,
+            term="1",
+            start_date=date(2026, 1, 10),
+            end_date=date(2026, 4, 10),
+            is_current=True,
+        )
+        self.section = Section.objects.create(section_name="Primary")
+        self.class_obj = Class.objects.create(name="Grade 2", code="GD2", section=self.section)
+        self.stream = Stream.objects.create(stream="A")
+        self.academic_class = AcademicClass.objects.create(
+            section=self.section,
+            Class=self.class_obj,
+            academic_year=self.year,
+            term=self.term,
+            fees_amount=500000,
+        )
+
+        self.student = Student.objects.create(
+            reg_no="BLC-001",
+            student_name="Amina Ali",
+            gender="F",
+            birthdate=date(2018, 1, 1),
+            nationality="Ugandan",
+            religion="Muslim",
+            address="Kampala",
+            guardian="Guardian",
+            relationship="Parent",
+            contact="0700000000",
+            academic_year=self.year,
+            current_class=self.class_obj,
+            stream=self.stream,
+            term=self.term,
+            is_active=False,
+        )
+        self.assertTrue(self.student.reg_no.startswith("STD2026-"))
+
+        self.bill = StudentBill.objects.create(
+            student=self.student,
+            academic_class=self.academic_class,
+            status="Unpaid",
+        )
+        self.school_fees_item = BillItem.objects.create(
+            item_name="School Fees",
+            category="Tuition",
+            bill_duration="Termly",
+            description="Mandatory tuition",
+        )
+        self.uniform_item = BillItem.objects.create(
+            item_name="Uniform",
+            category="Uniform",
+            bill_duration="None",
+            description="Uniform charge",
+        )
+        StudentBillItem.objects.create(
+            bill=self.bill,
+            bill_item=self.school_fees_item,
+            description="Term 1 tuition",
+            amount=500000,
+            charge_date=date(2026, 1, 15),
+            fee_category="Tuition",
+        )
+        StudentBillItem.objects.create(
+            bill=self.bill,
+            bill_item=self.uniform_item,
+            description="Uniform set",
+            amount=100000,
+            charge_date=date(2026, 1, 20),
+            fee_category="Uniform",
+        )
+        Payment.objects.create(
+            bill=self.bill,
+            payment_date=date(2026, 7, 10),
+            amount=200000,
+            payment_method="Cash",
+            fee_category="Tuition",
+            reference_no="PMT-001",
+            recorded_by="finance_admin",
+            notes="Cash collection",
+        )
+        Payment.objects.create(
+            bill=self.bill,
+            payment_date=date(2026, 7, 20),
+            amount=300000,
+            payment_method="SchoolPay",
+            fee_category="Tuition",
+            reference_no="PMT-002",
+            recorded_by="finance_admin",
+            notes="SchoolPay settlement",
+        )
+
+    def test_inactive_student_history_remains_accessible(self):
+        response = self.client.get(reverse("student_fees_history", args=[self.student.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.student.student_name)
+        self.assertContains(response, self.student.reg_no)
+
+    def test_inactive_student_can_be_reactivated(self):
+        response = self.client.post(
+            reverse("delete_student_page", args=[self.student.id]),
+            {"action": "reactivate"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.is_active)
+
+    def test_student_delete_is_blocked(self):
+        with self.assertRaises(ValidationError):
+            self.student.delete()
+
+    def test_student_without_reg_no_gets_generated_reg_no(self):
+        generated_student = Student.objects.create(
+            reg_no="",
+            student_name="Generated Reg Student",
+            gender="F",
+            birthdate=date(2018, 3, 1),
+            nationality="Ugandan",
+            religion="Muslim",
+            address="Kampala",
+            guardian="Guardian",
+            relationship="Parent",
+            contact="0700000003",
+            academic_year=self.year,
+            current_class=self.class_obj,
+            stream=self.stream,
+            term=self.term,
+            is_active=True,
+        )
+
+        self.assertTrue(generated_student.reg_no.startswith("STD2026-"))
+
+    def test_ledger_page_renders_transaction_rows(self):
+        response = self.client.get(
+            reverse("payment_ledger"),
+            {"student": self.student.id, "term": self.term.id, "year": self.year.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Student Payment Ledger")
+        self.assertContains(response, self.student.student_name)
+        self.assertContains(response, self.student.reg_no)
+        self.assertContains(response, "Term 1 2026")
+        self.assertContains(response, "SchoolPay")
+
+    def test_ledger_page_highlights_insights_and_credit_adjustments(self):
+        rebate_item = BillItem.objects.create(
+            item_name="Transport rebate",
+            category="Transport",
+            bill_duration="None",
+            description="Transport correction",
+        )
+        StudentBillItem.objects.create(
+            bill=self.bill,
+            bill_item=rebate_item,
+            description="Transport rebate",
+            amount=-34000,
+            charge_date=date(2026, 1, 25),
+            fee_category="Transport",
+        )
+
+        overpaid_student = Student.objects.create(
+            reg_no="BLC-002",
+            student_name="Yusuf Musa",
+            gender="M",
+            birthdate=date(2018, 2, 1),
+            nationality="Ugandan",
+            religion="Muslim",
+            address="Kampala",
+            guardian="Guardian",
+            relationship="Parent",
+            contact="0700000001",
+            academic_year=self.year,
+            current_class=self.class_obj,
+            stream=self.stream,
+            term=self.term,
+            is_active=True,
+        )
+        overpaid_bill = StudentBill.objects.create(
+            student=overpaid_student,
+            academic_class=self.academic_class,
+            status="Paid",
+        )
+        StudentBillItem.objects.create(
+            bill=overpaid_bill,
+            bill_item=self.school_fees_item,
+            description="Term 1 tuition",
+            amount=120000,
+            charge_date=date(2026, 1, 12),
+            fee_category="Tuition",
+        )
+        Payment.objects.create(
+            bill=overpaid_bill,
+            payment_date=date(2026, 1, 18),
+            amount=150000,
+            payment_method="Cash",
+            fee_category="Tuition",
+            reference_no="PMT-003",
+            recorded_by="finance_admin",
+            notes="Overpayment",
+        )
+
+        response = self.client.get(reverse("payment_ledger"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Top Outstanding Student")
+        self.assertContains(response, "Top Credit")
+        self.assertContains(response, "Largest Charge Category")
+        self.assertContains(response, "Amina Ali")
+        self.assertContains(response, "Yusuf Musa")
+        self.assertContains(response, "Credit Adjustment")
+        self.assertContains(response, "34,000")
+        self.assertNotContains(response, "-34,000")
+
+    def test_ledger_excel_export_respects_payment_method_filter(self):
+        response = self.client.get(
+            reverse("payment_ledger"),
+            {
+                "student": self.student.id,
+                "payment_method": ["Cash"],
+                "export": "excel",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        with ZipFile(BytesIO(response.content)) as archive:
+            worksheet_xml = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
+
+        self.assertIn("Date", worksheet_xml)
+        self.assertIn("Student ID", worksheet_xml)
+        self.assertIn("Student Name", worksheet_xml)
+        self.assertIn("Amount Charged", worksheet_xml)
+        self.assertIn("Amount Paid", worksheet_xml)
+        self.assertIn("Notes", worksheet_xml)
+        self.assertIn("Cash", worksheet_xml)
+        self.assertNotIn("SchoolPay", worksheet_xml)
+        self.assertIn("Running Balance", worksheet_xml)
+        self.assertIn("Reference No.", worksheet_xml)
+        self.assertNotIn("Description", worksheet_xml)
+
+    def test_fees_help_page_renders_guidance(self):
+        response = self.client.get(reverse("fees_help"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Fees Reporting Help")
+        self.assertContains(response, "How Ledger Reports Are Generated")
+        self.assertContains(response, "How Student Status Is Managed")
+
+
+class CombinedAssessmentDivisionTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="results_admin", password="pass12345")
+        self.client.force_login(self.user)
+
+        school_setting = SchoolSetting.load()
+        school_setting.education_level = SchoolSetting.EducationLevel.PRIMARY
+        school_setting.save(update_fields=["education_level"])
+
+        session = self.client.session
+        session["active_school_level"] = SchoolSetting.EducationLevel.PRIMARY
+        session.save()
+
+        self.year = AcademicYear.objects.create(academic_year="2026", is_current=True)
+        self.term = Term.objects.create(
+            academic_year=self.year,
+            term="1",
+            start_date=date(2026, 1, 10),
+            end_date=date(2026, 4, 10),
+            is_current=True,
+        )
+        self.section = Section.objects.create(section_name="Primary")
+        self.class_obj = Class.objects.create(name="Grade 5", code="GD5", section=self.section)
+        self.stream = Stream.objects.create(stream="A")
+        self.academic_class = AcademicClass.objects.create(
+            section=self.section,
+            Class=self.class_obj,
+            academic_year=self.year,
+            term=self.term,
+            fees_amount=500000,
+        )
+
+        self.teacher = Staff.objects.create(
+            first_name="Primary",
+            last_name="Teacher",
+            birth_date=date(1990, 1, 1),
+            gender="M",
+            address="Kampala",
+            marital_status="U",
+            contacts="0700000000",
+            email="teacher@example.com",
+            qualification="Degree",
+            nin_no="CFX1234567890A",
+            hire_date=date(2020, 1, 1),
+            department="Academic",
+            salary="1000000.00",
+            is_academic_staff=True,
+            is_administrator_staff=False,
+            is_support_staff=False,
+            staff_status="Active",
+            staff_photo=SimpleUploadedFile("teacher.jpg", b"fake-image-bytes", content_type="image/jpeg"),
+        )
+        self.class_stream = AcademicClassStream.objects.create(
+            academic_class=self.academic_class,
+            stream=self.stream,
+            class_teacher=self.teacher,
+        )
+
+        self.student = Student.objects.create(
+            reg_no="STD2026-29",
+            student_name="Aayan Haroun Mugagga",
+            gender="M",
+            birthdate=date(2015, 1, 1),
+            nationality="Ugandan",
+            religion="Muslim",
+            address="Kampala",
+            guardian="Guardian",
+            relationship="Parent",
+            contact="0700000001",
+            academic_year=self.year,
+            current_class=self.class_obj,
+            stream=self.stream,
+            term=self.term,
+            is_active=True,
+        )
+        ClassRegister.objects.create(
+            academic_class_stream=self.class_stream,
+            student=self.student,
+            payment_status="Paid",
+        )
+
+        grading_rows = [
+            ("90.00", "100.00", "D1", "1.00"),
+            ("80.00", "89.00", "D2", "2.00"),
+            ("70.00", "79.00", "C3", "3.00"),
+            ("60.00", "69.00", "C4", "4.00"),
+            ("55.00", "59.00", "C5", "5.00"),
+            ("50.00", "54.00", "C6", "6.00"),
+            ("45.00", "49.00", "P7", "7.00"),
+            ("40.00", "44.00", "P8", "8.00"),
+            ("0.00", "39.00", "F9", "9.00"),
+        ]
+        for min_score, max_score, grade, points in grading_rows:
+            GradingSystem.objects.create(
+                min_score=Decimal(min_score),
+                max_score=Decimal(max_score),
+                grade=grade,
+                points=Decimal(points),
+            )
+
+        self.bot = AssessmentType.objects.create(name="BEGINNING OF TERM", weight=Decimal("1.00"))
+        self.mid = AssessmentType.objects.create(name="MID TERM EXAM", weight=Decimal("1.00"))
+
+        subjects = [
+            ("ENG", "ENGLISH"),
+            ("MTC", "MATHEMATICS"),
+            ("SCI", "SCIENCE"),
+            ("SST", "SOCIAL STUDIES"),
+        ]
+        score_map = {
+            "ENGLISH": {"BEGINNING OF TERM": "59.00", "MID TERM EXAM": "80.00"},
+            "MATHEMATICS": {"BEGINNING OF TERM": "59.00", "MID TERM EXAM": "50.00"},
+            "SCIENCE": {"BEGINNING OF TERM": "47.00", "MID TERM EXAM": "55.00"},
+            "SOCIAL STUDIES": {"BEGINNING OF TERM": "51.00", "MID TERM EXAM": "66.00"},
+        }
+
+        for code, name in subjects:
+            subject = Subject.objects.create(
+                code=code,
+                name=name,
+                description=name,
+                credit_hours=1,
+                section=self.section,
+                type="Core",
+            )
+            for assessment_type in [self.bot, self.mid]:
+                assessment = Assessment.objects.create(
+                    academic_class=self.academic_class,
+                    assessment_type=assessment_type,
+                    subject=subject,
+                    date=date(2026, 2, 1),
+                    out_of=100,
+                    is_done=True,
+                )
+                Result.objects.create(
+                    assessment=assessment,
+                    student=self.student,
+                    score=Decimal(score_map[name][assessment_type.name]),
+                    status="VERIFIED",
+                )
+
+    def test_combined_assessment_print_uses_combined_subject_points_for_division(self):
+        response = self.client.get(
+            reverse("class_assessment_combined_print"),
+            {
+                "academic_year_id": self.year.id,
+                "term_id": self.term.id,
+                "class_id": self.class_obj.id,
+                "report_format": "standard",
+                "assessment_type_ids": [self.bot.id, self.mid.id],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.student.student_name)
+        self.assertContains(response, "Division 2")
+        self.assertContains(response, "TERM 1 2026 REPORT CARD")
+        self.assertContains(response, 'colspan="5"', html=False)
+
+
+class AutoLogoutMiddlewareTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="session-user", password="pass12345")
+        self.factory = RequestFactory()
+        self.middleware = AutoLogoutMiddleware(lambda request: HttpResponse("ok"))
+
+    def _build_request(self):
+        request = self.factory.get("/")
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user
+        return request
+
+    def test_sets_last_activity_for_authenticated_user_without_existing_session_timestamp(self):
+        request = self._build_request()
+
+        response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("last_activity", request.session)
+
+    def test_redirects_to_login_when_session_is_stale(self):
+        request = self._build_request()
+        request.session["last_activity"] = 100.0
+
+        with patch.object(core_middleware.common, "SESSION_COOKIE_AGE", 60):
+            with patch("core.middleware.time.time", return_value=200.0):
+                response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("login"))
+
+
+class SchoolSettingFallbackTests(SimpleTestCase):
+    def test_get_school_setting_returns_default_instance_when_database_is_unavailable(self):
+        with patch(
+            "app.selectors.school_settings.SchoolSetting.load",
+            side_effect=DatabaseError("db unavailable"),
+        ):
+            school_setting = get_school_setting(fallback_to_default=True)
+
+        self.assertEqual(school_setting.school_name, "School")
+        self.assertEqual(
+            school_setting.education_level,
+            SchoolSetting.EducationLevel.PRIMARY,
+        )

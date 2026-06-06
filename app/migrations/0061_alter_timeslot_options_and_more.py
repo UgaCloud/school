@@ -47,7 +47,6 @@ class Migration(migrations.Migration):
             name='timeslot',
             options={'ordering': ['start_time', 'end_time', 'id']},
         ),
-        # Handles duplicate through-table errors when M2M was already applied in production.
         AddFieldIfMissing(
             model_name='schoolsetting',
             name='division_critical_subjects',

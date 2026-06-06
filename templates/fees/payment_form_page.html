@@ -19,7 +19,8 @@
             </div>
             <div class="x_content">
                 <div class="alert alert-info">
-                    <strong>Bill:</strong> {{ bill }} - Student: {{ bill.student.student_name }}
+                    <strong>Bill:</strong> {{ bill }} - Student: {{ bill.student.student_name }}<br>
+                    <strong>Outstanding:</strong> UGX {{ bill.balance|floatformat:0 }}
                 </div>
                 
                 <form method="post" class="form-horizontal">

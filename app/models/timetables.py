@@ -74,7 +74,6 @@ class Timetable(models.Model):
     )
 
     class Meta:
-        # Update this to refer to the correct fields
         unique_together = ('class_stream', 'weekday', 'time_slot')
 
     def __str__(self):

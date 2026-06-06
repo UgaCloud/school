@@ -5,7 +5,6 @@ from django.db.models import Count, Max
 
 
 def dedupe_class_subject_allocations(apps, schema_editor):
-    """Remove duplicate rows so the unique constraint can be applied safely."""
     ClassSubjectAllocation = apps.get_model("app", "ClassSubjectAllocation")
     db_alias = schema_editor.connection.alias
     duplicate_groups = (
@@ -26,7 +25,6 @@ def dedupe_class_subject_allocations(apps, schema_editor):
 
 
 def noop_reverse(apps, schema_editor):
-    """No-op reverse because deleted duplicates cannot be restored."""
     pass
 
 
@@ -68,9 +66,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Clean existing duplicates first to avoid unique-key conflicts.
         migrations.RunPython(dedupe_class_subject_allocations, noop_reverse),
-        # Skip if an equivalent unique key already exists under a different name.
         AlterUniqueTogetherIfMissing(
             name='classsubjectallocation',
             unique_together={('academic_class_stream', 'subject')},

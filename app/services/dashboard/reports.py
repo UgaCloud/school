@@ -254,8 +254,8 @@ def get_reports_context(request, scope):
         {
             "key": "fees",
             "label": "Fees Report",
-            "description": "Outstanding, paid, and collection status by student/class.",
-            "url": reverse("fees_status"),
+            "description": "Transaction ledger with charge and payment level detail.",
+            "url": reverse("payment_ledger"),
             "group": "Finance",
         },
         {

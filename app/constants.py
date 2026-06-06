@@ -147,6 +147,10 @@ BILL_STATUS_CHOICES = [
 BILL_CATEGORY_CHOICES = [
         ('One Off', 'One Off'),
         ('Recurring', 'Recurring'),
+        ('Tuition', 'Tuition'),
+        ('Transport', 'Transport'),
+        ('Uniform', 'Uniform'),
+        ('Other', 'Other'),
     ]
 
 BILL_DURATION_CHOICES = [
@@ -155,10 +159,18 @@ BILL_DURATION_CHOICES = [
         ('Annually', 'Annually'),
     ]
 
+LEDGER_CATEGORY_CHOICES = [
+    ('Tuition', 'Tuition'),
+    ('Transport', 'Transport'),
+    ('Uniform', 'Uniform'),
+    ('Other', 'Other'),
+]
+
 PAYMENT_METHODS = [
     ('Cash', 'Cash'),
-    ('School Pay', 'School Pay'),
-    ('Bank', 'Bank')
+    ('SchoolPay', 'SchoolPay'),
+    ('Bank', 'Bank'),
+    ('Other', 'Other'),
 ]
 
 PAYMENT_STATUS = [

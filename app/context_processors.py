@@ -75,23 +75,11 @@ def school_settings(request):
         elif staff_account and getattr(staff_account, "staff", None):
             if staff_account.staff.roles.filter(name__in=["Director of Studies", "DOS"]).exists():
                 is_dos_user = True
-        logger.info(
-            "verification context: user_id=%s role_name=%s active_role=%s is_dos_user=%s",
-            getattr(request.user, "id", None),
-            role_name,
-            active_role,
-            is_dos_user,
-        )
-
         if role_name in {"Teacher", "Class Teacher"} or active_role in {"Teacher", "Class Teacher"}:
             is_teacher_user = True
 
         if is_primary_mode and is_dos_user:
             pending_batches = ResultBatch.objects.filter(status="PENDING").select_related("assessment")
-            logger.info(
-                "verification context: pending_batches=%s",
-                list(pending_batches.values_list("id", flat=True)),
-            )
             for batch in pending_batches:
                 notification_defaults = {
                     "title": "Results submitted for verification",

@@ -1,237 +1,116 @@
 {% load static %}
 {% load verification_tags %}
-
-<div class="top_nav">
-    <div class="nav_menu">
-        <div class="nav toggle">
-            <a id="menu_toggle"><i class="fa fa-bars"></i></a>
-        </div>
-        <div class="topnav-global-search-wrap">
-            <form method="get" action="{% url 'global_search' %}" class="topnav-global-search-form">
-                <div class="input-group input-group-sm">
-                    <input
-                        type="text"
-                        name="q"
-                        class="form-control"
-                        value="{% if request.resolver_match.url_name == 'global_search' %}{{ request.GET.q }}{% endif %}"
-                        placeholder="Search students, staff, classes..."
-                        aria-label="Global search"
-                    >
-                    <span class="input-group-btn">
-                        <button class="btn btn-primary" type="submit"><i class="fa fa-search"></i></button>
-                    </span>
-                </div>
+<header class="pc-header">
+  <div class="header-wrapper">
+    <!-- Mobile sidebar toggles -->
+    <div class="me-auto pc-mob-drp">
+      <ul class="list-unstyled">
+        <li class="pc-h-item pc-sidebar-collapse">
+          <a href="#" class="pc-head-link ms-0" id="sidebar-hide">
+            <i class="ph ph-list"></i>
+          </a>
+        </li>
+        <li class="pc-h-item pc-sidebar-popup">
+          <a href="#" class="pc-head-link ms-0" id="mobile-collapse">
+            <i class="ph ph-list"></i>
+          </a>
+        </li>
+        <!-- Global Search (mobile dropdown) -->
+        <li class="dropdown pc-h-item">
+          <a class="pc-head-link dropdown-toggle arrow-none m-0 trig-drp-search" data-bs-toggle="dropdown" href="#" role="button">
+            <i class="ph ph-magnifying-glass"></i>
+          </a>
+          <div class="dropdown-menu pc-h-dropdown drp-search">
+            <form method="get" action="{% url 'global_search' %}" class="px-3 py-2">
+              <input type="search" name="q" class="form-control border-0 shadow-none"
+                placeholder="Search students, staff, classes..."
+                value="{% if request.resolver_match.url_name == 'global_search' %}{{ request.GET.q }}{% endif %}" />
             </form>
-        </div>
-        <nav class="nav navbar-nav">
-            <ul class=" navbar-right">
-                <li class="nav-item" style="padding: 8px 12px 0 0;">
-                    {% if can_switch_school_level %}
-                    <form method="post" action="{% url 'switch_school_level' %}" class="form-inline">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <select name="active_school_level" class="form-control input-sm" onchange="this.form.submit()">
-                            {% for level in enabled_school_levels %}
-                            <option value="{{ level.value }}" {% if level.value == active_school_level %}selected{% endif %}>
-                                {{ level.label }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </form>
-                    {% else %}
-                    <span class="label label-primary" style="font-size: 11px;">{{ active_school_level_label }}</span>
-                    {% endif %}
-                </li>
-
-                <li class="nav-item dropdown open" style="padding-left: 15px;">
-                    <a href="javascript:;" class="user-profile dropdown-toggle" aria-haspopup="true" id="navbarDropdown"
-                        data-toggle="dropdown" aria-expanded="false">
-                        {% if request.user.is_authenticated and request.user.staff_account.staff.staff_photo %}
-                        <img src="{{ request.user.staff_account.staff.staff_photo.url }}" alt="Profile Picture">
-                        {% else %}
-                        <img src="{% static 'images/default_profile.jpg' %}" alt="Default Profile Picture">
-                        {% endif %}
-                        {{ request.user.username }}
-                    </a>
-
-                    <div class="dropdown-menu dropdown-usermenu pull-right" aria-labelledby="navbarDropdown">
-                        {% if request.user.is_authenticated %}
-                        <a class="dropdown-item" href="{% url 'user_detail' request.user.id %}">Profile</a>
-                        {% endif %}
-
-                        <a class="dropdown-item" href="javascript:;">
-                            <span class="badge bg-red pull-right">50%</span>
-                            <span>Settings</span>
-                        </a>
-
-                        <a class="dropdown-item" href="{% url 'password_change' %}">Change Password</a>
-
-                        <a class="dropdown-item" href="#" data-toggle="modal" data-target="#switchRoleModal">Switch
-                            Role</a>
-
-                        <a class="dropdown-item" href="{% url 'logout' %}">
-                            <i class="fa fa-sign-out pull-right"></i> Log Out
-                        </a>
-                    </div>
-
-                </li>
-
-
-
-                {% if is_primary_mode %}
-                <li role="presentation" class="nav-item dropdown open">
-                    {% pending_verification_count as p_count %}
-                    <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdown1"
-                        data-toggle="dropdown" aria-expanded="false">
-                        <i class="fa fa-envelope-o"></i>
-                        {% if p_count > 0 %}
-                        <span class="badge bg-green">{{ p_count }}</span>
-                        {% endif %}
-                    </a>
-                    <ul class="dropdown-menu list-unstyled msg_list" role="menu" aria-labelledby="navbarDropdown1">
-                        {% get_pending_verifications as pending_list %}
-                        {% for batch in pending_list %}
-                        <li class="nav-item">
-                            <a class="dropdown-item" href="{% url 'verification_queue' batch.assessment.id %}">
-                                <span class="image"><img src="{{ request.user.staff_account.staff.staff_photo.url }}" 
-                                        alt="Profile Image" /></span>
-                                <span>
-                                    <span>{{ batch.assessment.subject.name }}</span>
-                                    <span class="time">{{ batch.submitted_at|timesince }} ago</span>
-                                </span>
-                                <span class="message">
-                                    {{ batch.assessment.academic_class }} - {{ batch.assessment.assessment_type.name }}
-                                </span>
-                            </a>
-                        </li>
-                        {% empty %}
-                        <li class="nav-item">
-                            <div class="text-center">
-                                <span>No pending verifications</span>
-                            </div>
-                        </li>
-                        {% endfor %}
-                        <li class="nav-item">
-                            <div class="text-center">
-                                <!-- <a class="dropdown-item"
-                                    href="{% url 'assessment_create' %}?verification_status=PENDING">
-                                    <strong>See All Alerts</strong>
-                                    <i class="fa fa-angle-right"></i>
-                                </a> -->
-                            </div>
-                        </li>
-                    </ul>
-                </li>
-                {% endif %}
-
-                <li role="presentation" class="nav-item dropdown open">
-                    <a href="javascript:;" class="dropdown-toggle info-number" id="navbarDropdownComm"
-                        data-toggle="dropdown" aria-expanded="false">
-                        <i class="fa fa-bell"></i>
-                        <span class="badge bg-green" id="commBellBadge" {% if comm_unread_count == 0 %}style="display:none;"{% endif %}>{{ comm_unread_count }}</span>
-                    </a>
-                    <ul class="dropdown-menu list-unstyled msg_list" role="menu" aria-labelledby="navbarDropdownComm" data-comm-dropdown="true">
-                        <li class="nav-item" style="padding:6px 10px;">
-                            <strong>Announcements</strong>
-                            {% if comm_unread_breakdown.announcements > 0 %}
-                            <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.announcements }}</span>
-                            {% endif %}
-                        </li>
-                        {% for item in comm_notifications.announcements %}
-                        <li class="nav-item">
-                            <a class="dropdown-item" href="{% url 'announcement_list' %}">
-                                <span class="image"><i class="fa fa-bullhorn"></i></span>
-                                <span>
-                                    <span>{{ item.title }}</span>
-                                    <span class="time">{{ item.starts_at|timesince }} ago</span>
-                                </span>
-                                <span class="message">{{ item.body|truncatechars:80 }}</span>
-                            </a>
-                        </li>
-                        {% empty %}
-                        <li class="nav-item">
-                            <div class="text-center">
-                                <span>No announcements</span>
-                            </div>
-                        </li>
-                        {% endfor %}
-
-                        <li class="nav-item" style="padding:6px 10px;">
-                            <strong>Events</strong>
-                            {% if comm_unread_breakdown.events > 0 %}
-                            <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.events }}</span>
-                            {% endif %}
-                        </li>
-                        {% for item in comm_notifications.events %}
-                        <li class="nav-item">
-                            <a class="dropdown-item" href="{% url 'event_list' %}">
-                                <span class="image"><i class="fa fa-calendar"></i></span>
-                                <span>
-                                    <span>{{ item.title }}</span>
-                                    <span class="time">{{ item.start_datetime|date:"M d, H:i" }}</span>
-                                </span>
-                                <span class="message">{{ item.location|default:"" }}</span>
-                            </a>
-                        </li>
-                        {% empty %}
-                        <li class="nav-item">
-                            <div class="text-center">
-                                <span>No upcoming events</span>
-                            </div>
-                        </li>
-                        {% endfor %}
-
-                        <li class="nav-item" style="padding:6px 10px;">
-                            <strong>Messages</strong>
-                            {% if comm_unread_breakdown.messages > 0 %}
-                            <span class="badge bg-green" style="margin-left:6px;">{{ comm_unread_breakdown.messages }}</span>
-                            {% endif %}
-                        </li>
-                        {% for thread in comm_notifications.messages %}
-                        <li class="nav-item">
-                            <a class="dropdown-item" href="{% url 'message_thread' thread.id %}">
-                                <span class="image"><i class="fa fa-envelope"></i></span>
-                                <span>
-                                    <span>{{ thread.subject|default:"(No subject)" }}</span>
-                                    <span class="time">{{ thread.updated_at|timesince }} ago</span>
-                                </span>
-                                <span class="message">Latest activity</span>
-                            </a>
-                        </li>
-                        {% empty %}
-                        <li class="nav-item">
-                            <div class="text-center">
-                                <span>No recent messages</span>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    <script>
-                        (function () {
-                            var dropdown = document.querySelector('[data-comm-dropdown="true"]');
-                            if (!dropdown) return;
-                            var isBound = dropdown.getAttribute('data-comm-bound');
-                            if (isBound) return;
-                            dropdown.setAttribute('data-comm-bound', 'true');
-
-                            $('#navbarDropdownComm').on('click', function () {
-                                try {
-                                    var nowIso = new Date().toISOString();
-                                    document.cookie = 'comm_seen_at=' + nowIso + '; path=/';
-                                    var badge = document.getElementById('commBellBadge');
-                                    if (badge) {
-                                        badge.textContent = '0';
-                                        badge.style.display = 'none';
-                                    }
-                                } catch (e) {
-                                    // no-op
-                                }
-                            });
-                        })();
-                    </script>
-                </li>
-            </ul>
-        </nav>
+          </div>
+        </li>
+      </ul>
     </div>
-</div>
-<!-- /top navigation -->
+
+    <!-- Desktop search -->
+    <form method="get" action="{% url 'global_search' %}" class="d-none d-md-flex align-items-center me-3" style="min-width:260px;">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text bg-transparent border-end-0"><i class="ph ph-magnifying-glass"></i></span>
+        <input type="search" name="q" class="form-control border-start-0"
+          placeholder="Search students, staff..."
+          value="{% if request.resolver_match.url_name == 'global_search' %}{{ request.GET.q }}{% endif %}" />
+      </div>
+    </form>
+
+    <div class="ms-auto">
+      <ul class="list-unstyled">
+
+        <!-- School level switcher -->
+        {% if can_switch_school_level %}
+        <li class="pc-h-item d-none d-md-inline-flex align-items-center me-2">
+          <form method="post" action="{% url 'switch_school_level' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <select name="active_school_level" class="form-select form-select-sm" onchange="this.form.submit()">
+              {% for level in enabled_school_levels %}
+              <option value="{{ level.value }}" {% if level.value == active_school_level %}selected{% endif %}>{{ level.label }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </li>
+        {% else %}
+        <li class="pc-h-item d-none d-md-inline-flex align-items-center me-2">
+          <span class="badge bg-primary-subtle text-primary">{{ active_school_level_label }}</span>
+        </li>
+        {% endif %}
+
+        <!-- Dark/Light mode toggle -->
+        <li class="dropdown pc-h-item">
+          <a class="pc-head-link dropdown-toggle arrow-none me-0" data-bs-toggle="dropdown" href="#" role="button">
+            <i class="ph ph-sun-dim"></i>
+          </a>
+          <div class="dropdown-menu dropdown-menu-end pc-h-dropdown">
+            <a href="#!" class="dropdown-item" onclick="layout_change('dark')"><i class="ph ph-moon"></i><span>Dark</span></a>
+            <a href="#!" class="dropdown-item" onclick="layout_change('light')"><i class="ph ph-sun"></i><span>Light</span></a>
+            <a href="#!" class="dropdown-item" onclick="layout_change_default()"><i class="ph ph-cpu"></i><span>Default</span></a>
+          </div>
+        </li>
+
+        <!-- User profile dropdown -->
+        <li class="dropdown pc-h-item header-user-profile">
+          <a class="pc-head-link dropdown-toggle arrow-none me-0" data-bs-toggle="dropdown" href="#" role="button" data-bs-auto-close="outside">
+            {% if request.user.is_authenticated and request.user.staff_account.staff.staff_photo %}
+            <img src="{{ request.user.staff_account.staff.staff_photo.url }}" alt="user" class="user-avtar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />
+            {% else %}
+            <i class="ph ph-user-circle" style="font-size:1.5rem;"></i>
+            {% endif %}
+          </a>
+          <div class="dropdown-menu dropdown-menu-end pc-h-dropdown">
+            <div class="dropdown-header">
+              <h6 class="mb-0">{{ request.user.username }}</h6>
+              <small class="text-muted">{{ active_role|default:request.user.staff_account.role.name|default:"Staff" }}</small>
+            </div>
+            {% if request.user.is_authenticated %}
+            <a class="dropdown-item" href="{% url 'user_detail' request.user.id %}">
+              <i class="ph ph-user-circle"></i><span>Profile</span>
+            </a>
+            {% endif %}
+            <a class="dropdown-item" href="{% url 'settings_page' %}">
+              <i class="ph ph-gear"></i><span>School Settings</span>
+            </a>
+            <a class="dropdown-item" href="{% url 'password_change' %}">
+              <i class="ph ph-lock-key"></i><span>Change Password</span>
+            </a>
+            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#switchRoleModal">
+              <i class="ph ph-user-switch"></i><span>Switch Role</span>
+            </a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item" href="{% url 'logout' %}">
+              <i class="ph ph-sign-out"></i><span>Logout</span>
+            </a>
+          </div>
+        </li>
+
+      </ul>
+    </div>
+  </div>
+</header>

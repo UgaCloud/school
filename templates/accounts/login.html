@@ -2,445 +2,655 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login Page</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ school_settings.school_name|default:"School MIS" }} | Sign in</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
   <style>
-    /* Layout integrity and containment */
-    *, *::before, *::after { box-sizing: border-box; }
-
-    body {
-      background: linear-gradient(to bottom, #032B44, #FFFFFF);
-      font-family: 'Open Sans', sans-serif;
-      margin: 0;
-      padding: 0;
-      color: #0f172a;
+    :root {
+      --auth-navy-950: #071225;
+      --auth-navy-900: #0b1d36;
+      --auth-navy-800: #102f56;
+      --auth-blue-600: #2563eb;
+      --auth-blue-500: #3b82f6;
+      --auth-cyan-500: #06b6d4;
+      --auth-slate-950: #020617;
+      --auth-slate-800: #1e293b;
+      --auth-slate-600: #475569;
+      --auth-slate-500: #64748b;
+      --auth-slate-300: #cbd5e1;
+      --auth-slate-200: #e2e8f0;
+      --auth-slate-100: #f1f5f9;
+      --auth-slate-50: #f8fafc;
+      --auth-danger: #dc2626;
+      --auth-warning: #b45309;
+      --auth-success: #16a34a;
+      --auth-ring: 0 0 0 4px rgba(37, 99, 235, .16);
+      --auth-shadow: 0 28px 90px rgba(15, 23, 42, .16);
+      --auth-radius: 28px;
+      --auth-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     }
 
-    .container {
+    *, *::before, *::after { box-sizing: border-box; }
+    html { min-height: 100%; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      font-family: var(--auth-font);
+      color: var(--auth-slate-800);
+      background:
+        radial-gradient(circle at 15% 12%, rgba(37, 99, 235, .14), transparent 24rem),
+        radial-gradient(circle at 82% 20%, rgba(6, 182, 212, .16), transparent 20rem),
+        linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    a { color: inherit; }
+    :focus-visible {
+      outline: 3px solid rgba(37, 99, 235, .58);
+      outline-offset: 3px;
+      border-radius: 10px;
+    }
+
+    .auth-page {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .auth-page::before,
+    .auth-page::after {
+      content: "";
+      position: absolute;
+      width: 360px;
+      height: 360px;
+      border-radius: 999px;
+      filter: blur(8px);
+      opacity: .72;
+      pointer-events: none;
+    }
+    .auth-page::before {
+      left: -170px;
+      bottom: -170px;
+      background: rgba(37, 99, 235, .10);
+    }
+    .auth-page::after {
+      right: -170px;
+      top: -170px;
+      background: rgba(6, 182, 212, .12);
+    }
+
+    .auth-shell {
+      width: fit-content;
+      max-width: min(520px, 100%);
+      display: grid;
+      grid-template-columns: 1fr;
+      background: rgba(255, 255, 255, .82);
+      border: 1px solid rgba(226, 232, 240, .88);
+      border-radius: var(--auth-radius);
+      box-shadow: var(--auth-shadow);
+      overflow: visible;
+      backdrop-filter: blur(18px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-panel {
+      position: relative;
+      overflow: hidden;
+      padding: 36px;
+      color: #fff;
+      background:
+        linear-gradient(135deg, rgba(7, 18, 37, .98), rgba(16, 47, 86, .96)),
+        radial-gradient(circle at 30% 18%, rgba(6, 182, 212, .36), transparent 23rem);
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: space-between;
+      gap: 32px;
+    }
+
+    .brand-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, .065) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .065) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,.86), rgba(0,0,0,.18));
+      pointer-events: none;
+    }
+
+    .brand-top,
+    .brand-copy,
+    .brand-bottom { position: relative; z-index: 1; }
+
+    .school-lockup {
+      display: flex;
       align-items: center;
-      min-height: 100vh;
-      padding: 16px;
+      gap: 14px;
     }
 
-    .card {
-      background-color: #fff;
-      border-radius: 10px;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-      width: 90%;
-      max-width: 360px;
-      margin: 16px 0;
-      padding: 20px;
-      text-align: center;
-      overflow: hidden; /* ensure nothing protrudes */
-      border: 1px solid rgba(3,43,68,0.06);
-    }
-
-    .card-title {
-      font-size: 20px;
-      color: #032B44;
-      font-weight: bold;
-      margin-bottom: 12px;
-    }
-
-    .school-card {
-      text-align: center;
-      padding: 20px;
+    .school-logo {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: #fff;
+      color: var(--auth-navy-900);
+      border: 1px solid rgba(255,255,255,.22);
+      box-shadow: 0 16px 34px rgba(2, 6, 23, .24);
+      font-weight: 900;
+      letter-spacing: -.04em;
+      overflow: hidden;
     }
 
     .school-logo img {
-      width: 64px;
-      height: 64px;
-      margin-bottom: 10px;
-      border-radius: 6px;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
-      background: #fff;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-      border: 1px solid rgba(3,43,68,0.05);
+      padding: 7px;
     }
 
-    .school-name {
-      font-size: 18px;
-      font-weight: bold;
-      color: #032B44;
-    }
-
-    /* Flip container (no 3D to avoid text inversion) */
-    .card3d {
-      width: 90%;
-      max-width: 360px;
-      margin: 16px 0;
-      position: relative;
+    .school-meta small {
       display: block;
-      /* dynamic height will be set via JS to avoid jump during flip */
-      transition: height 0.25s ease;
-    }
-
-    .flip-inner {
-      position: relative;
-      width: 100%;
-      height: auto;
-    }
-
-    .card3d.flipped .flip-inner { transform: none; }
-
-    .card-face {
-      position: relative;
-      display: none;
-      margin: 0;
-    }
-
-    /* show front by default; show back when flipped */
-    .card3d .card-face.front { display: block; }
-    .card3d.flipped .card-face.front { display: none; }
-    .card3d.flipped .card-face.back { display: block; }
-
-    /* Forms */
-    .form {
-      display: grid;
-      gap: 12px;
-      text-align: left;
-    }
-
-    .form-group {
-      margin-bottom: 8px;
-    }
-
-    .input-wrap {
-      position: relative;
-      width: 100%;
-      display: inline-block;
-    }
-
-    label.float {
-      position: absolute;
-      top: 8px;
-      left: 12px;
+      color: rgba(226, 232, 240, .78);
       font-size: 12px;
-      color: #888;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .10em;
+      margin-bottom: 5px;
+    }
+
+    .school-meta strong {
+      display: block;
+      color: #fff;
+      font-size: 16px;
+      line-height: 1.25;
+      font-weight: 850;
+      letter-spacing: -.025em;
+    }
+
+    .brand-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.14);
+      color: rgba(255,255,255,.92);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    .brand-copy h1 {
+      margin: 0;
+      color: #fff;
+      font-size: clamp(34px, 4vw, 54px);
+      line-height: .98;
+      font-weight: 950;
+      letter-spacing: -.065em;
+      max-width: 520px;
+    }
+
+    .brand-copy p {
+      max-width: 450px;
+      margin: 18px 0 0;
+      color: rgba(226, 232, 240, .82);
+      font-size: 15px;
+      line-height: 1.72;
+      font-weight: 500;
+    }
+
+    .brand-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .brand-stat {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .10);
+      border: 1px solid rgba(255, 255, 255, .12);
+    }
+
+    .brand-stat strong {
+      display: block;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -.035em;
+      margin-bottom: 4px;
+    }
+
+    .brand-stat span {
+      display: block;
+      color: rgba(226, 232, 240, .72);
+      font-size: 11px;
+      line-height: 1.35;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .form-panel {
+      padding: 44px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.94), rgba(248,250,252,.96));
+    }
+
+    .login-card {
+      width: 100%;
+    }
+
+    .school-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 28px 22px 24px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--auth-navy-900), var(--auth-navy-800));
+      margin-bottom: 22px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .school-badge-logo {
+      width: 78px;
+      height: 78px;
+      border-radius: 20px;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      overflow: hidden;
+      font-weight: 900;
+      font-size: 18px;
+      color: var(--auth-navy-900);
+      box-shadow: 0 14px 30px rgba(2, 6, 23, .22);
+    }
+
+    .school-badge-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      padding: 8px;
+    }
+
+    .school-badge-meta small {
+      display: block;
+      color: rgba(226,232,240,.72);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .10em;
+      margin-bottom: 3px;
+    }
+
+    .school-badge-meta strong {
+      display: block;
+      color: #fff;
+      font-size: 22px;
+      font-weight: 850;
+      letter-spacing: -.02em;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+
+    .form-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      color: #1d4ed8;
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .login-card h2 {
+      margin: 0;
+      color: var(--auth-slate-950);
+      font-size: 33px;
+      line-height: 1.1;
+      font-weight: 950;
+      letter-spacing: -.055em;
+    }
+
+    .login-card .subtitle {
+      margin: 10px 0 0;
+      color: var(--auth-slate-500);
+      font-size: 14px;
+      line-height: 1.65;
+      font-weight: 500;
+    }
+
+    .alert {
+      margin: 18px 0 0;
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.45;
+      border: 1px solid transparent;
+      font-weight: 650;
+    }
+    .alert-danger {
+      color: #991b1b;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+    .alert-warning {
+      color: #92400e;
+      background: #fffbeb;
+      border-color: #fde68a;
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 16px;
+      margin-top: 26px;
+    }
+
+    .field-group { display: grid; gap: 7px; }
+
+    .field-label {
+      color: var(--auth-slate-800);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: -.01em;
+    }
+
+    .input-shell {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 15px;
+      color: var(--auth-slate-500);
+      font-size: 14px;
       pointer-events: none;
-      transition: 0.25s;
-      background: transparent;
     }
 
     .form-control {
       width: 100%;
-      height: 36px;
-      padding: 8px 36px 8px 10px; /* space for toggle button on password */
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      background-color: #f9f9f9;
-      transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
-      display: block;
-      max-width: 100%;
-    }
-
-    .form-control:focus {
-      border-color: #032B44;
-      outline: none;
-      background-color: #fff;
-      box-shadow: 0 0 0 3px rgba(3, 43, 68, 0.15);
-    }
-
-    .form-control:focus + label.float,
-    .form-control:not(:placeholder-shown) + label.float {
-      top: -9px;
-      left: 8px;
-      font-size: 10px;
-      color: #032B44;
+      min-height: 52px;
+      padding: 14px 46px 14px 43px;
+      border: 1px solid var(--auth-slate-300);
+      border-radius: 15px;
       background: #fff;
-      padding: 0 4px;
-      border-radius: 4px;
+      color: var(--auth-slate-950);
+      font-size: 15px;
+      font-weight: 620;
+      line-height: 1.4;
+      box-shadow: 0 1px 2px rgba(15,23,42,.04);
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+
+    .form-control::placeholder { color: #94a3b8; font-weight: 520; }
+    .form-control:hover { border-color: #93c5fd; }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--auth-blue-600);
+      box-shadow: var(--auth-ring);
+      background: #fff;
     }
 
     .toggle-password {
       position: absolute;
-      right: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      border: none;
+      right: 9px;
+      width: 36px;
+      height: 36px;
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      border-radius: 12px;
+      color: var(--auth-slate-500);
       background: transparent;
-      color: #666;
-      padding: 4px 6px;
       cursor: pointer;
-      border-radius: 6px;
+      transition: color .18s ease, background .18s ease;
     }
-    .toggle-password:hover,
-    .toggle-password:focus {
-      color: #032B44;
-      background: rgba(3, 43, 68, 0.08);
-      outline: none;
+    .toggle-password:hover { color: var(--auth-blue-600); background: #eff6ff; }
+
+    .field-error {
+      display: block;
+      color: var(--auth-danger);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
     }
 
-    .row {
+    .auth-options {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 12px;
       margin-top: 2px;
     }
 
-    .btn {
-      width: 100%;
-      padding: 10px;
-      font-size: 14px;
-      background-color: #032B44;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .btn:hover {
-      background-color: #021f32;
-    }
-
-    .link {
+    .remember-note {
+      color: var(--auth-slate-500);
       font-size: 12px;
-      color: #032B44;
+      font-weight: 650;
+      line-height: 1.4;
+    }
+
+    .forgot-link {
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 850;
       text-decoration: none;
     }
+    .forgot-link:hover { text-decoration: underline; }
 
-    .link:hover {
-      text-decoration: underline;
+    .btn-primary {
+      width: 100%;
+      min-height: 52px;
+      border: 0;
+      border-radius: 15px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--auth-blue-600), var(--auth-cyan-500));
+      box-shadow: 0 16px 28px rgba(37, 99, 235, .24);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: -.015em;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
     }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 20px 34px rgba(37, 99, 235, .30); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .72; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    .error {
-      color: #b91c1c;
+    .support-strip {
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--auth-slate-200);
+      display: grid;
+      gap: 9px;
+      color: var(--auth-slate-500);
       font-size: 12px;
-      margin-top: 4px;
-      text-align: left;
+      line-height: 1.55;
     }
 
-    /* Toast/Slim success info */
-    .toast {
-      display: none;
-      text-align: left;
-      font-size: 12px;
-      color: #065f46;
-      background: #ecfdf5;
-      border: 1px solid #a7f3d0;
-      border-radius: 6px;
-      padding: 8px 10px;
-      margin-bottom: 6px;
+    .support-strip strong {
+      color: var(--auth-slate-800);
+      font-weight: 850;
     }
-    .toast.show { display: block; }
-  /* Alignment and visibility fixes */
-  .card.card-face { width: 100%; max-width: 100%; margin: 0; }
-  #flipCard { margin-left: auto; margin-right: auto; }
-  #forgotLink { display: block; margin-top: 12px; text-align: center; }
-</style>
+
+    @media (max-width: 900px) {
+      .auth-page { padding: 18px; align-items: start; }
+      .auth-shell {
+        min-height: auto;
+        grid-template-columns: 1fr;
+      }
+      .brand-panel {
+        min-height: 290px;
+        padding: 28px;
+      }
+      .brand-copy h1 { font-size: 34px; max-width: 600px; }
+      .brand-copy p { max-width: 640px; }
+      .form-panel { padding: 30px 24px 34px; }
+    }
+
+    @media (max-width: 560px) {
+      .auth-page { padding: 12px; }
+      .brand-panel { padding: 22px; min-height: 250px; }
+      .school-logo { width: 50px; height: 50px; border-radius: 16px; }
+      .brand-copy h1 { font-size: 29px; }
+      .brand-copy p { font-size: 13px; }
+      .brand-stats { grid-template-columns: 1fr; }
+      .brand-stat { padding: 11px 13px; }
+      .form-panel { padding: 24px 18px 28px; }
+      .school-badge {
+        gap: 12px;
+        padding: 24px 16px 20px;
+      }
+      .school-badge-logo {
+        width: 66px;
+        height: 66px;
+        border-radius: 18px;
+      }
+      .school-badge-meta strong { font-size: 18px; }
+      .login-card h2 { font-size: 27px; }
+      .auth-options { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Top Card: School Information -->
-    <div class="card school-card">
-      {% if school_settings.school_logo %}
-        <div class="school-logo">
-          <img src="{{ school_settings.school_logo.url }}" alt="School Logo">
+  <main class="auth-page">
+    <section class="auth-shell" aria-label="School management login">
+
+      <section class="form-panel">
+        <div class="school-badge">
+          <div class="school-badge-logo">
+            {% if school_settings.school_logo %}
+              <img src="{{ school_settings.school_logo.url }}" alt="" />
+            {% else %}
+              MIS
+            {% endif %}
+          </div>
+          <div class="school-badge-meta">
+            <strong>{{ school_settings.school_name|default:"School Management System" }}</strong>
+          </div>
         </div>
-      {% endif %}
-      <div class="school-name">{{ school_settings.school_name }}</div>
-    </div>
-
-    <!-- Bottom: Flip Card wrapper -->
-    <div class="card3d" id="flipCard" aria-live="polite">
-      <div class="flip-inner" id="flipInner">
-        <!-- Front Face: Sign In -->
-        <section class="card card-face front" aria-labelledby="sign-in-title">
-          <div class="card-title" id="sign-in-title">Sign In</div>
-
-          <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
+        <div class="login-card">
           {% if notice_message %}
-            <div class="toast show" style="display:block; color:#854d0e; background:#fffbeb; border-color:#fde68a; margin-bottom:10px;">
-              {{ notice_message }}
-            </div>
+            <div class="alert alert-warning" role="status">{{ notice_message }}</div>
           {% endif %}
 
           {% if error_message %}
-            <div class="error">{{ error_message }}</div>
+            <div class="alert alert-danger" role="alert">{{ error_message }}</div>
           {% endif %}
 
           {% if form.non_field_errors %}
-            <div class="error">
+            <div class="alert alert-danger" role="alert">
               {% for err in form.non_field_errors %}
                 <div>{{ err }}</div>
               {% endfor %}
             </div>
           {% endif %}
 
-          <form action="" method="POST" id="login-form" class="form" novalidate>
+          <form action="" method="POST" id="login-form" class="auth-form" novalidate>
             {% csrf_token %}
 
-            <div class="form-group">
-              <div class="input-wrap">
-                <input type="text" id="username" name="username" class="form-control" placeholder=" " required autocomplete="username">
-                <label for="username" class="float"><i class="fas fa-user"></i> Email / Staff ID</label>
+            <div class="field-group">
+              <label class="field-label" for="username">Username or Staff ID</label>
+              <div class="input-shell">
+                <i class="input-icon fas fa-user" aria-hidden="true"></i>
+                <input type="text" id="username" name="username" class="form-control" placeholder="Enter username" required autocomplete="username" autofocus />
               </div>
               {% if form.username.errors %}
-                <span class="error">
-                  {% for err in form.username.errors %}{{ err }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                <span class="field-error">
+                  {% for err in form.username.errors %}{{ err }}{% if not forloop.last %}<br />{% endif %}{% endfor %}
                 </span>
               {% endif %}
             </div>
 
-            <div class="form-group">
-              <div class="input-wrap">
-                <input type="password" id="password" name="password" class="form-control" placeholder=" " required autocomplete="current-password">
-                <label for="password" class="float"><i class="fas fa-lock"></i> Password</label>
+            <div class="field-group">
+              <label class="field-label" for="password">Password</label>
+              <div class="input-shell">
+                <i class="input-icon fas fa-lock" aria-hidden="true"></i>
+                <input type="password" id="password" name="password" class="form-control" placeholder="Enter password" required autocomplete="current-password" />
                 <button type="button" class="toggle-password" id="togglePassword" aria-controls="password" aria-label="Show password" aria-pressed="false">
                   <i class="far fa-eye" aria-hidden="true"></i>
                 </button>
               </div>
               {% if form.password.errors %}
-                <span class="error">
-                  {% for err in form.password.errors %}{{ err }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                <span class="field-error">
+                  {% for err in form.password.errors %}{{ err }}{% if not forloop.last %}<br />{% endif %}{% endfor %}
                 </span>
               {% endif %}
             </div>
 
-            <button type="submit" class="btn">Sign In</button>
-          </form>
-
-          <a href="{% url 'password_reset' %}" class="link" id="forgotLink">Forgot password?</a>
-        </section>
-
-        <!-- Back Face: Forgot Password -->
-        <section class="card card-face back" aria-labelledby="forgot-title">
-          <div class="card-title" id="forgot-title">Reset Password</div>
-          <p style="font-size: 12px; margin-top: -4px; color:#475569;">
-            Enter your email address. If it exists, you’ll receive a reset link.
-          </p>
-
-          <form id="forgot-form" class="form" method="POST" action="{% url 'password_reset' %}" novalidate>
-            {% csrf_token %}
-            <div class="form-group">
-              <div class="input-wrap">
-                <input type="email" id="reset-email" name="email" class="form-control" placeholder=" " required autocomplete="email">
-                <label for="reset-email" class="float"><i class="fas fa-envelope"></i> Email address</label>
-              </div>
-              <span class="error" id="forgot-error" style="display:none;"></span>
+            <div class="auth-options">
+              <span class="remember-note"><i class="fas fa-info-circle" aria-hidden="true"></i> Use the account issued by the administrator.</span>
+              <a href="{% url 'password_reset' %}" class="forgot-link">Forgot password?</a>
             </div>
-            <button type="submit" class="btn" id="forgotSubmit">Send Reset Link</button>
+
+            <button type="submit" class="btn-primary" id="loginButton">
+              <span>Sign in</span>
+              <i class="fas fa-arrow-right" aria-hidden="true"></i>
+            </button>
           </form>
 
-          <a href="#" class="link" id="backToLogin">Back to sign in</a>
-        </section>
-      </div>
-    </div>
-  </div>
+        </div>
+      </section>
+    </section>
+  </main>
 
   <script>
-    // Submit guard for login
-    $('#login-form').on('submit', function () {
-      const $btn = $(this).find('.btn');
-      $btn.prop('disabled', true).text('Signing in...');
-    });
-
-    // Password show/hide
     (function () {
+      const form = document.getElementById('login-form');
+      const button = document.getElementById('loginButton');
       const pwd = document.getElementById('password');
       const toggle = document.getElementById('togglePassword');
-      if (!pwd || !toggle) return;
-      toggle.addEventListener('click', function () {
-        const hidden = pwd.type === 'password';
-        pwd.type = hidden ? 'text' : 'password';
-        this.setAttribute('aria-pressed', String(hidden));
-        this.setAttribute('aria-label', hidden ? 'Hide password' : 'Show password');
-        const icon = this.querySelector('i');
-        if (icon) {
-          icon.classList.toggle('fa-eye');
-          icon.classList.toggle('fa-eye-slash');
-        }
-        pwd.focus();
-      });
-    })();
 
-    // Flip logic (simplified: toggle class and swap panels visibility via CSS)
-    (function () {
-      const flipCard = document.getElementById('flipCard');
-      const forgotLink = document.getElementById('forgotLink');
-      const backToLogin = document.getElementById('backToLogin');
-
-      function flipToBack() {
-        if (flipCard) flipCard.classList.add('flipped');
-      }
-
-      function flipToFront() {
-        if (flipCard) flipCard.classList.remove('flipped');
-      }
-
-      if (forgotLink) {
-        forgotLink.addEventListener('click', function (e) {
-          e.preventDefault();
-          flipToBack();
+      if (form && button) {
+        form.addEventListener('submit', function () {
+          button.disabled = true;
+          button.innerHTML = '<span>Signing in...</span><i class="fas fa-spinner fa-spin" aria-hidden="true"></i>';
         });
       }
 
-      if (backToLogin) {
-        backToLogin.addEventListener('click', function (e) {
-          e.preventDefault();
-          flipToFront();
-        });
-      }
-
-      // Forgot form AJAX submit -> flip back and show toast
-      const forgotForm = document.getElementById('forgot-form');
-      const forgotBtn = document.getElementById('forgotSubmit');
-      const forgotErr = document.getElementById('forgot-error');
-      const toast = document.getElementById('toast');
-
-      function showToast(msg) {
-        if (!toast) return;
-        toast.textContent = msg;
-        toast.classList.add('show');
-        setTimeout(() => {
-          toast.classList.remove('show');
-          toast.textContent = '';
-        }, 5500);
-      }
-
-      if (forgotForm && forgotBtn) {
-        forgotForm.addEventListener('submit', async function (e) {
-          e.preventDefault();
-          if (forgotErr) { forgotErr.style.display = 'none'; forgotErr.textContent = ''; }
-
-          forgotBtn.disabled = true;
-          const originalText = forgotBtn.textContent;
-          forgotBtn.textContent = 'Sending...';
-
-          try {
-            const formData = new FormData(forgotForm);
-            const resp = await fetch(forgotForm.action, {
-              method: 'POST',
-              body: formData,
-              credentials: 'same-origin'
-            });
-
-            if (!resp.ok) {
-              throw new Error('Request failed with status ' + resp.status);
-            }
-
-            forgotForm.reset();
-            flipToFront();
-            showToast('If the email exists, a reset link has been sent.');
-          } catch (err) {
-            if (forgotErr) {
-              forgotErr.textContent = 'Unable to send reset link. Please try again.';
-              forgotErr.style.display = 'block';
-            }
-          } finally {
-            forgotBtn.disabled = false;
-            forgotBtn.textContent = originalText;
+      if (pwd && toggle) {
+        toggle.addEventListener('click', function () {
+          const show = pwd.type === 'password';
+          pwd.type = show ? 'text' : 'password';
+          toggle.setAttribute('aria-pressed', String(show));
+          toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+          const icon = toggle.querySelector('i');
+          if (icon) {
+            icon.classList.toggle('fa-eye', !show);
+            icon.classList.toggle('fa-eye-slash', show);
           }
+          pwd.focus();
         });
       }
     })();

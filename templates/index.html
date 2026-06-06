@@ -4,6 +4,69 @@
 
 {% block page_title %}School Management{% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<style>
+.exec-kpi-grid{
+  display:grid!important;
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  gap:14px;
+  margin:0 0 18px;
+}
+.exec-kpi-card{
+  grid-column:span 2;
+  display:flex!important;
+  min-height:168px;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:16px;
+  border:1px solid #e2e8f0;
+  border-top:3px solid #2563eb;
+  border-radius:10px;
+  background:#fff;
+  color:#1f2a44!important;
+  text-decoration:none!important;
+  box-shadow:0 8px 22px rgba(15,23,42,.06);
+}
+.exec-kpi-card:hover{color:#1f2a44!important;border-color:#cbd5e1;box-shadow:0 14px 30px rgba(15,23,42,.1);transform:translateY(-2px)}
+.exec-kpi-card.wide{grid-column:span 4}
+.exec-kpi-top,.exec-kpi-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.exec-kpi-icon{width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;font-size:17px;background:#eff6ff;color:#2563eb}
+.exec-kpi-label{margin-top:14px;color:#64748b;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.exec-kpi-value{margin-top:4px;font-size:31px;line-height:1.08;font-weight:850;color:#0f172a;overflow-wrap:anywhere}
+.exec-kpi-value.money{font-size:27px}
+.exec-kpi-meta{margin-top:4px;color:#64748b;font-size:12px}
+.exec-kpi-foot{margin-top:12px;justify-content:flex-start;color:#475569;font-size:12px;font-weight:700}
+.exec-kpi-badge{display:inline-flex;align-items:center;max-width:100%;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800;white-space:nowrap}
+.exec-kpi-badge.good{background:#dcfce7;color:#166534}
+.exec-kpi-badge.watch{background:#fef3c7;color:#92400e}
+.exec-kpi-badge.risk{background:#fee2e2;color:#991b1b}
+.exec-kpi-progress{height:7px;margin-top:13px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+.exec-kpi-progress span{display:block;height:100%;max-width:100%;border-radius:inherit;background:#16a34a}
+.exec-kpi-card.tone-blue{border-top-color:#2563eb}
+.exec-kpi-card.tone-none{border-top-color:#e2e8f0}
+.exec-kpi-card.tone-slate{border-top-color:#64748b}
+.exec-kpi-card.tone-green{border-top-color:#16a34a}
+.exec-kpi-card.tone-amber{border-top-color:#f59e0b}
+.exec-kpi-card.tone-purple{border-top-color:#7c3aed}
+.exec-kpi-card.tone-teal{border-top-color:#0f766e}
+.exec-kpi-card.tone-slate .exec-kpi-icon{background:#f1f5f9;color:#475569}
+.exec-kpi-card.tone-green .exec-kpi-icon{background:#dcfce7;color:#15803d}
+.exec-kpi-card.tone-amber .exec-kpi-icon{background:#fef3c7;color:#b45309}
+.exec-kpi-card.tone-purple .exec-kpi-icon{background:#ede9fe;color:#6d28d9}
+.exec-kpi-card.tone-teal .exec-kpi-icon{background:#ccfbf1;color:#0f766e}
+@media(max-width:991px){
+  .exec-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .exec-kpi-card,.exec-kpi-card.wide{grid-column:span 1}
+}
+@media(max-width:640px){
+  .exec-kpi-grid{grid-template-columns:1fr}
+  .exec-kpi-card{min-height:auto}
+  .exec-kpi-value,.exec-kpi-value.money{font-size:25px}
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="clearfix"></div>
 
@@ -44,123 +107,82 @@
 
 {% if is_admin_dashboard %}
 <div class="row">
-  <div class="col-md-12">
-    <div class="x_panel admin-hero-panel" data-admin-widget="admin_header">
-      <div class="x_title">
-        <h2><i class="fa fa-cogs"></i> Admin Control Center</h2>
-        <ul class="nav navbar-right panel_toolbox">
-          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
-        </ul>
-        <div class="clearfix"></div>
-      </div>
-      <div class="x_content">
-        <div class="row">
-          <div class="col-md-8 col-sm-12">
-            <p class="text-muted">
-              Clean operational overview for academics, finance, users, and verification.
-              {% if current_year and current_term %}
-              <span class="label label-info">Term {{ current_term.term }} {{ current_year.academic_year }}</span>
-              {% endif %}
-            </p>
-            <form method="get" action="{% url 'student_page' %}" class="dashboard-global-search">
-              <div class="input-group input-group-sm">
-                <input type="text" name="q" class="form-control" placeholder="Search students, staff, classes, or reg no">
-                <span class="input-group-btn">
-                  <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> Search</button>
-                </span>
-              </div>
-            </form>
-          </div>
-          <div class="col-md-4 col-sm-12">
-            <div class="admin-widget-trigger text-right">
-              <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#adminWidgetModal">
-                <i class="fa fa-sliders"></i> Customize Widgets
-              </button>
-            </div>
-            <p class="text-muted admin-fast-path">Admin fast path: key actions are available from quick actions and grouped sidebar menus.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<div class="row dashboard-stat-row" data-admin-widget="admin_kpis">
-  <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12">
-    <div class="stat-card">
-      <div class="stat-icon success"><i class="fa fa-graduation-cap"></i></div>
-      <div>
-        <div class="stat-label">Total Students</div>
-        <div class="stat-value">{{ total_students|default:0 }}</div>
-        <div class="stat-note">Active enrollment</div>
-        <div class="stat-trend up"><i class="fa fa-arrow-up"></i> School-wide visibility</div>
-      </div>
+<div class="exec-kpi-grid" data-admin-widget="admin_kpis">
+  <a href="{% url 'student_page' %}" class="exec-kpi-card tone-blue">
+    <div class="exec-kpi-top">
+      <span class="exec-kpi-icon"><i class="fa fa-graduation-cap"></i></span>
+      <span class="exec-kpi-badge good">Live</span>
     </div>
-  </div>
-  <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12">
-    <div class="stat-card">
-      <div class="stat-icon primary"><i class="fa fa-users"></i></div>
-      <div>
-        <div class="stat-label">Total Teachers</div>
-        <div class="stat-value">{{ total_teachers|default:0 }}</div>
-        <div class="stat-note">Academic staff</div>
-        <div class="stat-trend up"><i class="fa fa-arrow-up"></i> Coverage available</div>
-      </div>
+    <div class="exec-kpi-label">Students</div>
+    <div class="exec-kpi-value">{{ total_students|default:0|intcomma }}</div>
+    <div class="exec-kpi-meta">Active enrollment</div>
+    <div class="exec-kpi-foot"><i class="fa fa-eye"></i> School-wide visibility</div>
+  </a>
+
+  <a href="{% url 'staff_page' %}" class="exec-kpi-card tone-slate">
+    <div class="exec-kpi-top">
+      <span class="exec-kpi-icon"><i class="fa fa-users"></i></span>
+      <span class="exec-kpi-badge good">Ready</span>
     </div>
-  </div>
-  <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12">
-    <div class="stat-card">
-      <div class="stat-icon info"><i class="fa fa-money"></i></div>
-      <div>
-        <div class="stat-label">Fees Collected</div>
-        <div class="stat-value">UGX {{ fees_collected_today|intcomma }}</div>
-        <div class="stat-note">Today - Term UGX {{ total_fees_collected|intcomma }}</div>
-        <div class="stat-trend {% if fee_collection_rate >= 80 %}up{% else %}down{% endif %}">
-          <i class="fa fa-arrow-{% if fee_collection_rate >= 80 %}up{% else %}down{% endif %}"></i>
-          {{ fee_collection_rate|default:0 }}% collection rate
-        </div>
-      </div>
+    <div class="exec-kpi-label">Teachers</div>
+    <div class="exec-kpi-value">{{ total_teachers|default:0|intcomma }}</div>
+    <div class="exec-kpi-meta">Academic staff</div>
+    <div class="exec-kpi-foot"><i class="fa fa-check-circle"></i> Coverage available</div>
+  </a>
+
+  <a href="{% url 'bursar_quick_payment' %}" class="exec-kpi-card tone-none wide">
+    <div class="exec-kpi-top">
+      <span class="exec-kpi-icon"><i class="fa fa-money"></i></span>
+      <span class="exec-kpi-badge {% if fee_collection_rate >= 80 %}good{% elif fee_collection_rate >= 40 %}watch{% else %}risk{% endif %}">
+        {{ fee_collection_rate|default:0 }}%
+      </span>
     </div>
-  </div>
-  <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12">
-    <div class="stat-card">
-      <div class="stat-icon warning"><i class="fa fa-exclamation-circle"></i></div>
-      <div>
-        <div class="stat-label">Pending Fees</div>
-        <div class="stat-value">UGX {{ total_fees_outstanding|intcomma }}</div>
-        <div class="stat-note">{{ overdue_bills|default:0 }} overdue bills</div>
-        <div class="stat-trend {% if total_fees_outstanding > 0 %}down{% else %}up{% endif %}">
-          <i class="fa fa-arrow-{% if total_fees_outstanding > 0 %}down{% else %}up{% endif %}"></i>
-          Needs collection focus
-        </div>
-      </div>
+    <div class="exec-kpi-label">Fees Collected</div>
+    <div class="exec-kpi-value money">UGX {{ fees_collected_today|floatformat:0|intcomma }}</div>
+    <div class="exec-kpi-meta">Today collected</div>
+    <div class="exec-kpi-progress">
+      <span style="width: {{ fee_collection_rate|default:0|floatformat:0 }}%;"></span>
     </div>
-  </div>
-  <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12">
-    <div class="stat-card">
-      <div class="stat-icon primary"><i class="fa fa-calendar-check-o"></i></div>
-      <div>
-        <div class="stat-label">Attendance Today</div>
-        <div class="stat-value">{{ student_attendance_rate|default:0 }}%</div>
-        <div class="stat-note">Student attendance rate</div>
-        <div class="stat-trend {% if student_attendance_rate >= 85 %}up{% else %}down{% endif %}">
-          <i class="fa fa-arrow-{% if student_attendance_rate >= 85 %}up{% else %}down{% endif %}"></i>
-          {% if student_attendance_rate >= 85 %}Within target{% else %}Below target{% endif %}
-        </div>
-      </div>
+    <div class="exec-kpi-foot">Term collection: UGX {{ total_fees_collected|floatformat:0|intcomma }}</div>
+  </a>
+
+  <a href="{% url 'fees_status' %}?status=outstanding" class="exec-kpi-card tone-amber wide">
+    <div class="exec-kpi-top">
+      <span class="exec-kpi-icon"><i class="fa fa-exclamation-circle"></i></span>
+      <span class="exec-kpi-badge {% if total_fees_outstanding > 0 %}risk{% else %}good{% endif %}">
+        {{ overdue_bills|default:0 }} overdue
+      </span>
     </div>
-  </div>
-  <div class="col-lg-2 col-md-4 col-sm-6 col-xs-12">
-    <div class="stat-card">
-      <div class="stat-icon info"><i class="fa fa-sitemap"></i></div>
-      <div>
-        <div class="stat-label">Active Classes</div>
-        <div class="stat-value">{{ active_classes|default:0 }}</div>
-        <div class="stat-note">{{ total_subjects|default:0 }} subjects configured</div>
-        <div class="stat-trend up"><i class="fa fa-arrow-up"></i> Teaching structure ready</div>
-      </div>
+    <div class="exec-kpi-label">Pending Fees</div>
+    <div class="exec-kpi-value money">UGX {{ total_fees_outstanding|floatformat:0|intcomma }}</div>
+    <div class="exec-kpi-meta">Outstanding balances</div>
+    <div class="exec-kpi-foot"><i class="fa fa-flag"></i> {% if total_fees_outstanding > 0 %}Needs collection focus{% else %}No collection risk{% endif %}</div>
+  </a>
+
+  <a href="{% url 'attendance_dashboard' %}" class="exec-kpi-card tone-purple">
+    <div class="exec-kpi-top">
+      <span class="exec-kpi-icon"><i class="fa fa-calendar-check-o"></i></span>
+      <span class="exec-kpi-badge {% if student_attendance_rate >= 85 %}good{% else %}risk{% endif %}">
+        {% if student_attendance_rate >= 85 %}On target{% else %}Below target{% endif %}
+      </span>
     </div>
-  </div>
+    <div class="exec-kpi-label">Attendance Today</div>
+    <div class="exec-kpi-value">{{ student_attendance_rate|default:0 }}%</div>
+    <div class="exec-kpi-meta">Student attendance rate</div>
+    <div class="exec-kpi-foot"><i class="fa fa-line-chart"></i> Daily attendance signal</div>
+  </a>
+
+  <a href="{% url 'academic_class_page' %}" class="exec-kpi-card tone-teal">
+    <div class="exec-kpi-top">
+      <span class="exec-kpi-icon"><i class="fa fa-sitemap"></i></span>
+      <span class="exec-kpi-badge good">Ready</span>
+    </div>
+    <div class="exec-kpi-label">Active Classes</div>
+    <div class="exec-kpi-value">{{ active_classes|default:0|intcomma }}</div>
+    <div class="exec-kpi-meta">{{ total_subjects|default:0|intcomma }} subjects configured</div>
+    <div class="exec-kpi-foot"><i class="fa fa-check-circle"></i> Teaching structure ready</div>
+  </a>
 </div>
 
 <div class="row">

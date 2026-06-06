@@ -261,3 +261,30 @@
         display: none;
     }
 }
+
+/* ===== Global table readability fix ===== */
+:root {
+    --bs-body-color: #1e293b;
+    --bs-body-color-rgb: 30, 41, 59;
+    --bs-table-color: #1e293b;
+}
+
+table td,
+table th,
+.table td,
+.table th,
+.dataTable td,
+.dataTable th {
+    color: #1e293b !important;
+    font-size: 13.5px;
+}
+
+.table thead th,
+.dataTable thead th {
+    color: #0f172a !important;
+    font-weight: 700;
+}
+
+.table tbody tr td {
+    color: #1e293b !important;
+}

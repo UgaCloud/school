@@ -5,6 +5,39 @@ from app.constants import *
 from django.db.models import Sum
 
 
+LEDGER_CATEGORY_VALUES = {value for value, _ in LEDGER_CATEGORY_CHOICES}
+
+
+def normalize_payment_method(value):
+    normalized = str(value or "").strip().lower()
+    mapping = {
+        "cash": "Cash",
+        "schoolpay": "SchoolPay",
+        "school pay": "SchoolPay",
+        "school-pay": "SchoolPay",
+        "bank": "Bank",
+        "bank transfer": "Bank",
+        "cheque": "Other",
+        "check": "Other",
+        "mobile money": "Other",
+        "other": "Other",
+    }
+    return mapping.get(normalized, "Other" if normalized else "")
+
+
+def infer_ledger_category(*parts):
+    text = " ".join(str(part or "") for part in parts).strip().lower()
+    if not text:
+        return "Other"
+    if "transport" in text:
+        return "Transport"
+    if "uniform" in text:
+        return "Uniform"
+    if "tuition" in text or "school fee" in text or "school fees" in text or text == "fees":
+        return "Tuition"
+    return "Other"
+
+
 class BillItem(models.Model):
     
     item_name = models.CharField(max_length=50)
@@ -105,9 +138,31 @@ class StudentBillItem(models.Model):
     bill_item = models.ForeignKey("app.BillItem", on_delete=models.CASCADE)
     description = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    charge_date = models.DateField(null=True, blank=True)
+    fee_category = models.CharField(max_length=20, choices=LEDGER_CATEGORY_CHOICES, default="Other")
+    notes = models.TextField(blank=True, default="")
 
     def __str__(self):
         return f'Item {self.description} for Bill #{self.bill.id}'
+
+    def save(self, *args, **kwargs):
+        if not self.charge_date and self.bill_id:
+            self.charge_date = self.bill.bill_date
+
+        inferred_category = infer_ledger_category(
+            getattr(self.bill_item, "category", ""),
+            getattr(self.bill_item, "item_name", ""),
+            self.description,
+        )
+        if self.fee_category not in LEDGER_CATEGORY_VALUES or (
+            self.fee_category == "Other" and inferred_category != "Other"
+        ):
+            self.fee_category = inferred_category
+
+        if not self.notes and self.description:
+            self.notes = self.description
+
+        super().save(*args, **kwargs)
     
 class ClassBill(models.Model):
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name='class_bills')
@@ -122,11 +177,42 @@ class Payment(models.Model):
     payment_date = models.DateField()
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=50, choices=PAYMENT_METHODS)
+    fee_category = models.CharField(max_length=20, choices=LEDGER_CATEGORY_CHOICES, blank=True, default="")
     reference_no = models.CharField(max_length=50,unique=True)
     recorded_by = models.CharField(max_length=50)
+    notes = models.TextField(blank=True, default="")
 
     def __str__(self):
         return f'Payment of {self.amount} for Bill #{self.bill.id} on {self.payment_date}'
+
+    def save(self, *args, **kwargs):
+        self.payment_method = normalize_payment_method(self.payment_method)
+
+        derived_category = ""
+        if not self.fee_category and self.bill_id:
+            categories = [
+                category
+                for category in self.bill.items.values_list("fee_category", flat=True).distinct()
+                if category
+            ]
+            if len(categories) == 1:
+                derived_category = categories[0]
+            else:
+                derived_category = infer_ledger_category(
+                    *self.bill.items.values_list("description", flat=True)
+                )
+            self.fee_category = derived_category
+        elif self.fee_category == "Other" and self.bill_id:
+            categories = [
+                category
+                for category in self.bill.items.values_list("fee_category", flat=True).distinct()
+                if category and category != "Other"
+            ]
+            if len(categories) == 1:
+                self.fee_category = categories[0]
+
+        super().save(*args, **kwargs)
+
 class StudentCredit(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='credits')
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)

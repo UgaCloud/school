@@ -1,29 +1,47 @@
-"""
-Development settings - uses SQLite for local development
-"""
 from .common import *
+import pymysql
+pymysql.install_as_MySQLdb()
 
-INSTALLED_APPS += ['debug_toolbar']
 
 DEBUG = True
 
-# Security key for development only
-SECRET_KEY = 'django-insecure-dev-key-for-local-testing-only-change-in-production'
+SECRET_KEY = 'django-insecure-gqgpv+7+nke4*fefzsr63+a=r0!!t@bgn!_1a*5(_^ow@^3t)('
+
 
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'bayezieu_schooldb',
+        'USER': 'bayezieu_bayan_user',
+        'PASSWORD': '@bayan%dbuser',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'use_unicode': True,
+            'init_command': "SET NAMES 'utf8mb4'"
+        },
     }
 }
 
-INTERNAL_IPS = ['127.0.0.1']
 
-def show_toolbar(request):
-    return True
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'schooldb',
+#         'USER': 'schooluser',
+#         'PASSWORD': 'root@admin',
+#         'HOST': 'localhost',
+#         'PORT': '5432',
+#     }
+# }
 
-DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": show_toolbar}
 
-# Add debug toolbar middleware
-MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': str(BASE_DIR / 'db.sqlite3'),
+#     }
+# }

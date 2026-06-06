@@ -365,7 +365,7 @@ def edit_expenditures(request, id):
         form = ExpenditureForm(instance=expenditure)
 
     # Inline HTML rendering
-    return render(request, 'finance/edit_expenditure.html', {'form': form})
+    return render(request, 'finance/edit_expenditure.html', {'form': form, 'expenditure': expenditure})
 
 @login_required
 def delete_expenditure(request, id):

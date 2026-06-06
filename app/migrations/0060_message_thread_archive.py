@@ -25,7 +25,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Skip table creation if the archive table was manually introduced earlier.
         CreateModelIfMissing(
             name="MessageThreadArchive",
             fields=[

@@ -317,25 +317,55 @@ def create_student_bill(student, academic_class):
     Creates a StudentBill and assigns all Class Bills 
     """
     
-    student_bill, _ = StudentBill.objects.get_or_create(
-        student=student,
-        academic_class=academic_class,
-        status="Unpaid"
+    student_bill = (
+        StudentBill.objects.filter(student=student, academic_class=academic_class)
+        .order_by("id")
+        .first()
     )
+    if not student_bill:
+        student_bill = StudentBill.objects.create(
+            student=student,
+            academic_class=academic_class,
+            status="Unpaid",
+        )
 
     school_fees_description = f"School Fees for {academic_class.term} - {academic_class.academic_year}"
-    school_fees_bill_item = create_bill_Item(
-        student_bill, school_fees_description, academic_class.fees_amount
-    )
+    school_fees_bill_item = fees_selectors.get_bill_item_by_name("School Fees")
+    if school_fees_bill_item:
+        qs = StudentBillItem.objects.filter(
+            bill=student_bill,
+            bill_item=school_fees_bill_item,
+        ).order_by("id")
+        if qs.exists():
+            bill_item_row = qs.first()
+            if qs.count() > 1:
+                qs.exclude(pk=bill_item_row.pk).delete()
+            bill_item_row.description = school_fees_description
+            bill_item_row.amount = academic_class.fees_amount
+            bill_item_row.save()
+        else:
+            create_bill_Item(
+                student_bill,
+                school_fees_description,
+                academic_class.fees_amount,
+                school_fees_bill_item,
+            )
 
-    school_fees_bill_item.save()
     # Get all additional Class Bills for this academic class
     class_bills = ClassBill.objects.filter(academic_class=academic_class)
 
     for class_bill in class_bills:
-        if not StudentBillItem.objects.filter(
+        qs = StudentBillItem.objects.filter(
             bill=student_bill, bill_item=class_bill.bill_item
-        ).exists():
+        ).order_by("id")
+        if qs.exists():
+            bill_item_row = qs.first()
+            if qs.count() > 1:
+                qs.exclude(pk=bill_item_row.pk).delete()
+            bill_item_row.description = class_bill.bill_item.description
+            bill_item_row.amount = class_bill.amount
+            bill_item_row.save()
+        else:
             StudentBillItem.objects.create(
                 bill=student_bill,
                 bill_item=class_bill.bill_item,

@@ -1,18 +1,153 @@
-from django.db.models.signals import post_save, pre_save, post_delete
+from django.db.models.signals import post_save, pre_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.db import transaction
-from app.models.classes import Term
-from app.models.students import Student,ClassRegister
-from app.models.fees_payment import StudentBill, StudentBillItem,BillItem,BillItem,ClassBill, Payment, StudentCredit
-from app.models.classes import AcademicClass,AcademicClassStream, Class, Stream, Term
-from app.models.staffs import Staff
+from django.core.exceptions import ValidationError
+from app.models.students import Student, ClassRegister
+from app.models.fees_payment import StudentBill, StudentBillItem, BillItem, ClassBill, Payment, StudentCredit
+from app.models.classes import AcademicClass, AcademicClassStream, Class, Term
 from app.models.school_settings import AcademicYear
 from app.models.finance import Transaction, IncomeSource, Expenditure, ExpenditureItem
-from app.selectors.classes import get_current_academic_class
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 
  
+def _get_or_create_student_bill(student, academic_class):
+    student_bill = (
+        StudentBill.objects.filter(student=student, academic_class=academic_class)
+        .order_by("id")
+        .first()
+    )
+    if student_bill:
+        return student_bill, False
+    return StudentBill.objects.create(
+        student=student,
+        academic_class=academic_class,
+        status="Unpaid",
+    ), True
+
+
+def _ensure_student_bill_items(student, academic_class):
+    student_bill, bill_created = _get_or_create_student_bill(student, academic_class)
+    created_or_updated = bill_created
+
+    for class_bill in ClassBill.objects.filter(academic_class=academic_class).select_related("bill_item"):
+        qs = StudentBillItem.objects.filter(
+            bill=student_bill,
+            bill_item=class_bill.bill_item,
+        ).order_by("id")
+        if qs.exists():
+            student_bill_item = qs.first()
+            if qs.count() > 1:
+                qs.exclude(pk=student_bill_item.pk).delete()
+            if (
+                student_bill_item.description != class_bill.bill_item.description
+                or student_bill_item.amount != class_bill.amount
+            ):
+                student_bill_item.description = class_bill.bill_item.description
+                student_bill_item.amount = class_bill.amount
+                student_bill_item.save()
+                created_or_updated = True
+        else:
+            StudentBillItem.objects.create(
+                bill=student_bill,
+                bill_item=class_bill.bill_item,
+                description=class_bill.bill_item.description,
+                amount=class_bill.amount,
+            )
+            created_or_updated = True
+
+    return student_bill, created_or_updated
+
+
+def _copy_class_bills(source_academic_class, target_academic_class):
+    if not source_academic_class:
+        return
+
+    for source_bill in ClassBill.objects.filter(
+        academic_class=source_academic_class
+    ).select_related("bill_item"):
+        ClassBill.objects.get_or_create(
+            academic_class=target_academic_class,
+            bill_item=source_bill.bill_item,
+            defaults={"amount": source_bill.amount},
+        )
+
+
+def _previous_term_for(term):
+    previous = (
+        Term.objects.filter(
+            academic_year=term.academic_year,
+            end_date__lt=term.start_date,
+        )
+        .exclude(id=term.id)
+        .order_by("-end_date", "-id")
+        .first()
+    )
+    if previous:
+        return previous
+    return (
+        Term.objects.filter(academic_year=term.academic_year)
+        .exclude(id=term.id)
+        .order_by("-end_date", "-id")
+        .first()
+    )
+
+
+def _previous_academic_class_for(academic_class):
+    return (
+        AcademicClass.objects.filter(
+            academic_year=academic_class.academic_year,
+            Class=academic_class.Class,
+            section=academic_class.section,
+            term__end_date__lt=academic_class.term.start_date,
+        )
+        .exclude(id=academic_class.id)
+        .order_by("-term__end_date", "-id")
+        .first()
+    ) or (
+        AcademicClass.objects.filter(
+            academic_year=academic_class.academic_year,
+            Class=academic_class.Class,
+            section=academic_class.section,
+        )
+        .exclude(id=academic_class.id)
+        .order_by("-term__end_date", "-id")
+        .first()
+    )
+
+
+def _ensure_class_stream_from_source(target_academic_class, source_class_stream):
+    class_stream, created = AcademicClassStream.objects.get_or_create(
+        academic_class=target_academic_class,
+        stream=source_class_stream.stream,
+        defaults={
+            "class_teacher": source_class_stream.class_teacher,
+            "class_teacher_signature": source_class_stream.class_teacher_signature,
+        },
+    )
+    if not created and not class_stream.class_teacher_id:
+        class_stream.class_teacher = source_class_stream.class_teacher
+        class_stream.save(update_fields=["class_teacher"])
+    return class_stream, created
+
+
+def _class_streams_to_copy(source_academic_class):
+    registered_stream_ids = (
+        ClassRegister.objects.filter(
+            academic_class_stream__academic_class=source_academic_class,
+            student__is_active=True,
+        )
+        .values_list("academic_class_stream_id", flat=True)
+        .distinct()
+    )
+    registered_streams = AcademicClassStream.objects.filter(
+        id__in=registered_stream_ids,
+    ).select_related("stream", "class_teacher")
+    if registered_streams.exists():
+        return registered_streams
+
+    return AcademicClassStream.objects.filter(
+        academic_class=source_academic_class,
+    ).select_related("stream", "class_teacher")
+
 
 @receiver(pre_save, sender=AcademicClass)
 def track_fees_amount_change(sender, instance, **kwargs):
@@ -89,39 +224,20 @@ def create_class_bill(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Student)
 def create_student_bill(sender, instance, created, **kwargs):
     if created:
-        academic_class = instance.current_class 
-        if isinstance(academic_class, str):
-            try:
-                academic_class = AcademicClass.objects.get(code=academic_class)  
-            
-            except AcademicClass.DoesNotExist:
-                
-                return 
-
-        # Ensure academic_class is valid before proceeding
-        if not isinstance(academic_class, AcademicClass):
-            
+        academic_class = AcademicClass.objects.filter(
+            academic_year=instance.academic_year,
+            Class=instance.current_class,
+            term=instance.term,
+        ).first()
+        if not academic_class:
             return
 
-        student_bill, _ = StudentBill.objects.get_or_create(
-            student=instance,
-            academic_class=academic_class,  
-            status="Unpaid"
-        )
+        _ensure_student_bill_items(instance, academic_class)
 
-        class_bills = ClassBill.objects.filter(academic_class=academic_class)
 
-        for class_bill in class_bills:
-            if not StudentBillItem.objects.filter(
-                bill=student_bill,
-                bill_item=class_bill.bill_item
-            ).exists():
-                StudentBillItem.objects.create(
-                    bill=student_bill,
-                    bill_item=class_bill.bill_item,
-                    description=class_bill.bill_item.description,
-                    amount=class_bill.amount
-                )
+@receiver(pre_delete, sender=Student)
+def prevent_student_deletion(sender, instance, **kwargs):
+    raise ValidationError("Students cannot be deleted. Mark the student inactive instead.")
 
         
 
@@ -144,201 +260,124 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
     This includes maintaining their class/stream assignments and creating new bills.
     Enhanced to handle edge cases and provide better logging.
     """
-    if instance.is_current and not created:
+    if instance.is_current:
 
         # Ensure only one term is marked as current
         other_current_terms = Term.objects.filter(is_current=True).exclude(id=instance.id)
         if other_current_terms.exists():
             other_current_terms.update(is_current=False)
 
-        # Get the previous term that was marked as current
-        previous_term = Term.objects.filter(
-            academic_year=instance.academic_year,
-            is_current=False
-        ).order_by('-end_date').first()
+        previous_term = _previous_term_for(instance)
 
         if previous_term:
+            previous_registers = (
+                ClassRegister.objects.filter(
+                    academic_class_stream__academic_class__academic_year=instance.academic_year,
+                    academic_class_stream__academic_class__term=previous_term,
+                    student__is_active=True,
+                )
+                .select_related(
+                    "student",
+                    "student__current_class",
+                    "student__stream",
+                    "academic_class_stream",
+                    "academic_class_stream__stream",
+                    "academic_class_stream__class_teacher",
+                    "academic_class_stream__academic_class",
+                    "academic_class_stream__academic_class__Class",
+                    "academic_class_stream__academic_class__section",
+                )
+                .order_by("student_id", "id")
+            )
 
-            # Get all students from the previous term
-            students = Student.objects.filter(term=previous_term).select_related('current_class', 'stream')
-
-            if students.exists():
+            if previous_registers.exists():
 
                 moved_count = 0
                 registered_count = 0
                 bills_created_count = 0
                 errors_count = 0
+                seen_students = set()
 
                 with transaction.atomic():
-                    for student in students:
+                    for previous_register in previous_registers:
+                        student = previous_register.student
+                        if student.id in seen_students:
+                            continue
+                        seen_students.add(student.id)
+                        source_stream = previous_register.academic_class_stream
+                        source_academic_class = source_stream.academic_class
                         try:
                             # Move student to new term
-                            old_term = student.term
                             student.term = instance
-                            student.save()
+                            student.academic_year = instance.academic_year
+                            student.current_class = source_academic_class.Class
+                            student.stream = source_stream.stream
+                            student.save(
+                                update_fields=[
+                                    "term",
+                                    "academic_year",
+                                    "current_class",
+                                    "stream",
+                                ]
+                            )
                             moved_count += 1
 
                             # Get the correct AcademicClass for the new term
-                            academic_class = get_current_academic_class(
-                                instance.academic_year,
-                                student.current_class,
-                                instance
+                            academic_class, _ = AcademicClass.objects.get_or_create(
+                                academic_year=instance.academic_year,
+                                Class=source_academic_class.Class,
+                                term=instance,
+                                defaults={
+                                    "section": source_academic_class.section,
+                                    "fees_amount": source_academic_class.fees_amount,
+                                },
                             )
+                            _copy_class_bills(source_academic_class, academic_class)
 
-                            if academic_class:
-                                # Get the student's stream
-                                stream = student.stream
+                            class_stream, _ = _ensure_class_stream_from_source(
+                                academic_class,
+                                source_stream,
+                            )
+                            _, register_created = ClassRegister.objects.get_or_create(
+                                academic_class_stream=class_stream,
+                                student=student,
+                            )
+                            if register_created:
+                                registered_count += 1
 
-                                # Find the class stream for the new term
-                                class_stream = AcademicClassStream.objects.filter(
-                                    academic_class=academic_class,
-                                    stream=stream
-                                ).first()
+                            _, bill_changed = _ensure_student_bill_items(student, academic_class)
+                            if bill_changed:
+                                bills_created_count += 1
 
-                                if class_stream:
-                                    # Register student in the new class stream
-                                    class_register, created = ClassRegister.objects.get_or_create(
-                                        academic_class_stream=class_stream,
-                                        student=student
-                                    )
+                            previous_term_bills = StudentBill.objects.filter(
+                                student=student,
+                                academic_class__academic_year=instance.academic_year
+                            ).exclude(academic_class__term=instance)
 
-                                    if created:
-                                        registered_count += 1
+                            for prev_bill in previous_term_bills:
+                                unused_credits = StudentCredit.objects.filter(
+                                    student=student,
+                                    original_bill=prev_bill,
+                                    is_applied=False
+                                )
 
-                                    # Create new student bills for the new term
-                                    # Get all class bills for this academic class
-                                    class_bills = ClassBill.objects.filter(academic_class=academic_class)
+                                for credit in unused_credits:
+                                    existing_carry_forward = StudentCredit.objects.filter(
+                                        student=student,
+                                        description__icontains=f'Carried forward from {previous_term.term}',
+                                        original_bill=credit.original_bill,
+                                        is_applied=False
+                                    ).exists()
 
-                                    if class_bills.exists():
-                                        for class_bill in class_bills:
-                                            # Check if student bill already exists for this bill item
-                                            existing_student_bill = StudentBillItem.objects.filter(
-                                                bill__student=student,
-                                                bill__academic_class=academic_class,
-                                                bill_item=class_bill.bill_item
-                                            ).exists()
-
-                                            if not existing_student_bill:
-                                                # Create student bill if it doesn't exist
-                                                student_bill, bill_created = StudentBill.objects.get_or_create(
-                                                    student=student,
-                                                    academic_class=academic_class,
-                                                    defaults={'status': 'Unpaid'}
-                                                )
-
-                                                # Create student bill item
-                                                qs = StudentBillItem.objects.filter(
-                                                    bill=student_bill,
-                                                    bill_item=class_bill.bill_item
-                                                ).order_by('id')
-                                                if qs.exists():
-                                                    student_bill_item = qs.first()
-                                                    if qs.count() > 1:
-                                                        qs.exclude(pk=student_bill_item.pk).delete()
-                                                    student_bill_item.description = class_bill.bill_item.description
-                                                    student_bill_item.amount = class_bill.amount
-                                                    student_bill_item.save()
-                                                    item_created = False
-                                                else:
-                                                    student_bill_item = StudentBillItem.objects.create(
-                                                        bill=student_bill,
-                                                        bill_item=class_bill.bill_item,
-                                                        description=class_bill.bill_item.description,
-                                                        amount=class_bill.amount
-                                                    )
-                                                    item_created = True
-
-                                                if bill_created or item_created:
-                                                    bills_created_count += 1
-
-                                        # Carry forward unused credits from previous term
-                                        # Get all previous bills for this student in the current academic year
-                                        previous_term_bills = StudentBill.objects.filter(
+                                    if not existing_carry_forward:
+                                        StudentCredit.objects.create(
                                             student=student,
-                                            academic_class__academic_year=instance.academic_year
-                                        ).exclude(academic_class__term=instance)  # Exclude current term bills
-
-                                        for prev_bill in previous_term_bills:
-                                            # Get unused credits from previous bills
-                                            unused_credits = StudentCredit.objects.filter(
-                                                student=student,
-                                                original_bill=prev_bill,
-                                                is_applied=False
-                                            )
-
-                                            for credit in unused_credits:
-                                                # Check if this credit was already carried forward
-                                                existing_carry_forward = StudentCredit.objects.filter(
-                                                    student=student,
-                                                    description__icontains=f'Carried forward from {previous_term.term}',
-                                                    original_bill=credit.original_bill,
-                                                    is_applied=False
-                                                ).exists()
-
-                                                if not existing_carry_forward:
-                                                    # Create a new credit record for the new term
-                                                    StudentCredit.objects.create(
-                                                        student=student,
-                                                        amount=credit.amount,
-                                                        description=f'Carried forward from {previous_term.term}: {credit.description}',
-                                                        original_bill=credit.original_bill,
-                                                        applied_to_bill=None,  # Not applied yet
-                                                        is_applied=False
-                                                    )
-                                else:
-                                    # Try to create the class stream if it doesn't exist
-                                    try:
-                                        class_stream = AcademicClassStream.objects.create(
-                                            academic_class=academic_class,
-                                            stream=stream,
-                                            class_teacher=None  # Will be assigned later
+                                            amount=credit.amount,
+                                            description=f'Carried forward from {previous_term.term}: {credit.description}',
+                                            original_bill=credit.original_bill,
+                                            applied_to_bill=None,
+                                            is_applied=False
                                         )
-
-                                        # Now register the student
-                                        class_register, created = ClassRegister.objects.get_or_create(
-                                            academic_class_stream=class_stream,
-                                            student=student
-                                        )
-                                        if created:
-                                            registered_count += 1
-                                    except Exception as e:
-                                        pass
-                            else:
-                                # Try to create the academic class if it doesn't exist
-                                try:
-                                    # Get fees amount from previous term's class
-                                    previous_academic_class = AcademicClass.objects.filter(
-                                        academic_year=instance.academic_year,
-                                        Class=student.current_class,
-                                        term=previous_term
-                                    ).first()
-
-                                    fees_amount = previous_academic_class.fees_amount if previous_academic_class else 0
-
-                                    academic_class = AcademicClass.objects.create(
-                                        academic_year=instance.academic_year,
-                                        Class=student.current_class,
-                                        term=instance,
-                                        section=student.current_class.section,
-                                        fees_amount=fees_amount
-                                    )
-
-                                    # Now create the class stream
-                                    class_stream = AcademicClassStream.objects.create(
-                                        academic_class=academic_class,
-                                        stream=student.stream,
-                                        class_teacher=None
-                                    )
-
-                                    # Register the student
-                                    class_register, created = ClassRegister.objects.get_or_create(
-                                        academic_class_stream=class_stream,
-                                        student=student
-                                    )
-                                    if created:
-                                        registered_count += 1
-                                except Exception as e:
-                                    pass
 
                         except Exception as e:
                             # Log error but continue with other students
@@ -364,9 +403,7 @@ def auto_create_academic_classes(sender, instance, created, **kwargs):
         academic_year = instance.academic_year
 
         # Get the previous term to copy fees from
-        previous_term = Term.objects.filter(
-            academic_year=academic_year
-        ).exclude(id=instance.id).order_by('-end_date').first()
+        previous_term = _previous_term_for(instance)
 
         for class_obj in classes:
             # Check if AcademicClass already exists
@@ -399,46 +436,16 @@ def auto_create_academic_classes(sender, instance, created, **kwargs):
 @receiver(post_save, sender=AcademicClass)
 def auto_create_academic_class_streams(sender, instance, created, **kwargs):
     """
-    Automatically create AcademicClassStream records when a new AcademicClass is created
+    Copy class streams from the previous matching academic class.
     """
     if created:
-        # Get all streams
-        streams = Stream.objects.all()
+        previous_academic_class = _previous_academic_class_for(instance)
+        if not previous_academic_class:
+            return
 
-        for stream in streams:
-            # Check if AcademicClassStream already exists
-            if not AcademicClassStream.objects.filter(
-                academic_class=instance,
-                stream=stream
-            ).exists():
-                # Try to find a suitable class teacher
-                # First, look for existing teachers in the same class
-                existing_teacher = None
-                existing_streams = AcademicClassStream.objects.filter(
-                    academic_class__Class=instance.Class,
-                    academic_class__academic_year=instance.academic_year
-                ).exclude(class_teacher__isnull=True)
-
-                if existing_streams.exists():
-                    # Use the same teacher from previous terms
-                    existing_teacher = existing_streams.first().class_teacher
-
-                # If no existing teacher, use any available staff
-                if not existing_teacher:
-                    available_staff = Staff.objects.all()
-                    if available_staff.exists():
-                        existing_teacher = available_staff.first()
-
-                # class_teacher is required; skip auto-creation when no staff exists.
-                if not existing_teacher:
-                    continue
-
-                # Create AcademicClassStream
-                AcademicClassStream.objects.create(
-                    academic_class=instance,
-                    stream=stream,
-                    class_teacher=existing_teacher
-                )
+        previous_streams = _class_streams_to_copy(previous_academic_class)
+        for previous_stream in previous_streams:
+            _ensure_class_stream_from_source(instance, previous_stream)
 
 
 @receiver([post_save, post_delete], sender=Payment)

@@ -1,4 +1,28 @@
+import logging
+
+from django.db import DatabaseError
+
 from app.models.school_settings import *
+
+logger = logging.getLogger(__name__)
+
+
+def get_school_setting(fallback_to_default=False):
+    try:
+        return SchoolSetting.load()
+    except DatabaseError:
+        logger.exception("Unable to load school settings from the database.")
+        if fallback_to_default:
+            return SchoolSetting(
+                school_name="School",
+                school_motto="",
+                education_level=SchoolSetting.EducationLevel.PRIMARY,
+                offers_primary=True,
+                offers_secondary_lower=False,
+                offers_secondary_upper=False,
+            )
+        raise
+
 
 def get_current_academic_year():
     try:
@@ -37,7 +61,7 @@ def get_usd_currency():
 
 
 def get_base_currency():
-    school_setting = SchoolSetting.load()
+    school_setting = get_school_setting()
     country = school_setting.country
     if country == "UG":
         return get_ugx_currency()

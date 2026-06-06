@@ -1,13 +1,25 @@
+from django import forms
 from django.contrib import admin  
+from django.core.paginator import Paginator
+from django.db import connections
 from app.models.accounts import StaffAccount
 from app.models.classes import *
 from app.models.staffs import *
 from app.models.results import *
 from app.models.school_settings import *
 from app.models.students import *
-from app.models.fees_payment import BillItem, StudentBill, StudentBillItem, Payment, ClassBill, StudentCredit
+from app.models.fees_payment import (
+    BillItem,
+    StudentBill,
+    StudentBillItem,
+    Payment,
+    ClassBill,
+    StudentCredit,
+    infer_ledger_category,
+)
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.utils.functional import cached_property
 from django.urls import reverse
 import json
 from .models import Classroom, TimeSlot, BreakPeriod, Timetable
@@ -21,26 +33,223 @@ from app.models.attendance import (
 # admin.site.register(Staff)
 admin.site.register(Role)
 
+
+class EstimatedCountPaginator(Paginator):
+    @cached_property
+    def count(self):
+        queryset = getattr(self, "object_list", None)
+        query = getattr(queryset, "query", None)
+        if query is None:
+            return super().count
+
+        if query.where or query.distinct or query.group_by or query.combinator:
+            return super().count
+
+        connection = connections[queryset.db]
+        if connection.vendor != "mysql":
+            return super().count
+
+        table_name = queryset.model._meta.db_table
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT TABLE_ROWS
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+                """,
+                [table_name],
+            )
+            row = cursor.fetchone()
+
+        if row and row[0] is not None:
+            return int(row[0])
+        return super().count
+
 @admin.register(Result)
 class ResultAdmin(admin.ModelAdmin):
     list_display = (
-        'student', 'assessment', 'score',
-        'status', 'batch'
+        'student_name', 'reg_no', 'subject_name',
+        'assessment_type_name', 'academic_class_name',
+        'score', 'status', 'batch_status'
     )
     list_filter = (
-        'status', 'assessment__academic_class', 'assessment__assessment_type'
+        'status',
+        'batch__status',
+        'assessment__academic_class__academic_year',
+        'assessment__academic_class__term',
+        'assessment__academic_class__Class',
+        'assessment__subject',
+        'assessment__assessment_type',
     )
     search_fields = (
         'student__student_name', 'student__reg_no',
-        'assessment__subject__name', 'assessment__assessment_type__name'
+        'assessment__subject__name', 'assessment__subject__code',
+        'assessment__assessment_type__name',
+        'assessment__academic_class__Class__name',
+        'assessment__academic_class__Class__code',
     )
-admin.site.register(Assessment)
+    raw_id_fields = ('student', 'assessment', 'batch')
+    list_per_page = 50
+    ordering = ('-id',)
+    show_full_result_count = False
+    paginator = EstimatedCountPaginator
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related(
+            'student',
+            'batch',
+            'assessment__subject',
+            'assessment__assessment_type',
+            'assessment__academic_class__Class',
+            'assessment__academic_class__term',
+            'assessment__academic_class__academic_year',
+        )
+
+    @admin.display(description='Student', ordering='student__student_name')
+    def student_name(self, obj):
+        return obj.student.student_name
+
+    @admin.display(description='Reg No', ordering='student__reg_no')
+    def reg_no(self, obj):
+        return obj.student.reg_no
+
+    @admin.display(description='Subject', ordering='assessment__subject__name')
+    def subject_name(self, obj):
+        return obj.assessment.subject.name
+
+    @admin.display(description='Assessment Type', ordering='assessment__assessment_type__name')
+    def assessment_type_name(self, obj):
+        return obj.assessment.assessment_type.name
+
+    @admin.display(description='Class', ordering='assessment__academic_class__Class__name')
+    def academic_class_name(self, obj):
+        academic_class = obj.assessment.academic_class
+        return f"{academic_class.Class.code} {academic_class.term} - {academic_class.academic_year}"
+
+    @admin.display(description='Batch', ordering='batch__status')
+    def batch_status(self, obj):
+        return obj.batch.status if obj.batch_id else "-"
+
+
+@admin.register(Assessment)
+class AssessmentAdmin(admin.ModelAdmin):
+    list_display = (
+        'subject', 'assessment_type', 'academic_class', 'date', 'out_of', 'is_done'
+    )
+    list_filter = (
+        'is_done',
+        'academic_class__academic_year',
+        'academic_class__term',
+        'academic_class__Class',
+        'subject',
+        'assessment_type',
+    )
+    search_fields = (
+        'subject__name', 'subject__code',
+        'assessment_type__name',
+        'academic_class__Class__name',
+        'academic_class__Class__code',
+    )
+    list_per_page = 50
+    ordering = ('-date', '-id')
+    show_full_result_count = False
+    paginator = EstimatedCountPaginator
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related(
+            'subject',
+            'assessment_type',
+            'academic_class__Class',
+            'academic_class__term',
+            'academic_class__academic_year',
+        )
+
+
 admin.site.register(AssessmentType)
 # admin.site.register(Student)
-admin.site.register(ClassRegister)
 # admin.site.register(Section)
 # admin.site.register(Class)
 admin.site.register(Stream)
+
+
+@admin.register(ClassRegister)
+class ClassRegisterAdmin(admin.ModelAdmin):
+    list_display = (
+        "student_name",
+        "reg_no",
+        "class_name",
+        "stream_name",
+        "term_name",
+        "academic_year_name",
+        "section_name",
+        "payment_status",
+    )
+    list_filter = (
+        "payment_status",
+        "student__is_active",
+        "academic_class_stream__academic_class__academic_year",
+        "academic_class_stream__academic_class__term",
+        "academic_class_stream__academic_class__Class",
+        "academic_class_stream__academic_class__section",
+        "academic_class_stream__stream",
+    )
+    search_fields = (
+        "student__student_name",
+        "student__reg_no",
+        "academic_class_stream__academic_class__Class__name",
+        "academic_class_stream__academic_class__Class__code",
+        "academic_class_stream__stream__stream",
+    )
+    autocomplete_fields = ("student", "academic_class_stream")
+    list_per_page = 50
+    ordering = (
+        "-academic_class_stream__academic_class__academic_year__academic_year",
+        "academic_class_stream__academic_class__term__term",
+        "academic_class_stream__academic_class__Class__name",
+        "student__student_name",
+    )
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related(
+            "student",
+            "academic_class_stream__stream",
+            "academic_class_stream__academic_class__Class",
+            "academic_class_stream__academic_class__term",
+            "academic_class_stream__academic_class__academic_year",
+            "academic_class_stream__academic_class__section",
+        )
+
+    @admin.display(description="Student", ordering="student__student_name")
+    def student_name(self, obj):
+        return obj.student.student_name
+
+    @admin.display(description="Reg No", ordering="student__reg_no")
+    def reg_no(self, obj):
+        return obj.student.reg_no
+
+    @admin.display(description="Class", ordering="academic_class_stream__academic_class__Class__name")
+    def class_name(self, obj):
+        academic_class = obj.academic_class_stream.academic_class
+        return academic_class.Class.code or academic_class.Class.name
+
+    @admin.display(description="Stream", ordering="academic_class_stream__stream__stream")
+    def stream_name(self, obj):
+        return obj.academic_class_stream.stream.stream
+
+    @admin.display(description="Term", ordering="academic_class_stream__academic_class__term__term")
+    def term_name(self, obj):
+        return f"Term {obj.academic_class_stream.academic_class.term.term}"
+
+    @admin.display(description="Year", ordering="academic_class_stream__academic_class__academic_year__academic_year")
+    def academic_year_name(self, obj):
+        return obj.academic_class_stream.academic_class.academic_year.academic_year
+
+    @admin.display(description="Section", ordering="academic_class_stream__academic_class__section__section_name")
+    def section_name(self, obj):
+        return obj.academic_class_stream.academic_class.section.section_name
 
 @admin.register(SchoolSetting)
 class SchoolSettingAdmin(admin.ModelAdmin):
@@ -118,18 +327,27 @@ class StudentBillInline(admin.TabularInline):
 class StudentAdmin(admin.ModelAdmin):
     list_display = (
         'photo_preview', 'reg_no', 'student_name', 'gender',
-        'current_class', 'contact', 'guardian'
+        'current_class', 'is_active', 'contact', 'guardian'
     )
-    list_filter = ('gender', 'current_class', 'academic_year')
+    list_filter = ('gender', 'current_class', 'academic_year', 'is_active')
     search_fields = ('reg_no', 'student_name', 'guardian', 'contact')
     readonly_fields = ('photo_preview',)
     inlines = [StudentBillInline]
+    actions = None
 
     def photo_preview(self, obj):
         if obj.photo:
             return format_html('<img src="{}" style="height: 40px; border-radius: 5px;" />', obj.photo.url)
         return "No Photo"
     photo_preview.short_description = 'Photo'
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
 
 
 @admin.register(Term)
@@ -601,14 +819,83 @@ class BillItemAdmin(admin.ModelAdmin):
     list_filter = ('category', 'bill_duration')
 
 
+class StudentBillItemAdminForm(forms.ModelForm):
+    class Meta:
+        model = StudentBillItem
+        fields = ("bill_item", "description", "amount", "charge_date", "fee_category", "notes")
+        widgets = {
+            "charge_date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["charge_date"].required = False
+        self.fields["fee_category"].required = False
+        self.fields["notes"].required = False
+
+    def clean_bill_item(self):
+        bill_item = self.cleaned_data.get("bill_item")
+        if bill_item:
+            return bill_item
+        if self.instance and self.instance.pk:
+            return self.instance.bill_item
+        return bill_item
+
+    def clean_charge_date(self):
+        charge_date = self.cleaned_data.get("charge_date")
+        if charge_date:
+            return charge_date
+        if self.instance and self.instance.pk and self.instance.charge_date:
+            return self.instance.charge_date
+        if self.instance and self.instance.bill_id:
+            return self.instance.bill.bill_date
+        return charge_date
+
+    def clean_fee_category(self):
+        fee_category = self.cleaned_data.get("fee_category")
+        if fee_category:
+            return fee_category
+
+        bill_item = self.cleaned_data.get("bill_item") or getattr(self.instance, "bill_item", None)
+        description = self.cleaned_data.get("description") or getattr(self.instance, "description", "")
+        return infer_ledger_category(
+            getattr(bill_item, "category", ""),
+            getattr(bill_item, "item_name", ""),
+            description,
+        )
+
+    def clean_notes(self):
+        notes = (self.cleaned_data.get("notes") or "").strip()
+        if notes:
+            return notes
+        return self.cleaned_data.get("description") or getattr(self.instance, "description", "")
+
+
 class StudentBillItemInline(admin.TabularInline):
     model = StudentBillItem
-    extra = 1
+    form = StudentBillItemAdminForm
+    extra = 0
+    show_change_link = True
 
 
 class PaymentInline(admin.TabularInline):
     model = Payment
-    extra = 1
+    extra = 0
+
+
+@admin.register(StudentBillItem)
+class StudentBillItemAdmin(admin.ModelAdmin):
+    form = StudentBillItemAdminForm
+    list_display = ("bill", "bill_item", "description", "amount", "charge_date", "fee_category")
+    list_filter = ("fee_category", "charge_date", "bill__academic_class")
+    search_fields = (
+        "bill__student__student_name",
+        "bill__student__reg_no",
+        "bill_item__item_name",
+        "description",
+        "notes",
+    )
 
 
 @admin.register(StudentBill)

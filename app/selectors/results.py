@@ -1,15 +1,42 @@
 from app.models.results import *
 from app.models.school_settings import SchoolSetting
 from django.db.models import Sum
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR
+
+
+def _get_grading_row(score):
+    try:
+        normalized_score = Decimal(str(score)).quantize(Decimal('0.01'))
+    except (ValueError, TypeError, InvalidOperation):
+        return None
+
+    grading_row = (
+        GradingSystem.objects.filter(
+            min_score__lte=normalized_score,
+            max_score__gte=normalized_score,
+        )
+        .order_by('-min_score', '-max_score')
+        .first()
+    )
+    if grading_row:
+        return grading_row
+
+    floored_score = normalized_score.quantize(Decimal('1'), rounding=ROUND_FLOOR)
+    if floored_score == normalized_score:
+        return None
+
+    return (
+        GradingSystem.objects.filter(
+            min_score__lte=floored_score,
+            max_score__gte=floored_score,
+        )
+        .order_by('-min_score', '-max_score')
+        .first()
+    )
 
 def get_grade_and_points(score):
     try:
-        score = Decimal(str(score)).quantize(Decimal('0.01'))
-        grade_row = GradingSystem.objects.filter(
-            min_score__lte=score,
-            max_score__gte=score
-        ).order_by('min_score').first()
+        grade_row = _get_grading_row(score)
         if grade_row:
             return grade_row.grade, float(grade_row.points)
         return "N/A", 0
@@ -48,7 +75,7 @@ def get_performance_metrics(assessments):
 
 
 def get_grade_from_average(score):
-    grading = GradingSystem.objects.filter(min_score__lte=score, max_score__gte=score).first()
+    grading = _get_grading_row(score)
     return grading.grade if grading else "N/A"
 
 def calculate_weighted_subject_averages(assessments):

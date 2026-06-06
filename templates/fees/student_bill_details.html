@@ -581,7 +581,7 @@
                         <div>
                             <h4 class="text-display mb-0">{{ student_bill.student.student_name }}</h4>
                             <div class="student-meta-row">
-                                <span class="student-meta-pill">Reg No: {{ student_bill.student.reg_no }}</span>
+                                <span class="student-meta-pill">Student ID: {{ student_bill.student.display_student_id }}</span>
                                 <span class="student-meta-pill">Class: {{ student_bill.student.current_class.code }}</span>
                             </div>
                         </div>
@@ -657,10 +657,10 @@
 
                     <!-- Action Buttons -->
                     <div class="d-grid gap-2">
-                        <button class="btn btn-info" onclick="printReceipt()">
-                            <i class="fa fa-print me-2"></i>Print Receipt
+                        <button class="btn btn-info" onclick="printStatement()">
+                            <i class="fa fa-print me-2"></i>Print Statement
                         </button>
-                        {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
+                        {% if can_manage_student_bill %}
                         <button class="btn btn-primary" data-toggle="modal" data-target=".payment-modal-lg">
                             <i class="fa fa-plus-circle me-2"></i>Record Payment
                         </button>
@@ -675,7 +675,7 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Bill Details</h5>
-                    {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
+                    {% if can_manage_student_bill %}
                     <div class="d-flex gap-2">
                         <button class="btn btn-primary" data-toggle="modal" data-target=".bill-item-modal-lg">
                             <i class="fa fa-plus me-2"></i>Add Bill Item
@@ -746,11 +746,12 @@
                         <!-- Payment History Tab -->
                         <div id="payments" class="tab-pane active">
                             <div class="p-3">
-                                {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
-                                <div class="mb-3">
+                                {% if can_manage_student_bill %}
+                                <div class="mb-3 d-flex flex-wrap align-items-center" style="gap:10px;">
                                     <button class="btn btn-success" data-toggle="modal" data-target=".payment-modal-lg">
                                         <i class="fa fa-plus me-2"></i>Record New Payment
                                     </button>
+                                    <span class="text-muted">Print official receipts from each payment row. Use statement print for the full account history.</span>
                                 </div>
                                 {% endif %}
                                 
@@ -763,6 +764,7 @@
                                                 <th>Reference</th>
                                                 <th class="text-end">Amount</th>
                                                 <th>Recorded By</th>
+                                                <th class="text-end">Receipt</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -782,10 +784,15 @@
                                                 </td>
                                                 <td class="text-end text-success fw-bold">UGX {{ payment.amount|intcomma }}</td>
                                                 <td>{{ payment.recorded_by }}</td>
+                                                <td class="text-end">
+                                                    <a href="{% url 'student_payment_receipt' payment.id %}" class="btn btn-info btn-sm" target="_blank" rel="noopener">
+                                                        <i class="fa fa-print"></i> Receipt
+                                                    </a>
+                                                </td>
                                             </tr>
                                             {% empty %}
                                             <tr>
-                                                <td colspan="5" class="text-center text-muted py-4">
+                                                <td colspan="6" class="text-center text-muted py-4">
                                                     <i class="fa fa-info-circle fa-2x mb-2"></i>
                                                     <br>No payments recorded yet
                                                 </td>
@@ -797,6 +804,7 @@
                                             <tr style="background: linear-gradient(135deg, #f8fafc, #e2e8f0);">
                                                 <td colspan="3" class="fw-bold">TOTAL PAID</td>
                                                 <td class="text-end fw-bold">UGX {{ student_bill.amount_paid|intcomma }}</td>
+                                                <td></td>
                                                 <td></td>
                                             </tr>
                                         </tfoot>
@@ -861,7 +869,7 @@
                                     </div>
                                 </div>
 
-                                {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
+                                {% if can_manage_student_bill %}
                                 <div class="mb-3">
                                     <button class="btn btn-info" data-toggle="modal" data-target=".document-modal-lg">
                                         <i class="fa fa-plus me-2"></i>Upload Document
@@ -900,7 +908,7 @@
                                                         <a href="{{ doc.file.url }}" class="btn btn-ghost btn-sm" target="_blank">
                                                             <i class="fa fa-eye me-1"></i>View
                                                         </a>
-                                                        {% if active_role and active_role|lower == "bursar" or request.user.staff_account and request.user.staff_account.role.name|lower == "bursar" %}
+                                                        {% if can_manage_student_bill %}
                                                         <a href="{% url 'delete_bill_document' doc.id %}" class="btn btn-ghost btn-sm text-danger" onclick="return confirm('Are you sure you want to delete this document?');">
                                                             <i class="fa fa-trash me-1"></i>Delete
                                                         </a>
@@ -910,7 +918,7 @@
                                             </tr>
                                             {% empty %}
                                             <tr>
-                                                <td colspan="5" class="text-center text-muted py-4">
+                                                <td colspan="6" class="text-center text-muted py-4">
                                                     <i class="fa fa-file fa-2x mb-2"></i>
                                                     <br>No documents uploaded yet
                                                 </td>
@@ -1045,7 +1053,7 @@
     </div>
 </div>
 
-<!-- Printable Receipt - Original Format -->
+<!-- Printable Account Statement -->
 <div id="printableReceipt" style="display:none;">
     <div class="receipt-wrapper" style="position: relative;">
         <!-- Watermark -->
@@ -1064,17 +1072,17 @@
             </div>
 
             <div class="right-info">
-                <div><strong>Receipt No:</strong> #{{ student_bill.id }}</div>
-                <div><strong>Receipt Date:</strong> {% now "m/d/Y" %}</div>
+                <div><strong>Statement No:</strong> STMT-{{ student_bill.id }}</div>
+                <div><strong>Statement Date:</strong> {% now "d/m/Y" %}</div>
             </div>
         </div>
 
-        <h3 class="title">FEE RECEIPT</h3>
+        <h3 class="title">FEES ACCOUNT STATEMENT</h3>
 
         <div class="invoice-to">
             <strong>Student Details:</strong><br>
             {{ student_bill.student.student_name }}<br>
-            Reg No: {{ student_bill.student.reg_no }}<br>
+            Student ID: {{ student_bill.student.display_student_id }}<br>
             Class: {{ student_bill.student.current_class.code }}<br>
             Academic Year: {{ student_bill.academic_class.academic_year.academic_year }}
         </div>
@@ -1114,11 +1122,11 @@
             {% endfor %}
             <br>
             <strong>Terms & Conditions:</strong><br>
-            This receipt is system generated and valid for fee payment confirmation.
+            This statement shows the full bill position and payment history. Official receipts are issued per payment transaction.
         </div>
 
         <div class="footer">
-            Thank you for your payment — keep this receipt for your records.
+            Keep this statement for your records. For payment proof, print the specific official receipt from Payment History.
         </div>
     </div>
 </div>
@@ -1148,8 +1156,8 @@ function switchTab(tabName) {
     }
 }
 
-// Professional Print Function - Original Format
-function printReceipt() {
+// Professional Statement Print Function
+function printStatement() {
     const receiptElement = document.getElementById("printableReceipt");
     const receipt = receiptElement.innerHTML;
     const printWindow = window.open('', '_blank', 'height=800,width=1000,scrollbars=yes');
@@ -1158,7 +1166,7 @@ function printReceipt() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Fee Receipt - {{ student_bill.student.student_name }}</title>
+            <title>Fees Statement - {{ student_bill.student.student_name }}</title>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>

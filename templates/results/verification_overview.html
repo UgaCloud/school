@@ -3,7 +3,7 @@
 {% block page_title %}Result Verification Overview{% endblock page_title %}
 
 {% block content %}
-<div class="row">
+<div class="row verification-overview-page">
   <div class="col-md-12 col-sm-12">
     <div class="x_panel">
       <div class="x_title">
@@ -114,6 +114,7 @@
         </form>
 
         {% if assessments %}
+          <div class="table-responsive verification-overview-table">
           <table class="table table-striped table-bordered datatable" style="width:100%">
             <thead>
               <tr>
@@ -161,6 +162,7 @@
               {% endfor %}
             </tbody>
           </table>
+          </div>
         {% else %}
           <div class="empty-state">
             <div class="icon-wrap">
@@ -190,6 +192,52 @@
     width: 56px; height: 56px; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
     background: #f3f4f6; color: #6b7280; font-size: 20px; margin-bottom: 8px;
+  }
+  .verification-overview-table {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+    overflow-x: auto;
+  }
+  .verification-overview-table table,
+  .verification-overview-table th,
+  .verification-overview-table td {
+    color: #1e293b !important;
+  }
+  .verification-overview-table .badge {
+    border: 1px solid transparent;
+    color: #fff !important;
+  }
+  .verification-overview-table .badge-light {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+  }
+  .verification-overview-table .badge-warning {
+    background: #fef3c7 !important;
+    border-color: #f59e0b !important;
+    color: #78350f !important;
+  }
+  .verification-overview-table .badge-info {
+    background: #dbeafe !important;
+    border-color: #93c5fd !important;
+    color: #1e3a8a !important;
+  }
+  .verification-overview-table .badge-secondary,
+  .verification-overview-table .badge-dark {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+  }
+  .verification-overview-table .badge-success {
+    background: #dcfce7 !important;
+    border-color: #86efac !important;
+    color: #14532d !important;
+  }
+  .verification-overview-table .badge-danger {
+    background: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+    color: #7f1d1d !important;
   }
 </style>
 {% endblock content %}

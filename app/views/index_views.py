@@ -233,6 +233,7 @@ def global_search_view(request):
         student_scope = student_scope.filter(
             Q(student_name__icontains=query)
             | Q(reg_no__icontains=query)
+            | Q(student_number__icontains=query)
             | Q(guardian__icontains=query)
             | Q(contact__icontains=query)
         ).order_by("student_name")

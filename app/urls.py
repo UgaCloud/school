@@ -2,6 +2,7 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 import app.views.index_views as index
 import app.views.dashboard as dashboard_views
+import app.views.ux as ux
 from app.views.classes import *
 from app.views.school_settings import *
 from app.views.student import *
@@ -25,6 +26,7 @@ urlpatterns = [
     path('index/', index.index_view, name="index_page"),
     path('search/', index.global_search_view, name="global_search"),
     path('coming-soon/', index.under_construction_view, name="under_construction"),
+    path('fees/quick-payment/', ux.bursar_quick_payment_view, name="bursar_quick_payment"),
     path('dashboard/overview/', dashboard_views.dashboard_overview_view, name='dashboard_overview'),
     path('dashboard/finance/', dashboard_views.dashboard_finance_view, name='dashboard_finance'),
     path('dashboard/academics/', dashboard_views.dashboard_academics_view, name='dashboard_academics'),
@@ -140,8 +142,13 @@ urlpatterns = [
     path('delete_class_bill_item/<int:id>/', delete_class_bill_item_view, name='delete_class_bill_item'),
     path('bulk-create-bills/', bulk_create_class_bills, name='bulk_create_class_bills'),
     path('fees-status/', student_fees_status_view, name='fees_status'),
+    path('fees/carry-forward/', carry_forward_balances_view, name='carry_forward_balances'),
+    path('fees-ledger/', payment_ledger_view, name='payment_ledger'),
+    path('fees-help/', fees_help_view, name='fees_help'),
+    path('student-ledger-modal/<int:student_id>/', student_ledger_modal_view, name='student_ledger_modal'),
     path('student-fees-history/<int:student_id>/', student_fees_history_view, name='student_fees_history'),
     path('student-fees-receipt/<int:student_id>/', student_fees_receipt_pdf_view, name='student_fees_receipt'),
+    path('payment-receipt/<int:payment_id>/', student_payment_receipt_view, name='student_payment_receipt'),
     path('reconcile-overpayments/<int:student_id>/', reconcile_student_overpayments, name='reconcile_overpayments'),
 
     

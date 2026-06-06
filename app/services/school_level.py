@@ -1,4 +1,5 @@
 from app.models.school_settings import SchoolSetting
+from app.selectors.school_settings import get_school_setting
 
 
 def get_level_label(level):
@@ -6,7 +7,7 @@ def get_level_label(level):
 
 
 def get_enabled_levels(school_setting=None):
-    school_setting = school_setting or SchoolSetting.load()
+    school_setting = school_setting or get_school_setting(fallback_to_default=True)
     if hasattr(school_setting, "get_enabled_levels"):
         return school_setting.get_enabled_levels()
 
@@ -15,7 +16,7 @@ def get_enabled_levels(school_setting=None):
 
 
 def get_active_school_level(request=None, school_setting=None):
-    school_setting = school_setting or SchoolSetting.load()
+    school_setting = school_setting or get_school_setting(fallback_to_default=True)
     enabled_levels = get_enabled_levels(school_setting)
     default_level = getattr(school_setting, "education_level", SchoolSetting.EducationLevel.PRIMARY)
     if default_level not in enabled_levels:
@@ -33,7 +34,7 @@ def get_active_school_level(request=None, school_setting=None):
 
 
 def set_active_school_level(request, level, school_setting=None):
-    school_setting = school_setting or SchoolSetting.load()
+    school_setting = school_setting or get_school_setting(fallback_to_default=True)
     enabled_levels = get_enabled_levels(school_setting)
     if level not in enabled_levels:
         raise ValueError("Selected school level is not enabled for this school.")

@@ -322,7 +322,7 @@
       <span class="label">Users</span>
       <p class="value">{{ reports_top_cards.active_users|intcomma }}</p>
       <div class="meta">
-        Active users · {{ reports_inactive_users_count|intcomma }} inactive
+        Active users - {{ reports_inactive_users_count|intcomma }} inactive
       </div>
     </div>
   </div>
@@ -331,7 +331,7 @@
       <span class="label">System Health</span>
       <p class="value">{{ reports_system_version }}</p>
       <div class="meta">
-        DB {{ reports_db_size_mb|floatformat:2 }} MB · Media {{ reports_media_size_mb|floatformat:2 }} MB
+        DB {{ reports_db_size_mb|floatformat:2 }} MB - Media {{ reports_media_size_mb|floatformat:2 }} MB
       </div>
     </div>
   </div>
@@ -358,7 +358,7 @@
       <div class="col-md-6 col-sm-12">
         <div class="report-actions">
           <a href="{{ reports_links_map.fees.url }}" class="btn btn-default btn-xs"><i class="fa fa-external-link"></i> Open</a>
-          <a href="{{ reports_links_map.fees.url }}?export=pdf" class="btn btn-primary btn-xs"><i class="fa fa-file-pdf-o"></i> Export PDF</a>
+          <a href="{% url 'fees_status' %}" class="btn btn-default btn-xs"><i class="fa fa-bar-chart"></i> Summary</a>
           <a href="{{ reports_links_map.fees.url }}?export=excel" class="btn btn-primary btn-xs"><i class="fa fa-file-excel-o"></i> Export Excel</a>
         </div>
       </div>
@@ -437,7 +437,7 @@
             <thead>
               <tr>
                 <th>Student Name</th>
-                <th>Reg No</th>
+                <th>Student ID</th>
                 <th>Class</th>
                 <th>Fees Billed</th>
                 <th>Fees Paid</th>
@@ -811,7 +811,7 @@
             <thead>
               <tr>
                 <th>Student</th>
-                <th>Reg No</th>
+                <th>Student ID</th>
                 <th>Class</th>
                 <th>Days Present</th>
                 <th>Days Absent</th>
@@ -847,7 +847,7 @@
           {% endif %}
           <div class="heatmap-grid">
             {% for point in attendance_heatmap_points %}
-            <div class="heatmap-cell lvl-{{ point.intensity }}" title="{{ point.date|date:'d-M-Y' }} · {{ point.rate|floatformat:1 }}%">
+            <div class="heatmap-cell lvl-{{ point.intensity }}" title="{{ point.date|date:'d-M-Y' }} - {{ point.rate|floatformat:1 }}%">
               <span class="day">{{ point.day_label }}</span>
               <span class="wk">{{ point.weekday }}</span>
             </div>
@@ -932,7 +932,7 @@
             <thead>
               <tr>
                 <th>Student</th>
-                <th>Reg No</th>
+                <th>Student ID</th>
                 <th>Subject</th>
                 <th>Term Score</th>
                 <th>Cumulative Score</th>
@@ -1038,7 +1038,7 @@
         <thead>
           <tr>
             <th>Student</th>
-            <th>Reg No</th>
+            <th>Student ID</th>
             <th>Class</th>
             <th>Status</th>
             <th>Generate</th>

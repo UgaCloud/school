@@ -25,6 +25,33 @@ _SUBJECT_AR_MAP = {
     "islamicstudies": "الدراسات الإسلامية",
 }
 
+_ASSESSMENT_TYPE_AR_MAP = {
+    "bot": "بداية الفترة",
+    "beginningofterm": "بداية الفترة",
+    "midterm": "منتصف الفترة",
+    "midtermexam": "امتحان منتصف الفترة",
+    "midofterm": "منتصف الفترة",
+    "midoftermexam": "امتحان منتصف الفترة",
+    "eot": "نهاية الفترة",
+    "endofterm": "نهاية الفترة",
+    "eotinternal": "نهاية الفترة الداخلية",
+    "endofterminternal": "نهاية الفترة الداخلية",
+    "eotexternal": "نهاية الفترة الخارجية",
+    "endoftermexternal": "نهاية الفترة الخارجية",
+}
+
+_DIVISION_AR_MAP = {
+    "1": "القسم الأول",
+    "2": "القسم الثاني",
+    "3": "القسم الثالث",
+    "4": "القسم الرابع",
+    "division1": "القسم الأول",
+    "division2": "القسم الثاني",
+    "division3": "القسم الثالث",
+    "division4": "القسم الرابع",
+    "u": "ضعيف",
+}
+
 
 def _subject_key(subject_name):
     text = str(subject_name or "").strip().lower()
@@ -82,3 +109,33 @@ def remark_ar(avg_value):
     if avg <= 100:
         return "ممتاز"
     return "-"
+
+
+@register.filter
+def assessment_type_ar(value):
+    """Translate common assessment type labels to Arabic."""
+    key = _subject_key(value)
+    if not key:
+        return "-"
+    if key in _ASSESSMENT_TYPE_AR_MAP:
+        return _ASSESSMENT_TYPE_AR_MAP[key]
+    if "beginningofterm" in key:
+        return "بداية الفترة"
+    if "midterm" in key or "midofterm" in key:
+        return "منتصف الفترة"
+    if "endofterminternal" in key:
+        return "نهاية الفترة الداخلية"
+    if "endoftermexternal" in key:
+        return "نهاية الفترة الخارجية"
+    if "endofterm" in key:
+        return "نهاية الفترة"
+    return str(value)
+
+
+@register.filter
+def division_ar(value):
+    """Translate division labels to Arabic."""
+    key = _subject_key(value)
+    if not key:
+        return "-"
+    return _DIVISION_AR_MAP.get(key, str(value))

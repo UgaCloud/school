@@ -22,6 +22,9 @@
                         <div class="text-muted">Monitor totals, payments, and outstanding balances.</div>
                     </div>
                     <div class="comm-actions">
+                        <a href="{% url 'carry_forward_balances' %}" class="btn btn-warning">
+                            <i class="fa fa-arrow-circle-right"></i> Carry Forward
+                        </a>
                         <a href="{% url 'fees_status' %}" class="btn btn-info">
                             <i class="fa fa-chart-bar"></i> Fees Status Report
                         </a>
@@ -211,7 +214,7 @@
                                 <td>{{ forloop.counter }}</td>
                                 <td>
                                     <strong>{{ bill.student.student_name }}</strong>
-                                    <br><small class="text-muted">ID: {{ bill.student.reg_no }}</small>
+                                    <br><small class="text-muted">ID: {{ bill.student.display_student_id }}</small>
                                 </td>
                                 <td>{{ bill.bill_date|date:"M d, Y" }}</td>
                                 <td>

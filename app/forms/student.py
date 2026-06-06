@@ -42,7 +42,7 @@ class BulkStudentRegistrationForm(forms.Form):
         widget=forms.Select(attrs={"class": "form-control"}),
     )
     student_ids = forms.CharField(
-        label="Student IDs (comma-separated)",
+        label="Reg. Nos. (comma-separated)",
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
     )
 
@@ -51,5 +51,5 @@ class BulkStudentRegistrationForm(forms.Form):
         student_ids = [id.strip() for id in ids.split(",") if id.strip()]
         valid_students = Student.objects.filter(reg_no__in=student_ids, is_active=True)
         if not valid_students.exists():
-            raise forms.ValidationError("None of the student IDs are valid.")
+            raise forms.ValidationError("None of the registration numbers are valid.")
         return valid_students
