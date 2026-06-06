@@ -1,14 +1,44 @@
 {% extends "../base.html" %}
+{% load static %}
 {% load crispy_forms_tags %}
 {% load humanize %}
 
 {% block page_title %}Student Bills Management{% endblock %}
 
+{% block extra_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/finance_pro.css' %}?v=1">
+{% endblock %}
+
 {% block content %}
+<div class="finance-shell">
+<div class="finance-topbar">
+    <div>
+        <div class="finance-eyebrow">Finance Workspace</div>
+        <h1 class="finance-title">Charges Management</h1>
+        <div class="finance-subtitle">Generate, review, filter, and collect student charges.</div>
+    </div>
+    <div class="finance-actions">
+        <a href="{% url 'bulk_create_class_bills' %}" class="finance-btn primary"><i class="fa fa-layer-group"></i> Generate Fees</a>
+        <a href="{% url 'carry_forward_balances' %}" class="finance-btn warning"><i class="fa fa-arrow-circle-right"></i> Carry Forward</a>
+        <a href="{% url 'payment_ledger' %}" class="finance-btn"><i class="fa fa-book"></i> Ledger</a>
+    </div>
+</div>
+
+<nav class="finance-nav" aria-label="Finance navigation">
+    <a href="{% url 'financial_dashboard' %}"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="{% url 'student_bill_page' %}" class="active"><i class="fa fa-file-invoice-dollar"></i> Charges</a>
+    <a href="{% url 'fees_status' %}"><i class="fa fa-users"></i> Balances</a>
+    <a href="{% url 'payment_ledger' %}"><i class="fa fa-book"></i> Ledger</a>
+    <a href="{% url 'bank_reconciliation' %}"><i class="fa fa-university"></i> Reconciliation</a>
+    <a href="{% url 'financial_summary_report' %}"><i class="fa fa-file-alt"></i> Reports</a>
+    <a href="{% url 'budget_page' %}"><i class="fa fa-clipboard-list"></i> Budgets</a>
+</nav>
+
 <div class="clearfix"></div>
         
 <!-- Page Header - Gentellela Style -->
-<div class="row">
+<div class="row" style="display:none;">
     <div class="col-md-12 col-sm-12 ">
         <div class="x_panel">
             <div class="x_title">
@@ -36,49 +66,53 @@
 </div>
 
 <!-- Summary Cards - Gentellela Style -->
-<div class="row">
-    <div class="col-md-3 col-sm-6 ">
-        <div class="stat-card">
-            <div class="stat-icon primary"><i class="fa fa-file-invoice"></i></div>
-            <div>
-                <div class="stat-label">Total Bills</div>
-                <div class="stat-value">{{ total_bills }}</div>
-                <div class="stat-note">Active bills</div>
-            </div>
+<div class="finance-kpi-grid">
+    <div class="finance-kpi">
+        <div class="finance-kpi-top">
+            <span class="finance-kpi-icon"><i class="fa fa-file-invoice"></i></span>
+            <span class="finance-pill info">Charges</span>
         </div>
+            <div>
+                <div class="finance-kpi-label">Total Bills</div>
+                <div class="finance-kpi-value">{{ total_bills|intcomma }}</div>
+                <div class="finance-kpi-note">Active bills</div>
+            </div>
     </div>
 
-    <div class="col-md-3 col-sm-6 ">
-        <div class="stat-card">
-            <div class="stat-icon info"><i class="fa fa-money-bill-wave"></i></div>
-            <div>
-                <div class="stat-label">Total Billed</div>
-                <div class="stat-value">UGX {{ total_amount|intcomma }}</div>
-                <div class="stat-note">Amount due</div>
-            </div>
+    <div class="finance-kpi">
+        <div class="finance-kpi-top">
+            <span class="finance-kpi-icon"><i class="fa fa-money-bill-wave"></i></span>
+            <span class="finance-pill neutral">Debit</span>
         </div>
+            <div>
+                <div class="finance-kpi-label">Total Billed</div>
+                <div class="finance-kpi-value">UGX {{ total_amount|floatformat:0|intcomma }}</div>
+                <div class="finance-kpi-note">Amount due</div>
+            </div>
     </div>
 
-    <div class="col-md-3 col-sm-6 ">
-        <div class="stat-card">
-            <div class="stat-icon success"><i class="fa fa-coins"></i></div>
-            <div>
-                <div class="stat-label">Total Paid</div>
-                <div class="stat-value">UGX {{ total_paid|intcomma }}</div>
-                <div class="stat-note">Amount received</div>
-            </div>
+    <div class="finance-kpi">
+        <div class="finance-kpi-top">
+            <span class="finance-kpi-icon"><i class="fa fa-coins"></i></span>
+            <span class="finance-pill success">Credit</span>
         </div>
+            <div>
+                <div class="finance-kpi-label">Total Paid</div>
+                <div class="finance-kpi-value">UGX {{ total_paid|floatformat:0|intcomma }}</div>
+                <div class="finance-kpi-note">Amount received</div>
+            </div>
     </div>
 
-    <div class="col-md-3 col-sm-6 ">
-        <div class="stat-card">
-            <div class="stat-icon warning"><i class="fa fa-exclamation-triangle"></i></div>
-            <div>
-                <div class="stat-label">Outstanding</div>
-                <div class="stat-value">UGX {{ total_outstanding|intcomma }}</div>
-                <div class="stat-note">Amount pending</div>
-            </div>
+    <div class="finance-kpi">
+        <div class="finance-kpi-top">
+            <span class="finance-kpi-icon"><i class="fa fa-exclamation-triangle"></i></span>
+            <span class="finance-pill {% if total_outstanding > 0 %}warning{% else %}success{% endif %}">Balance</span>
         </div>
+            <div>
+                <div class="finance-kpi-label">Outstanding</div>
+                <div class="finance-kpi-value">UGX {{ total_outstanding|floatformat:0|intcomma }}</div>
+                <div class="finance-kpi-note">Amount pending</div>
+            </div>
     </div>
 </div>
 
@@ -119,7 +153,7 @@
 <!-- Advanced Filters - Gentellela Style -->
 <div class="row">
     <div class="col-md-12 col-sm-12 ">
-        <div class="x_panel filters-panel">
+        <div class="x_panel filters-panel finance-filter">
             <div class="x_title">
                 <h2><i class="fa fa-filter"></i> Filters</h2>
                 <div class="clearfix"></div>
@@ -183,7 +217,7 @@
 <!-- Student Bills Table - Gentellela Style -->
 <div class="row">
     <div class="col-md-12 col-sm-12 ">
-        <div class="x_panel table-panel">
+        <div class="x_panel table-panel finance-table-shell">
             <div class="x_title">
                 <h2><i class="fa fa-list"></i> Student Bills <small>{{ student_bills|length }} bills found</small></h2>
                 <div class="clearfix"></div>
@@ -191,7 +225,7 @@
             <div class="x_content">
                 {% if student_bills %}
                 <div class="table-responsive">
-                    <table class="table table-striped table-bordered datatable">
+                    <table class="table table-striped table-bordered datatable finance-table">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -355,12 +389,7 @@
 
 <!-- Simple Filter JavaScript -->
 <script>
-// Simple and reliable filter functionality
-console.log('Filter script loaded - DOMContentLoaded waiting');
-
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM fully loaded, initializing filters');
-    
     // Get all filter elements
     var academicYearSelect = document.getElementById('academic_year');
     var termSelect = document.getElementById('term');
@@ -368,36 +397,24 @@ document.addEventListener('DOMContentLoaded', function() {
     var searchInput = document.getElementById('search');
     var filterForm = document.getElementById('filterForm');
 
-    console.log('Filter elements found:', {
-        academicYearSelect: !!academicYearSelect,
-        termSelect: !!termSelect,
-        classSelect: !!classSelect,
-        searchInput: !!searchInput,
-        filterForm: !!filterForm
-    });
-
     // Function to submit form
     function submitForm() {
-        console.log('Submitting filter form');
         filterForm.submit();
     }
 
     // Add event listeners to select elements
     if (academicYearSelect) {
         academicYearSelect.addEventListener('change', function() {
-            console.log('Academic year changed:', this.value);
             submitForm();
         });
     }
     if (termSelect) {
         termSelect.addEventListener('change', function() {
-            console.log('Term changed:', this.value);
             submitForm();
         });
     }
     if (classSelect) {
         classSelect.addEventListener('change', function() {
-            console.log('Class changed:', this.value);
             submitForm();
         });
     }
@@ -406,10 +423,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var searchTimeout;
     if (searchInput) {
         searchInput.addEventListener('input', function() {
-            console.log('Search input detected');
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(function() {
-                console.log('Search submitted after debounce:', searchInput.value);
                 submitForm();
             }, 500); // Wait 500ms after typing stops
         });
@@ -418,7 +433,6 @@ document.addEventListener('DOMContentLoaded', function() {
         searchInput.addEventListener('keyup', function(event) {
             if (event.key === 'Enter') {
                 clearTimeout(searchTimeout);
-                console.log('Enter key pressed, submitting immediately');
                 submitForm();
             }
         });
@@ -426,4 +440,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+</div><!-- /finance-shell -->
 {% endblock %}

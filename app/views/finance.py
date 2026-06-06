@@ -1843,6 +1843,13 @@ def financial_dashboard_view(request):
 
     dashboard_data = {}
 
+    today_collected = 0
+    overdue_students = 0
+    pending_reconciliation_amount = 0
+    recent_payments = []
+    payment_method_breakdown = []
+    fee_category_breakdown = []
+
     if current_year and current_term:
         # Fee Collection KPIs
         # Sum billed amounts from actual bill items since total_amount is a Python property (not a DB field)
@@ -1857,6 +1864,21 @@ def financial_dashboard_view(request):
             bill__academic_class__term=current_term,
             bill__student__is_active=True,
         ).aggregate(total=Sum('amount'))['total'] or 0
+
+        today_collected = Payment.objects.filter(
+            bill__academic_class__academic_year=current_year,
+            bill__academic_class__term=current_term,
+            bill__student__is_active=True,
+            payment_date=timezone.localdate(),
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        overdue_students = StudentBill.objects.filter(
+            academic_class__academic_year=current_year,
+            academic_class__term=current_term,
+            student__is_active=True,
+            due_date__lt=timezone.localdate(),
+            status__in=['Unpaid', 'Partial'],
+        ).values('student_id').distinct().count()
 
         collection_rate = (total_collected / total_billed * 100) if total_billed > 0 else 0
 
@@ -1889,6 +1911,50 @@ def financial_dashboard_view(request):
             total=Sum('amount')
         ).order_by('month')
 
+        payment_method_breakdown = list(
+            Payment.objects.filter(
+                bill__academic_class__academic_year=current_year,
+                bill__academic_class__term=current_term,
+                bill__student__is_active=True,
+            )
+            .values('payment_method')
+            .annotate(total=Sum('amount'))
+            .order_by('-total')
+        )
+
+        fee_category_breakdown = list(
+            StudentBillItem.objects.filter(
+                bill__academic_class__academic_year=current_year,
+                bill__academic_class__term=current_term,
+                bill__student__is_active=True,
+            )
+            .values('fee_category')
+            .annotate(total=Sum('amount'))
+            .order_by('-total')
+        )
+
+        pending_reconciliation_amount = Payment.objects.exclude(
+            id__in=BankTransaction.objects.filter(
+                reconciled=True,
+                reconciled_with__isnull=False,
+            ).values_list('reconciled_with_id', flat=True)
+        ).filter(
+            bill__academic_class__academic_year=current_year,
+            bill__academic_class__term=current_term,
+            bill__student__is_active=True,
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        recent_payments = Payment.objects.filter(
+            bill__academic_class__academic_year=current_year,
+            bill__academic_class__term=current_term,
+            bill__student__is_active=True,
+        ).select_related(
+            'bill__student',
+            'bill__academic_class',
+            'bill__academic_class__Class',
+            'bill__academic_class__term',
+        ).order_by('-payment_date', '-id')[:10]
+
         # Compute monthly expenditure in Python
         if budget:
             month_totals = {}
@@ -1904,16 +1970,22 @@ def financial_dashboard_view(request):
             'total_billed': total_billed,
             'total_collected': total_collected,
             'budget_utilization': round(budget_utilization, 1),
+            'today_collected': today_collected,
+            'overdue_students': overdue_students,
+            'pending_reconciliation_amount': pending_reconciliation_amount,
             'total_budget': total_budget,
             'total_expenditure': total_expenditure,
             'monthly_collection': list(monthly_collection),
             'monthly_expenditure': list(monthly_expenditure),
+            'payment_method_breakdown': payment_method_breakdown,
+            'fee_category_breakdown': fee_category_breakdown,
             'current_year': current_year,
             'current_term': current_term,
         }
 
     context = {
         'dashboard_data': dashboard_data,
+        'recent_payments': recent_payments,
         'recent_expenditures': Expenditure.objects.order_by('-date_incurred')[:10],
         'pending_approvals': (
             ApprovalWorkflow.objects.filter(

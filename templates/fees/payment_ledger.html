@@ -1,7 +1,13 @@
 {% extends "base.html" %}
+{% load static %}
 {% load humanize %}
 
 {% block page_title %}Transaction Ledger{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/finance_pro.css' %}?v=1">
+{% endblock %}
 
 {% block content %}
 <style>
@@ -114,12 +120,36 @@ tr.group-header td{background:#f8fafc;border-top:2px solid #e2e8f0;padding:10px 
 .tbl-count{font-size:.82rem;color:#64748b;margin-left:auto;}
 </style>
 
+<div class="finance-shell">
+<div class="finance-topbar">
+  <div>
+    <div class="finance-eyebrow">Finance Workspace</div>
+    <h1 class="finance-title">Transaction Ledger</h1>
+    <div class="finance-subtitle">Debit, credit, and running-balance view for school fee activity.</div>
+  </div>
+  <div class="finance-actions">
+    <button type="submit" form="ledgerFilterForm" name="export" value="excel" class="finance-btn"><i class="fa fa-file-excel-o"></i> Export Excel</button>
+    <a href="{% url 'student_bill_page' %}" class="finance-btn"><i class="fa fa-file-invoice-dollar"></i> Charges</a>
+    <a href="{% url 'financial_dashboard' %}" class="finance-btn primary"><i class="fa fa-chart-line"></i> Dashboard</a>
+  </div>
+</div>
+
+<nav class="finance-nav" aria-label="Finance navigation">
+  <a href="{% url 'financial_dashboard' %}"><i class="fa fa-chart-line"></i> Dashboard</a>
+  <a href="{% url 'student_bill_page' %}"><i class="fa fa-file-invoice-dollar"></i> Charges</a>
+  <a href="{% url 'fees_status' %}"><i class="fa fa-users"></i> Balances</a>
+  <a href="{% url 'payment_ledger' %}" class="active"><i class="fa fa-book"></i> Ledger</a>
+  <a href="{% url 'bank_reconciliation' %}"><i class="fa fa-university"></i> Reconciliation</a>
+  <a href="{% url 'financial_summary_report' %}"><i class="fa fa-file-alt"></i> Reports</a>
+  <a href="{% url 'budget_page' %}"><i class="fa fa-clipboard-list"></i> Budgets</a>
+</nav>
+
 <div class="clearfix"></div>
 <div class="row">
 <div class="col-md-12">
 
 <!-- Page tabs -->
-<div class="ledger-tabs">
+<div class="ledger-tabs" style="display:none;">
   <a href="{% url 'fees_status' %}" class="ledger-tab">Overview</a>
   <a href="{% url 'fees_status' %}" class="ledger-tab">Student Payment Status</a>
   <a href="{% url 'payment_ledger' %}" class="ledger-tab active">Transaction Ledger</a>
@@ -438,6 +468,7 @@ tr.group-header td{background:#f8fafc;border-top:2px solid #e2e8f0;padding:10px 
 
 </div><!-- /col -->
 </div><!-- /row -->
+</div><!-- /finance-shell -->
 
 <script>
 (function(){
