@@ -198,7 +198,6 @@ def bulk_student_registration(csv_obj):
     header_row = rows[header_index]
     field_positions = _build_field_positions(header_row)
     required_fields = [
-        "reg_no",
         "student_name",
         "gender",
         "birthdate",
@@ -220,6 +219,8 @@ def bulk_student_registration(csv_obj):
     for row_number, row in enumerate(rows[header_index + 1 :], start=header_index + 2):
         try:
             def get_value(field_name):
+                if field_name not in field_positions:
+                    return ""
                 pos = field_positions[field_name]
                 return row[pos].strip() if pos < len(row) else ""
 

@@ -1170,7 +1170,7 @@ class StudentPaymentLedgerTests(TestCase):
             worksheet_xml = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
 
         self.assertIn("Date", worksheet_xml)
-        self.assertIn("Student ID", worksheet_xml)
+        self.assertIn("Reg No", worksheet_xml)
         self.assertIn("Student Name", worksheet_xml)
         self.assertIn("Amount Charged", worksheet_xml)
         self.assertIn("Amount Paid", worksheet_xml)

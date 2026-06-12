@@ -1,11 +1,9 @@
 from django.db import models
 from django.urls import reverse
-from django.utils import timezone
 from app.constants import GENDERS, NATIONALITIES, RELIGIONS, DOCUMENT_TYPES
 
 class Student(models.Model):
     reg_no = models.CharField(max_length=30, unique=True)
-    student_number = models.CharField(max_length=6, unique=True, null=True, blank=True, db_index=True)
     student_name = models.CharField(max_length=50)
     gender = models.CharField(max_length=2, choices=GENDERS)
     birthdate = models.DateField(auto_now=False)
@@ -31,7 +29,7 @@ class Student(models.Model):
 
     @property
     def display_student_id(self):
-        return self.student_number or self.reg_no or str(self.pk)
+        return self.reg_no or str(self.pk)
 
     def get_absolute_url(self):
         return reverse("student_detail", kwargs={"pk": self.pk})
@@ -47,62 +45,25 @@ class Student(models.Model):
         if needs_generation:
             self.reg_no = self._build_unique_reg_no()
 
-        if not self.student_number:
-            self.student_number = self._build_unique_student_number()
-
         super().save(*args, **kwargs)
 
     def _build_unique_reg_no(self) -> str:
-        try:
-            year_str = str(self.academic_year.academic_year)
-            if not year_str or not year_str.isdigit():
-                year_str = str(timezone.now().year)
-        except Exception:
-            year_str = str(timezone.now().year)
+        prefix = "ST"
 
-        prefix = f"STD{year_str}-"
-        
-        # Find the maximum numeric suffix for this prefix
         existing = Student.objects.filter(reg_no__startswith=prefix).values_list('reg_no', flat=True)
         max_seq = 0
         for rn in existing:
-            try:
-                # Accept formats like 'STD2025-172' -> '172'
-                suffix = rn.split('-', 1)[1]
-                num = int(''.join(ch for ch in suffix if ch.isdigit()))
-                if num > max_seq:
-                    max_seq = num
-            except Exception:
+            suffix = str(rn or "")[len(prefix):]
+            if not suffix.isdigit():
                 continue
+            max_seq = max(max_seq, int(suffix))
 
         next_seq = max_seq + 1
-        candidate = f"{prefix}{next_seq}"
-        # Ensure uniqueness even under race conditions
+        candidate = f"{prefix}{next_seq:04d}"
         while Student.objects.filter(reg_no=candidate).exists():
             next_seq += 1
-            candidate = f"{prefix}{next_seq}"
+            candidate = f"{prefix}{next_seq:04d}"
         return candidate
-
-    def _build_unique_student_number(self) -> str:
-        """Generate a safe 6-digit learner ID without changing existing database PKs."""
-        existing_numbers = Student.objects.exclude(student_number__isnull=True).exclude(student_number="").values_list("student_number", flat=True)
-        max_number = 100000
-        for value in existing_numbers:
-            value = str(value or "").strip()
-            if value.isdigit():
-                max_number = max(max_number, int(value))
-
-        candidate = max_number + 1
-        while candidate <= 999999:
-            candidate_text = f"{candidate:06d}"
-            qs = Student.objects.filter(student_number=candidate_text)
-            if self.pk:
-                qs = qs.exclude(pk=self.pk)
-            if not qs.exists():
-                return candidate_text
-            candidate += 1
-
-        raise ValueError("Unable to generate a unique 6-digit student ID; the numeric range is exhausted.")
 
 class StudentRegistrationCSV(models.Model):
     file_name = models.FileField(upload_to='media/csvs/')

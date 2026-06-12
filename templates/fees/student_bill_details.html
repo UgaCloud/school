@@ -581,7 +581,7 @@
                         <div>
                             <h4 class="text-display mb-0">{{ student_bill.student.student_name }}</h4>
                             <div class="student-meta-row">
-                                <span class="student-meta-pill">Student ID: {{ student_bill.student.display_student_id }}</span>
+                                <span class="student-meta-pill">Reg No: {{ student_bill.student.display_student_id }}</span>
                                 <span class="student-meta-pill">Class: {{ student_bill.student.current_class.code }}</span>
                             </div>
                         </div>
@@ -1082,7 +1082,7 @@
         <div class="invoice-to">
             <strong>Student Details:</strong><br>
             {{ student_bill.student.student_name }}<br>
-            Student ID: {{ student_bill.student.display_student_id }}<br>
+            Reg No: {{ student_bill.student.display_student_id }}<br>
             Class: {{ student_bill.student.current_class.code }}<br>
             Academic Year: {{ student_bill.academic_class.academic_year.academic_year }}
         </div>

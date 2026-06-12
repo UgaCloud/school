@@ -418,7 +418,7 @@ def carry_forward_balances_view(request):
         "academic_years": AcademicYear.objects.order_by("-academic_year"),
         "terms": Term.objects.select_related("academic_year").order_by("-academic_year__academic_year", "term"),
         "classes": Class.objects.order_by("code", "name"),
-        "students": Student.objects.filter(is_active=True).order_by("student_name").only("id", "student_name", "student_number", "reg_no"),
+        "students": Student.objects.filter(is_active=True).order_by("student_name").only("id", "student_name", "reg_no"),
         "current_year": current_year,
         "source_term": source_term,
         "target_term": target_term,
@@ -797,7 +797,7 @@ def payment_ledger_view(request):
     )
     filter_options = get_ledger_filter_options()
     selected_student = (
-        Student.objects.filter(pk=selected_student_id).only("id", "student_name", "reg_no", "student_number").first()
+        Student.objects.filter(pk=selected_student_id).only("id", "student_name", "reg_no").first()
         if selected_student_id
         else None
     )
@@ -835,7 +835,7 @@ def payment_ledger_view(request):
     active_filter_items = []
     if selected_student:
         active_filter_items.append(
-            {"label": "Student", "value": f"{selected_student.student_name} ({selected_student.student_number or selected_student.reg_no})"}
+            {"label": "Student", "value": f"{selected_student.student_name} ({selected_student.reg_no})"}
         )
     if selected_classroom_group:
         active_filter_items.append({"label": "Group", "value": selected_classroom_group.title()})
@@ -936,7 +936,7 @@ def fees_help_view(request):
             "Date",
             "Type",
             "Reference No.",
-            "Student ID",
+            "Reg No",
             "Student Name",
             "Classroom",
             "Term",
