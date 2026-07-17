@@ -10,18 +10,11 @@ from app.models.finance import Transaction, IncomeSource, Expenditure, Expenditu
 
  
 def _get_or_create_student_bill(student, academic_class):
-    student_bill = (
-        StudentBill.objects.filter(student=student, academic_class=academic_class)
-        .order_by("id")
-        .first()
-    )
-    if student_bill:
-        return student_bill, False
-    return StudentBill.objects.create(
+    return StudentBill.objects.get_or_create(
         student=student,
         academic_class=academic_class,
-        status="Unpaid",
-    ), True
+        defaults={"status": "Unpaid"},
+    )
 
 
 def _ensure_student_bill_items(student, academic_class):

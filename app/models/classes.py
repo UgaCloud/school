@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.conf import settings
 
@@ -69,6 +70,17 @@ class AcademicClass(models.Model):
 
     def __str__(self):
         return f"{self.Class} {self.term} - {self.academic_year}"
+
+    def clean(self):
+        super().clean()
+        if (
+            self.term_id
+            and self.academic_year_id
+            and self.term.academic_year_id != self.academic_year_id
+        ):
+            raise ValidationError(
+                {"term": "The selected term does not belong to the selected academic year."}
+            )
 
     def get_absolute_url(self):
         return reverse("AcademicClass_detail", kwargs={"pk": self.pk})

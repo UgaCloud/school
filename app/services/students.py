@@ -346,17 +346,11 @@ def create_student_bill(student, academic_class):
     Creates a StudentBill and assigns all Class Bills 
     """
     
-    student_bill = (
-        StudentBill.objects.filter(student=student, academic_class=academic_class)
-        .order_by("id")
-        .first()
+    student_bill, _ = StudentBill.objects.get_or_create(
+        student=student,
+        academic_class=academic_class,
+        defaults={"status": "Unpaid"},
     )
-    if not student_bill:
-        student_bill = StudentBill.objects.create(
-            student=student,
-            academic_class=academic_class,
-            status="Unpaid",
-        )
 
     school_fees_description = f"School Fees for {academic_class.term} - {academic_class.academic_year}"
     school_fees_bill_item = fees_selectors.get_bill_item_by_name("School Fees")

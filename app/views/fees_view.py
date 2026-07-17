@@ -13,6 +13,7 @@ from django.contrib.auth.decorators import login_required
 from app.models.students import *
 from app.models.classes import *
 from app.models.school_settings import AcademicYear
+from app.selectors.school_settings import get_current_academic_year
 from app.models.students import StudentDocument
 from app.services.fees_ledger import (
     build_ledger_rows,
@@ -139,9 +140,23 @@ def delete_bill_item_view(request, id):
 
 @login_required
 def manage_student_bills_view(request):
+    current_academic_year = get_current_academic_year()
+    current_term = (
+        Term.objects.filter(
+            is_current=True,
+            academic_year=current_academic_year,
+        ).order_by("id").first()
+        if current_academic_year
+        else None
+    )
+
     # Get filter parameters
-    academic_year_id = request.GET.get('academic_year')
-    term_id = request.GET.get('term')
+    academic_year_id = request.GET.get('academic_year') or (
+        str(current_academic_year.id) if current_academic_year else None
+    )
+    term_id = request.GET.get('term') or (
+        str(current_term.id) if current_term else None
+    )
     class_id = request.GET.get('class')
     search_query = request.GET.get('search', '').strip()
 

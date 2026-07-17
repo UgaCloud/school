@@ -63,6 +63,14 @@ class StudentBill(models.Model):
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=BILL_STATUS_CHOICES, default="Unpaid")
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("student", "academic_class"),
+                name="unique_student_bill_per_academic_class",
+            )
+        ]
+
     @property
     def total_amount(self):
         return self.items.aggregate(total=models.Sum('amount'))['total'] or 0
