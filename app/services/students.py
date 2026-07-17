@@ -5,7 +5,14 @@ from django.db import transaction
 from app.selectors.school_settings import get_current_academic_year
 from app.selectors.classes import get_academic_class_stream, get_class_by_code, get_current_term
 import app.selectors.fees_selectors as fees_selectors
-from app.models.students import Student, ClassRegister, StudentRegistrationCSV
+from app.models.students import (
+    Student,
+    ClassRegister,
+    StudentRegistrationCSV,
+    find_duplicate_student,
+    normalize_guardian_contact,
+    normalize_student_name,
+)
 from app.models.fees_payment import StudentBill, StudentBillItem,ClassBill
 from app.models.classes import *
 from app.models.school_settings import AcademicYear
@@ -184,6 +191,7 @@ def bulk_student_registration(csv_obj):
     skipped_count = 0
     errors = []
     seen_reg_numbers = set()
+    seen_identities = set()
 
     with open(csv_obj.file_name.path, "r", encoding="utf-8-sig", newline="") as f:
         rows = [row for row in csv.reader(f) if any(str(cell).strip() for cell in row)]
@@ -245,6 +253,26 @@ def bulk_student_registration(csv_obj):
             nationality = _normalize_choice(get_value("nationality"), row_number, "nationality", NATIONALITIES)
             religion = _normalize_choice(get_value("religion"), row_number, "religion", RELIGIONS)
 
+            contact = get_value("contact")
+            identity = (
+                normalize_student_name(student_name),
+                birthdate,
+                normalize_guardian_contact(contact),
+            )
+            if identity in seen_identities:
+                raise ValueError(f"Row {row_number}: this student is duplicated in the CSV.")
+            seen_identities.add(identity)
+
+            duplicate = find_duplicate_student(
+                student_name=student_name,
+                birthdate=birthdate,
+                contact=contact,
+            )
+            if duplicate:
+                raise ValueError(
+                    f"Row {row_number}: this student already exists as {duplicate.reg_no}."
+                )
+
             academic_class = AcademicClass.objects.filter(
                 academic_year=academic_year,
                 Class=current_class,
@@ -273,7 +301,7 @@ def bulk_student_registration(csv_obj):
                     "address": get_value("address"),
                     "guardian": get_value("guardian"),
                     "relationship": get_value("relationship"),
-                    "contact": get_value("contact"),
+                    "contact": contact,
                     "academic_year": academic_year,
                     "current_class": current_class,
                     "stream": stream,

@@ -629,12 +629,20 @@ def add_student_view(request):
                     reverse("academic_class_details_page", args=[academic_class.id])
                 )
 
-            student = student_form.save()
-            register_student(student, _class, stream)
+            # Keep the student, class register and initial bill as one operation.
+            # A setup/billing failure must not leave an unregistered student behind.
+            from django.db import transaction
+            with transaction.atomic():
+                student = student_form.save()
+                register_student(student, _class, stream)
             messages.success(request, SUCCESS_ADD_MESSAGE)
 
         else:
-            messages.error(request, FAILURE_MESSAGE)
+            duplicate_errors = student_form.non_field_errors()
+            messages.error(
+                request,
+                duplicate_errors[0] if duplicate_errors else FAILURE_MESSAGE,
+            )
 
     return HttpResponseRedirect(reverse(manage_student_view))
 

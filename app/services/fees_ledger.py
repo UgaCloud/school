@@ -38,8 +38,17 @@ def parse_date_value(raw_value):
 
 
 def get_student_display_id(student):
-    """Return the learner's single unique identifier."""
-    return getattr(student, "reg_no", None) or str(getattr(student, "pk", ""))
+    """Return the accounting-friendly learner ID without changing database primary keys.
+
+    Bayan requires a standardized 6-digit Student ID for finance reports.
+    Existing registration numbers are preserved for history, but the ledger shows
+    student_number first, then reg_no, then pk as a final fallback.
+    """
+    return (
+        getattr(student, "student_number", None)
+        or getattr(student, "reg_no", None)
+        or str(getattr(student, "pk", ""))
+    )
 
 
 def get_student_reg_no(student):
@@ -491,7 +500,7 @@ def _ledger_export_headers():
         "Date",
         "Type",
         "Reference No.",
-        "Reg No",
+        "Student ID",
         "Student Name",
         "Classroom",
         "Term",

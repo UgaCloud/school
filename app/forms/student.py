@@ -2,9 +2,15 @@ from django.forms import ModelForm, DateInput
 from crispy_forms.helper import FormHelper
 
 from django import forms
+from django.core.exceptions import ValidationError
 from app.models import  AcademicClassStream
 
-from app.models.students import Student, ClassRegister, StudentRegistrationCSV
+from app.models.students import (
+    Student,
+    ClassRegister,
+    StudentRegistrationCSV,
+    find_duplicate_student,
+)
 
 class StudentForm(ModelForm):
     
@@ -19,6 +25,21 @@ class StudentForm(ModelForm):
         self.fields["birthdate"].widget = DateInput(attrs={
                     "type": "date",
                 })
+
+    def clean(self):
+        cleaned_data = super().clean()
+        duplicate = find_duplicate_student(
+            student_name=cleaned_data.get("student_name"),
+            birthdate=cleaned_data.get("birthdate"),
+            contact=cleaned_data.get("contact"),
+            exclude_pk=self.instance.pk,
+        )
+        if duplicate:
+            raise ValidationError(
+                f"This student appears to already be registered as {duplicate.reg_no}. "
+                "Open the existing record instead of creating another one."
+            )
+        return cleaned_data
 
 
 class ClassScopedStudentForm(ModelForm):
@@ -54,6 +75,21 @@ class ClassScopedStudentForm(ModelForm):
                 .select_related("stream")
                 .order_by("stream__stream")
             )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        duplicate = find_duplicate_student(
+            student_name=cleaned_data.get("student_name"),
+            birthdate=cleaned_data.get("birthdate"),
+            contact=cleaned_data.get("contact"),
+            exclude_pk=self.instance.pk,
+        )
+        if duplicate:
+            raise ValidationError(
+                f"This student appears to already be registered as {duplicate.reg_no}. "
+                "Open the existing record instead of creating another one."
+            )
+        return cleaned_data
 
 class StudentRegistrationCSVForm(ModelForm):
     class Meta:

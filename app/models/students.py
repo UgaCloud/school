@@ -2,6 +2,34 @@ from django.db import models
 from django.urls import reverse
 from app.constants import GENDERS, NATIONALITIES, RELIGIONS, DOCUMENT_TYPES
 
+
+def normalize_student_name(value):
+    return " ".join(str(value or "").casefold().split())
+
+
+def normalize_guardian_contact(value):
+    return "".join(character for character in str(value or "") if character.isalnum()).casefold()
+
+
+def find_duplicate_student(*, student_name, birthdate, contact, exclude_pk=None):
+    """Return an existing student matching the stable registration identity fields."""
+    normalized_name = normalize_student_name(student_name)
+    normalized_contact = normalize_guardian_contact(contact)
+    if not normalized_name or not birthdate or not normalized_contact:
+        return None
+
+    candidates = Student.objects.filter(birthdate=birthdate)
+    if exclude_pk is not None:
+        candidates = candidates.exclude(pk=exclude_pk)
+
+    for candidate in candidates.only("id", "student_name", "birthdate", "contact", "reg_no"):
+        if (
+            normalize_student_name(candidate.student_name) == normalized_name
+            and normalize_guardian_contact(candidate.contact) == normalized_contact
+        ):
+            return candidate
+    return None
+
 class Student(models.Model):
     reg_no = models.CharField(max_length=30, unique=True)
     student_name = models.CharField(max_length=50)
@@ -38,11 +66,7 @@ class Student(models.Model):
         is_new = self.pk is None
         needs_generation = is_new or not self.reg_no
 
-        if not needs_generation and self.reg_no:
-            if Student.objects.filter(reg_no=self.reg_no).exclude(pk=self.pk).exists():
-                needs_generation = True
-
-        if needs_generation:
+        if needs_generation and not self.reg_no:
             self.reg_no = self._build_unique_reg_no()
 
         super().save(*args, **kwargs)

@@ -38,6 +38,7 @@ from app.models.results import (
 from app.models.school_settings import AcademicYear, SchoolSetting, Section
 from app.models.staffs import Staff
 from app.models.students import ClassRegister, Student
+from app.forms.student import StudentForm
 from app.models.subjects import Subject
 from app.selectors.school_settings import get_school_setting
 from app.services.level_scope import get_level_classes_queryset, get_level_sections_queryset
@@ -1395,3 +1396,85 @@ class SchoolSettingFallbackTests(SimpleTestCase):
             school_setting.education_level,
             SchoolSetting.EducationLevel.PRIMARY,
         )
+
+
+class StudentDuplicatePreventionTests(TestCase):
+    def setUp(self):
+        self.year = AcademicYear.objects.create(academic_year="2031", is_current=True)
+        self.term = Term.objects.create(
+            academic_year=self.year,
+            term="1",
+            start_date=date(2031, 1, 10),
+            end_date=date(2031, 4, 10),
+            is_current=True,
+        )
+        self.section = Section.objects.create(section_name="Duplicate Test Section")
+        self.class_obj = Class.objects.create(
+            name="Duplicate Test Class", code="DTC", section=self.section
+        )
+        self.stream = Stream.objects.create(stream="Duplicate Test Stream")
+        self.student = Student.objects.create(
+            student_name="Jane  Doe",
+            gender="F",
+            birthdate=date(2015, 5, 4),
+            nationality="Ugandan",
+            religion="Catholic",
+            address="Kampala",
+            guardian="Mary Doe",
+            relationship="Mother",
+            contact="+256 700-123456",
+            academic_year=self.year,
+            current_class=self.class_obj,
+            stream=self.stream,
+            term=self.term,
+        )
+
+    def _form_data(self):
+        return {
+            "student_name": " jane doe ",
+            "gender": "F",
+            "birthdate": "2015-05-04",
+            "nationality": "Ugandan",
+            "religion": "Catholic",
+            "address": "Kampala",
+            "guardian": "Mary Doe",
+            "relationship": "Mother",
+            "contact": "+256700123456",
+            "academic_year": self.year.id,
+            "current_class": self.class_obj.id,
+            "stream": self.stream.id,
+            "term": self.term.id,
+            "is_active": True,
+        }
+
+    def test_form_rejects_normalized_duplicate_identity(self):
+        form = StudentForm(data=self._form_data())
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(self.student.reg_no, form.non_field_errors()[0])
+
+    def test_editing_the_same_student_is_allowed(self):
+        form = StudentForm(data=self._form_data(), instance=self.student)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_explicit_duplicate_registration_number_is_not_silently_replaced(self):
+        duplicate = Student(
+            reg_no=self.student.reg_no,
+            student_name="Another Learner",
+            gender="M",
+            birthdate=date(2014, 1, 1),
+            nationality="Ugandan",
+            religion="Catholic",
+            address="Kampala",
+            guardian="Other Guardian",
+            relationship="Father",
+            contact="0700000000",
+            academic_year=self.year,
+            current_class=self.class_obj,
+            stream=self.stream,
+            term=self.term,
+        )
+
+        with self.assertRaises(IntegrityError):
+            duplicate.save()
