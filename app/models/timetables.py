@@ -95,7 +95,22 @@ class Timetable(models.Model):
                 return allocation
         return allocation_qs.first()
 
+    def _same_term_entries(self):
+        if not self.class_stream_id:
+            return Timetable.objects.none()
+        academic_class = self.class_stream.academic_class
+        return Timetable.objects.filter(
+            class_stream__academic_class__academic_year_id=academic_class.academic_year_id,
+            class_stream__academic_class__term_id=academic_class.term_id,
+        )
+
     def clean(self):
+        if self.weekday and self.time_slot_id and BreakPeriod.objects.filter(
+            weekday=self.weekday,
+            time_slot_id=self.time_slot_id,
+        ).exists():
+            raise ValidationError("A lesson cannot be scheduled during a break period.")
+
         allocation = self.allocation
         if allocation:
             if (
@@ -136,7 +151,7 @@ class Timetable(models.Model):
 
         # Conflict: Same teacher at same time (skip when teacher is unset)
         if self.teacher:
-            teacher_conflict = Timetable.objects.filter(
+            teacher_conflict = self._same_term_entries().filter(
                 teacher=self.teacher,
                 weekday=self.weekday,
                 time_slot=self.time_slot
@@ -147,7 +162,7 @@ class Timetable(models.Model):
 
         # Conflict: Same classroom at same time
         if self.classroom:
-            room_conflict = Timetable.objects.filter(
+            room_conflict = self._same_term_entries().filter(
                 classroom=self.classroom,
                 weekday=self.weekday,
                 time_slot=self.time_slot

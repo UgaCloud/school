@@ -31,8 +31,8 @@ def timetable_center(request):
     effective_role = active_role or role_name
     editable_roles = {"admin", "director of studies", "dos"}
     lock_roles = {"admin", "head master", "head teacher", "headteacher"}
-    can_edit_timetable = effective_role in editable_roles
-    can_lock_timetable = effective_role in lock_roles
+    can_edit_timetable = request.user.is_superuser or effective_role in editable_roles
+    can_lock_timetable = request.user.is_superuser or effective_role in lock_roles
     hide_time_slots = not can_edit_timetable
 
     all_class_streams = (
@@ -163,7 +163,9 @@ def timetable_center(request):
         teacher_ids = [entry.teacher_id for entry in timetable_entries if entry.teacher_id]
         if teacher_ids:
             overlap_rows = Timetable.objects.filter(
-                teacher_id__in=teacher_ids
+                teacher_id__in=teacher_ids,
+                class_stream__academic_class__academic_year=selected_class.academic_class.academic_year,
+                class_stream__academic_class__term=selected_class.academic_class.term,
             ).exclude(
                 class_stream=selected_class
             ).select_related(
@@ -411,7 +413,13 @@ def timetable_center(request):
                 if assigned_teacher:
                     teacher_in_use = (
                         Timetable.objects
-                        .filter(teacher=assigned_teacher, weekday=e.weekday, time_slot=e.time_slot)
+                        .filter(
+                            teacher=assigned_teacher,
+                            weekday=e.weekday,
+                            time_slot=e.time_slot,
+                            class_stream__academic_class__academic_year=curr_ac.academic_year,
+                            class_stream__academic_class__term=curr_ac.term,
+                        )
                         .exclude(class_stream=selected_class)
                         .exists()
                     )
@@ -430,7 +438,13 @@ def timetable_center(request):
                 if e.classroom_id:
                     room_in_use = (
                         Timetable.objects
-                        .filter(classroom=e.classroom, weekday=e.weekday, time_slot=e.time_slot)
+                        .filter(
+                            classroom=e.classroom,
+                            weekday=e.weekday,
+                            time_slot=e.time_slot,
+                            class_stream__academic_class__academic_year=curr_ac.academic_year,
+                            class_stream__academic_class__term=curr_ac.term,
+                        )
                         .exclude(class_stream=selected_class)
                         .exists()
                     )
@@ -479,6 +493,9 @@ def timetable_center(request):
 
             time_slots = list(TimeSlot.objects.all())
             weekdays = [code for code, _ in WeekDay.choices]
+            break_cells = set(
+                BreakPeriod.objects.values_list("weekday", "time_slot_id")
+            )
 
             allocations = list(
                 get_allocation_queryset(
@@ -513,14 +530,23 @@ def timetable_center(request):
                 # Skip conflicts for teacher/classroom by finding next free slot
                 attempts = 0
                 while attempts < total_slots:
-                    conflict_filter = Q(class_stream=selected_class, weekday=weekday_code, time_slot=time_slot)
-                    if assigned_teacher:
-                        conflict_filter |= Q(
-                            teacher=assigned_teacher,
+                    if (weekday_code, time_slot.id) in break_cells:
+                        conflict = True
+                    else:
+                        conflict_filter = Q(
+                            class_stream=selected_class,
                             weekday=weekday_code,
                             time_slot=time_slot,
                         )
-                    conflict = Timetable.objects.filter(conflict_filter).exists()
+                        if assigned_teacher:
+                            conflict_filter |= Q(
+                                teacher=assigned_teacher,
+                                weekday=weekday_code,
+                                time_slot=time_slot,
+                                class_stream__academic_class__academic_year=selected_class.academic_class.academic_year,
+                                class_stream__academic_class__term=selected_class.academic_class.term,
+                            )
+                        conflict = Timetable.objects.filter(conflict_filter).exists()
                     if not conflict:
                         break
                     slot_index = (slot_index + 1) % total_slots
@@ -638,6 +664,8 @@ def timetable_center(request):
                             teacher_id=allocation.subject_teacher_id,
                             weekday=weekday_code,
                             time_slot=time_slot,
+                            class_stream__academic_class__academic_year=selected_class.academic_class.academic_year,
+                            class_stream__academic_class__term=selected_class.academic_class.term,
                         ).exclude(class_stream=selected_class).exists():
                             skipped_teacher_conflicts += 1
                             continue
@@ -654,6 +682,8 @@ def timetable_center(request):
                         classroom_id=classroom_id,
                         weekday=weekday_code,
                         time_slot=time_slot,
+                        class_stream__academic_class__academic_year=selected_class.academic_class.academic_year,
+                        class_stream__academic_class__term=selected_class.academic_class.term,
                     ).exclude(class_stream=selected_class).exists():
                         skipped_room_conflicts += 1
                         continue
