@@ -16,7 +16,7 @@
         <!-- Breadcrumbs -->
         <nav aria-label="breadcrumb" class="mb-5">
           <ol class="breadcrumb" style="margin-bottom:6px;">
-            <li class="breadcrumb-item"><a href="#">Results</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'school_results_dashboard' %}">Results</a></li>
             <li class="breadcrumb-item active" aria-current="page">Class Assessments</li>
           </ol>
         </nav>
@@ -29,7 +29,7 @@
               Use filters to narrow down classes by Academic Year and Term. Click a row to view assessments.
             </div>
             <div>
-              {% if user.is_superuser and not is_teacher_role %}
+              {% if can_manage_assessments %}
                 <a href="{% url 'assessment_create' %}" class="btn btn-success btn-sm">
                   <i class="fa fa-plus"></i> New Assessment
                 </a>

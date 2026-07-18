@@ -633,7 +633,10 @@ def add_student_view(request):
             # A setup/billing failure must not leave an unregistered student behind.
             from django.db import transaction
             with transaction.atomic():
-                student = student_form.save()
+                student = student_form.save(commit=False)
+                student.academic_year = current_academic_year
+                student.term = term
+                student.save()
                 register_student(student, _class, stream)
             messages.success(request, SUCCESS_ADD_MESSAGE)
 

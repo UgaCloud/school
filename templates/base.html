@@ -66,6 +66,21 @@
 
     {% include 'includes/messages.html' %}
 
+    {% if request.user.is_authenticated and global_current_academic_year %}
+    <div class="academic-context-bar" role="status" aria-label="Current academic period">
+      <span class="academic-context-label"><i class="fa fa-calendar-check me-1"></i> Current period</span>
+      <strong>{{ global_current_academic_year.academic_year }}</strong>
+      {% if global_current_academic_term %}
+      <span class="academic-context-separator">•</span>
+      <strong>Term {{ global_current_academic_term.term }}</strong>
+      {% else %}
+      <span class="academic-context-warning">No current term configured</span>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% include 'includes/workflow_guidance.html' %}
+
     {% block content %}{% endblock %}
 
   </main>

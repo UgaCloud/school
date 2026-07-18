@@ -12,6 +12,13 @@
 
 {% block content %}
 <div class="finance-shell">
+{% if viewing_historical_period %}
+<div class="historical-context-alert">
+    <i class="fa fa-history"></i>
+    You are viewing historical billing data for <strong>{{ selected_period_label }}</strong>.
+    New operational work normally belongs to the current period shown above.
+</div>
+{% endif %}
 <div class="finance-topbar">
     <div>
         <div class="finance-eyebrow">Finance Workspace</div>
@@ -19,8 +26,10 @@
         <div class="finance-subtitle">Generate, review, filter, and collect student charges.</div>
     </div>
     <div class="finance-actions">
+        {% if can_manage_student_bill %}
         <a href="{% url 'bulk_create_class_bills' %}" class="finance-btn primary"><i class="fa fa-layer-group"></i> Generate Fees</a>
         <a href="{% url 'carry_forward_balances' %}" class="finance-btn warning"><i class="fa fa-arrow-circle-right"></i> Carry Forward</a>
+        {% endif %}
         <a href="{% url 'payment_ledger' %}" class="finance-btn"><i class="fa fa-book"></i> Ledger</a>
     </div>
 </div>
@@ -273,22 +282,18 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if bill.status == 'Paid' %}
-                                        <span class="label label-success">Paid</span>
-                                    {% elif bill.status == 'Overdue' %}
-                                        <span class="label label-danger">Overdue</span>
-                                    {% else %}
-                                        <span class="label label-warning">Unpaid</span>
-                                    {% endif %}
+                                    <span class="label label-{{ bill.display_status.css_class }}">{{ bill.display_status.label }}</span>
                                 </td>
                                 <td>
                                     <div class="btn-group">
                                         <a href="{% url 'student_bill_details_page' bill.id %}" class="btn btn-primary btn-xs" title="View Details">
                                             <i class="fa fa-eye"></i>
                                         </a>
-                                        <a href="#" class="btn btn-success btn-xs" title="Add Payment">
+                                        {% if can_manage_student_bill %}
+                                        <a href="{% url 'student_bill_details_page' bill.id %}" class="btn btn-success btn-xs" title="Add Payment">
                                             <i class="fa fa-plus"></i>
                                         </a>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -339,11 +344,13 @@
                 {% endif %}
 
                 {% else %}
-                 <div class="text-center py-5">
+                 <div class="empty-state">
                     <i class="fa fa-inbox fa-3x text-muted mb-3"></i>
                     <h4 class="text-muted">No Student Bills Found</h4>
-                    <p class="text-muted">Try adjusting your filters or create new bills.</p>
-                    <a href="#" class="btn btn-primary">Create New Bill</a>
+                    <p class="text-muted">There are no bills for {{ selected_period_label }} with the selected filters.</p>
+                    {% if can_manage_student_bill %}
+                    <a href="{% url 'bulk_create_class_bills' %}" class="btn btn-primary">Generate Fees</a>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>

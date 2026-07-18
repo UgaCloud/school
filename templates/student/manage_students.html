@@ -299,23 +299,23 @@
                             {{ student_form.contact|as_crispy_field }}
                         </div>
                     </div>
+                    <div class="alert alert-info py-2">
+                        <i class="fa fa-calendar-check me-1"></i>
+                        Admission period is assigned automatically from the current context:
+                        <strong>{{ current_academic_year|default:"Academic year not set" }}</strong>
+                        {% if current_term %} / <strong>{{ current_term }}</strong>{% endif %}.
+                    </div>
                     <div class="row">
-                        <div class="col-md-4">
-                            {{ student_form.academic_year|as_crispy_field }}
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             {{ student_form.current_class|as_crispy_field }}
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             {{ student_form.stream|as_crispy_field }}
                         </div>
                     </div>
 
                     <div class="row">
-                        <div class="col-md-6">
-                            {{ student_form.term|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             {{ student_form.is_active|as_crispy_field }}
                         </div>
                     </div>

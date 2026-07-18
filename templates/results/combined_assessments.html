@@ -17,6 +17,12 @@
       <a href="{% url 'class_assessment_combined' %}" class="btn btn-default">Reset</a>
       {% if ready and class_obj and not report_state_message and students_data %}
       <a
+        class="btn btn-info"
+        href="{% url 'report_remarks_prepare' %}?academic_class_id={{ class_obj.id }}{% for id in selected_assessment_type_ids %}&assessment_type_ids={{ id }}{% endfor %}"
+      >
+        <i class="fa fa-commenting-o"></i> Prepare Remarks
+      </a>
+      <a
         class="btn btn-success"
         href="{% url 'class_assessment_combined_print' %}?academic_year_id={{ selected_year_id }}&term_id={{ selected_term_id }}&class_id={{ selected_class_id }}&report_format={{ selected_report_format }}{% for id in selected_assessment_type_ids %}&assessment_type_ids={{ id }}{% endfor %}"
         target="_blank"

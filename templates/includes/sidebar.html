@@ -158,7 +158,7 @@
             <li class="pc-item"><a class="pc-link" href="{% url 'school_results_dashboard' %}">Results Overview</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'verification_overview' %}">Verification Monitor</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
-            <li class="pc-item"><a class="pc-link" href="{% url 'assessment_create' %}">Assessment Structure</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'assessment_create' %}">Assessment Control</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'add_grading_system_page' %}">Grading System</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'add_results_page' %}">Enter Results</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'bulk_result_entry' %}">Bulk Result Import</a></li>
@@ -301,6 +301,40 @@
 
         <li class="pc-item pc-caption"><label>Academics</label></li>
 
+        <li class="pc-item">
+          <a href="{% url 'index_page' %}" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-house-line"></i></span>
+            <span class="pc-mtext">Dashboard</span>
+          </a>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-books"></i></span>
+            <span class="pc-mtext">Academic Setup</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'academic_class_page' %}">Academic Classes</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'subject_allocation_page' %}">Subject Allocation</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'subjects_page' %}">Subjects</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-calendar-blank"></i></span>
+            <span class="pc-mtext">Timetable</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'timetable_center' %}">Timetable Builder</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'school_timetable' %}">School Timetable</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'classrooms' %}">Room Setup</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'exam_timetable' %}">Exam Timetable</a></li>
+          </ul>
+        </li>
+
         <li class="pc-item pc-hasmenu">
           <a href="#!" class="pc-link">
             <span class="pc-micon"><i class="ph ph-graduation-cap"></i></span>
@@ -310,6 +344,8 @@
           <ul class="pc-submenu">
             <li class="pc-item"><a class="pc-link" href="{% url 'school_results_dashboard' %}">Results Overview</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'verification_overview' %}">Verification Monitor</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'assessment_create' %}">Assessment Control</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'add_results_page' %}">Enter Results</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'class_performance_summary' %}">Performance Analytics</a></li>

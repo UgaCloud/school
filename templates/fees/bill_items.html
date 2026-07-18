@@ -24,9 +24,11 @@
                         <div class="text-muted">Keep pricing and durations consistent across classes.</div>
                     </div>
                     <div class="comm-actions">
+                        {% if can_manage_student_bill %}
                         <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addBillItemModal">
                             <i class="fa fa-plus-circle"></i> Add New Item
                         </button>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -166,6 +168,7 @@
                 <p class="text-muted small mb-3">No description available</p>
                 {% endif %}
 
+                {% if can_manage_student_bill %}
                 <div class="d-flex justify-content-end">
                     <div class="btn-group btn-group-sm">
                         <a href="{% url 'edit_bill_item_page' item.id %}" class="btn btn-primary btn-sm" title="Edit Item">
@@ -176,6 +179,7 @@
                         </button>
                     </div>
                 </div>
+                {% endif %}
             </div>
 
             <div class="card-footer bg-light">
@@ -295,9 +299,12 @@
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">
                     <i class="fa fa-times me-1"></i>Cancel
                 </button>
-                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">
-                    <i class="fa fa-trash me-1"></i>Delete Item
-                </a>
+                <form method="POST" id="deleteBillItemForm" action="#" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa fa-trash me-1"></i>Delete Item
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -501,7 +508,7 @@ function clearSearch() {
 // Delete confirmation function
 function confirmDelete(itemId, itemName) {
     document.getElementById('deleteItemName').textContent = itemName;
-    document.getElementById('confirmDeleteBtn').href = "{% url 'delete_bill_item_page' 0 %}".replace('0', itemId);
+    document.getElementById('deleteBillItemForm').action = "{% url 'delete_bill_item_page' 0 %}".replace('0', itemId);
 
     // Show modal
     $('#deleteConfirmModal').modal('show');

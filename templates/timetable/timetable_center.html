@@ -5,6 +5,13 @@
 {% block content %}
 <div class="clearfix"></div>
 
+{% if viewing_historical_period %}
+<div class="historical-context-alert">
+  <i class="fa fa-history"></i> You are viewing a historical timetable for
+  <strong>{{ selected_class.academic_class.academic_year.academic_year }} • Term {{ selected_class.academic_class.term.term }}</strong>.
+</div>
+{% endif %}
+
 <div class="row">
   <div class="col-md-12 col-sm-12 col-xs-12">
     <div class="x_panel">
@@ -45,9 +52,10 @@
           </div>
           <div class="col-md-4 col-sm-6 col-xs-12" style="margin-top:24px;">
             {% if can_edit_timetable %}
-            <button type="button" class="btn btn-success" data-toggle="modal" data-target="#addPeriodModal">
-              <i class="fa fa-plus"></i> Add Period
+            <button type="button" class="btn btn-default" data-toggle="modal" data-target="#addPeriodModal">
+              <i class="fa fa-clock"></i> Period Setup
             </button>
+            <a class="btn btn-default" href="{% url 'classrooms' %}"><i class="fa fa-building"></i> Room Setup</a>
             {% endif %}
 
             {% if selected_class %}
@@ -104,6 +112,25 @@
         {% endif %}
       </div>
     </div>
+  </div>
+</div>
+
+<div class="workflow-guide" aria-label="Timetable setup steps">
+  <div class="workflow-step {% if time_slots %}is-ready{% else %}is-pending{% endif %}">
+    <span class="workflow-step-number">1</span><strong>Periods</strong>
+    <div class="text-muted">{% if time_slots %}{{ time_slots|length }} configured{% else %}Configure teaching periods first{% endif %}</div>
+  </div>
+  <div class="workflow-step {% if selected_class %}is-ready{% else %}is-pending{% endif %}">
+    <span class="workflow-step-number">2</span><strong>Class stream</strong>
+    <div class="text-muted">{% if selected_class %}{{ selected_class }} selected{% else %}Select a class stream{% endif %}</div>
+  </div>
+  <div class="workflow-step {% if subjects_allocated_count %}is-ready{% else %}is-pending{% endif %}">
+    <span class="workflow-step-number">3</span><strong>Allocations</strong>
+    <div class="text-muted">{% if subjects_allocated_count %}{{ subjects_allocated_count }} subject(s) ready{% else %}Assign subjects and teachers{% endif %}</div>
+  </div>
+  <div class="workflow-step {% if is_timetable_locked %}is-ready{% else %}is-pending{% endif %}">
+    <span class="workflow-step-number">4</span><strong>Review & lock</strong>
+    <div class="text-muted">{% if is_timetable_locked %}Published as read-only{% else %}Resolve conflicts, then lock{% endif %}</div>
   </div>
 </div>
 

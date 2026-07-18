@@ -4,6 +4,15 @@
 {% block page_title %}Assessments{% endblock page_title %}
 
 {% block content %}
+{% if viewing_historical_period %}
+<div class="historical-context-alert"><i class="fa fa-history"></i> You are viewing historical assessment structure. Confirm the selected year and term before creating anything.</div>
+{% endif %}
+<div class="workflow-guide" aria-label="Assessment workflow">
+  <div class="workflow-step is-ready"><span class="workflow-step-number">1</span><strong>Configure types</strong><div class="text-muted"><a href="{% url 'assesment_type_page' %}">Assessment types and weights</a></div></div>
+  <div class="workflow-step is-ready"><span class="workflow-step-number">2</span><strong>Create structure</strong><div class="text-muted">Class, allocated subject, date and maximum mark</div></div>
+  <div class="workflow-step"><span class="workflow-step-number">3</span><strong>Teachers enter marks</strong><div class="text-muted"><a href="{% url 'add_results_page' %}">Open Marks Hub</a></div></div>
+  <div class="workflow-step"><span class="workflow-step-number">4</span><strong>DOS verifies</strong><div class="text-muted"><a href="{% url 'verification_overview' %}">Verification overview</a></div></div>
+</div>
 <div class="row">
   <div class="col-md-12 col-sm-12 col-xs-12">
     <div class="x_panel">
@@ -17,7 +26,7 @@
         <!-- Breadcrumbs -->
         <nav aria-label="breadcrumb" class="mb-4">
           <ol class="breadcrumb" style="margin-bottom:6px;">
-            <li class="breadcrumb-item"><a href="#">Results</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'school_results_dashboard' %}">Results</a></li>
             <li class="breadcrumb-item active" aria-current="page">Assessments</li>
           </ol>
         </nav>
@@ -25,7 +34,7 @@
         <!-- Top actions -->
         <div class="d-flex justify-content-between align-items-center">
           <small class="text-muted">Use filters to narrow assessments. Create directly via the button.</small>
-          {% if not is_teacher_role %}
+          {% if can_manage_assessments %}
           <button type="button" class="btn btn-success btn-sm" data-toggle="modal" data-target="#createAssessmentModal">
             <i class="fa fa-plus"></i> Create Assessment
           </button>
@@ -172,7 +181,7 @@
               <th>Date</th>
               <th>Out Of</th>
               <th>Done</th>
-              {% if not is_teacher_role %}
+              {% if can_manage_assessments %}
               <th style="width:160px;">Actions</th>
               {% endif %}
             </tr>
@@ -192,15 +201,16 @@
                     <span class="badge badge-secondary">No</span>
                   {% endif %}
                 </td>
-                {% if not is_teacher_role %}
+                {% if can_manage_assessments %}
                 <td class="text-center">
                   <div class="btn-group btn-group-sm" role="group" aria-label="Actions">
+                    <a href="{% url 'add_results' assessment.id %}" class="btn btn-primary" title="Open mark entry"><i class="fa fa-list-ol"></i></a>
                     <a href="{% url 'edit_assessment_page' assessment.id %}" class="btn btn-warning" title="Edit Assessment">
                       <i class="fa fa-edit"></i>
                     </a>
-                    <a href="{% url 'delete_assessment' assessment.id %}" class="btn btn-danger" onclick="return confirm('Delete this assessment?');" title="Delete Assessment">
-                      <i class="fa fa-trash"></i>
-                    </a>
+                    <form method="post" action="{% url 'delete_assessment' assessment.id %}" style="display:inline;" onsubmit="return confirm('Delete this unused assessment?');">
+                      {% csrf_token %}<button type="submit" class="btn btn-danger" title="Delete unused assessment"><i class="fa fa-trash"></i></button>
+                    </form>
                   </div>
                 </td>
                 {% endif %}

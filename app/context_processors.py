@@ -10,6 +10,7 @@ from app.services.teacher_assignments import (
     get_teacher_assignments,
     get_teacher_ids_for_class_streams,
 )
+from app.services.workflow_readiness import readiness_for_request
 from django.db.models import Count, F, Q, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -279,7 +280,17 @@ def school_settings(request):
             "messages": message_unread,
         }
 
-    return {
+    current_academic_year = get_current_academic_year()
+    current_academic_term = (
+        Term.objects.filter(
+            is_current=True,
+            academic_year=current_academic_year,
+        ).order_by("id").first()
+        if current_academic_year
+        else None
+    )
+
+    context = {
         'school_settings': school_settings,
         'active_role': active_role,
         'active_school_level': active_school_level,
@@ -299,4 +310,8 @@ def school_settings(request):
         'comm_notifications': comm_notifications,
         'comm_unread_count': comm_unread_count,
         'comm_unread_breakdown': comm_unread_breakdown,
+        'global_current_academic_year': current_academic_year,
+        'global_current_academic_term': current_academic_term,
     }
+    context.update(readiness_for_request(request))
+    return context

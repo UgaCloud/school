@@ -16,7 +16,10 @@ class StudentForm(ModelForm):
     
     class Meta:
         model = Student
-        exclude = ("reg_no",)
+        # A student's admission period is assigned from the configured current
+        # academic year/term by the registration workflow.  Asking users to
+        # select it again allowed contradictory records to be submitted.
+        exclude = ("reg_no", "academic_year", "term")
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

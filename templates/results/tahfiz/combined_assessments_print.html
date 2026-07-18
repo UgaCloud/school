@@ -476,6 +476,9 @@
     {% for rep in reports %}
     <div class="page">
         <div class="report-sheet">
+            {% if not rep.report_approved %}
+            <div style="position:absolute;right:24px;top:20px;color:#9f1239;border:2px solid #9f1239;padding:4px 10px;font-weight:700;transform:rotate(-8deg);z-index:10;">DRAFT — NOT APPROVED</div>
+            {% endif %}
             <div class="watermark">
                 {% if school.school_logo %}
                 <img src="{{ school.school_logo.url }}" alt="">
@@ -588,14 +591,11 @@
                 </tbody>
             </table>
 
-            <form method="POST" class="remarks">
-                {% csrf_token %}
-                <input type="hidden" name="student_id" value="{{ rep.student.id }}">
-                <input type="hidden" name="term_id" value="{{ rep.term_id }}">
+            <div class="remarks">
 
                 <div class="comment-line">
                     <div class="editor-wrap">
-                        <textarea name="class_teacher_remark" class="line-editor" rows="2">{{ rep.class_teacher_remark }}</textarea>
+                        <div class="line-editor report-remark-text" style="height:32px;max-height:32px;overflow:hidden;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.class_teacher_remark|default:"" }}</div>
                     </div>
                     <span class="label">ملاحظات مشرف الفصل <span class="en">(Class teacher&rsquo;s comment)</span></span>
                 </div>
@@ -607,7 +607,7 @@
 
                 <div class="comment-line">
                     <div class="editor-wrap">
-                        <textarea name="head_teacher_remark" class="line-editor" rows="2">{{ rep.head_teacher_remark }}</textarea>
+                        <div class="line-editor report-remark-text" style="height:32px;max-height:32px;overflow:hidden;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.head_teacher_remark|default:"" }}</div>
                     </div>
                     <span class="label">ملاحظات مدير/ة المدرسة <span class="en">(Director&rsquo;s comment)</span></span>
                 </div>
@@ -622,10 +622,7 @@
                     <span class="label"><span class="en">Discipline.</span></span>
                 </div>
 
-                <div class="save-row no-print">
-                    <button type="submit" class="save-btn">حفظ الملاحظات</button>
-                </div>
-            </form>
+            </div>
 
             <div class="stamp">ختم المدرسة</div>
             <div class="footer-mini">{{ school.school_name|default:"School" }} | {{ rep.term|default:"-" }} | {{ rep.academic_year|default:"-" }}</div>

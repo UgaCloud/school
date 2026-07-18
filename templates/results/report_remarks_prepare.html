@@ -1,0 +1,141 @@
+{% extends "../base.html" %}
+
+{% block page_title %}Report Remarks{% endblock page_title %}
+
+{% block content %}
+<div class="remarks-page">
+  <div class="x_panel">
+    <div class="x_title">
+      <h2><i class="fa fa-commenting-o"></i> Report Remarks Preparation</h2>
+      <ul class="nav navbar-right panel_toolbox">
+        <li><a href="{% url 'class_assessment_combined' %}" class="btn-link">Back to reports</a></li>
+      </ul>
+      <div class="clearfix"></div>
+    </div>
+    <div class="x_content">
+      <div class="scope-strip">
+        <strong>{{ academic_class }}</strong>
+        <span>{{ academic_class.academic_year }}</span>
+        <span>Term {{ academic_class.term.term }}</span>
+        <span>{{ scope_label }}</span>
+      </div>
+      <div class="alert alert-info">
+        Enter remarks here before printing. Each selection of assessment types has its own remarks.
+        Remarks are limited to {{ remark_max_length }} characters so the official report layout remains stable.
+      </div>
+
+      {% if rows %}
+      <form method="post" id="remarksForm">
+        {% csrf_token %}
+        <input type="hidden" name="academic_class_id" value="{{ academic_class.id }}">
+        {% for assessment_type in assessment_types %}
+        <input type="hidden" name="assessment_type_ids" value="{{ assessment_type.id }}">
+        {% endfor %}
+
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped remarks-table">
+            <thead>
+              <tr>
+                <th>Learner</th>
+                <th>Class Teacher Remark</th>
+                <th>Head Teacher Remark</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>
+                <td class="learner-cell">
+                  <strong>{{ row.student.student_name }}</strong><br>
+                  <small>{{ row.student.reg_no }}</small>
+                </td>
+                <td>
+                  <textarea name="class_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
+                    class="form-control remark-editor" data-counter="class-count-{{ row.student.id }}"
+                    {% if not can_edit_class_remark %}readonly{% endif %}>{{ row.remark.class_teacher_remark|default:"" }}</textarea>
+                  <small class="counter" id="class-count-{{ row.student.id }}">{{ row.class_length }}/{{ remark_max_length }}</small>
+                </td>
+                <td>
+                  <textarea name="head_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
+                    class="form-control remark-editor" data-counter="head-count-{{ row.student.id }}"
+                    {% if not can_edit_head_remark %}readonly{% endif %}>{{ row.remark.head_teacher_remark|default:"" }}</textarea>
+                  <small class="counter" id="head-count-{{ row.student.id }}">{{ row.head_length }}/{{ remark_max_length }}</small>
+                </td>
+                <td class="status-cell">
+                  {% if row.remark.head_teacher_approved_at %}
+                    <span class="label label-success">Approved</span><br>
+                    <small>{{ row.remark.head_teacher_approved_at|date:"d M Y H:i" }}</small>
+                  {% elif row.remark.class_teacher_submitted_at %}
+                    <span class="label label-info">Submitted</span><br>
+                    <small>{{ row.remark.class_teacher_submitted_at|date:"d M Y H:i" }}</small>
+                  {% else %}
+                    <span class="label label-default">Draft</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="action-bar">
+          {% if can_edit_class_remark %}
+          <button type="submit" name="action" value="save_class" class="btn btn-default">
+            <i class="fa fa-save"></i> Save Class Drafts
+          </button>
+          <button type="submit" name="action" value="submit_class" class="btn btn-primary"
+            onclick="return confirm('Submit all completed class-teacher remarks for approval?');">
+            <i class="fa fa-send"></i> Submit Class Remarks
+          </button>
+          {% endif %}
+          {% if can_edit_head_remark %}
+          <button type="submit" name="action" value="save_head" class="btn btn-default">
+            <i class="fa fa-save"></i> Save Head Teacher Drafts
+          </button>
+          {% endif %}
+          {% if can_approve_report %}
+          <button type="submit" name="action" value="approve" class="btn btn-success"
+            onclick="return confirm('Approve these reports and allow official signatures to appear?');">
+            <i class="fa fa-check"></i> Approve Reports
+          </button>
+          {% endif %}
+        </div>
+      </form>
+      {% else %}
+      <div class="well text-center">
+        <h4>No learners found</h4>
+        <p>No active learners are registered in your class/stream for this term.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+  .scope-strip { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
+  .scope-strip span, .scope-strip strong { padding:6px 10px; border:1px solid #dce5ee; border-radius:16px; background:#f8fbfd; }
+  .remarks-table th { white-space:nowrap; }
+  .remarks-table .learner-cell { min-width:170px; }
+  .remark-editor { min-width:270px; height:78px; resize:vertical; }
+  .counter { float:right; color:#73879c; }
+  .counter.near-limit { color:#d58512; font-weight:600; }
+  .status-cell { min-width:110px; }
+  .action-bar { position:sticky; bottom:0; padding:12px; background:rgba(255,255,255,.96); border-top:1px solid #dce5ee; z-index:3; }
+  @media (max-width:767px) { .remark-editor { min-width:230px; } .action-bar .btn { width:100%; margin:4px 0; } }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.remark-editor').forEach(function (editor) {
+    var counter = document.getElementById(editor.dataset.counter);
+    function updateCounter() {
+      var length = editor.value.length;
+      counter.textContent = length + '/{{ remark_max_length }}';
+      counter.classList.toggle('near-limit', length >= 200);
+    }
+    editor.addEventListener('input', updateCounter);
+    updateCounter();
+  });
+});
+</script>
+{% endblock content %}

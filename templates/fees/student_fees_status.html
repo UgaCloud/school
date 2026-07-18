@@ -6,6 +6,13 @@
 {% block content %}
 <div class="clearfix"></div>
 
+{% if viewing_historical_period %}
+<div class="historical-context-alert">
+    <i class="fa fa-history"></i> You are viewing historical fee records for
+    <strong>{{ selected_period_label }}</strong>. The system will not silently substitute another term.
+</div>
+{% endif %}
+
 <div class="row">
     <div class="col-md-12 col-sm-12 col-xs-12">
         <div class="x_panel">
@@ -24,9 +31,11 @@
                         <div class="text-muted">Track collection performance by class and student.</div>
                     </div>
                     <div class="comm-actions">
+                        {% if can_manage_student_bill %}
                         <a href="{% url 'student_bill_page' %}" class="btn btn-primary">
                             <i class="fa fa-money"></i> Record Payment
                         </a>
+                        {% endif %}
                         <a href="{% url 'payment_ledger' %}" class="btn btn-success">
                             <i class="fa fa-book"></i> Open Ledger
                         </a>
@@ -279,31 +288,9 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if student_fee.payment_status == "Paid" %}
-                                    <span class="badge bg-success">
-                                        <i class="fa fa-check-circle"></i> Paid
+                                    <span class="badge bg-{{ student_fee.status_css_class|default:'secondary' }}">
+                                        {{ student_fee.payment_status }}
                                     </span>
-                                    {% elif student_fee.payment_status == "Overpaid" %}
-                                    <span class="badge bg-info">
-                                        <i class="fa fa-plus-circle"></i> Overpaid
-                                    </span>
-                                    {% elif student_fee.payment_status == "Unpaid" %}
-                                    <span class="badge bg-secondary">
-                                        <i class="fa fa-clock"></i> Unpaid
-                                    </span>
-                                    {% elif student_fee.payment_status == "Overdue" %}
-                                    <span class="badge bg-danger">
-                                        <i class="fa fa-exclamation-triangle"></i> Overdue
-                                    </span>
-                                    {% elif student_fee.payment_status == "Partial" %}
-                                    <span class="badge bg-warning text-dark">
-                                        <i class="fa fa-adjust"></i> Partial
-                                    </span>
-                                    {% else %}
-                                    <span class="badge bg-light text-dark">
-                                        <i class="fa fa-ban"></i> No Bill
-                                    </span>
-                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if student_fee.total_amount > 0 %}
@@ -372,13 +359,11 @@
                 </nav>
                 {% endif %}
                 {% else %}
-                <div class="text-center">
-                    <div class="alert alert-info" role="alert">
+                <div class="empty-state">
                         <i class="fa fa-info-circle fa-3x"></i>
                         <h4>No Fee Records Found</h4>
-                        <p>No student fee records match your current filters. Try adjusting the filters or check if
-                            bills have been created for the selected period.</p>
-                    </div>
+                        <p>No student fee records exist for {{ selected_period_label }} with the selected filters.</p>
+                        {% if can_manage_student_bill %}<a href="{% url 'bulk_create_class_bills' %}" class="btn btn-primary">Generate Fees</a>{% endif %}
                 </div>
                 {% endif %}
             </div>

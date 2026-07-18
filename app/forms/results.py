@@ -4,7 +4,7 @@ from app.models.results import *
 from app.models.results import Result,Assessment,AssessmentType,GradingSystem
 from django import forms
 from app.models.subjects import *
-from app.models.classes import AcademicClass
+from app.models.classes import AcademicClass, ClassSubjectAllocation
 
 class ResultForm(forms.ModelForm):
     class Meta:
@@ -22,10 +22,29 @@ class AssesmentTypeForm(ModelForm):
 class AssessmentForm(forms.ModelForm):
     class Meta:
         model = Assessment
-        fields = '__all__'
+        # Completion is derived from mark-entry/submission workflow, not chosen
+        # while the assessment structure is created.
+        fields = ('academic_class', 'assessment_type', 'subject', 'date', 'out_of')
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        academic_class = cleaned_data.get("academic_class")
+        subject = cleaned_data.get("subject")
+        if academic_class and subject:
+            allocated = ClassSubjectAllocation.objects.filter(
+                academic_class_stream__academic_class=academic_class,
+                subject=subject,
+                is_active=True,
+            ).exists()
+            if not allocated:
+                raise forms.ValidationError(
+                    "This subject is not actively allocated to the selected class. "
+                    "Complete Subject Allocation first."
+                )
+        return cleaned_data
 
 
 class BulkAssessmentForm(forms.Form):
@@ -58,7 +77,6 @@ class BulkAssessmentForm(forms.Form):
         required=True,
         label="Out of",
     )
-    is_done = forms.BooleanField(required=False, label="Is done")
         
 class GradingSystemForm(ModelForm):
     

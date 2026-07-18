@@ -268,6 +268,72 @@ class ReportRemark(models.Model):
     def __str__(self):
         return f"Remarks for {self.student.student_name} - {self.term.term}"
 
+
+class ReportCycleRemark(models.Model):
+    """Remarks and approvals for one exact report/assessment selection.
+
+    This is intentionally additive. ``ReportRemark`` remains available for old
+    reports, while new report preparation uses this auditable, scoped record.
+    """
+
+    MAX_REMARK_LENGTH = 240
+
+    student = models.ForeignKey(
+        "app.Student", on_delete=models.CASCADE, related_name="report_cycle_remarks"
+    )
+    academic_class = models.ForeignKey(
+        "app.AcademicClass", on_delete=models.CASCADE, related_name="report_cycle_remarks"
+    )
+    scope_key = models.CharField(max_length=255)
+    scope_label = models.CharField(max_length=255)
+    class_teacher_remark = models.CharField(max_length=MAX_REMARK_LENGTH, blank=True)
+    head_teacher_remark = models.CharField(max_length=MAX_REMARK_LENGTH, blank=True)
+    class_teacher_submitted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submitted_report_cycle_remarks",
+    )
+    class_teacher_submitted_at = models.DateTimeField(null=True, blank=True)
+    head_teacher_approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_report_cycle_remarks",
+    )
+    head_teacher_approved_at = models.DateTimeField(null=True, blank=True)
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_report_cycle_remarks",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "academic_class", "scope_key"],
+                name="uniq_report_cycle_remark_scope",
+            )
+        ]
+        ordering = ["student__student_name", "student__reg_no"]
+
+    @property
+    def is_submitted(self):
+        return bool(self.class_teacher_submitted_at)
+
+    @property
+    def is_approved(self):
+        return bool(self.head_teacher_approved_at)
+
+    def __str__(self):
+        return f"{self.student} - {self.scope_label}"
+
 class TermResult(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='term_results')
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name='term_results')

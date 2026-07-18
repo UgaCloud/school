@@ -16,6 +16,7 @@ from app.models.results import (
     AnnualResult,
     Assessment,
     GradingSystem,
+    ReportCycleRemark,
     ReportRemark,
     Result,
     VerificationSample,
@@ -128,8 +129,11 @@ def _is_tahfiz_subject(subject):
 
     subject_name = (getattr(subject, "name", "") or "").strip()
     section_name = getattr(getattr(subject, "section", None), "section_name", "")
-    if _is_tahfiz_section_name(section_name):
-        return True
+    # Section is the authoritative classifier for current subject records.
+    # Name/code fallbacks are retained only for legacy records without a
+    # usable section value.
+    if section_name:
+        return _is_tahfiz_section_name(section_name)
 
     if _ARABIC_CHAR_RE.search(subject_name):
         return True
@@ -141,10 +145,6 @@ def _is_tahfiz_subject(subject):
 
 def _is_combined_report_subject_visible(subject, report_format):
     if not subject:
-        return False
-
-    subject_name = (getattr(subject, "name", "") or "").strip()
-    if subject_name == "القرآن":
         return False
 
     is_tahfiz_subject = _is_tahfiz_subject(subject)
@@ -310,6 +310,9 @@ MARK_ENTRY_ADMIN_ROLE_KEYS = {
     "director of studies",
     "dos",
 }
+HEAD_TEACHER_ROLE_KEYS = {"head master", "headmaster", "head teacher", "headteacher"}
+CLASS_TEACHER_ROLE_KEYS = {"class teacher", "class_teacher"}
+REPORT_REMARK_MAX_LENGTH = ReportCycleRemark.MAX_REMARK_LENGTH
 
 
 def _effective_role_name(request):
@@ -330,6 +333,29 @@ def _has_verification_access(request):
     if request.user.is_superuser:
         return True
     return _effective_role_key(request) in VERIFICATION_ROLE_KEYS
+
+
+def _can_manage_assessments(request):
+    """Assessment structure is owned by Admin/DOS; teachers own mark entry."""
+    return request.user.is_superuser or _effective_role_key(request) in VERIFICATION_ROLE_KEYS
+
+
+def _report_scope(assessment_types):
+    ordered = sorted(assessment_types, key=lambda item: item.id)
+    ids = [str(item.id) for item in ordered]
+    if len(ordered) == 1:
+        return f"assessment:{ids[0]}", ordered[0].name
+    return "combined:" + "-".join(ids), "Combined: " + ", ".join(item.name for item in ordered)
+
+
+def _report_remark_permissions(request):
+    role_key = _effective_role_key(request)
+    elevated = request.user.is_superuser or role_key in VERIFICATION_ROLE_KEYS
+    return {
+        "can_edit_class_remark": elevated or role_key in CLASS_TEACHER_ROLE_KEYS,
+        "can_edit_head_remark": elevated or role_key in HEAD_TEACHER_ROLE_KEYS,
+        "can_approve_report": elevated or role_key in HEAD_TEACHER_ROLE_KEYS,
+    }
 
 
 def _get_staff_account(request):
@@ -1269,8 +1295,8 @@ def edit_results_view(request, assessment_id=None, student_id=None):
 
 @login_required
 def class_assessment_list_view(request):
-    selected_year_id = request.GET.get('year_id')
-    selected_term_id = request.GET.get('term_id')
+    selected_year_id = request.GET.get('year_id') or request.session.get("academic_context_year_id")
+    selected_term_id = request.GET.get('term_id') or request.session.get("academic_context_term_id")
 
     # Load filter options
     academic_years = AcademicYear.objects.all().order_by('-id')
@@ -1285,6 +1311,10 @@ def class_assessment_list_view(request):
         current_term = Term.objects.filter(academic_year_id=selected_year_id, is_current=True).first()
         if current_term:
             selected_term_id = str(current_term.id)
+    if selected_year_id:
+        request.session["academic_context_year_id"] = str(selected_year_id)
+    if selected_term_id:
+        request.session["academic_context_term_id"] = str(selected_term_id)
 
     # Terms list should always show for the currently selected year (or current year by default)
     if selected_year_id:
@@ -1346,6 +1376,7 @@ def class_assessment_list_view(request):
         'selected_year_id': str(selected_year_id or ''),
         'selected_term_id': str(selected_term_id or ''),
         'is_teacher_role': is_teacher_role,
+        'can_manage_assessments': _can_manage_assessments(request),
     }
     return render(request, 'results/class_assessments.html', context)
 
@@ -1488,6 +1519,7 @@ def list_assessments_view(request, class_id):
         'can_view_verification_queue': can_view_verification_queue,
         'role_key': role_key,
         'is_teacher_role': is_teacher_role,
+        'can_manage_assessments': _can_manage_assessments(request),
     })
 
 
@@ -1658,6 +1690,10 @@ def exam_timetable_view(request):
 def add_assessment_view(request):
     from app.models.accounts import StaffAccount
     from app.models.classes import AcademicClassStream
+    if not _can_manage_assessments(request):
+        messages.info(request, "Assessment structure is managed by Admin or Director of Studies. Your assigned mark-entry work is shown here.")
+        return redirect("add_results_page")
+
     # ---- Helpers ----
     def to_int(val):
         try:
@@ -1675,15 +1711,39 @@ def add_assessment_view(request):
                 continue
         return None
 
+    def allocated_subjects_for(academic_class_id):
+        if not academic_class_id:
+            return Subject.objects.none()
+        subject_ids = ClassSubjectAllocation.objects.filter(
+            academic_class_stream__academic_class_id=academic_class_id,
+            is_active=True,
+        ).values_list("subject_id", flat=True)
+        return Subject.objects.filter(id__in=subject_ids).distinct().order_by("name")
+
     # ---- Read filters from GET ----
-    selected_year_id = to_int(request.GET.get('year_id'))
-    selected_term_id = to_int(request.GET.get('term_id'))
+    selected_year_id = to_int(
+        request.GET.get('year_id') or request.session.get("academic_context_year_id")
+    )
+    selected_term_id = to_int(
+        request.GET.get('term_id') or request.session.get("academic_context_term_id")
+    )
     selected_class_id = to_int(request.GET.get('class_id'))
     subject_id = to_int(request.GET.get('subject_id'))
     assessment_type_id = to_int(request.GET.get('assessment_type_id'))
     date_from_raw = request.GET.get('date_from')
     date_to_raw = request.GET.get('date_to')
     is_done_raw = request.GET.get('is_done')  # 'yes' | 'no' | None
+
+    if not selected_year_id:
+        current_year = AcademicYear.objects.filter(is_current=True).first()
+        selected_year_id = current_year.id if current_year else None
+    if selected_year_id and not Term.objects.filter(pk=selected_term_id, academic_year_id=selected_year_id).exists():
+        current_term = Term.objects.filter(is_current=True, academic_year_id=selected_year_id).first()
+        selected_term_id = current_term.id if current_term else None
+    if selected_year_id:
+        request.session["academic_context_year_id"] = str(selected_year_id)
+    if selected_term_id:
+        request.session["academic_context_term_id"] = str(selected_term_id)
 
     # ---- Role + class scope ----
     active_role = request.session.get("active_role_name")
@@ -1757,6 +1817,9 @@ def add_assessment_view(request):
         if request.POST.get("bulk_subjects") == "1":
             bulk_form = BulkAssessmentForm(request.POST)
             form = AssessmentForm()
+            bulk_form.fields["subjects"].queryset = allocated_subjects_for(
+                request.POST.get("academic_class")
+            )
             if is_class_teacher:
                 bulk_form.fields["academic_class"].queryset = AcademicClass.objects.filter(id__in=class_ids)
             if bulk_form.is_valid():
@@ -1768,11 +1831,17 @@ def add_assessment_view(request):
                 subjects = bulk_form.cleaned_data["subjects"]
                 date = bulk_form.cleaned_data["date"]
                 out_of = bulk_form.cleaned_data["out_of"]
-                is_done = bulk_form.cleaned_data["is_done"]
-
                 created = 0
                 skipped = 0
+                unallocated = 0
                 for subject in subjects:
+                    if not ClassSubjectAllocation.objects.filter(
+                        academic_class_stream__academic_class=academic_class,
+                        subject=subject,
+                        is_active=True,
+                    ).exists():
+                        unallocated += 1
+                        continue
                     _, was_created = Assessment.objects.get_or_create(
                         academic_class=academic_class,
                         assessment_type=assessment_type,
@@ -1780,7 +1849,7 @@ def add_assessment_view(request):
                         defaults={
                             "date": date,
                             "out_of": out_of,
-                            "is_done": is_done,
+                            "is_done": False,
                         },
                     )
                     if was_created:
@@ -1792,12 +1861,17 @@ def add_assessment_view(request):
                     messages.success(request, f"Created {created} assessment(s).")
                 if skipped:
                     messages.warning(request, f"Skipped {skipped} existing assessment(s).")
+                if unallocated:
+                    messages.warning(request, f"Skipped {unallocated} subject(s) without an active class allocation.")
                 return redirect('assessment_create')
             else:
                 messages.error(request, FAILURE_MESSAGE)
         else:
             form = AssessmentForm(request.POST)
             bulk_form = BulkAssessmentForm()
+            form.fields["subject"].queryset = allocated_subjects_for(
+                request.POST.get("academic_class")
+            )
             if is_class_teacher:
                 form.fields["academic_class"].queryset = AcademicClass.objects.filter(id__in=class_ids)
             if form.is_valid():
@@ -1816,6 +1890,26 @@ def add_assessment_view(request):
     else:
         form = AssessmentForm()
         bulk_form = BulkAssessmentForm()
+        academic_class_options = AcademicClass.objects.filter(
+            academic_year_id=selected_year_id,
+            term_id=selected_term_id,
+        ).select_related("Class", "academic_year", "term").order_by("Class__name")
+        form.fields["academic_class"].queryset = academic_class_options
+        bulk_form.fields["academic_class"].queryset = academic_class_options
+        preselected_academic_class_id = request.GET.get("academic_class_id")
+        if preselected_academic_class_id:
+            form.fields["subject"].queryset = allocated_subjects_for(preselected_academic_class_id)
+            bulk_form.fields["subjects"].queryset = allocated_subjects_for(preselected_academic_class_id)
+        else:
+            period_subject_ids = ClassSubjectAllocation.objects.filter(
+                academic_class_stream__academic_class__in=academic_class_options,
+                is_active=True,
+            ).values_list("subject_id", flat=True)
+            period_subjects = Subject.objects.filter(
+                id__in=period_subject_ids
+            ).distinct().order_by("name")
+            form.fields["subject"].queryset = period_subjects
+            bulk_form.fields["subjects"].queryset = period_subjects
         if is_class_teacher:
             form.fields["academic_class"].queryset = AcademicClass.objects.filter(id__in=class_ids)
             bulk_form.fields["academic_class"].queryset = AcademicClass.objects.filter(id__in=class_ids)
@@ -1839,11 +1933,23 @@ def add_assessment_view(request):
         'date_to': date_to_raw or '',
         'selected_is_done': is_done_raw or '',
         'verification_status': verification_status or '',
+        'is_teacher_role': False,
+        'can_manage_assessments': True,
+        'viewing_historical_period': bool(
+            selected_year_id and selected_term_id
+            and not (
+                AcademicYear.objects.filter(pk=selected_year_id, is_current=True).exists()
+                and Term.objects.filter(pk=selected_term_id, is_current=True).exists()
+            )
+        ),
     }
     return render(request, 'results/add_assessment.html', context)
 
 @login_required
 def edit_assessment(request, id):
+    if not _can_manage_assessments(request):
+        messages.error(request, "Only Admin or Director of Studies can edit assessment structure.")
+        return redirect("add_results_page")
     assessment = get_model_record(Assessment,id)
     if request.method == "POST":
         form = AssessmentForm(request.POST, instance=assessment)
@@ -1866,11 +1972,17 @@ def edit_assessment(request, id):
 
 @login_required
 def delete_assessment_view(request,id):
+    if not _can_manage_assessments(request):
+        messages.error(request, "Only Admin or Director of Studies can delete assessments.")
+        return redirect("add_results_page")
     if request.method != "POST":
         messages.error(request, "Delete requests must be submitted via POST.")
-        return redirect(assessment_view)
+        return redirect("assessment_create")
 
     assessment = get_model_record(Assessment,id)
+    if assessment.results.exists() or hasattr(assessment, "result_batch"):
+        messages.error(request, "This assessment has marks or verification history and cannot be deleted.")
+        return redirect("assessment_create")
     assessment.delete()
     messages.success(request, DELETE_MESSAGE)
     return HttpResponseRedirect(reverse('assessment_create'))
@@ -1879,6 +1991,10 @@ def delete_assessment_view(request,id):
 
 @login_required
 def assesment_type_view(request):
+    can_manage = _can_manage_assessments(request)
+    if request.method == "POST" and not can_manage:
+        messages.error(request, "Only Admin or Director of Studies can manage assessment types.")
+        return redirect("assesment_type_page")
     if request.method == "POST":
         assesment_type_form = AssesmentTypeForm(request.POST)
         
@@ -1895,18 +2011,22 @@ def assesment_type_view(request):
     
     context = {
         "form": assesment_type_form,
-        "assesment_type": assesment_type
+        "assesment_type": assesment_type,
+        "can_manage_assessments": can_manage,
     }
     
     return render(request, "results/assesment_type.html", context)
 
 @login_required
 def edit_assesment_type(request,id):
+    if not _can_manage_assessments(request):
+        messages.error(request, "Only Admin or Director of Studies can edit assessment types.")
+        return redirect("assesment_type_page")
     assesment_type = get_model_record(AssessmentType,id)
     if request.method =="POST":
        assesment_type_form = AssesmentTypeForm(request.POST,instance=assesment_type)
        if assesment_type_form.is_valid():
-           assesment_type_form.save().save()
+           assesment_type_form.save()
            messages.success(request,SUCCESS_ADD_MESSAGE)
            return redirect(assesment_type_view)
        else:
@@ -1922,12 +2042,17 @@ def edit_assesment_type(request,id):
 
 @login_required
 def delete_assesment_view(request, id):
+    if not _can_manage_assessments(request):
+        messages.error(request, "Only Admin or Director of Studies can delete assessment types.")
+        return redirect("assesment_type_page")
     if request.method != "POST":
         messages.error(request, "Delete requests must be submitted via POST.")
         return redirect(assesment_type_view)
 
     assesment_type = AssessmentType.objects.get(pk=id)
-    
+    if assesment_type.assessments.exists():
+        messages.error(request, "This assessment type is already in use and cannot be deleted.")
+        return redirect("assesment_type_page")
     assesment_type.delete()
     messages.success(request, DELETE_MESSAGE)
     
@@ -2243,6 +2368,104 @@ def student_assessment_type_report(request, student_id, assessment_type_id):
     return render(request, 'results/student_assessment_report.html', context)
 
 
+@login_required
+def student_report_center_view(request, student_id):
+    """Choose the learner's standard or Ta'fith report with readiness feedback."""
+    student = get_object_or_404(Student, id=student_id, is_active=True)
+    terms = (
+        Term.objects.filter(
+            academicclass__class_streams__classregister__student=student,
+        )
+        .select_related("academic_year")
+        .distinct()
+        .order_by("-academic_year__academic_year", "term")
+    )
+    selected_term_id = request.GET.get("term_id")
+    if not selected_term_id:
+        current_term = terms.filter(is_current=True).first()
+        selected_term_id = str(
+            getattr(current_term, "id", None)
+            or getattr(getattr(student, "term", None), "id", None)
+            or getattr(terms.first(), "id", "")
+        )
+
+    selected_term = terms.filter(pk=selected_term_id).first() if selected_term_id else None
+    academic_class = None
+    if selected_term:
+        academic_class = (
+            AcademicClass.objects.filter(
+                class_streams__classregister__student=student,
+                term=selected_term,
+            )
+            .select_related("Class", "term", "academic_year")
+            .distinct()
+            .first()
+        )
+
+    verified_results = Result.objects.none()
+    all_results = Result.objects.none()
+    if academic_class:
+        all_results = Result.objects.filter(
+            student=student,
+            assessment__academic_class=academic_class,
+        ).select_related("assessment__subject__section")
+        verified_results = all_results.filter(status="VERIFIED")
+
+    def report_card_data(report_format, title, description):
+        matching_verified = [
+            result for result in verified_results
+            if _is_combined_report_subject_visible(result.assessment.subject, report_format)
+        ]
+        matching_all = [
+            result for result in all_results
+            if _is_combined_report_subject_visible(result.assessment.subject, report_format)
+        ]
+        subjects = sorted({result.assessment.subject.name for result in matching_verified})
+        is_ready = bool(matching_verified) and len(matching_verified) == len(matching_all)
+        if is_ready:
+            note = f"{len(subjects)} subject(s) with verified results are ready."
+        elif matching_verified:
+            pending_count = len(matching_all) - len(matching_verified)
+            note = f"{pending_count} result(s) still require verification before this report is official."
+        elif matching_all:
+            note = "Results exist, but they must be verified before this report is official."
+        else:
+            note = f"No {title.replace(' Report', '')} results are available for this term."
+        query = urlencode({"term_id": selected_term.id, "report_format": report_format}) if selected_term else ""
+        return {
+            "format": report_format,
+            "title": title,
+            "description": description,
+            "is_ready": is_ready,
+            "note": note,
+            "subjects": subjects,
+            "result_count": len(matching_verified),
+            "url": f"{reverse('student_term_report', args=[student.id])}?{query}" if query else "",
+        }
+
+    report_cards = [
+        report_card_data(
+            "standard",
+            "Primary Report",
+            "Standard academic report excluding subjects in the TA'FITH section.",
+        ),
+        report_card_data(
+            "tahfiz",
+            "Ta'fith Report",
+            "Specialised report containing only subjects in the TA'FITH section.",
+        ),
+    ]
+
+    return render(request, "results/student_report_center.html", {
+        "student": student,
+        "terms": terms,
+        "selected_term": selected_term,
+        "selected_term_id": str(selected_term.id) if selected_term else "",
+        "academic_class": academic_class,
+        "report_cards": report_cards,
+    })
+
+
 def build_student_assessment_type_context(student, assessment_type_id, selected_term_id, academic_class=None):
     """
     Builds the per-student report context for a specific assessment type.
@@ -2270,6 +2493,7 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
             student=student,
             student__is_active=True,
             assessment__assessment_type=assessment_type,
+            status="VERIFIED",
         )
         .select_related(
             'assessment__subject',
@@ -2292,6 +2516,7 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
                 student=student,
                 student__is_active=True,
                 assessment__assessment_type=assessment_type,
+                status="VERIFIED",
             )
             .values_list('assessment__academic_class__term_id', flat=True)
             .distinct()
@@ -2319,7 +2544,8 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
                     student=student,
                     student__is_active=True,
                     assessment__assessment_type=assessment_type,
-                    assessment__academic_class__term_id=fallback_term.id
+                    assessment__academic_class__term_id=fallback_term.id,
+                    status="VERIFIED",
                 )
                 .select_related(
                     'assessment__subject',
@@ -2422,6 +2648,21 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
     except Exception:
         pass
 
+    scope_key, scope_label = _report_scope([assessment_type])
+    cycle_remark = None
+    if resolved_academic_class:
+        cycle_remark = ReportCycleRemark.objects.filter(
+            student=student,
+            academic_class=resolved_academic_class,
+            scope_key=scope_key,
+        ).first()
+    class_teacher_remark = cycle_remark.class_teacher_remark if cycle_remark else ""
+    head_teacher_remark = cycle_remark.head_teacher_remark if cycle_remark else ""
+    if not cycle_remark or not cycle_remark.class_teacher_submitted_at:
+        class_teacher_signature = None
+    if not cycle_remark or not cycle_remark.head_teacher_approved_at:
+        head_teacher_signature = None
+
     return {
         'school': school,
         'student': student,
@@ -2437,6 +2678,9 @@ def build_student_assessment_type_context(student, assessment_type_id, selected_
         'selected_term_id': str(selected_term_id) if selected_term_id else None,
         'head_teacher_signature': head_teacher_signature,
         'class_teacher_signature': class_teacher_signature,
+        'class_teacher_remark': class_teacher_remark,
+        'head_teacher_remark': head_teacher_remark,
+        'report_scope_label': scope_label,
         'no_results_message': no_results_message,
         'selected_division': selected_division,
         'division_override_note': division_override_note,
@@ -2487,7 +2731,8 @@ def student_term_report(request, student_id):
     context = build_student_report_context(
         student,
         selected_term_id,
-        academic_class=academic_class
+        academic_class=academic_class,
+        report_format=report_format,
     )
 
     
@@ -2497,7 +2742,7 @@ def student_term_report(request, student_id):
 
     return render(request, report_template, context)
 
-def build_student_report_context(student, term_id, academic_class=None):
+def build_student_report_context(student, term_id, academic_class=None, report_format="standard"):
     school = SchoolSetting.load()
     term = get_object_or_404(Term, id=term_id)
 
@@ -2535,17 +2780,24 @@ def build_student_report_context(student, term_id, academic_class=None):
 
     results_order = _assessment_type_order_case("assessment__assessment_type__name")
 
-    # Fetch assessment types in the desired order
-    assessment_types = AssessmentType.objects.all().order_by(assessment_order, 'name')
-
     # Fetch results ordered by subject and custom assessment order
     results = Result.objects.filter(
         student=student,
         student__is_active=True,
         assessment__academic_class__term_id=term_id,
+        status="VERIFIED",
     )
     if resolved_academic_class:
         results = results.filter(assessment__academic_class=resolved_academic_class)
+    tahfiz_section_ids = [
+        section.id
+        for section in Section.objects.all().only("id", "section_name")
+        if _is_tahfiz_section_name(section.section_name)
+    ]
+    if report_format == "tahfiz":
+        results = results.filter(assessment__subject__section_id__in=tahfiz_section_ids)
+    else:
+        results = results.exclude(assessment__subject__section_id__in=tahfiz_section_ids)
     results = results.select_related(
         'assessment__subject',
         'assessment__assessment_type',
@@ -2553,6 +2805,13 @@ def build_student_report_context(student, term_id, academic_class=None):
     ).order_by(
         'assessment__subject__name',
         results_order
+    )
+
+    # Only show assessment columns that belong to this report's subject scope.
+    assessment_types = (
+        AssessmentType.objects.filter(assessments__results__in=results)
+        .distinct()
+        .order_by(assessment_order, "name")
     )
 
     # Prepare subject summaries and totals
@@ -2798,7 +3057,15 @@ def class_bulk_reports(request):
     school = SchoolSetting.load()
    
 
-    reports = [build_student_report_context(student, term_id, academic_class=academic_class) for student in students]
+    reports = [
+        build_student_report_context(
+            student,
+            term_id,
+            academic_class=academic_class,
+            report_format=report_format,
+        )
+        for student in students
+    ]
     head_teacher_signature = Signature.objects.filter(position="HEAD TEACHER").first()
 
     context = {
@@ -4668,44 +4935,174 @@ def class_assessment_combined_view(request):
     }
     return render(request, 'results/combined_assessments.html', context)
 
+
+@login_required
+def report_remarks_prepare_view(request):
+    """Prepare and approve remarks outside the immutable print layout."""
+    try:
+        academic_class_id = int(request.GET.get("academic_class_id") or request.POST.get("academic_class_id"))
+    except (TypeError, ValueError):
+        messages.error(request, "Select a valid class before preparing report remarks.")
+        return redirect("class_assessment_combined")
+
+    raw_type_ids = request.GET.getlist("assessment_type_ids") or request.POST.getlist("assessment_type_ids")
+    if len(raw_type_ids) == 1 and "," in raw_type_ids[0]:
+        raw_type_ids = [item.strip() for item in raw_type_ids[0].split(",")]
+    type_ids = sorted({int(item) for item in raw_type_ids if str(item).isdigit()})
+    assessment_types = list(AssessmentType.objects.filter(id__in=type_ids).order_by("id"))
+    if not assessment_types or len(assessment_types) != len(type_ids):
+        messages.error(request, "Choose a valid assessment type or combined report selection.")
+        return redirect("class_assessment_combined")
+
+    academic_class = get_object_or_404(
+        AcademicClass.objects.select_related("Class", "term", "academic_year"),
+        pk=academic_class_id,
+    )
+    scope_key, scope_label = _report_scope(assessment_types)
+    permissions = _report_remark_permissions(request)
+    if not any(permissions.values()):
+        messages.error(request, "You do not have permission to prepare report remarks.")
+        return redirect("class_assessment_combined")
+
+    registers = ClassRegister.objects.filter(
+        academic_class_stream__academic_class=academic_class,
+        student__is_active=True,
+    ).select_related("student", "academic_class_stream")
+
+    # A class teacher works only on learners in streams assigned to that teacher.
+    if _effective_role_key(request) in CLASS_TEACHER_ROLE_KEYS and not request.user.is_superuser:
+        staff_account = _get_staff_account(request)
+        staff_member = getattr(staff_account, "staff", None)
+        owned_stream_ids = AcademicClassStream.objects.filter(
+            academic_class=academic_class,
+            class_teacher=staff_member,
+        ).values_list("id", flat=True)
+        registers = registers.filter(academic_class_stream_id__in=owned_stream_ids)
+
+    student_map = {}
+    for register in registers.order_by("student__student_name", "student__reg_no"):
+        student_map.setdefault(register.student_id, register.student)
+    students = list(student_map.values())
+
+    existing = {
+        row.student_id: row
+        for row in ReportCycleRemark.objects.filter(
+            academic_class=academic_class,
+            scope_key=scope_key,
+            student_id__in=student_map,
+        )
+    }
+
+    if request.method == "POST":
+        action = request.POST.get("action") or "save_class"
+        if action not in {"save_class", "submit_class", "save_head", "approve"}:
+            messages.error(request, "Unknown report remark action.")
+            return redirect(request.get_full_path())
+        is_class_action = action in {"save_class", "submit_class"}
+        is_head_action = action in {"save_head", "approve"}
+        if is_class_action and not permissions["can_edit_class_remark"]:
+            messages.error(request, "Only the assigned class teacher, DOS or Admin can update class-teacher remarks.")
+            return redirect(request.get_full_path())
+        if is_head_action and not permissions["can_edit_head_remark"]:
+            messages.error(request, "Only the Head Teacher, DOS or Admin can update head-teacher remarks.")
+            return redirect(request.get_full_path())
+
+        field_prefix = "class_remark_" if is_class_action else "head_remark_"
+        values = {}
+        for student in students:
+            value = (request.POST.get(f"{field_prefix}{student.id}") or "").strip()
+            if len(value) > REPORT_REMARK_MAX_LENGTH:
+                messages.error(
+                    request,
+                    f"Remark for {student} is too long ({len(value)}/{REPORT_REMARK_MAX_LENGTH} characters).",
+                )
+                return redirect(request.get_full_path())
+            values[student.id] = value
+
+        if action == "submit_class" and any(not value for value in values.values()):
+            messages.error(request, "Complete every class-teacher remark before submitting the class.")
+            return redirect(request.get_full_path())
+
+        if action == "approve":
+            if not permissions["can_approve_report"]:
+                messages.error(request, "Only the Head Teacher, DOS or Admin can approve reports.")
+                return redirect(request.get_full_path())
+            unsubmitted = [student for student in students if not existing.get(student.id) or not existing[student.id].class_teacher_submitted_at]
+            if unsubmitted:
+                messages.error(request, "Class-teacher remarks must be submitted before final approval.")
+                return redirect(request.get_full_path())
+            if any(not value for value in values.values()):
+                messages.error(request, "Complete every head-teacher remark before approving the reports.")
+                return redirect(request.get_full_path())
+
+        now = timezone.now()
+        with transaction.atomic():
+            for student in students:
+                remark, _created = ReportCycleRemark.objects.get_or_create(
+                    student=student,
+                    academic_class=academic_class,
+                    scope_key=scope_key,
+                    defaults={"scope_label": scope_label},
+                )
+                if is_class_action:
+                    remark.class_teacher_remark = values[student.id]
+                    if action == "submit_class":
+                        remark.class_teacher_submitted_by = request.user
+                        remark.class_teacher_submitted_at = now
+                    else:
+                        remark.class_teacher_submitted_by = None
+                        remark.class_teacher_submitted_at = None
+                    # A changed/re-submitted class remark requires fresh approval.
+                    remark.head_teacher_approved_by = None
+                    remark.head_teacher_approved_at = None
+                else:
+                    remark.head_teacher_remark = values[student.id]
+                    if action == "approve":
+                        remark.head_teacher_approved_by = request.user
+                        remark.head_teacher_approved_at = now
+                    else:
+                        remark.head_teacher_approved_by = None
+                        remark.head_teacher_approved_at = None
+                remark.scope_label = scope_label
+                remark.updated_by = request.user
+                remark.save()
+
+        label = {
+            "save_class": "Class-teacher remark drafts saved.",
+            "submit_class": "Class-teacher remarks submitted for approval.",
+            "save_head": "Head-teacher remark drafts saved.",
+            "approve": "Reports approved. Official signatures can now appear when printed.",
+        }[action]
+        messages.success(request, label)
+        return redirect(request.get_full_path())
+
+    rows = []
+    for student in students:
+        remark = existing.get(student.id)
+        rows.append({
+            "student": student,
+            "remark": remark,
+            "class_length": len(remark.class_teacher_remark) if remark else 0,
+            "head_length": len(remark.head_teacher_remark) if remark else 0,
+        })
+
+    return render(request, "results/report_remarks_prepare.html", {
+        "academic_class": academic_class,
+        "assessment_types": assessment_types,
+        "scope_key": scope_key,
+        "scope_label": scope_label,
+        "rows": rows,
+        "remark_max_length": REPORT_REMARK_MAX_LENGTH,
+        **permissions,
+    })
+
+
 @login_required
 def class_assessment_combined_print(request):
-    # Handle comment submission
     if request.method == "POST":
-        student_id = request.POST.get('student_id')
-        term_id = request.POST.get('term_id')
-        class_teacher_remark = request.POST.get('class_teacher_remark', '').strip()
-        head_teacher_remark = request.POST.get('head_teacher_remark', '').strip()
-        
-        if student_id and term_id:
-            try:
-                student = get_object_or_404(Student, id=student_id, is_active=True)
-                term = get_object_or_404(Term, id=term_id)
-                
-                # Get or create the remark
-                remark, created = ReportRemark.objects.get_or_create(
-                    student=student,
-                    term=term,
-                    defaults={
-                        'class_teacher_remark': class_teacher_remark,
-                        'head_teacher_remark': head_teacher_remark,
-                        'created_by': request.user
-                    }
-                )
-                
-                if not created:
-                    # Update existing remark
-                    remark.class_teacher_remark = class_teacher_remark
-                    remark.head_teacher_remark = head_teacher_remark
-                    remark.save()
-                
-                messages.success(request, f"Comments saved for {student.student_name}")
-            except Exception as e:
-                messages.error(request, f"Error saving comments: {str(e)}")
-            
-            # Redirect back to the same page with GET parameters
-            return HttpResponseRedirect(request.get_full_path().split('?')[0] + '?' + request.GET.urlencode())
-  
+        messages.error(request, "Printed reports are read-only. Prepare remarks on the Report Remarks page.")
+        return redirect(request.get_full_path())
+
     def to_int(val):
         try:
             return int(val)
@@ -4789,6 +5186,7 @@ def class_assessment_combined_print(request):
     at_order = [a.id for a in selected_assessment_types]
     at_name_by_id = {a.id: a.name for a in selected_assessment_types}
     at_weight = {a.id: (a.weight or 1) for a in selected_assessment_types}
+    report_scope_key, report_scope_label = _report_scope(selected_assessment_types)
     subject_scope = _get_combined_report_subject_scope(class_obj, at_order, report_format)
     subject_ids = [subject.id for subject in subject_scope]
     subject_names = [subject.name for subject in subject_scope]
@@ -4814,6 +5212,14 @@ def class_assessment_combined_print(request):
 
     students = Student.objects.filter(is_active=True, id__in=student_ids).order_by('student_name')
     class_size = students.count()
+    cycle_remarks = {
+        row.student_id: row
+        for row in ReportCycleRemark.objects.filter(
+            academic_class=class_obj,
+            scope_key=report_scope_key,
+            student_id__in=student_ids,
+        )
+    }
 
     # Get all results in 1 query (within scope)
     results_qs = (
@@ -5079,14 +5485,13 @@ def class_assessment_combined_print(request):
         except Exception:
             pass
 
-        # Get existing remarks for this student and term
-        try:
-            remark = ReportRemark.objects.get(student=student, term=class_obj.term)
-            class_teacher_remark = remark.class_teacher_remark or ''
-            head_teacher_remark = remark.head_teacher_remark or ''
-        except ReportRemark.DoesNotExist:
-            class_teacher_remark = ''
-            head_teacher_remark = ''
+        # Remarks are scoped to this exact assessment selection. Legacy term
+        # remarks remain stored but are deliberately not reused across cycles.
+        cycle_remark = cycle_remarks.get(student.id)
+        class_teacher_remark = cycle_remark.class_teacher_remark if cycle_remark else ""
+        head_teacher_remark = cycle_remark.head_teacher_remark if cycle_remark else ""
+        class_remark_submitted = bool(cycle_remark and cycle_remark.class_teacher_submitted_at)
+        report_approved = bool(cycle_remark and cycle_remark.head_teacher_approved_at)
         
         if total_aggregates:
             selected_division, division_override_note = get_division_with_override(
@@ -5121,10 +5526,14 @@ def class_assessment_combined_print(request):
             'selected_division': selected_division,
             'division_override_note': division_override_note,
             'next_term_start_date': next_term_start_date,
-            'head_teacher_signature': head_teacher_signature,
-            'class_teacher_signature': class_teacher_signature,
+            # A stored image is not approval. Signatures only appear after the
+            # corresponding workflow action has been completed.
+            'head_teacher_signature': head_teacher_signature if report_approved else None,
+            'class_teacher_signature': class_teacher_signature if class_remark_submitted else None,
             'class_teacher_remark': class_teacher_remark,
             'head_teacher_remark': head_teacher_remark,
+            'report_approved': report_approved,
+            'report_scope_label': report_scope_label,
             'report_reference': f"CAR-{class_obj.id}-{class_obj.term.id}-{student.id}",
         })
 

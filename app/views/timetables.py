@@ -12,7 +12,7 @@ from app.models.classes import AcademicClassStream, AcademicClass, Term
 from app.models.attendance import AttendanceSession
 from app.models.students import ClassRegister
 from app.models.school_settings import AcademicYear, SchoolSetting
-from app.forms.timetables import TimeSlotForm
+from app.forms.timetables import ClassroomForm, TimeSlotForm
 from app.services.teacher_assignments import get_allocation_queryset, get_teacher_assignments
 from collections import defaultdict
 from django.db.models import Q
@@ -56,7 +56,11 @@ def timetable_center(request):
     year_ids = all_class_streams.values_list("academic_class__academic_year_id", flat=True).distinct()
     academic_years = AcademicYear.objects.filter(id__in=year_ids).order_by("-academic_year", "-id")
 
-    selected_year_id = request.GET.get("academic_year") or request.POST.get("academic_year")
+    selected_year_id = (
+        request.GET.get("academic_year")
+        or request.POST.get("academic_year")
+        or request.session.get("academic_context_year_id")
+    )
     if selected_year_id and not academic_years.filter(pk=selected_year_id).exists():
         selected_year_id = None
     if not selected_year_id:
@@ -64,7 +68,11 @@ def timetable_center(request):
         selected_year_id = str(default_year.id) if default_year else ""
 
     term_ids = all_class_streams.values_list("academic_class__term_id", flat=True).distinct()
-    selected_term_id = request.GET.get("term") or request.POST.get("term")
+    selected_term_id = (
+        request.GET.get("term")
+        or request.POST.get("term")
+        or request.session.get("academic_context_term_id")
+    )
 
     selected_class_id = request.GET.get("class_stream_id") or request.POST.get("class_stream_id")
     preselected_class = (
@@ -86,6 +94,11 @@ def timetable_center(request):
     if not selected_term_id:
         default_term = terms.filter(is_current=True).first() or terms.first()
         selected_term_id = str(default_term.id) if default_term else ""
+
+    if selected_year_id:
+        request.session["academic_context_year_id"] = str(selected_year_id)
+    if selected_term_id:
+        request.session["academic_context_term_id"] = str(selected_term_id)
 
     class_streams = all_class_streams
     if selected_year_id:
@@ -510,6 +523,8 @@ def timetable_center(request):
                 return redirect(_redirect_url(selected_class.id))
 
             slot_index = 0
+            generated_count = 0
+            unplaced_count = 0
 
             total_slots = len(time_slots) * len(weekdays)
             if total_slots == 0:
@@ -518,7 +533,7 @@ def timetable_center(request):
 
             for allocation in allocations:
                 if slot_index >= total_slots:
-                    messages.warning(request, "Not enough time slots to schedule all allocations.")
+                    unplaced_count += len(allocations) - generated_count
                     break
 
                 day_index = slot_index // len(time_slots)
@@ -557,10 +572,7 @@ def timetable_center(request):
                     attempts += 1
 
                 if attempts >= total_slots:
-                    messages.warning(
-                        request,
-                        "Could not place all allocations due to teacher/time conflicts.",
-                    )
+                    unplaced_count += len(allocations) - generated_count
                     break
 
                 Timetable.objects.update_or_create(
@@ -574,9 +586,25 @@ def timetable_center(request):
                         'classroom': None,
                     }
                 )
+                generated_count += 1
                 slot_index += 1
 
-            messages.success(request, "Timetable auto-generated from subject allocations.")
+            if generated_count and not unplaced_count:
+                messages.success(
+                    request,
+                    f"Timetable generated successfully: {generated_count} lesson(s) placed.",
+                )
+            elif generated_count:
+                messages.warning(
+                    request,
+                    f"Timetable partially generated: {generated_count} lesson(s) placed and "
+                    f"{unplaced_count} could not be placed. Review the remaining conflicts.",
+                )
+            else:
+                messages.error(
+                    request,
+                    "No lessons were placed because all available periods have conflicts.",
+                )
             return redirect(_redirect_url(selected_class.id))
 
         # Default: save timetable from JSON payload
@@ -598,7 +626,11 @@ def timetable_center(request):
         skipped_invalid = 0
 
         if timetable_json:
-            timetable_data = json.loads(timetable_json)
+            try:
+                timetable_data = json.loads(timetable_json)
+            except (TypeError, json.JSONDecodeError):
+                messages.error(request, "The timetable changes could not be read. Refresh the page and try again.")
+                return redirect(_redirect_url(selected_class.id))
             allocation_rows = list(
                 get_allocation_queryset(
                     class_streams=[selected_class],
@@ -764,6 +796,13 @@ def timetable_center(request):
         "conflict_alerts": conflict_alerts,
         "total_students": total_students,
         "subjects_allocated_count": subjects_allocated_count,
+        "viewing_historical_period": bool(
+            selected_class
+            and not (
+                selected_class.academic_class.academic_year.is_current
+                and selected_class.academic_class.term.is_current
+            )
+        ),
     }
     return render(request, "timetable/timetable_center.html", context)
 
@@ -943,15 +982,40 @@ def teacher_timetable_view(request):
 
 @login_required
 def school_timetable_overview(request):
+    current_year = AcademicYear.objects.filter(is_current=True).first()
+    current_term = (
+        Term.objects.filter(is_current=True, academic_year=current_year).first()
+        if current_year else None
+    )
+    selected_year_id = request.GET.get("academic_year") or request.session.get("academic_context_year_id")
+    selected_term_id = request.GET.get("term") or request.session.get("academic_context_term_id")
+    selected_year = AcademicYear.objects.filter(pk=selected_year_id).first() if selected_year_id else current_year
+    if not selected_year:
+        selected_year = current_year
+    selected_term = (
+        Term.objects.filter(pk=selected_term_id, academic_year=selected_year).first()
+        if selected_term_id and selected_year else None
+    )
+    if not selected_term and selected_year:
+        selected_term = Term.objects.filter(is_current=True, academic_year=selected_year).first()
+    if selected_year:
+        request.session["academic_context_year_id"] = str(selected_year.id)
+    if selected_term:
+        request.session["academic_context_term_id"] = str(selected_term.id)
+
     time_slots = TimeSlot.objects.order_by('start_time', 'end_time')
     class_streams = (
         AcademicClassStream.objects
         .select_related('academic_class__Class', 'academic_class__academic_year', 'academic_class__term', 'stream')
+        .filter(
+            academic_class__academic_year=selected_year,
+            academic_class__term=selected_term,
+        )
         .order_by('academic_class__Class__name', 'stream__stream')
     )
     timetable_entries = Timetable.objects.select_related(
         'class_stream', 'time_slot', 'subject', 'teacher', 'classroom'
-    )
+    ).filter(class_stream__in=class_streams)
     timetable_data = defaultdict(lambda: defaultdict(dict))
     for entry in timetable_entries:
         timetable_data[entry.class_stream_id][entry.weekday][entry.time_slot.id] = entry
@@ -960,27 +1024,93 @@ def school_timetable_overview(request):
         "class_streams": class_streams,
         "timetable_data": timetable_data,
         "weekdays": WeekDay.choices,
+        "academic_years": AcademicYear.objects.order_by("-academic_year", "-id"),
+        "terms": Term.objects.filter(academic_year=selected_year).order_by("term", "id") if selected_year else Term.objects.none(),
+        "selected_year": selected_year,
+        "selected_term": selected_term,
+        "viewing_historical_period": bool(
+            selected_year and selected_term
+            and not (selected_year.is_current and selected_term.is_current)
+        ),
     }
     return render(request, "timetable/school_timetable.html", context)
 
 
 @login_required
 def class_timetable_overview(request):
+    current_year = AcademicYear.objects.filter(is_current=True).first()
+    current_term = Term.objects.filter(is_current=True, academic_year=current_year).first() if current_year else None
+    selected_year_id = request.GET.get("academic_year") or request.session.get("academic_context_year_id")
+    selected_term_id = request.GET.get("term") or request.session.get("academic_context_term_id")
+    selected_year = AcademicYear.objects.filter(pk=selected_year_id).first() if selected_year_id else current_year
+    selected_term = Term.objects.filter(pk=selected_term_id, academic_year=selected_year).first() if selected_term_id and selected_year else None
+    if not selected_year:
+        selected_year = current_year
+    if not selected_term and selected_year:
+        selected_term = Term.objects.filter(is_current=True, academic_year=selected_year).first()
+    if selected_year:
+        request.session["academic_context_year_id"] = str(selected_year.id)
+    if selected_term:
+        request.session["academic_context_term_id"] = str(selected_term.id)
     class_streams = (
         AcademicClassStream.objects
         .select_related('academic_class__Class', 'academic_class__academic_year', 'academic_class__term', 'stream')
+        .filter(academic_class__academic_year=selected_year, academic_class__term=selected_term)
         .order_by('academic_class__Class__name', 'stream__stream')
     )
     context = {
         "class_streams": class_streams,
+        "academic_years": AcademicYear.objects.order_by("-academic_year", "-id"),
+        "terms": Term.objects.filter(academic_year=selected_year).order_by("term", "id") if selected_year else Term.objects.none(),
+        "selected_year": selected_year,
+        "selected_term": selected_term,
     }
     return render(request, "timetable/class_timetable.html", context)
 
 
 @login_required
 def classrooms_overview(request):
+    staff_account = getattr(request.user, "staff_account", None)
+    role_name = str(getattr(getattr(staff_account, "role", None), "name", "") or "").strip().lower()
+    active_role = str(request.session.get("active_role_name") or "").strip().lower()
+    effective_role = active_role or role_name
+    can_manage = request.user.is_superuser or effective_role in {
+        "admin", "director of studies", "dos", "head master", "head teacher", "headteacher"
+    }
+
+    if request.method == "POST":
+        if not can_manage:
+            messages.error(request, "Only Admin or Director of Studies can manage classrooms.")
+            return redirect("classrooms")
+
+        action = request.POST.get("action")
+        room = Classroom.objects.filter(pk=request.POST.get("room_id")).first() if request.POST.get("room_id") else None
+        if action == "delete":
+            if not room:
+                messages.error(request, "Classroom not found.")
+            elif Timetable.objects.filter(classroom=room).exists():
+                messages.error(request, "This classroom is used in timetable history and cannot be deleted. Rename it instead.")
+            else:
+                room.delete()
+                messages.success(request, "Classroom deleted successfully.")
+            return redirect("classrooms")
+
+        if action == "edit" and not room:
+            messages.error(request, "Classroom not found.")
+            return redirect("classrooms")
+
+        form = ClassroomForm(request.POST, instance=room if action == "edit" else None)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Classroom updated successfully." if room else "Classroom added successfully.")
+        else:
+            messages.error(request, "Please correct the classroom details.")
+        return redirect("classrooms")
+
     classrooms = Classroom.objects.order_by('name')
     context = {
         "classrooms": classrooms,
+        "classroom_form": ClassroomForm(),
+        "can_manage_classrooms": can_manage,
     }
     return render(request, "timetable/classrooms.html", context)

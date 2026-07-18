@@ -14,6 +14,7 @@ from app.views.results import *
 from app.views.accounts import *
 from app.views.timetables import *
 from app.views.attendance import *
+from app.views.workflow import workflow_readiness_view
 from app.decorators.mode import primary_mode_required
 
 
@@ -30,6 +31,7 @@ urlpatterns = [
     path('dashboard/academics/', dashboard_views.dashboard_academics_view, name='dashboard_academics'),
     path('dashboard/attendance/', dashboard_views.dashboard_attendance_view, name='dashboard_attendance'),
     path('dashboard/reports/', dashboard_views.dashboard_reports_view, name='dashboard_reports'),
+    path('workflow/readiness/', workflow_readiness_view, name='workflow_readiness'),
 
     # School Details
     path('settings/', settings_page,name="settings_page"),
@@ -253,6 +255,7 @@ urlpatterns = [
     path('assessments/<int:assessment_id>/verified-sheet/', primary(assessment_verified_sheet_view), name='assessment_verified_sheet'),
     path("class-student-filter/", primary(class_result_filter_view), name="class_stream_filter"),
     path("student/<int:student_id>/performance/", primary(student_performance_view), name="student_performance"),
+    path("student/<int:student_id>/reports/", primary(student_report_center_view), name="student_report_center"),
     # Mini Report per Assessment Type
     path('student/<int:student_id>/report/<int:assessment_type_id>/', primary(student_assessment_type_report), name='student_mini_report'),
     # Consolidated Term Report
@@ -265,6 +268,7 @@ urlpatterns = [
     path('results/verification-overview/', primary(verification_overview_view), name='verification_overview'),
     path('assessment-sheet/', primary(assessment_sheet_view), name='assessment_sheet'),
     path('class/combined-assessments/', primary(class_assessment_combined_view), name='class_assessment_combined'),
+    path('class/report-remarks/', primary(report_remarks_prepare_view), name='report_remarks_prepare'),
     path('class/combined-assessments/print/', primary(class_assessment_combined_print), name='class_assessment_combined_print'),
     
 

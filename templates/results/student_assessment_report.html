@@ -132,7 +132,7 @@
                 </tr>
                 <tr>
                     <td class="label" style="width:20%;">Class Teacher's Remarks:</td>
-                    <td contenteditable="true" style="width:40%; border-bottom: 1px solid #000;"></td>
+                    <td style="width:40%; border-bottom:1px solid #000; height:32px; max-height:32px; overflow:hidden; font-size:8.5pt; line-height:10px; overflow-wrap:anywhere;">{{ class_teacher_remark|default:"" }}</td>
                     <td style="width:40%; text-align:right; border-bottom: 1px solid #000;">
                         {% if class_teacher_signature %}
                             <img src="{{ class_teacher_signature.url }}" alt="Class Teacher Signature" style="height:30px; object-fit:contain;" />
@@ -141,7 +141,7 @@
                 </tr>
                 <tr>
                     <td class="label">Head Teacher's Remarks:</td>
-                    <td contenteditable="true" style="border-bottom: 1px solid #000;"></td>
+                    <td style="border-bottom:1px solid #000; height:32px; max-height:32px; overflow:hidden; font-size:8.5pt; line-height:10px; overflow-wrap:anywhere;">{{ head_teacher_remark|default:"" }}</td>
                     <td style="text-align:right; border-bottom: 1px solid #000;">
                         {% if head_teacher_signature and head_teacher_signature.signature %}
                             <img src="{{ head_teacher_signature.signature.url }}" alt="Head Teacher Signature" style="height:30px; object-fit:contain;" />

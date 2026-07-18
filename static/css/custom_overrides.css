@@ -288,3 +288,67 @@ table th,
 .table tbody tr td {
     color: #1e293b !important;
 }
+
+/* Shared academic context and data-state patterns */
+.academic-context-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin: 0 0 1rem;
+    padding: .65rem .9rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-size: .9rem;
+}
+
+.academic-context-label { color: #475569; font-weight: 600; }
+.academic-context-separator { color: #94a3b8; }
+.academic-context-warning { color: #b45309; font-weight: 700; margin-left: .25rem; }
+
+.historical-context-alert {
+    border-left: 4px solid #f59e0b;
+    background: #fffbeb;
+    color: #78350f;
+    padding: .8rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+}
+
+.workflow-guide {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: .65rem;
+    margin: .9rem 0;
+}
+
+.workflow-step {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: .75rem;
+    background: #fff;
+}
+
+.workflow-step.is-ready { border-color: #86efac; background: #f0fdf4; }
+.workflow-step.is-pending { border-color: #fde68a; background: #fffbeb; }
+.workflow-step-number { font-weight: 800; color: #2563eb; margin-right: .35rem; }
+
+.empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #475569;
+}
+
+@media (max-width: 767px) {
+    .table-responsive {
+        border: 0;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table-responsive > table { min-width: 760px; }
+    .academic-context-bar { font-size: .82rem; }
+}

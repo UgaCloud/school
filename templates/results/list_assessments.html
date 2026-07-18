@@ -16,7 +16,7 @@
         <!-- Breadcrumbs -->
         <nav aria-label="breadcrumb" class="mb-5">
           <ol class="breadcrumb" style="margin-bottom:6px;">
-            <li class="breadcrumb-item"><a href="#">Results</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'school_results_dashboard' %}">Results</a></li>
             <li class="breadcrumb-item"><a href="{% url 'class_assessment_list' %}">Class Assessments</a></li>
             <li class="breadcrumb-item active" aria-current="page">{{ academic_class.Class.name }}</li>
           </ol>
@@ -36,7 +36,7 @@
             <i class="fa fa-arrow-left"></i> Back to Classes
           </a>
           <div>
-            {% if user.is_superuser and not is_teacher_role %}
+            {% if can_manage_assessments %}
               <a
                 href="{% url 'assessment_create' %}?open_modal=1
                   &year_id={{ academic_class.academic_year.id }}
@@ -175,13 +175,13 @@
                               <i class="fa fa-file-text-o"></i> Report
                             </a>
                           {% endif %}
-                          {% if user.is_superuser %}
+                          {% if can_manage_assessments %}
                             <a href="{% url 'edit_assessment_page' assessment.id %}" class="btn btn-warning" title="Edit Assessment">
                               <i class="fa fa-edit"></i>
                             </a>
-                          <a href="{% url 'delete_assessment' assessment.id %}" class="btn btn-danger" title="Delete Assessment">
-                            <i class="fa fa-trash"></i>
-                          </a>
+                          <form method="post" action="{% url 'delete_assessment' assessment.id %}" style="display:inline;" onsubmit="return confirm('Delete this unused assessment?');">
+                            {% csrf_token %}<button type="submit" class="btn btn-danger" title="Delete unused assessment"><i class="fa fa-trash"></i></button>
+                          </form>
                         {% endif %}
                       {% endif %}
                     </div>

@@ -31,7 +31,7 @@
     .conduct-section table { width: 100%; border: none; margin-top: 0.5cm; }
     .conduct-section td { padding: 6px; border: none; border-bottom: 1px solid #000; vertical-align: top; }
     .conduct-section .label { font-weight: bold; width: 22%; white-space: nowrap; }
-    [contenteditable="true"] { outline: none; }
+    .report-remark-text { height:32px; max-height:32px; overflow:hidden; font-size:8.5pt; line-height:10px; overflow-wrap:anywhere; }
     .next-term { text-align: right; margin-bottom: 0.5cm; font-size: 9pt; font-weight: bold; color: #4a4a4a; }
     .page-break { page-break-after: always; }
     @media print { 
@@ -128,7 +128,7 @@
         </tr>
         <tr>
           <td class="label" style="width:20%;">Class Teacher's Remarks:</td>
-          <td contenteditable="true" style="width:40%; border-bottom: 1px solid #000;"></td>
+          <td class="report-remark-text" style="width:40%; border-bottom:1px solid #000;">{{ ctx.class_teacher_remark|default:"" }}</td>
           <td style="width:40%; text-align:right; border-bottom: 1px solid #000;">
             {% if ctx.class_teacher_signature %}
             <img src="{{ ctx.class_teacher_signature.url }}" alt="Class Teacher Signature" style="height:30px; object-fit:contain;" />
@@ -137,7 +137,7 @@
         </tr>
         <tr>
           <td class="label">Head Teacher's Remarks:</td>
-          <td contenteditable="true" style="border-bottom: 1px solid #000;"></td>
+          <td class="report-remark-text" style="border-bottom:1px solid #000;">{{ ctx.head_teacher_remark|default:"" }}</td>
           <td style="text-align:right; border-bottom: 1px solid #000;">
             {% if ctx.head_teacher_signature and ctx.head_teacher_signature.signature %}
             <img src="{{ ctx.head_teacher_signature.signature.url }}" alt="Head Teacher Signature" style="height:30px; object-fit:contain;" />

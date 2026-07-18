@@ -274,9 +274,9 @@
                 </div>
             </div>
 
-            <!-- Existing: Full End-of-Term Report -->
-            <a href="{% url 'student_term_report' student.obj.id %}{% if selected_term %}?term_id={{ selected_term }}{% endif %}" class="print-button" aria-label="Print Full Term Report">
-                <i class="fas fa-print"></i> Print Report
+            <!-- Clear report choice by programme/section -->
+            <a href="{% url 'student_report_center' student.obj.id %}{% if selected_term %}?term_id={{ selected_term }}{% endif %}" class="print-button" aria-label="Open learner report centre">
+                <i class="fas fa-file-alt"></i> Report Centre
             </a>
         </div>
         <div class="d-flex flex-column flex-md-row align-items-start gap-0.5cm">

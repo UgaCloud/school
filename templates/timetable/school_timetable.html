@@ -13,8 +13,15 @@
         <div class="clearfix"></div>
       </div>
       <div class="x_content">
+        {% if viewing_historical_period %}
+        <div class="historical-context-alert"><i class="fa fa-history"></i> Historical timetable: <strong>{{ selected_year.academic_year }} • Term {{ selected_term.term }}</strong></div>
+        {% endif %}
+        <form method="get" class="row" style="margin-bottom:14px;">
+          <div class="col-md-3"><label>Academic Year</label><select name="academic_year" class="form-control" onchange="this.form.submit()">{% for year in academic_years %}<option value="{{ year.id }}" {% if selected_year.id == year.id %}selected{% endif %}>{{ year.academic_year }}</option>{% endfor %}</select></div>
+          <div class="col-md-3"><label>Term</label><select name="term" class="form-control" onchange="this.form.submit()">{% for term in terms %}<option value="{{ term.id }}" {% if selected_term.id == term.id %}selected{% endif %}>Term {{ term.term }}</option>{% endfor %}</select></div>
+        </form>
         <div class="alert alert-info" role="alert">
-          <i class="fa fa-info-circle"></i> All class timetables are shown below for quick review.
+          <i class="fa fa-info-circle"></i> Showing class timetables for {{ selected_year.academic_year }} • Term {{ selected_term.term }}.
         </div>
 
         {% for stream in class_streams %}
@@ -22,7 +29,7 @@
             <div class="x_title">
               <h2>{{ stream }}</h2>
               <ul class="nav navbar-right panel_toolbox">
-                <li><a href="{% url 'timetable_center' %}?class_stream_id={{ stream.id }}" class="btn btn-default btn-xs"><i class="fa fa-cogs"></i> Edit</a></li>
+                <li><a href="{% url 'timetable_center' %}?class_stream_id={{ stream.id }}" class="btn btn-default btn-xs"><i class="fa fa-calendar"></i> Open</a></li>
               </ul>
               <div class="clearfix"></div>
             </div>
@@ -64,7 +71,7 @@
             </div>
           </div>
         {% empty %}
-          <p class="text-muted">No class streams available.</p>
+          <div class="empty-state"><i class="fa fa-calendar-times fa-2x"></i><h4>No class streams for this period</h4><p>Set up academic classes and streams for {{ selected_year.academic_year }} • Term {{ selected_term.term }} first.</p></div>
         {% endfor %}
       </div>
     </div>

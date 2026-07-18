@@ -66,6 +66,14 @@ ACADEMIC_CLASS_FINANCE_ROLES = {"Bursar", "Finance"}
 PROMOTION_PASS_MARK = 50.0
 PROMOTION_TABS = ("eligible", "conditional", "repeat", "graduating", "archived")
 PROMOTION_MANAGE_ROLES = {"admin", "director of studies", "dos"}
+CLASS_BILL_MANAGE_ROLES = {
+    "admin",
+    "head master",
+    "head teacher",
+    "headteacher",
+    "bursar",
+    "finance",
+}
 
 
 def _get_effective_role_and_staff_account(request):
@@ -88,6 +96,11 @@ def _can_manage_stream_records(effective_role):
 def _can_manage_promotions(effective_role):
     normalized_role = (effective_role or "").strip().lower()
     return normalized_role in PROMOTION_MANAGE_ROLES
+
+
+def _can_manage_class_bills(request):
+    effective_role, _ = _get_effective_role_and_staff_account(request)
+    return request.user.is_superuser or effective_role.strip().lower() in CLASS_BILL_MANAGE_ROLES
 
 
 def _is_term_three_current(academic_class):
@@ -1825,6 +1838,9 @@ def class_bill_list_view(request):
 
 @login_required
 def add_class_bill_item_view(request, id):
+    if not _can_manage_class_bills(request):
+        messages.error(request, "Only Admin, Bursar, or Finance can add class bills.")
+        return redirect("class_bill_list")
     active_level = get_active_school_level(request)
     academic_class = get_object_or_404(get_level_academic_classes_queryset(active_level=active_level), id=id)
     class_bills = ClassBill.objects.filter(academic_class=academic_class)
@@ -1844,7 +1860,7 @@ def add_class_bill_item_view(request, id):
                 student_bill, created = StudentBill.objects.get_or_create(
                     student=student,
                     academic_class=academic_class,
-                    status="Unpaid",  
+                    defaults={"status": "Unpaid"},
                 )
                                                 
                 if class_bill.bill_item.item_name != "School Fees":
@@ -1877,6 +1893,9 @@ def add_class_bill_item_view(request, id):
 
 @login_required
 def edit_class_bill_item_view(request, id):
+    if not _can_manage_class_bills(request):
+        messages.error(request, "Only Admin, Bursar, or Finance can edit class bills.")
+        return redirect("class_bill_list")
     active_level = get_active_school_level(request)
     class_bill = get_object_or_404(
         ClassBill.objects.filter(academic_class__in=get_level_academic_classes_queryset(active_level=active_level)),
@@ -1896,7 +1915,7 @@ def edit_class_bill_item_view(request, id):
                 student_bill, created = StudentBill.objects.get_or_create(
                     student=student,
                     academic_class=academic_class,
-                    status="Unpaid",
+                    defaults={"status": "Unpaid"},
                 )
 
                 
@@ -1941,6 +1960,9 @@ def edit_class_bill_item_view(request, id):
 
 @login_required
 def delete_class_bill_item_view(request, id):
+    if not _can_manage_class_bills(request):
+        messages.error(request, "Only Admin, Bursar, or Finance can delete class bills.")
+        return redirect("class_bill_list")
     if request.method != "POST":
         messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect("class_bill_list")
@@ -2410,6 +2432,10 @@ def bulk_create_class_bills(request):
     """
     Bulk create class bills for multiple classes at once
     """
+    if not _can_manage_class_bills(request):
+        messages.error(request, "Only Admin, Bursar, or Finance can create class bills.")
+        return redirect("class_bill_list")
+
     active_level = get_active_school_level(request)
     scoped_academic_classes = get_level_academic_classes_queryset(active_level=active_level)
 
