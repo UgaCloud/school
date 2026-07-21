@@ -542,6 +542,30 @@ class ResultVerificationWorkflowTests(TestCase):
                 status="DRAFT",
             )
 
+    def test_submit_action_saves_visible_marks_before_submitting(self):
+        self.client.force_login(self.submitter)
+        self._set_active_role("Admin")
+
+        response = self.client.post(
+            reverse("add_results", args=[self.assessment.id]),
+            {
+                "save_draft": "1",
+                "submit_after_save": "1",
+                f"score_{self.student_one.id}": "61",
+                f"score_{self.student_two.id}": "72",
+            },
+            follow=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.result_one.refresh_from_db()
+        self.result_two.refresh_from_db()
+        self.assertEqual(self.result_one.score, Decimal("61.00"))
+        self.assertEqual(self.result_two.score, Decimal("72.00"))
+        batch = self.assessment.result_batch
+        self.assertEqual(batch.status, "PENDING")
+        self.assertEqual(batch.results.count(), 2)
+
 
 class AcademicClassPromotionTests(TestCase):
     def setUp(self):

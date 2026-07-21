@@ -963,6 +963,24 @@ def add_results_view(request, assessment_id=None):
                     request,
                     "All results are now entered. Submit this batch for verification.",
                 )
+
+            if "submit_after_save" in request.POST:
+                gate_errors = _submission_gate_errors(assessment, students)
+                if gate_errors:
+                    for gate_error in gate_errors:
+                        messages.error(request, gate_error)
+                else:
+                    submitted_batch, sample_count, ok = submit_batch_for_verification(
+                        assessment,
+                        request.user,
+                    )
+                    if ok:
+                        messages.success(
+                            request,
+                            f"Marks saved and batch submitted for verification. {sample_count} samples selected.",
+                        )
+                    else:
+                        messages.error(request, "Marks were saved, but the batch could not be submitted.")
             return redirect('add_results', assessment_id=assessment.id)
 
         if "bulk_edit" in request.POST:

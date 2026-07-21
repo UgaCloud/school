@@ -281,7 +281,8 @@
       </div>
     </div>
 
-    <button type="submit" name="submit_batch" id="submitBatchHiddenBtn" style="display:none;"></button>
+    <input type="hidden" name="submit_after_save" id="submitAfterSaveInput" value="1" disabled>
+    <button type="submit" name="save_draft" id="submitBatchHiddenBtn" style="display:none;"></button>
   </form>
   {% else %}
   <div class="x_panel">
@@ -743,7 +744,20 @@
       var draft = JSON.parse(raw);
       if (!draft || typeof draft !== "object") return;
 
-      Object.keys(draft.scores || {}).forEach(function (key) {
+      var draftScoreKeys = Object.keys(draft.scores || {});
+      var scoresAlreadySaved = draftScoreKeys.length > 0 && draftScoreKeys.every(function (key) {
+        var input = document.querySelector('[name="' + key + '"]');
+        if (!input) return false;
+        var savedScore = sanitizeNumber(input.defaultValue);
+        var draftScore = sanitizeNumber(draft.scores[key]);
+        return savedScore !== null && draftScore !== null && savedScore === draftScore;
+      });
+      if (scoresAlreadySaved) {
+        localStorage.removeItem(storageKey);
+        return;
+      }
+
+      draftScoreKeys.forEach(function (key) {
         var input = document.querySelector('[name="' + key + '"]');
         if (input && !input.disabled) {
           input.value = draft.scores[key];
@@ -956,7 +970,9 @@
         }
       }
 
-      localStorage.removeItem(storageKey);
+      // Keep the browser draft until the next page confirms that the server
+      // rendered the same scores. This prevents failed submissions from
+      // erasing marks that have not reached the database.
     });
   }
 
@@ -973,8 +989,12 @@
     confirmSubmitBtn.addEventListener("click", function () {
       if (!validateBeforeSubmit()) return;
       var hiddenSubmit = document.getElementById("submitBatchHiddenBtn");
+      var submitAfterSaveInput = document.getElementById("submitAfterSaveInput");
       if (hiddenSubmit) {
         $("#confirmSubmitModal").modal("hide");
+        if (submitAfterSaveInput) {
+          submitAfterSaveInput.disabled = false;
+        }
         hiddenSubmit.click();
       }
     });
