@@ -242,8 +242,27 @@
     .analysis-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1rem; box-shadow:0 2px 4px rgba(15,23,42,.05); }
     .analysis-card span { display:block; color:#64748b; font-size:.78rem; text-transform:uppercase; font-weight:700; }
     .analysis-card strong { display:block; margin-top:.35rem; color:#0f172a; font-size:1.25rem; }
-    .status-urgent { color:#b91c1c; font-weight:700; }
-    .status-support { color:#b45309; font-weight:700; }
+    .analysis-card.has-popover { position:relative; cursor:help; outline:none; }
+    .analysis-card.has-popover:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.14); }
+    .analysis-popover {
+        display:none; position:absolute; left:0; top:calc(100% + 10px); z-index:50;
+        width:340px; max-width:min(340px, 82vw); max-height:280px; overflow:auto;
+        padding:.85rem; background:#0f172a; color:#f8fafc; border-radius:8px;
+        box-shadow:0 12px 30px rgba(15,23,42,.28); text-align:left;
+    }
+    .analysis-popover::before {
+        content:""; position:absolute; left:22px; top:-7px;
+        border-left:7px solid transparent; border-right:7px solid transparent; border-bottom:7px solid #0f172a;
+    }
+    .analysis-card.has-popover:hover .analysis-popover,
+    .analysis-card.has-popover:focus .analysis-popover,
+    .analysis-card.has-popover:focus-within .analysis-popover { display:block; }
+    .analysis-popover-title { display:block; margin:0 0 .55rem; color:#fff; font-size:.86rem; font-weight:700; text-transform:none; }
+    .analysis-popover-list { list-style:none; padding:0; margin:0; }
+    .analysis-popover-list li { padding:.45rem 0; border-top:1px solid rgba(255,255,255,.13); font-size:.8rem; line-height:1.35; }
+    .analysis-popover-list li:first-child { border-top:0; }
+    .analysis-popover-list small { display:block; margin-top:.15rem; color:#cbd5e1; }
+    @media print { .analysis-popover { display:none !important; } }
 </style>
 
 <div class="table-container">
@@ -380,8 +399,28 @@
         <h3 class="analysis-heading">Class Performance Overview</h3>
         <div class="analysis-cards">
             <div class="analysis-card"><span>Registered</span><strong>{{ class_analysis.registered }}</strong></div>
-            <div class="analysis-card"><span>Fully Assessed</span><strong>{{ class_analysis.fully_assessed }}</strong></div>
-            <div class="analysis-card"><span>Missing Marks</span><strong>{{ class_analysis.missing_marks }}</strong></div>
+            <div class="analysis-card has-popover" tabindex="0" aria-label="Fully assessed learners. Hover for incomplete assessment details.">
+                <span>Fully Assessed</span><strong>{{ class_analysis.fully_assessed }}</strong>
+                <div class="analysis-popover">
+                    <b class="analysis-popover-title">{{ class_analysis.incomplete_learners }} learner{{ class_analysis.incomplete_learners|pluralize }} not fully assessed</b>
+                    <ul class="analysis-popover-list">
+                        {% for learner in incomplete_assessment_details %}
+                        <li><b>{{ learner.name }}</b><small>Missing: {{ learner.missing_subjects|join:", " }}</small></li>
+                        {% empty %}<li>Every registered learner is fully assessed.</li>{% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <div class="analysis-card has-popover" tabindex="0" aria-label="Missing marks. Hover for learner and subject details.">
+                <span>Missing Marks</span><strong>{{ class_analysis.missing_marks }}</strong>
+                <div class="analysis-popover">
+                    <b class="analysis-popover-title">Missing mark details</b>
+                    <ul class="analysis-popover-list">
+                        {% for learner in incomplete_assessment_details %}
+                        <li><b>{{ learner.name }}</b><small>{{ learner.missing_count }} missing: {{ learner.missing_subjects|join:", " }}</small></li>
+                        {% empty %}<li>No missing marks for this assessment.</li>{% endfor %}
+                    </ul>
+                </div>
+            </div>
             <div class="analysis-card"><span>Class Average</span><strong>{{ class_analysis.average }}%</strong></div>
             <div class="analysis-card"><span>Pass Rate</span><strong>{{ class_analysis.pass_rate }}%</strong></div>
             <div class="analysis-card"><span>Best Subject</span><strong>{{ class_analysis.best_subject }}</strong></div>
@@ -463,18 +502,5 @@
         </table>
     </section>
 
-    {% if support_learners %}
-    <section class="analysis-section">
-        <h3 class="analysis-heading">Learners Requiring Support</h3>
-        <table class="assessment-table">
-            <thead><tr><th>LEARNER</th><th>FAILED SUBJECTS</th><th>MISSING MARKS</th><th>STATUS</th></tr></thead>
-            <tbody>
-            {% for learner in support_learners %}
-                <tr><td>{{ learner.name }}</td><td>{{ learner.failed_subjects }}</td><td>{{ learner.missing_subjects }}</td><td class="{% if learner.status == 'Urgent' %}status-urgent{% else %}status-support{% endif %}">{{ learner.status }}</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </section>
-    {% endif %}
 </div>
 {% endblock %}

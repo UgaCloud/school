@@ -3883,6 +3883,17 @@ def assessment_sheet_view(request):
         "best_subject": best_subject["subject"] if best_subject else "-",
         "support_subject": support_subject["subject"] if support_subject else "-",
     }
+    incomplete_assessment_details = []
+    for student in students_data:
+        student_subjects = student.get("subjects") or {}
+        missing_subjects = [subject for subject in unique_subjects if subject not in student_subjects]
+        if missing_subjects:
+            incomplete_assessment_details.append({
+                "name": student.get("name") or "Unknown learner",
+                "missing_subjects": missing_subjects,
+                "missing_count": len(missing_subjects),
+            })
+    class_analysis["incomplete_learners"] = len(incomplete_assessment_details)
 
     top_performers = [
         {"position": index, **student}
@@ -3891,22 +3902,6 @@ def assessment_sheet_view(request):
             start=1,
         )
     ]
-    support_learners = []
-    for student in students_data:
-        payloads = student.get("subjects") or {}
-        failed_subjects = [
-            subject for subject, payload in payloads.items()
-            if float(payload.get("percentage", 0) or 0) < 50
-        ]
-        missing_subjects = [subject for subject in unique_subjects if subject not in payloads]
-        if failed_subjects or missing_subjects:
-            severity = "Urgent" if len(failed_subjects) >= 3 or len(missing_subjects) >= 2 else "Support needed"
-            support_learners.append({
-                "name": student.get("name"),
-                "failed_subjects": ", ".join(failed_subjects) or "-",
-                "missing_subjects": ", ".join(missing_subjects) or "-",
-                "status": severity,
-            })
 
     # Calculate division counts
     division_counts = {1: 0, 2: 0, 3: 0, 4: 0, "U": 0}
@@ -4374,27 +4369,6 @@ def assessment_sheet_view(request):
         ]))
         elements.append(top_table)
 
-        if support_learners:
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph("LEARNERS REQUIRING SUPPORT", title_style))
-            elements.append(Spacer(1, 6))
-            support_data = [["LEARNER", "FAILED SUBJECTS", "MISSING MARKS", "STATUS"]]
-            for learner in support_learners:
-                support_data.append([
-                    learner["name"], learner["failed_subjects"], learner["missing_subjects"], learner["status"]
-                ])
-            support_table = Table(support_data, colWidths=[160, 230, 230, 90], repeatRows=1)
-            support_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#9f1239')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fff1f2')]),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ]))
-            elements.append(support_table)
-
         # Build PDF
         doc.build(elements)
         buffer.seek(0)
@@ -4423,8 +4397,8 @@ def assessment_sheet_view(request):
         "grade_labels": configured_grade_labels,
         "subject_analysis_rows": subject_analysis_rows,
         "class_analysis": class_analysis,
+        "incomplete_assessment_details": incomplete_assessment_details,
         "top_performers": top_performers,
-        "support_learners": support_learners,
         "subject_pass_percentage": subject_pass_percentage,
         "division_counts": division_counts,
         "division_analysis": division_analysis,
