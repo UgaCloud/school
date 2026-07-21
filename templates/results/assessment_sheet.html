@@ -235,6 +235,15 @@
         background: #9ca3af;
         cursor: not-allowed;
     }
+
+    .analysis-section { margin-top: 2rem; }
+    .analysis-heading { margin: 0 0 0.8rem; color: #0f172a; font-size: 1.2rem; font-weight: 700; }
+    .analysis-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.8rem; }
+    .analysis-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:1rem; box-shadow:0 2px 4px rgba(15,23,42,.05); }
+    .analysis-card span { display:block; color:#64748b; font-size:.78rem; text-transform:uppercase; font-weight:700; }
+    .analysis-card strong { display:block; margin-top:.35rem; color:#0f172a; font-size:1.25rem; }
+    .status-urgent { color:#b91c1c; font-weight:700; }
+    .status-support { color:#b45309; font-weight:700; }
 </style>
 
 <div class="table-container">
@@ -367,36 +376,49 @@
         </tbody>
     </table>
 
-    <!-- Existing Section: Subjects and Their Total Average -->
-    <table class="assessment-table" style="margin-top: 2rem;">
-        <thead>
-            <tr>
-                <th colspan="{{ colspan }}" style="text-align: center; background: #f3f4f6;">SUBJECTS PASS PERCENTAGE (>=70%)</th>
-            </tr>
-            <tr>
-                <th>NO</th>
-                <th>SUBJECT</th>
-                <th>PASS PERCENTAGE(70% AND ABOVE)</th>
-                <th>SUBJECT TEACHER</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for subject in subjects %}
-            <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ subject }}</td>
-                <td>
-                    {{ subject_pass_percentage|get_item:subject|default:"0" }}%
-                </td>
-                <td>{{ subject_teachers|get_item:subject|default:"Tr. [Teacher Name]" }}</td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="4">No data available.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <section class="analysis-section">
+        <h3 class="analysis-heading">Class Performance Overview</h3>
+        <div class="analysis-cards">
+            <div class="analysis-card"><span>Registered</span><strong>{{ class_analysis.registered }}</strong></div>
+            <div class="analysis-card"><span>Fully Assessed</span><strong>{{ class_analysis.fully_assessed }}</strong></div>
+            <div class="analysis-card"><span>Missing Marks</span><strong>{{ class_analysis.missing_marks }}</strong></div>
+            <div class="analysis-card"><span>Class Average</span><strong>{{ class_analysis.average }}%</strong></div>
+            <div class="analysis-card"><span>Pass Rate</span><strong>{{ class_analysis.pass_rate }}%</strong></div>
+            <div class="analysis-card"><span>Best Subject</span><strong>{{ class_analysis.best_subject }}</strong></div>
+            <div class="analysis-card"><span>Needs Support</span><strong>{{ class_analysis.support_subject }}</strong></div>
+        </div>
+    </section>
+
+    <section class="analysis-section">
+        <h3 class="analysis-heading">Subject Grade Distribution</h3>
+        <div style="overflow-x:auto;">
+            <table class="assessment-table">
+                <thead><tr><th>SUBJECT</th><th>ASSESSED</th><th>MISSING</th>{% for label in grade_labels %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+                <tbody>
+                {% for row in subject_analysis_rows %}
+                    <tr>
+                        <td>{{ row.subject }}</td><td>{{ row.assessed }}</td><td>{{ row.missing }}</td>
+                        {% for cell in row.grade_cells %}<td>{{ cell.count }} ({{ cell.percentage }}%)</td>{% endfor %}
+                    </tr>
+                {% empty %}<tr><td colspan="3">No subject analysis available.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="analysis-section">
+        <h3 class="analysis-heading">Subject Performance Analysis</h3>
+        <div style="overflow-x:auto;">
+            <table class="assessment-table">
+                <thead><tr><th>SUBJECT</th><th>AVERAGE</th><th>HIGHEST</th><th>LOWEST</th><th>PASSED</th><th>FAILED</th><th>PASS RATE</th><th>SUBJECT TEACHER</th></tr></thead>
+                <tbody>
+                {% for row in subject_analysis_rows %}
+                    <tr><td>{{ row.subject }}</td><td>{{ row.average }}%</td><td>{{ row.highest }}%</td><td>{{ row.lowest }}%</td><td>{{ row.passed }}</td><td>{{ row.failed }}</td><td>{{ row.pass_rate }}%</td><td>{{ subject_teachers|get_item:row.subject }}</td></tr>
+                {% empty %}<tr><td colspan="8">No subject analysis available.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 
     <!-- Section: No. of Pupils and Their Division -->
     <table class="assessment-table" style="margin-top: 2rem;">
@@ -422,7 +444,37 @@
                 <td>{{ division_counts.4|default:"0" }}</td>
                 <td>{{ division_counts.U|default:"0" }}</td>
             </tr>
+            <tr>
+                <td>PERCENTAGE</td>
+                {% for division in division_analysis %}<td>{{ division.percentage }}%</td>{% endfor %}
+            </tr>
         </tbody>
     </table>
+
+    <section class="analysis-section">
+        <h3 class="analysis-heading">Top Performers</h3>
+        <table class="assessment-table">
+            <thead><tr><th>POSITION</th><th>LEARNER</th><th>TOTAL MARKS</th><th>TOTAL AGGREGATES</th><th>DIVISION</th></tr></thead>
+            <tbody>
+            {% for learner in top_performers %}
+                <tr><td>{{ learner.position }}</td><td>{{ learner.name }}</td><td>{{ learner.total_marks }}</td><td>{{ learner.total_aggregates|floatformat:0 }}</td><td>{{ learner.division }}</td></tr>
+            {% empty %}<tr><td colspan="5">No ranked learners available.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {% if support_learners %}
+    <section class="analysis-section">
+        <h3 class="analysis-heading">Learners Requiring Support</h3>
+        <table class="assessment-table">
+            <thead><tr><th>LEARNER</th><th>FAILED SUBJECTS</th><th>MISSING MARKS</th><th>STATUS</th></tr></thead>
+            <tbody>
+            {% for learner in support_learners %}
+                <tr><td>{{ learner.name }}</td><td>{{ learner.failed_subjects }}</td><td>{{ learner.missing_subjects }}</td><td class="{% if learner.status == 'Urgent' %}status-urgent{% else %}status-support{% endif %}">{{ learner.status }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
 </div>
 {% endblock %}

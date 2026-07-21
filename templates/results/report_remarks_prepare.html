@@ -21,7 +21,7 @@
       </div>
       <div class="alert alert-info">
         Enter remarks here before printing. Each selection of assessment types has its own remarks.
-        Remarks are limited to {{ remark_max_length }} characters so the official report layout remains stable.
+        Keep each remark brief: no more than {{ remark_max_words }} words so the official report stays neat.
       </div>
 
       {% if rows %}
@@ -53,13 +53,13 @@
                   <textarea name="class_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
                     class="form-control remark-editor" data-counter="class-count-{{ row.student.id }}"
                     {% if not can_edit_class_remark %}readonly{% endif %}>{{ row.remark.class_teacher_remark|default:"" }}</textarea>
-                  <small class="counter" id="class-count-{{ row.student.id }}">{{ row.class_length }}/{{ remark_max_length }}</small>
+                  <small class="counter" id="class-count-{{ row.student.id }}"></small>
                 </td>
                 <td>
                   <textarea name="head_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
                     class="form-control remark-editor" data-counter="head-count-{{ row.student.id }}"
                     {% if not can_edit_head_remark %}readonly{% endif %}>{{ row.remark.head_teacher_remark|default:"" }}</textarea>
-                  <small class="counter" id="head-count-{{ row.student.id }}">{{ row.head_length }}/{{ remark_max_length }}</small>
+                  <small class="counter" id="head-count-{{ row.student.id }}"></small>
                 </td>
                 <td class="status-cell">
                   {% if row.remark.head_teacher_approved_at %}
@@ -130,8 +130,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var counter = document.getElementById(editor.dataset.counter);
     function updateCounter() {
       var length = editor.value.length;
-      counter.textContent = length + '/{{ remark_max_length }}';
-      counter.classList.toggle('near-limit', length >= 200);
+      var words = editor.value.trim() ? editor.value.trim().split(/\s+/).length : 0;
+      counter.textContent = words + '/{{ remark_max_words }} words';
+      counter.classList.toggle('near-limit', words >= {{ remark_max_words }} || length >= {{ remark_max_length }});
+      editor.setCustomValidity(words > {{ remark_max_words }} ? 'Use no more than {{ remark_max_words }} words.' : '');
     }
     editor.addEventListener('input', updateCounter);
     updateCounter();

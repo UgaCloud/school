@@ -129,14 +129,16 @@ def _is_tahfiz_subject(subject):
 
     subject_name = (getattr(subject, "name", "") or "").strip()
     section_name = getattr(getattr(subject, "section", None), "section_name", "")
+    # Arabic-script subjects belong to the Tahfiz report even when legacy
+    # records were mistakenly attached to a standard/primary section.
+    if _ARABIC_CHAR_RE.search(subject_name):
+        return True
+
     # Section is the authoritative classifier for current subject records.
     # Name/code fallbacks are retained only for legacy records without a
     # usable section value.
     if section_name:
         return _is_tahfiz_section_name(section_name)
-
-    if _ARABIC_CHAR_RE.search(subject_name):
-        return True
 
     name_key = _normalized_lookup_key(subject_name)
     code_key = _normalized_lookup_key(getattr(subject, "code", ""))
@@ -313,6 +315,7 @@ MARK_ENTRY_ADMIN_ROLE_KEYS = {
 HEAD_TEACHER_ROLE_KEYS = {"head master", "headmaster", "head teacher", "headteacher"}
 CLASS_TEACHER_ROLE_KEYS = {"class teacher", "class_teacher"}
 REPORT_REMARK_MAX_LENGTH = ReportCycleRemark.MAX_REMARK_LENGTH
+REPORT_REMARK_MAX_WORDS = 12
 
 
 def _effective_role_name(request):
@@ -3681,6 +3684,11 @@ def assessment_sheet_view(request):
             # 2) Try selector helper get_grade_and_points using RAW score
             # 3) Final fallback to hard-coded scale
             raw_score = r.score
+            try:
+                out_of = Decimal(str(r.assessment.out_of or 100))
+                percentage_score = q2((Decimal(str(raw_score)) / out_of) * Decimal("100")) if out_of > 0 else Decimal("0")
+            except (InvalidOperation, TypeError, ValueError, ZeroDivisionError):
+                percentage_score = Decimal("0")
             points = None
             try:
                 pval = r.points
@@ -3722,6 +3730,7 @@ def assessment_sheet_view(request):
             subjects_payload[subj_key] = {
                 "score": int(score) if score is not None else 0,
                 "agg": points,
+                "percentage": float(percentage_score),
             }
 
             # Map subject teacher using stream-specific allocation if available
@@ -3783,23 +3792,121 @@ def assessment_sheet_view(request):
 
     students_data.sort(key=student_sort_key)
 
-    # Initialize subject_grade_dist with all unique_subjects
-    subject_grade_dist = {subject: {"A": 0, "B": 0, "C": 0, "D": 0, "F": 0} for subject in unique_subjects}
+    # Build printable subject analysis using normalized raw percentages. This
+    # avoids applying 70/80 percent thresholds to weighted ``actual_score``.
+    configured_grade_labels = list(
+        GradingSystem.objects.order_by("-min_score", "-max_score")
+        .values_list("grade", flat=True)
+        .distinct()
+    )
+    if not configured_grade_labels:
+        configured_grade_labels = ["A", "B", "C", "D", "F"]
 
-    # Calculate grade distribution for each subject
+    def analysis_grade_label(percentage):
+        grade_label, _points = get_grade_and_points(Decimal(str(percentage)))
+        grade_label = str(grade_label or "").strip()
+        if grade_label and grade_label.upper() not in {"N/A", "NONE", "-"}:
+            return grade_label
+        if percentage >= 80:
+            return "A"
+        if percentage >= 70:
+            return "B"
+        if percentage >= 60:
+            return "C"
+        if percentage >= 50:
+            return "D"
+        return "F"
+
+    subject_grade_dist = {
+        subject: {label: 0 for label in configured_grade_labels}
+        for subject in unique_subjects
+    }
+    subject_analysis_rows = []
+    registered_count = len(students_data)
+
+    for subject in unique_subjects:
+        percentages = []
+        grade_counts = {label: 0 for label in configured_grade_labels}
+        for student in students_data:
+            payload = (student.get("subjects") or {}).get(subject)
+            if not payload:
+                continue
+            percentage = float(payload.get("percentage", 0) or 0)
+            percentages.append(percentage)
+            grade_label = analysis_grade_label(percentage)
+            if grade_label not in grade_counts:
+                grade_counts[grade_label] = 0
+            grade_counts[grade_label] += 1
+
+        assessed = len(percentages)
+        missing = max(registered_count - assessed, 0)
+        passed = sum(1 for score in percentages if score >= 70)
+        failed = assessed - passed
+        subject_grade_dist[subject] = grade_counts
+        subject_analysis_rows.append({
+            "subject": subject,
+            "assessed": assessed,
+            "missing": missing,
+            "average": round(sum(percentages) / assessed, 1) if assessed else 0,
+            "highest": round(max(percentages), 1) if percentages else 0,
+            "lowest": round(min(percentages), 1) if percentages else 0,
+            "passed": passed,
+            "failed": failed,
+            "pass_rate": round((passed / assessed) * 100) if assessed else 0,
+            "grade_cells": [
+                {
+                    "label": label,
+                    "count": grade_counts.get(label, 0),
+                    "percentage": round((grade_counts.get(label, 0) / assessed) * 100) if assessed else 0,
+                }
+                for label in configured_grade_labels
+            ],
+        })
+
+    all_percentages = [
+        float(payload.get("percentage", 0) or 0)
+        for student in students_data
+        for payload in (student.get("subjects") or {}).values()
+    ]
+    learners_fully_assessed = sum(
+        1 for student in students_data
+        if unique_subjects and all(subject in (student.get("subjects") or {}) for subject in unique_subjects)
+    )
+    best_subject = max(subject_analysis_rows, key=lambda row: row["average"], default=None)
+    support_subject = min(subject_analysis_rows, key=lambda row: row["average"], default=None)
+    class_analysis = {
+        "registered": registered_count,
+        "fully_assessed": learners_fully_assessed,
+        "missing_marks": sum(row["missing"] for row in subject_analysis_rows),
+        "average": round(sum(all_percentages) / len(all_percentages), 1) if all_percentages else 0,
+        "pass_rate": round((sum(1 for score in all_percentages if score >= 70) / len(all_percentages)) * 100) if all_percentages else 0,
+        "best_subject": best_subject["subject"] if best_subject else "-",
+        "support_subject": support_subject["subject"] if support_subject else "-",
+    }
+
+    top_performers = [
+        {"position": index, **student}
+        for index, student in enumerate(
+            [student for student in students_data if student.get("subjects")][:5],
+            start=1,
+        )
+    ]
+    support_learners = []
     for student in students_data:
-        for subject, data in student['subjects'].items():
-            score = data.get('score', 0)
-            if score >= 80:
-                subject_grade_dist[subject]["A"] += 1
-            elif score >= 70:
-                subject_grade_dist[subject]["B"] += 1
-            elif score >= 60:
-                subject_grade_dist[subject]["C"] += 1
-            elif score >= 50:
-                subject_grade_dist[subject]["D"] += 1
-            else:
-                subject_grade_dist[subject]["F"] += 1
+        payloads = student.get("subjects") or {}
+        failed_subjects = [
+            subject for subject, payload in payloads.items()
+            if float(payload.get("percentage", 0) or 0) < 50
+        ]
+        missing_subjects = [subject for subject in unique_subjects if subject not in payloads]
+        if failed_subjects or missing_subjects:
+            severity = "Urgent" if len(failed_subjects) >= 3 or len(missing_subjects) >= 2 else "Support needed"
+            support_learners.append({
+                "name": student.get("name"),
+                "failed_subjects": ", ".join(failed_subjects) or "-",
+                "missing_subjects": ", ".join(missing_subjects) or "-",
+                "status": severity,
+            })
 
     # Calculate division counts
     division_counts = {1: 0, 2: 0, 3: 0, 4: 0, "U": 0}
@@ -3807,6 +3914,14 @@ def assessment_sheet_view(request):
         division = division_count_key(student["division"])
         if division in division_counts:
             division_counts[division] += 1
+    division_analysis = [
+        {
+            "label": str(label),
+            "count": division_counts.get(label, 0),
+            "percentage": round((division_counts.get(label, 0) / registered_count) * 100) if registered_count else 0,
+        }
+        for label in [1, 2, 3, 4, "U"]
+    ]
 
     # Compute PASS PERCENTAGE (>= 70%) per subject
     subject_pass_percentage = {}
@@ -4113,38 +4228,87 @@ def assessment_sheet_view(request):
         # Spacer
         elements.append(Spacer(1, 12))
 
-        # ---- Subjects Pass Percentage (>= 70%) ----
-        heading_pp = Paragraph("SUBJECTS PASS PERCENTAGE (>=70%)", title_style)
-        elements.append(heading_pp)
+        # ---- Class Overview ----
+        elements.append(Paragraph("CLASS PERFORMANCE OVERVIEW", title_style))
         elements.append(Spacer(1, 6))
-
-        pp_headers = ["NO", "SUBJECT", "PASS PERCENTAGE(70% AND ABOVE)", "SUBJECT TEACHER"]
-        pp_data = [pp_headers]
-        for i, subject in enumerate(unique_subjects, 1):
-            pass_pct = subject_pass_percentage.get(subject, 0)
-            teacher = subject_teachers.get(subject, "Tr. [Teacher Name]")
-            pp_data.append([str(i), subject, f"{pass_pct}%", teacher])
-
-        pp_table = Table(pp_data, colWidths=[30, 150, 220, 220])
-        pp_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        overview_data = [
+            ["Registered", "Fully Assessed", "Missing Marks", "Class Average", "Pass Rate", "Best Subject", "Needs Support"],
+            [
+                str(class_analysis["registered"]),
+                str(class_analysis["fully_assessed"]),
+                str(class_analysis["missing_marks"]),
+                f'{class_analysis["average"]}%',
+                f'{class_analysis["pass_rate"]}%',
+                class_analysis["best_subject"],
+                class_analysis["support_subject"],
+            ],
+        ]
+        overview_table = Table(overview_data, repeatRows=1)
+        overview_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
         ]))
-        elements.append(pp_table)
+        elements.append(overview_table)
+        elements.append(Spacer(1, 12))
 
-        # Spacer
+        # ---- Subject Grade Distribution ----
+        elements.append(Paragraph("SUBJECT GRADE DISTRIBUTION", title_style))
+        elements.append(Spacer(1, 6))
+        grade_headers = ["SUBJECT", "ASSESSED", "MISSING"] + list(configured_grade_labels)
+        grade_data = [grade_headers]
+        for row in subject_analysis_rows:
+            grade_data.append([
+                row["subject"],
+                str(row["assessed"]),
+                str(row["missing"]),
+                *[f'{cell["count"]} ({cell["percentage"]}%)' for cell in row["grade_cells"]],
+            ])
+        grade_widths = [130, 55, 50] + [max(38, int(360 / max(len(configured_grade_labels), 1))) for _ in configured_grade_labels]
+        grade_table = Table(grade_data, colWidths=grade_widths, repeatRows=1)
+        grade_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke]),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(grade_table)
+        elements.append(Spacer(1, 12))
+
+        # ---- Detailed Subject Performance ----
+        elements.append(Paragraph("SUBJECT PERFORMANCE ANALYSIS", title_style))
+        elements.append(Spacer(1, 6))
+        performance_data = [["SUBJECT", "AVERAGE", "HIGHEST", "LOWEST", "PASSED", "FAILED", "PASS RATE", "TEACHER"]]
+        for row in subject_analysis_rows:
+            performance_data.append([
+                row["subject"], f'{row["average"]}%', f'{row["highest"]}%', f'{row["lowest"]}%',
+                str(row["passed"]), str(row["failed"]), f'{row["pass_rate"]}%',
+                subject_teachers.get(row["subject"], "Tr. [Teacher Name]"),
+            ])
+        performance_table = Table(performance_data, colWidths=[120, 60, 60, 60, 50, 50, 65, 180], repeatRows=1)
+        performance_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('ALIGN', (1, 0), (-2, -1), 'CENTER'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke]),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(performance_table)
         elements.append(Spacer(1, 12))
 
         # ---- Division Counts ----
@@ -4162,6 +4326,10 @@ def assessment_sheet_view(request):
             str(division_counts.get("U", 0)),
         ]
         div_data = [div_headers, div_row]
+        div_data.append([
+            "PERCENTAGE",
+            *[f'{item["percentage"]}%' for item in division_analysis],
+        ])
 
         div_table = Table(div_data, colWidths=[120, 60, 60, 60, 60, 60])
         div_table.setStyle(TableStyle([
@@ -4181,6 +4349,51 @@ def assessment_sheet_view(request):
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
         elements.append(div_table)
+
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("TOP PERFORMERS", title_style))
+        elements.append(Spacer(1, 6))
+        top_data = [["POSITION", "LEARNER", "TOTAL MARKS", "TOTAL AGGREGATES", "DIVISION"]]
+        for learner in top_performers:
+            top_data.append([
+                str(learner["position"]),
+                learner.get("name", "-"),
+                str(learner.get("total_marks", "-")),
+                str(round(float(learner.get("total_aggregates", 0) or 0))),
+                learner.get("division", "-"),
+            ])
+        top_table = Table(top_data, colWidths=[65, 220, 90, 110, 90], repeatRows=1)
+        top_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke]),
+        ]))
+        elements.append(top_table)
+
+        if support_learners:
+            elements.append(Spacer(1, 12))
+            elements.append(Paragraph("LEARNERS REQUIRING SUPPORT", title_style))
+            elements.append(Spacer(1, 6))
+            support_data = [["LEARNER", "FAILED SUBJECTS", "MISSING MARKS", "STATUS"]]
+            for learner in support_learners:
+                support_data.append([
+                    learner["name"], learner["failed_subjects"], learner["missing_subjects"], learner["status"]
+                ])
+            support_table = Table(support_data, colWidths=[160, 230, 230, 90], repeatRows=1)
+            support_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#9f1239')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fff1f2')]),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            elements.append(support_table)
 
         # Build PDF
         doc.build(elements)
@@ -4207,8 +4420,14 @@ def assessment_sheet_view(request):
         "colspan": colspan,
         "show_selection": False,
         "subject_grade_dist": subject_grade_dist,
+        "grade_labels": configured_grade_labels,
+        "subject_analysis_rows": subject_analysis_rows,
+        "class_analysis": class_analysis,
+        "top_performers": top_performers,
+        "support_learners": support_learners,
         "subject_pass_percentage": subject_pass_percentage,
         "division_counts": division_counts,
+        "division_analysis": division_analysis,
     })
     return render(request, "results/assessment_sheet.html", context)
 
@@ -5035,6 +5254,13 @@ def report_remarks_prepare_view(request):
                     f"Remark for {student} is too long ({len(value)}/{REPORT_REMARK_MAX_LENGTH} characters).",
                 )
                 return redirect(request.get_full_path())
+            word_count = len(value.split())
+            if word_count > REPORT_REMARK_MAX_WORDS:
+                messages.error(
+                    request,
+                    f"Remark for {student} is too long ({word_count}/{REPORT_REMARK_MAX_WORDS} words).",
+                )
+                return redirect(request.get_full_path())
             values[student.id] = value
 
         if action == "submit_class" and any(not value for value in values.values()):
@@ -5111,6 +5337,7 @@ def report_remarks_prepare_view(request):
         "scope_label": scope_label,
         "rows": rows,
         "remark_max_length": REPORT_REMARK_MAX_LENGTH,
+        "remark_max_words": REPORT_REMARK_MAX_WORDS,
         **permissions,
     })
 
