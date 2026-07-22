@@ -167,6 +167,10 @@ def build_database_settings():
 
 DATABASES = build_database_settings()
 
+# Schools can temporarily bypass the DOS sampling workflow. Submitted marks
+# are immediately released to reports when this is disabled.
+RESULT_VERIFICATION_ENABLED = config_bool('RESULT_VERIFICATION_ENABLED', default=False)
+
 
 CACHES = {
     'default': {

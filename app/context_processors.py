@@ -15,6 +15,7 @@ from django.db.models import Count, F, Q, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.conf import settings as django_settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ def school_settings(request):
     except Exception:
         active_role = None
 
+    verification_enabled = getattr(django_settings, "RESULT_VERIFICATION_ENABLED", True)
     pending_verification_count = 0
     pending_verification_notifications = []
     pending_teacher_assessment_count = 0
@@ -79,7 +81,7 @@ def school_settings(request):
         if role_name in {"Teacher", "Class Teacher"} or active_role in {"Teacher", "Class Teacher"}:
             is_teacher_user = True
 
-        if is_primary_mode and is_dos_user:
+        if verification_enabled and is_primary_mode and is_dos_user:
             pending_batches = ResultBatch.objects.filter(status="PENDING").select_related("assessment")
             for batch in pending_batches:
                 notification_defaults = {
@@ -142,7 +144,7 @@ def school_settings(request):
                     pending_teacher_mark_count = pending_marks_qs.count()
                     pending_teacher_mark_notifications = list(pending_marks_qs[:5])
 
-        if is_primary_mode:
+        if verification_enabled and is_primary_mode:
             notifications_qs = ResultVerificationNotification.objects.filter(
                 recipient=request.user,
                 read=False
@@ -303,6 +305,7 @@ def school_settings(request):
         'is_secondary_upper_mode': is_secondary_upper_mode,
         'pending_verification_count': pending_verification_count,
         'pending_verification_notifications': pending_verification_notifications,
+        'result_verification_enabled': verification_enabled,
         'pending_teacher_assessment_count': pending_teacher_assessment_count,
         'pending_teacher_assessment_notifications': pending_teacher_assessment_notifications,
         'pending_teacher_mark_count': pending_teacher_mark_count,

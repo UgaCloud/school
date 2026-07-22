@@ -7,6 +7,7 @@ from django.db.models import (
     Avg, Sum, F, Q, Count, Max, Case, When, Value, IntegerField
 )
 from django.contrib.auth.decorators import login_required
+from django.conf import settings as django_settings
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 
@@ -314,7 +315,13 @@ MARK_ENTRY_ADMIN_ROLE_KEYS = {
 }
 HEAD_TEACHER_ROLE_KEYS = {"head master", "headmaster", "head teacher", "headteacher"}
 CLASS_TEACHER_ROLE_KEYS = {"class teacher", "class_teacher"}
-REPORT_REMARK_MAX_LENGTH = 25
+REPORT_REMARK_MAX_LENGTH = ReportCycleRemark.MAX_REMARK_LENGTH
+REPORT_REMARK_MAX_WORDS = 100
+HEAD_REMARK_MAX_LENGTH = 240
+
+
+def _verification_enabled():
+    return getattr(django_settings, "RESULT_VERIFICATION_ENABLED", True)
 
 
 def _suggest_head_report_remark(average, trend=None):
@@ -989,7 +996,9 @@ def add_results_view(request, assessment_id=None):
             if total_students > 0 and total_students == total_results:
                 messages.warning(
                     request,
-                    "All results are now entered. Submit this batch for verification.",
+                    "All results are now entered. Submit them to release the reports."
+                    if not _verification_enabled()
+                    else "All results are now entered. Submit this batch for verification.",
                 )
 
             if "submit_after_save" in request.POST:
@@ -1003,10 +1012,13 @@ def add_results_view(request, assessment_id=None):
                         request.user,
                     )
                     if ok:
-                        messages.success(
-                            request,
-                            f"Marks saved and batch submitted for verification. {sample_count} samples selected.",
-                        )
+                        if submitted_batch.status == "VERIFIED" and not _verification_enabled():
+                            messages.success(request, "Marks saved and released directly to reports.")
+                        else:
+                            messages.success(
+                                request,
+                                f"Marks saved and batch submitted for verification. {sample_count} samples selected.",
+                            )
                     else:
                         messages.error(request, "Marks were saved, but the batch could not be submitted.")
             return redirect('add_results', assessment_id=assessment.id)
@@ -1105,7 +1117,9 @@ def add_results_view(request, assessment_id=None):
                 if total_students > 0 and total_students == total_results:
                     messages.warning(
                         request,
-                        "All results are now entered. Submit this batch for verification.",
+                        "All results are now entered. Submit them to release the reports."
+                        if not _verification_enabled()
+                        else "All results are now entered. Submit this batch for verification.",
                     )
             except ValueError as exc:
                 messages.error(request, str(exc))
@@ -1184,7 +1198,10 @@ def add_results_view(request, assessment_id=None):
                 sample_count,
             )
             if ok:
-                messages.success(request, f"Batch submitted for verification. {sample_count} samples selected.")
+                if submitted_batch.status == "VERIFIED" and not _verification_enabled():
+                    messages.success(request, "Marks submitted and released directly to reports.")
+                else:
+                    messages.success(request, f"Batch submitted for verification. {sample_count} samples selected.")
             else:
                 messages.error(request, "Batch already submitted or no results to submit.")
             return redirect('add_results', assessment_id=assessment.id)
@@ -1270,6 +1287,7 @@ def add_results_view(request, assessment_id=None):
         'is_editable_batch': is_editable_batch,
         'can_unlock_batch': can_unlock_batch,
         'can_view_verification_queue': can_view_verification_queue,
+        'verification_enabled': _verification_enabled(),
         'grading_bands': grading_bands,
     }
     return render(request, 'results/add_results_page.html', context)
@@ -5257,6 +5275,7 @@ def class_assessment_combined_view(request):
         'report_scope_key': report_scope_key,
         'report_scope_label': report_scope_label,
         'remark_max_length': REPORT_REMARK_MAX_LENGTH,
+        'remark_max_words': REPORT_REMARK_MAX_WORDS,
         'remarks_return_url': request.get_full_path(),
         **remark_permissions,
     }
@@ -5443,12 +5462,21 @@ def report_remarks_prepare_view(request):
         values = {}
         for student in students:
             value = (request.POST.get(f"{field_prefix}{student.id}") or "").strip()
-            if len(value) > REPORT_REMARK_MAX_LENGTH:
+            max_length = REPORT_REMARK_MAX_LENGTH if is_class_action else HEAD_REMARK_MAX_LENGTH
+            if len(value) > max_length:
                 messages.error(
                     request,
-                    f"Remark for {student} is too long ({len(value)}/{REPORT_REMARK_MAX_LENGTH} characters).",
+                    f"Remark for {student} is too long ({len(value)}/{max_length} characters).",
                 )
                 return redirect(_report_workflow_return_url(request))
+            if is_class_action:
+                word_count = len(value.split())
+                if word_count > REPORT_REMARK_MAX_WORDS:
+                    messages.error(
+                        request,
+                        f"Remark for {student} is too long ({word_count}/{REPORT_REMARK_MAX_WORDS} words).",
+                    )
+                    return redirect(_report_workflow_return_url(request))
             values[student.id] = value
 
         if action == "submit_class" and any(not value for value in values.values()):
@@ -5547,6 +5575,7 @@ def report_remarks_prepare_view(request):
         "scope_label": scope_label,
         "rows": rows,
         "remark_max_length": REPORT_REMARK_MAX_LENGTH,
+        "remark_max_words": REPORT_REMARK_MAX_WORDS,
         **permissions,
     })
 
@@ -5982,7 +6011,9 @@ def class_assessment_combined_print(request):
             'next_term_start_date': next_term_start_date,
             # A stored image is not approval. Signatures only appear after the
             # corresponding workflow action has been completed.
-            'head_teacher_signature': head_teacher_signature if report_approved else None,
+            # The configured Head Teacher signature is an official school
+            # setting and is shown independently of the remarks workflow.
+            'head_teacher_signature': head_teacher_signature,
             'class_teacher_signature': class_teacher_signature if class_remark_submitted else None,
             'class_teacher_remark': class_teacher_remark,
             'head_teacher_remark': head_teacher_remark,

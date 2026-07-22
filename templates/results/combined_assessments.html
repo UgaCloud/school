@@ -214,14 +214,9 @@
 
               <div class="remarks-toolbar" id="remarks">
                 <div>
-                  <h3><i class="fa fa-comments-o"></i> Remarks &amp; Approval</h3>
-                  <p>Review the results, keep each remark within {{ remark_max_length }} letters, then submit or approve.</p>
+                  <h3><i class="fa fa-comments-o"></i> Class Teacher Remarks</h3>
+                  <p>Review the results and keep each class-teacher remark within {{ remark_max_words }} words.</p>
                 </div>
-                {% if can_edit_head_remark %}
-                <button type="button" class="btn btn-warning" id="fillCombinedSuggestions">
-                  <i class="fa fa-magic"></i> Generate Missing Suggestions
-                </button>
-                {% endif %}
               </div>
 
             {% for row in students_data %}
@@ -290,20 +285,12 @@
                 </div>
 
                 <div class="row inline-remarks-grid">
-                  <div class="col-md-6">
+                  <div class="col-md-12">
                     <label>Class Teacher Remark</label>
                     <textarea name="class_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
                       class="form-control combined-remark-editor" data-counter="combined-class-count-{{ row.student.id }}"
                       {% if not row.can_edit_class_remark %}readonly{% endif %}>{{ row.remark.class_teacher_remark|default:"" }}</textarea>
                     <small class="combined-remark-counter" id="combined-class-count-{{ row.student.id }}"></small>
-                  </div>
-                  <div class="col-md-6">
-                    <label>Head Teacher Remark <small>Suggested and editable</small></label>
-                    <textarea name="head_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
-                      class="form-control combined-remark-editor combined-head-remark" data-counter="combined-head-count-{{ row.student.id }}"
-                      data-suggestion="{{ row.remark_performance.suggested_head_remark }}"
-                      {% if not can_edit_head_remark %}readonly{% endif %}>{{ row.remark.head_teacher_remark|default:"" }}</textarea>
-                    <small class="combined-remark-counter" id="combined-head-count-{{ row.student.id }}"></small>
                   </div>
                 </div>
               </div>
@@ -314,12 +301,6 @@
                 {% if can_edit_class_remark %}
                 <button type="submit" name="action" value="save_class" class="btn btn-default"><i class="fa fa-save"></i> Save Class Drafts</button>
                 <button type="submit" name="action" value="submit_class" class="btn btn-primary" onclick="return confirm('Submit all completed class-teacher remarks for head-teacher review?');"><i class="fa fa-send"></i> Submit Class Remarks</button>
-                {% endif %}
-                {% if can_edit_head_remark %}
-                <button type="submit" name="action" value="save_head" class="btn btn-default"><i class="fa fa-save"></i> Save Head Drafts</button>
-                {% endif %}
-                {% if can_approve_report %}
-                <button type="submit" name="action" value="approve_ready" class="btn btn-success" onclick="return confirm('Approve all complete reports? Incomplete reports will be skipped.');"><i class="fa fa-check"></i> Approve All Ready</button>
                 {% endif %}
               </div>
             </form>
@@ -729,12 +710,12 @@
     document.querySelectorAll('.combined-remark-editor').forEach(function (editor) {
       var counter = document.getElementById(editor.getAttribute('data-counter'));
       function updateRemarkCounter() {
-        var letters = editor.value.length;
+        var words = editor.value.trim() ? editor.value.trim().split(/\s+/).length : 0;
         if (counter) {
-          counter.textContent = letters + '/{{ remark_max_length }} letters';
-          counter.classList.toggle('near-limit', letters >= {{ remark_max_length }});
+          counter.textContent = words + '/{{ remark_max_words }} words';
+          counter.classList.toggle('near-limit', words >= {{ remark_max_words }});
         }
-        editor.setCustomValidity(letters > {{ remark_max_length }} ? 'Use no more than {{ remark_max_length }} letters.' : '');
+        editor.setCustomValidity(words > {{ remark_max_words }} ? 'Use no more than {{ remark_max_words }} words.' : '');
       }
       editor.addEventListener('input', updateRemarkCounter);
       updateRemarkCounter();

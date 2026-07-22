@@ -741,14 +741,14 @@
     <div class="x_panel dos-dashboard-hero">
       <div class="x_title">
         <h2><i class="fa fa-graduation-cap"></i> Director of Studies Dashboard</h2>
-        <div class="pull-right">
+        {% if result_verification_enabled %}<div class="pull-right">
           <a href="{% url 'verification_overview' %}" class="btn btn-danger btn-sm">
             <i class="fa fa-check-square-o"></i> Verify Assessments
             {% if dos_pending_verification_count %}
             <span class="badge" style="background:#fff;color:#c9302c;margin-left:4px;">{{ dos_pending_verification_count }}</span>
             {% endif %}
           </a>
-        </div>
+        </div>{% endif %}
         <div class="clearfix"></div>
       </div>
       <div class="x_content">
@@ -765,14 +765,14 @@
 
 <div class="row dashboard-stat-row">
   <div class="col-md-3 col-sm-6 col-xs-12">
-    <a href="{% url 'verification_overview' %}?status=PENDING" class="stat-card" style="display:flex;color:inherit;text-decoration:none;">
+    {% if result_verification_enabled %}<a href="{% url 'verification_overview' %}?status=PENDING" class="stat-card" style="display:flex;color:inherit;text-decoration:none;">
       <div class="stat-icon danger"><i class="fa fa-check-square-o"></i></div>
       <div>
         <div class="stat-label">Verification Queue</div>
         <div class="stat-value">{{ dos_pending_verification_count|default:0 }}</div>
         <div class="stat-note">Pending batches &middot; Open queue</div>
       </div>
-    </a>
+    </a>{% else %}<div class="stat-card"><div class="stat-icon success"><i class="fa fa-file-text-o"></i></div><div><div class="stat-label">Report Release</div><div class="stat-value">Direct</div><div class="stat-note">Verification bypassed</div></div></div>{% endif %}
   </div>
   <div class="col-md-3 col-sm-6 col-xs-12">
     <div class="stat-card">

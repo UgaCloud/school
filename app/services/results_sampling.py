@@ -3,6 +3,7 @@ import random
 import logging
 
 from django.db import transaction, models
+from django.conf import settings as django_settings
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,6 @@ def attach_batch_to_results(assessment, batch):
 
 
 def submit_batch_for_verification(assessment, user):
-    settings = ResultVerificationSetting.get_settings()
     batch = ensure_batch_for_assessment(assessment)
     logger.info(
         "submit_batch_for_verification start: assessment_id=%s batch_id=%s status=%s user_id=%s",
@@ -57,6 +57,34 @@ def submit_batch_for_verification(assessment, user):
     attach_batch_to_results(assessment, batch)
 
     with transaction.atomic():
+        if not getattr(django_settings, "RESULT_VERIFICATION_ENABLED", True):
+            now = timezone.now()
+            batch.status = "VERIFIED"
+            batch.submitted_by = user
+            batch.submitted_at = now
+            batch.verified_by = None
+            batch.verified_at = now
+            batch.rejection_reason = None
+            batch.save(update_fields=[
+                "status", "submitted_by", "submitted_at", "verified_by",
+                "verified_at", "rejection_reason",
+            ])
+            Result.objects.filter(assessment=assessment).update(
+                status="VERIFIED",
+                batch=batch,
+            )
+            VerificationSample.objects.filter(result__assessment=assessment).delete()
+            ResultVerificationNotification.objects.filter(batch=batch, read=False).update(
+                read=True,
+                read_at=now,
+            )
+            logger.info(
+                "submit_batch_for_verification bypassed: assessment_id=%s batch_id=%s",
+                assessment.id,
+                batch.id,
+            )
+            return batch, 0, True
+
         batch.status = "PENDING"
         batch.submitted_by = user
         batch.submitted_at = timezone.now()
@@ -70,7 +98,8 @@ def submit_batch_for_verification(assessment, user):
             len(results),
         )
 
-        percent = Decimal(str(settings.sample_percent))
+        verification_settings = ResultVerificationSetting.get_settings()
+        percent = Decimal(str(verification_settings.sample_percent))
         sample_size = int((Decimal(str(len(results))) * percent) / Decimal("100"))
         if percent > 0 and sample_size == 0:
             sample_size = 1

@@ -248,7 +248,7 @@
           <i class="fa fa-save"></i> Save Draft
         </button>
         <button type="button" class="btn btn-info" id="openSubmitModalBtn">
-          <i class="fa fa-paper-plane"></i> Submit for Approval
+          <i class="fa fa-paper-plane"></i> {% if verification_enabled %}Submit for Approval{% else %}Submit to Reports{% endif %}
         </button>
         {% else %}
         <button type="button" class="btn btn-primary disabled" disabled>
@@ -277,7 +277,7 @@
         {% endif %}
       </div>
       <div class="action-right text-muted small">
-        Draft flow: Save Draft -> Submit -> Approve -> Lock.
+        {% if verification_enabled %}Draft flow: Save Draft -> Submit -> Approve -> Lock.{% else %}Draft flow: Save Draft -> Submit to Reports -> Lock.{% endif %}
       </div>
     </div>
 
@@ -299,13 +299,17 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title" id="confirmSubmitLabel"><i class="fa fa-check-circle"></i> Submit for Approval</h4>
+        <h4 class="modal-title" id="confirmSubmitLabel"><i class="fa fa-check-circle"></i> {% if verification_enabled %}Submit for Approval{% else %}Submit to Reports{% endif %}</h4>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
+        {% if verification_enabled %}
         You are about to submit this batch for verification and approval. You will not be able to edit marks unless the batch is rejected or reopened.
+        {% else %}
+        You are about to release these marks directly to reports. The results will be locked after submission but can be reopened by an authorized user.
+        {% endif %}
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>

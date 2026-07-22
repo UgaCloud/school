@@ -276,7 +276,7 @@ class ReportCycleRemark(models.Model):
     reports, while new report preparation uses this auditable, scoped record.
     """
 
-    MAX_REMARK_LENGTH = 240
+    MAX_REMARK_LENGTH = 1000
 
     student = models.ForeignKey(
         "app.Student", on_delete=models.CASCADE, related_name="report_cycle_remarks"
@@ -287,7 +287,7 @@ class ReportCycleRemark(models.Model):
     scope_key = models.CharField(max_length=255)
     scope_label = models.CharField(max_length=255)
     class_teacher_remark = models.CharField(max_length=MAX_REMARK_LENGTH, blank=True)
-    head_teacher_remark = models.CharField(max_length=MAX_REMARK_LENGTH, blank=True)
+    head_teacher_remark = models.CharField(max_length=240, blank=True)
     class_teacher_submitted_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

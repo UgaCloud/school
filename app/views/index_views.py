@@ -1491,11 +1491,12 @@ def index_view(request):
         ]
     elif is_dos_dashboard:
         quick_actions = [
-            {"label": "Verification Queue", "icon": "fa-check-square-o", "url": reverse("verification_overview"), "style": "danger"},
             {"label": "Combined Assessment Reports", "icon": "fa-files-o", "url": reverse("class_assessment_combined"), "style": "warning"},
             {"label": "Enter Results", "icon": "fa-edit", "url": reverse("add_results_page"), "style": "primary"},
             {"label": "Exam Management", "icon": "fa-calendar", "url": reverse("assessment_create"), "style": "info"},
         ]
+        if getattr(settings, "RESULT_VERIFICATION_ENABLED", True):
+            quick_actions.insert(0, {"label": "Verification Queue", "icon": "fa-check-square-o", "url": reverse("verification_overview"), "style": "danger"})
     elif is_bursar_dashboard:
         quick_actions = [
             {"label": "Record Payment", "icon": "fa-money", "url": reverse("student_bill_page"), "style": "primary"},

@@ -476,9 +476,6 @@
     {% for rep in reports %}
     <div class="page">
         <div class="report-sheet">
-            {% if not rep.report_approved %}
-            <div style="position:absolute;right:24px;top:20px;color:#9f1239;border:2px solid #9f1239;padding:4px 10px;font-weight:700;transform:rotate(-8deg);z-index:10;">DRAFT — NOT APPROVED</div>
-            {% endif %}
             <div class="watermark">
                 {% if school.school_logo %}
                 <img src="{{ school.school_logo.url }}" alt="">
@@ -595,7 +592,7 @@
 
                 <div class="comment-line">
                     <div class="editor-wrap">
-                        <div class="line-editor report-remark-text" style="height:32px;max-height:32px;overflow:hidden;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.class_teacher_remark|default:""|truncatewords:15 }}</div>
+                        <div class="line-editor report-remark-text" style="min-height:32px;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.class_teacher_remark|default:""|truncatewords:100 }}</div>
                     </div>
                     <span class="label">ملاحظات مشرف الفصل <span class="en">(Class teacher&rsquo;s comment)</span></span>
                 </div>
@@ -605,16 +602,9 @@
                     <span class="label">التوقيع <span class="en">(Sign)</span></span>
                 </div>
 
-                <div class="comment-line">
-                    <div class="editor-wrap">
-                        <div class="line-editor report-remark-text" style="height:32px;max-height:32px;overflow:hidden;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.head_teacher_remark|default:""|truncatewords:15 }}</div>
-                    </div>
-                    <span class="label">ملاحظات مدير/ة المدرسة <span class="en">(Director&rsquo;s comment)</span></span>
-                </div>
-
                 <div class="sign-line">
                     <span class="value">{% if rep.head_teacher_signature and rep.head_teacher_signature.signature %}<img src="{{ rep.head_teacher_signature.signature.url }}" alt="Head Teacher Signature">{% endif %}</span>
-                    <span class="label">التوقيع <span class="en">(Sign)</span></span>
+                    <span class="label">توقيع مدير/ة المدرسة <span class="en">(Head Teacher&rsquo;s signature)</span></span>
                 </div>
 
                 <div class="discipline-line">

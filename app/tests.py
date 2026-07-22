@@ -261,6 +261,7 @@ class SchoolLevelActivationTests(TestCase):
         self.assertEqual(request.session.get("active_school_level"), SchoolSetting.EducationLevel.SECONDARY_LOWER)
 
 
+@override_settings(RESULT_VERIFICATION_ENABLED=True)
 class ResultVerificationWorkflowTests(TestCase):
     def setUp(self):
         self.submitter = User.objects.create_user(username="submitter", password="pass12345")
@@ -392,6 +393,16 @@ class ResultVerificationWorkflowTests(TestCase):
             sample.result_id: sample
             for sample in VerificationSample.objects.filter(result__batch=batch).select_related("result")
         }
+
+    @override_settings(RESULT_VERIFICATION_ENABLED=False)
+    def test_disabled_verification_releases_marks_directly_to_reports(self):
+        batch, sample_count, ok = submit_batch_for_verification(self.assessment, self.submitter)
+
+        self.assertTrue(ok)
+        self.assertEqual(sample_count, 0)
+        self.assertEqual(batch.status, "VERIFIED")
+        self.assertEqual(VerificationSample.objects.filter(result__batch=batch).count(), 0)
+        self.assertFalse(Result.objects.filter(assessment=self.assessment).exclude(status="VERIFIED").exists())
 
     def test_cannot_finalize_with_partial_sampled_checks(self):
         batch = self._submit_pending_batch(self.submitter)
@@ -1385,8 +1396,8 @@ class CombinedAssessmentDivisionTests(TestCase):
         )
 
         self.assertEqual(builder_response.status_code, 200)
-        self.assertContains(builder_response, "Remarks &amp; Approval")
-        self.assertContains(builder_response, "25 letters")
+        self.assertContains(builder_response, "Class Teacher Remarks")
+        self.assertContains(builder_response, "100 words")
         self.assertContains(builder_response, f'class_remark_{self.student.id}', html=False)
         self.assertNotContains(builder_response, "Prepare Remarks")
 
