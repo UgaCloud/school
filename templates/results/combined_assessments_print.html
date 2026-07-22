@@ -520,7 +520,7 @@
                     <div class="approval-card">
                         <div class="approval-heading">Class Teacher's Remark</div>
                         <div class="approval-body">
-                            <div class="report-remark-text">{{ rep.class_teacher_remark|default:""|truncatewords:12 }}</div>
+                            <div class="report-remark-text">{{ rep.class_teacher_remark|default:""|truncatewords:15 }}</div>
                             <div class="signature-box">
                                 {% if rep.class_teacher_signature and rep.class_teacher_signature.url %}
                                 <img src="{{ rep.class_teacher_signature.url }}" alt="Class Teacher Signature" style="height:24px;object-fit:contain;" />
@@ -531,7 +531,7 @@
                     <div class="approval-card">
                         <div class="approval-heading">Head Teacher's Remark</div>
                         <div class="approval-body">
-                            <div class="report-remark-text">{{ rep.head_teacher_remark|default:""|truncatewords:12 }}</div>
+                            <div class="report-remark-text">{{ rep.head_teacher_remark|default:""|truncatewords:15 }}</div>
                             <div class="signature-box">
                                 {% if rep.head_teacher_signature and rep.head_teacher_signature.signature %}
                                 <img src="{{ rep.head_teacher_signature.signature.url }}" alt="Head Teacher Signature" style="height:24px;object-fit:contain;" />

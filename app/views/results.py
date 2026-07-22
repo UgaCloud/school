@@ -314,8 +314,33 @@ MARK_ENTRY_ADMIN_ROLE_KEYS = {
 }
 HEAD_TEACHER_ROLE_KEYS = {"head master", "headmaster", "head teacher", "headteacher"}
 CLASS_TEACHER_ROLE_KEYS = {"class teacher", "class_teacher"}
-REPORT_REMARK_MAX_LENGTH = ReportCycleRemark.MAX_REMARK_LENGTH
-REPORT_REMARK_MAX_WORDS = 12
+REPORT_REMARK_MAX_LENGTH = 25
+
+
+def _suggest_head_report_remark(average, trend=None):
+    """Return a concise, editable suggestion that fits the printed report."""
+    if average is None:
+        return "Results are incomplete."
+    if trend is not None and trend <= -10:
+        return "More focus is required."
+    elif average >= 85:
+        return "Excellent performance."
+    elif average >= 75:
+        return "Very good performance."
+    elif average >= 65:
+        return "Good progress. Well done."
+    elif average >= 50:
+        return "Fair result. Work harder."
+    return "More effort is required."
+
+
+def _report_workflow_return_url(request):
+    """Keep inline remark actions on the combined-report page."""
+    candidate = (request.POST.get("return_url") or "").strip()
+    combined_path = reverse("class_assessment_combined")
+    if candidate.startswith(combined_path):
+        return candidate
+    return request.get_full_path()
 
 
 def _effective_role_name(request):
@@ -4572,7 +4597,12 @@ def verification_queue_view(request, assessment_id):
             rejection_reason = request.POST.get("rejection_reason", "").strip()
             has_mismatch = VerificationSample.objects.filter(result__batch=batch, matched=False).exists()
             if has_mismatch and not rejection_reason:
-                messages.error(request, "Provide a rejection reason for mismatched samples.")
+                mismatch_total = VerificationSample.objects.filter(result__batch=batch, matched=False).count()
+                messages.warning(
+                    request,
+                    f"Comparison completed: {mismatch_total} sampled mark(s) differ from the teacher marks. "
+                    "This batch cannot be approved. Enter a rejection reason, then flag it for correction.",
+                )
                 return redirect('verification_queue', assessment_id=assessment.id)
             status = evaluate_batch_verification(batch, request.user, rejection_reason=rejection_reason)
             if status == "VERIFIED":
@@ -5124,6 +5154,87 @@ def class_assessment_combined_view(request):
                                 'subjects': per_subject
                             })
 
+    remark_permissions = _report_remark_permissions(request)
+    report_scope_key = ""
+    report_scope_label = ""
+    if class_obj and selected_assessment_types and students_data and not report_state_message:
+        report_scope_key, report_scope_label = _report_scope(selected_assessment_types)
+        student_ids = [row["student"].id for row in students_data]
+        editable_class_student_ids = set(student_ids)
+        if _effective_role_key(request) in CLASS_TEACHER_ROLE_KEYS and not request.user.is_superuser:
+            staff_account = _get_staff_account(request)
+            staff_member = getattr(staff_account, "staff", None)
+            editable_class_student_ids = set(
+                ClassRegister.objects.filter(
+                    academic_class_stream__academic_class=class_obj,
+                    academic_class_stream__class_teacher=staff_member,
+                    student_id__in=student_ids,
+                ).values_list("student_id", flat=True)
+            )
+        existing_remarks = {
+            remark.student_id: remark
+            for remark in ReportCycleRemark.objects.filter(
+                academic_class=class_obj,
+                scope_key=report_scope_key,
+                student_id__in=student_ids,
+            )
+        }
+        for row in students_data:
+            subject_averages = sorted(
+                [
+                    {"name": name, "average": values["avg"]}
+                    for name, values in row["subjects"].items()
+                    if values["avg"] is not None
+                ],
+                key=lambda item: item["average"],
+                reverse=True,
+            )
+            overall_average = (
+                round(sum(item["average"] for item in subject_averages) / len(subject_averages), 1)
+                if subject_averages
+                else None
+            )
+            type_averages = []
+            missing_count = 0
+            for assessment_type in selected_assessment_types:
+                values = []
+                for subject_data in row["subjects"].values():
+                    score = subject_data["scores"].get(assessment_type.id)
+                    if score is None:
+                        missing_count += 1
+                    else:
+                        values.append(float(score))
+                type_averages.append({
+                    "name": assessment_type.name,
+                    "average": round(sum(values) / len(values), 1) if values else None,
+                })
+            available_type_averages = [
+                item["average"] for item in type_averages if item["average"] is not None
+            ]
+            trend = (
+                round(available_type_averages[-1] - available_type_averages[0], 1)
+                if len(available_type_averages) >= 2
+                else None
+            )
+            row["remark"] = existing_remarks.get(row["student"].id)
+            row["can_edit_class_remark"] = (
+                remark_permissions["can_edit_class_remark"]
+                and row["student"].id in editable_class_student_ids
+            )
+            row["remark_performance"] = {
+                "average": overall_average,
+                "grade": get_grade_and_points(overall_average)[0] if overall_average is not None else "-",
+                "trend": trend,
+                "type_averages": type_averages,
+                "strengths": subject_averages[:2],
+                "focus_subjects": list(reversed(subject_averages[-2:])),
+                "missing_count": missing_count,
+                "suggested_head_remark": _suggest_head_report_remark(
+                    overall_average,
+                    trend,
+                ),
+            }
+
     context = {
         # Filter options and selections
         'academic_years': academic_years,
@@ -5143,6 +5254,11 @@ def class_assessment_combined_view(request):
         'students_data': students_data,
         'report_state_message': report_state_message,
         'ready': ready,
+        'report_scope_key': report_scope_key,
+        'report_scope_label': report_scope_label,
+        'remark_max_length': REPORT_REMARK_MAX_LENGTH,
+        'remarks_return_url': request.get_full_path(),
+        **remark_permissions,
     }
     return render(request, 'results/combined_assessments.html', context)
 
@@ -5175,6 +5291,16 @@ def report_remarks_prepare_view(request):
         messages.error(request, "You do not have permission to prepare report remarks.")
         return redirect("class_assessment_combined")
 
+    # Old bookmarks still work, but remark preparation now lives inside the
+    # combined report instead of on a second screen.
+    if request.method == "GET":
+        query = request.GET.copy()
+        query.pop("academic_class_id", None)
+        query["academic_year_id"] = academic_class.academic_year_id
+        query["term_id"] = academic_class.term_id
+        query["class_id"] = academic_class.Class_id
+        return redirect(f"{reverse('class_assessment_combined')}?{query.urlencode()}#remarks")
+
     registers = ClassRegister.objects.filter(
         academic_class_stream__academic_class=academic_class,
         student__is_active=True,
@@ -5195,6 +5321,101 @@ def report_remarks_prepare_view(request):
         student_map.setdefault(register.student_id, register.student)
     students = list(student_map.values())
 
+    # Give remark writers the same academic evidence that appears on the
+    # combined report. Scores are normalized because assessments may have
+    # different maximum marks.
+    selected_type_ids = [assessment_type.id for assessment_type in assessment_types]
+    assessment_rows = list(
+        Assessment.objects.filter(
+            academic_class=academic_class,
+            assessment_type_id__in=selected_type_ids,
+        ).select_related("assessment_type", "subject")
+    )
+    expected_result_count = len(assessment_rows)
+    result_rows = Result.objects.filter(
+        assessment__academic_class=academic_class,
+        assessment__assessment_type_id__in=selected_type_ids,
+        student_id__in=student_map,
+        student__is_active=True,
+    ).select_related("assessment__assessment_type", "assessment__subject")
+
+    performance = {
+        student.id: {
+            "verified": [],
+            "all_count": 0,
+            "by_type": defaultdict(list),
+            "by_subject": defaultdict(list),
+        }
+        for student in students
+    }
+    for result in result_rows:
+        bucket = performance[result.student_id]
+        bucket["all_count"] += 1
+        if result.status != "VERIFIED":
+            continue
+        out_of = Decimal(str(result.assessment.out_of or 0))
+        if out_of <= 0:
+            continue
+        percent = (Decimal(str(result.score)) / out_of) * Decimal("100")
+        bucket["verified"].append(percent)
+        bucket["by_type"][result.assessment.assessment_type_id].append(percent)
+        bucket["by_subject"][result.assessment.subject.name].append(percent)
+
+    performance_summaries = {}
+    for student in students:
+        bucket = performance[student.id]
+        verified = bucket["verified"]
+        average = round(float(sum(verified) / len(verified)), 1) if verified else None
+        grade = get_grade_and_points(average)[0] if average is not None else "-"
+        type_averages = []
+        for assessment_type in assessment_types:
+            values = bucket["by_type"].get(assessment_type.id, [])
+            type_averages.append({
+                "name": assessment_type.name,
+                "average": round(float(sum(values) / len(values)), 1) if values else None,
+            })
+        available_type_averages = [item["average"] for item in type_averages if item["average"] is not None]
+        trend = (
+            round(available_type_averages[-1] - available_type_averages[0], 1)
+            if len(available_type_averages) >= 2
+            else None
+        )
+        subject_averages = sorted(
+            (
+                (name, round(float(sum(values) / len(values)), 1))
+                for name, values in bucket["by_subject"].items()
+                if values
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        missing_count = max(expected_result_count - bucket["all_count"], 0)
+        unverified_count = max(bucket["all_count"] - len(verified), 0)
+        flags = []
+        if missing_count:
+            flags.append(f"{missing_count} missing")
+        if unverified_count:
+            flags.append(f"{unverified_count} unverified")
+        if average is not None and average < 50:
+            flags.append("Needs academic support")
+        if trend is not None and trend <= -10:
+            flags.append("Performance declined")
+        performance_summaries[student.id] = {
+            "average": average,
+            "grade": grade,
+            "trend": trend,
+            "type_averages": type_averages,
+            "strengths": subject_averages[:2],
+            "focus_subjects": list(reversed(subject_averages[-2:])) if subject_averages else [],
+            "missing_count": missing_count,
+            "unverified_count": unverified_count,
+            "flags": flags,
+            "suggested_head_remark": _suggest_head_report_remark(
+                average,
+                trend,
+            ),
+        }
+
     existing = {
         row.student_id: row
         for row in ReportCycleRemark.objects.filter(
@@ -5206,17 +5427,17 @@ def report_remarks_prepare_view(request):
 
     if request.method == "POST":
         action = request.POST.get("action") or "save_class"
-        if action not in {"save_class", "submit_class", "save_head", "approve"}:
+        if action not in {"save_class", "submit_class", "save_head", "approve", "approve_ready"}:
             messages.error(request, "Unknown report remark action.")
-            return redirect(request.get_full_path())
+            return redirect(_report_workflow_return_url(request))
         is_class_action = action in {"save_class", "submit_class"}
-        is_head_action = action in {"save_head", "approve"}
+        is_head_action = action in {"save_head", "approve", "approve_ready"}
         if is_class_action and not permissions["can_edit_class_remark"]:
             messages.error(request, "Only the assigned class teacher, DOS or Admin can update class-teacher remarks.")
-            return redirect(request.get_full_path())
+            return redirect(_report_workflow_return_url(request))
         if is_head_action and not permissions["can_edit_head_remark"]:
             messages.error(request, "Only the Head Teacher, DOS or Admin can update head-teacher remarks.")
-            return redirect(request.get_full_path())
+            return redirect(_report_workflow_return_url(request))
 
         field_prefix = "class_remark_" if is_class_action else "head_remark_"
         values = {}
@@ -5227,35 +5448,48 @@ def report_remarks_prepare_view(request):
                     request,
                     f"Remark for {student} is too long ({len(value)}/{REPORT_REMARK_MAX_LENGTH} characters).",
                 )
-                return redirect(request.get_full_path())
-            word_count = len(value.split())
-            if word_count > REPORT_REMARK_MAX_WORDS:
-                messages.error(
-                    request,
-                    f"Remark for {student} is too long ({word_count}/{REPORT_REMARK_MAX_WORDS} words).",
-                )
-                return redirect(request.get_full_path())
+                return redirect(_report_workflow_return_url(request))
             values[student.id] = value
 
         if action == "submit_class" and any(not value for value in values.values()):
             messages.error(request, "Complete every class-teacher remark before submitting the class.")
-            return redirect(request.get_full_path())
+            return redirect(_report_workflow_return_url(request))
 
-        if action == "approve":
+        approval_targets = students
+        if action in {"approve", "approve_ready"}:
             if not permissions["can_approve_report"]:
                 messages.error(request, "Only the Head Teacher, DOS or Admin can approve reports.")
-                return redirect(request.get_full_path())
-            unsubmitted = [student for student in students if not existing.get(student.id) or not existing[student.id].class_teacher_submitted_at]
-            if unsubmitted:
-                messages.error(request, "Class-teacher remarks must be submitted before final approval.")
-                return redirect(request.get_full_path())
-            if any(not value for value in values.values()):
-                messages.error(request, "Complete every head-teacher remark before approving the reports.")
-                return redirect(request.get_full_path())
+                return redirect(_report_workflow_return_url(request))
+            if action == "approve":
+                unsubmitted = [student for student in students if not existing.get(student.id) or not existing[student.id].class_teacher_submitted_at]
+                if unsubmitted:
+                    messages.error(request, "Class-teacher remarks must be submitted before final approval.")
+                    return redirect(_report_workflow_return_url(request))
+                if any(not value for value in values.values()):
+                    messages.error(request, "Complete every head-teacher remark before approving the reports.")
+                    return redirect(_report_workflow_return_url(request))
+            else:
+                approval_targets = [
+                    student for student in students
+                    if existing.get(student.id)
+                    and existing[student.id].class_teacher_submitted_at
+                    and values.get(student.id)
+                    and performance_summaries[student.id]["missing_count"] == 0
+                    and performance_summaries[student.id]["unverified_count"] == 0
+                ]
+                if not approval_targets:
+                    messages.error(
+                        request,
+                        "No reports are ready. A submitted class-teacher remark and a head-teacher remark are required.",
+                    )
+                    return redirect(_report_workflow_return_url(request))
+        approval_target_ids = {student.id for student in approval_targets}
 
         now = timezone.now()
         with transaction.atomic():
             for student in students:
+                if action == "approve_ready" and student.id not in approval_target_ids:
+                    continue
                 remark, _created = ReportCycleRemark.objects.get_or_create(
                     student=student,
                     academic_class=academic_class,
@@ -5275,7 +5509,7 @@ def report_remarks_prepare_view(request):
                     remark.head_teacher_approved_at = None
                 else:
                     remark.head_teacher_remark = values[student.id]
-                    if action == "approve":
+                    if action in {"approve", "approve_ready"}:
                         remark.head_teacher_approved_by = request.user
                         remark.head_teacher_approved_at = now
                     else:
@@ -5290,9 +5524,10 @@ def report_remarks_prepare_view(request):
             "submit_class": "Class-teacher remarks submitted for approval.",
             "save_head": "Head-teacher remark drafts saved.",
             "approve": "Reports approved. Official signatures can now appear when printed.",
+            "approve_ready": f"{len(approval_targets)} ready report(s) approved. Incomplete reports were left unchanged.",
         }[action]
         messages.success(request, label)
-        return redirect(request.get_full_path())
+        return redirect(_report_workflow_return_url(request))
 
     rows = []
     for student in students:
@@ -5300,6 +5535,7 @@ def report_remarks_prepare_view(request):
         rows.append({
             "student": student,
             "remark": remark,
+            "performance": performance_summaries[student.id],
             "class_length": len(remark.class_teacher_remark) if remark else 0,
             "head_length": len(remark.head_teacher_remark) if remark else 0,
         })
@@ -5311,7 +5547,6 @@ def report_remarks_prepare_view(request):
         "scope_label": scope_label,
         "rows": rows,
         "remark_max_length": REPORT_REMARK_MAX_LENGTH,
-        "remark_max_words": REPORT_REMARK_MAX_WORDS,
         **permissions,
     })
 

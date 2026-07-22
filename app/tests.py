@@ -1373,6 +1373,23 @@ class CombinedAssessmentDivisionTests(TestCase):
         self.assertContains(response, "TERM 1 2026 REPORT CARD")
         self.assertContains(response, 'colspan="5"', html=False)
 
+        builder_response = self.client.get(
+            reverse("class_assessment_combined"),
+            {
+                "academic_year_id": self.year.id,
+                "term_id": self.term.id,
+                "class_id": self.class_obj.id,
+                "report_format": "standard",
+                "assessment_type_ids": [self.bot.id, self.mid.id],
+            },
+        )
+
+        self.assertEqual(builder_response.status_code, 200)
+        self.assertContains(builder_response, "Remarks &amp; Approval")
+        self.assertContains(builder_response, "25 letters")
+        self.assertContains(builder_response, f'class_remark_{self.student.id}', html=False)
+        self.assertNotContains(builder_response, "Prepare Remarks")
+
 
 class AutoLogoutMiddlewareTests(TestCase):
     def setUp(self):

@@ -595,7 +595,7 @@
 
                 <div class="comment-line">
                     <div class="editor-wrap">
-                        <div class="line-editor report-remark-text" style="height:32px;max-height:32px;overflow:hidden;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.class_teacher_remark|default:"" }}</div>
+                        <div class="line-editor report-remark-text" style="height:32px;max-height:32px;overflow:hidden;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.class_teacher_remark|default:""|truncatewords:15 }}</div>
                     </div>
                     <span class="label">ملاحظات مشرف الفصل <span class="en">(Class teacher&rsquo;s comment)</span></span>
                 </div>
@@ -607,7 +607,7 @@
 
                 <div class="comment-line">
                     <div class="editor-wrap">
-                        <div class="line-editor report-remark-text" style="height:32px;max-height:32px;overflow:hidden;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.head_teacher_remark|default:"" }}</div>
+                        <div class="line-editor report-remark-text" style="height:32px;max-height:32px;overflow:hidden;font-size:8.5pt;line-height:10px;overflow-wrap:anywhere;">{{ rep.head_teacher_remark|default:""|truncatewords:15 }}</div>
                     </div>
                     <span class="label">ملاحظات مدير/ة المدرسة <span class="en">(Director&rsquo;s comment)</span></span>
                 </div>

@@ -17,12 +17,6 @@
       <a href="{% url 'class_assessment_combined' %}" class="btn btn-default">Reset</a>
       {% if ready and class_obj and not report_state_message and students_data %}
       <a
-        class="btn btn-info"
-        href="{% url 'report_remarks_prepare' %}?academic_class_id={{ class_obj.id }}{% for id in selected_assessment_type_ids %}&assessment_type_ids={{ id }}{% endfor %}"
-      >
-        <i class="fa fa-commenting-o"></i> Prepare Remarks
-      </a>
-      <a
         class="btn btn-success"
         href="{% url 'class_assessment_combined_print' %}?academic_year_id={{ selected_year_id }}&term_id={{ selected_term_id }}&class_id={{ selected_class_id }}&report_format={{ selected_report_format }}{% for id in selected_assessment_type_ids %}&assessment_type_ids={{ id }}{% endfor %}"
         target="_blank"
@@ -210,6 +204,26 @@
               <strong>{{ students_data|length }}</strong> student report{{ students_data|length|pluralize }} ready for preview and print.
             </div>
 
+            <form method="post" action="{% url 'report_remarks_prepare' %}" id="inlineRemarksForm">
+              {% csrf_token %}
+              <input type="hidden" name="academic_class_id" value="{{ class_obj.id }}">
+              <input type="hidden" name="return_url" value="{{ remarks_return_url }}#remarks">
+              {% for assessment_type in selected_assessment_types %}
+              <input type="hidden" name="assessment_type_ids" value="{{ assessment_type.id }}">
+              {% endfor %}
+
+              <div class="remarks-toolbar" id="remarks">
+                <div>
+                  <h3><i class="fa fa-comments-o"></i> Remarks &amp; Approval</h3>
+                  <p>Review the results, keep each remark within {{ remark_max_length }} letters, then submit or approve.</p>
+                </div>
+                {% if can_edit_head_remark %}
+                <button type="button" class="btn btn-warning" id="fillCombinedSuggestions">
+                  <i class="fa fa-magic"></i> Generate Missing Suggestions
+                </button>
+                {% endif %}
+              </div>
+
             {% for row in students_data %}
             <div class="x_panel student-preview-card">
               <div class="x_title">
@@ -262,9 +276,53 @@
                     </tbody>
                   </table>
                 </div>
+
+                <div class="inline-remark-summary">
+                  <span>Overall <strong>{% if row.remark_performance.average != None %}{{ row.remark_performance.average|floatformat:1 }}%{% else %}—{% endif %}</strong></span>
+                  <span>Grade <strong>{{ row.remark_performance.grade }}</strong></span>
+                  <span>Trend <strong class="{% if row.remark_performance.trend != None %}{% if row.remark_performance.trend < 0 %}text-danger{% elif row.remark_performance.trend > 0 %}text-success{% endif %}{% endif %}">{% if row.remark_performance.trend != None %}{% if row.remark_performance.trend > 0 %}+{% endif %}{{ row.remark_performance.trend|floatformat:1 }}{% else %}—{% endif %}</strong></span>
+                  {% if row.remark_performance.missing_count %}<span class="remark-warning"><i class="fa fa-exclamation-triangle"></i> {{ row.remark_performance.missing_count }} missing mark{{ row.remark_performance.missing_count|pluralize }}</span>{% endif %}
+                  <span class="remark-workflow-status">
+                    {% if row.remark.head_teacher_approved_at %}<span class="label label-success">Approved</span>
+                    {% elif row.remark.class_teacher_submitted_at %}<span class="label label-info">Ready for head teacher</span>
+                    {% else %}<span class="label label-default">Class draft</span>{% endif %}
+                  </span>
+                </div>
+
+                <div class="row inline-remarks-grid">
+                  <div class="col-md-6">
+                    <label>Class Teacher Remark</label>
+                    <textarea name="class_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
+                      class="form-control combined-remark-editor" data-counter="combined-class-count-{{ row.student.id }}"
+                      {% if not row.can_edit_class_remark %}readonly{% endif %}>{{ row.remark.class_teacher_remark|default:"" }}</textarea>
+                    <small class="combined-remark-counter" id="combined-class-count-{{ row.student.id }}"></small>
+                  </div>
+                  <div class="col-md-6">
+                    <label>Head Teacher Remark <small>Suggested and editable</small></label>
+                    <textarea name="head_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
+                      class="form-control combined-remark-editor combined-head-remark" data-counter="combined-head-count-{{ row.student.id }}"
+                      data-suggestion="{{ row.remark_performance.suggested_head_remark }}"
+                      {% if not can_edit_head_remark %}readonly{% endif %}>{{ row.remark.head_teacher_remark|default:"" }}</textarea>
+                    <small class="combined-remark-counter" id="combined-head-count-{{ row.student.id }}"></small>
+                  </div>
+                </div>
               </div>
             </div>
             {% endfor %}
+
+              <div class="combined-remark-actions">
+                {% if can_edit_class_remark %}
+                <button type="submit" name="action" value="save_class" class="btn btn-default"><i class="fa fa-save"></i> Save Class Drafts</button>
+                <button type="submit" name="action" value="submit_class" class="btn btn-primary" onclick="return confirm('Submit all completed class-teacher remarks for head-teacher review?');"><i class="fa fa-send"></i> Submit Class Remarks</button>
+                {% endif %}
+                {% if can_edit_head_remark %}
+                <button type="submit" name="action" value="save_head" class="btn btn-default"><i class="fa fa-save"></i> Save Head Drafts</button>
+                {% endif %}
+                {% if can_approve_report %}
+                <button type="submit" name="action" value="approve_ready" class="btn btn-success" onclick="return confirm('Approve all complete reports? Incomplete reports will be skipped.');"><i class="fa fa-check"></i> Approve All Ready</button>
+                {% endif %}
+              </div>
+            </form>
           {% endif %}
         {% else %}
           <div class="empty-state-box">
@@ -518,6 +576,22 @@
     color: #64748b;
   }
 
+  .remarks-toolbar { display:flex; justify-content:space-between; align-items:center; gap:14px; margin:18px 0 14px; padding:16px 18px; border:1px solid #bfdbfe; border-radius:14px; background:#eff6ff; }
+  .remarks-toolbar h3 { margin:0 0 4px; color:#1e3a8a; font-size:18px; font-weight:800; }
+  .remarks-toolbar p { margin:0; color:#52657d; }
+  .inline-remark-summary { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; padding:10px 12px; border-radius:10px; background:#f8fafc; }
+  .inline-remark-summary > span { padding:5px 9px; border:1px solid #dbe4ee; border-radius:999px; background:#fff; color:#52657d; }
+  .inline-remark-summary .remark-warning { border-color:#f6c78b; background:#fff7ed; color:#9a4b12; }
+  .inline-remark-summary .remark-workflow-status { margin-left:auto; border:0; background:transparent; }
+  .inline-remarks-grid { margin-top:14px; }
+  .inline-remarks-grid label { display:block; color:#334155; font-weight:700; }
+  .inline-remarks-grid label small { color:#7c8b9b; font-weight:400; }
+  .combined-remark-editor { min-height:76px; resize:vertical; border-radius:10px; }
+  .combined-remark-editor[readonly] { background:#f8fafc; color:#52657d; }
+  .combined-remark-counter { float:right; color:#73879c; }
+  .combined-remark-counter.near-limit { color:#b45309; font-weight:700; }
+  .combined-remark-actions { position:sticky; bottom:0; z-index:5; display:flex; flex-wrap:wrap; gap:8px; padding:14px; border:1px solid #dbe4ee; border-radius:12px; background:rgba(255,255,255,.97); box-shadow:0 -6px 18px rgba(15,23,42,.07); }
+
   .preview-table th {
     background: #eff6ff;
     color: #1e3a8a;
@@ -574,6 +648,9 @@
       display: block;
       margin-top: 8px;
     }
+
+    .remarks-toolbar { align-items:stretch; flex-direction:column; }
+    .combined-remark-actions .btn { width:100%; }
   }
 </style>
 
@@ -648,6 +725,35 @@
 
     updateSelectionCount();
     filterAssessmentCards();
+
+    document.querySelectorAll('.combined-remark-editor').forEach(function (editor) {
+      var counter = document.getElementById(editor.getAttribute('data-counter'));
+      function updateRemarkCounter() {
+        var letters = editor.value.length;
+        if (counter) {
+          counter.textContent = letters + '/{{ remark_max_length }} letters';
+          counter.classList.toggle('near-limit', letters >= {{ remark_max_length }});
+        }
+        editor.setCustomValidity(letters > {{ remark_max_length }} ? 'Use no more than {{ remark_max_length }} letters.' : '');
+      }
+      editor.addEventListener('input', updateRemarkCounter);
+      updateRemarkCounter();
+    });
+
+    var suggestionButton = document.getElementById('fillCombinedSuggestions');
+    if (suggestionButton) {
+      suggestionButton.addEventListener('click', function () {
+        var filled = 0;
+        document.querySelectorAll('.combined-head-remark:not([readonly])').forEach(function (editor) {
+          if (!editor.value.trim() && editor.getAttribute('data-suggestion')) {
+            editor.value = editor.getAttribute('data-suggestion');
+            editor.dispatchEvent(new Event('input'));
+            filled += 1;
+          }
+        });
+        suggestionButton.innerHTML = '<i class="fa fa-check"></i> ' + filled + ' suggestion' + (filled === 1 ? '' : 's') + ' added';
+      });
+    }
   })();
 </script>
 {% endblock %}
