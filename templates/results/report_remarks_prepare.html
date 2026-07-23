@@ -20,8 +20,8 @@
         <span>{{ scope_label }}</span>
       </div>
       <div class="alert alert-info">
-        Review the evidence before commenting. Class teachers submit individual remarks first; the head teacher
-        reviews those remarks, checks flagged learners, and approves the ready reports.
+        Review the evidence before commenting. Submitted class-teacher remarks publish directly to the reports.
+        Head-teacher remarks and report approval are managed separately.
       </div>
 
       {% if rows %}
@@ -67,7 +67,7 @@
                   {% if row.performance.missing_count or row.performance.unverified_count %}
                   <span class="label label-warning">Results incomplete</span>
                   {% else %}
-                  <span class="label label-info">Ready for review</span>
+                  <span class="label label-info">Published to reports</span>
                   {% endif %}
                 {% else %}
                   <span class="label label-default">Class draft</span>
@@ -127,7 +127,7 @@
             <i class="fa fa-save"></i> Save Class Drafts
           </button>
           <button type="submit" name="action" value="submit_class" class="btn btn-primary"
-            onclick="return confirm('Submit all completed class-teacher remarks for approval?');">
+            onclick="return confirm('Publish the completed class-teacher remarks directly to the reports? Blank learners will be left for later.');">
             <i class="fa fa-send"></i> Submit Class Remarks
           </button>
           {% endif %}

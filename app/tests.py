@@ -3,6 +3,7 @@ from decimal import Decimal
 from io import BytesIO
 import unittest
 from unittest.mock import patch
+from urllib.parse import urlencode
 from zipfile import ZipFile
 
 from django.conf import settings
@@ -29,6 +30,7 @@ from app.models.results import (
     Assessment,
     AssessmentType,
     GradingSystem,
+    ReportCycleRemark,
     Result,
     ResultVerificationSetting,
     VerificationCorrectionLog,
@@ -1400,6 +1402,60 @@ class CombinedAssessmentDivisionTests(TestCase):
         self.assertContains(builder_response, "100 words")
         self.assertContains(builder_response, f'class_remark_{self.student.id}', html=False)
         self.assertNotContains(builder_response, "Prepare Remarks")
+
+    def test_class_remark_draft_remains_after_save_and_prints_after_submit(self):
+        self.user.is_superuser = True
+        self.user.save(update_fields=["is_superuser"])
+        query = {
+            "academic_year_id": self.year.id,
+            "term_id": self.term.id,
+            "class_id": self.class_obj.id,
+            "report_format": "standard",
+            "assessment_type_ids": [self.bot.id, self.mid.id],
+        }
+        return_url = reverse("class_assessment_combined") + "?" + urlencode(query, doseq=True)
+        draft = "A thoughtful draft remark that must remain in the editor."
+
+        response = self.client.post(
+            reverse("report_remarks_prepare"),
+            {
+                "academic_class_id": self.academic_class.id,
+                "assessment_type_ids": [self.bot.id, self.mid.id],
+                "return_url": return_url,
+                "action": "save_class",
+                f"class_remark_{self.student.id}": draft,
+            },
+        )
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        saved = ReportCycleRemark.objects.get(
+            student=self.student,
+            academic_class=self.academic_class,
+            scope_key=f"combined:{self.bot.id}-{self.mid.id}",
+        )
+        self.assertEqual(saved.class_teacher_remark, draft)
+        self.assertIsNone(saved.class_teacher_submitted_at)
+
+        builder_response = self.client.get(reverse("class_assessment_combined"), query)
+        self.assertContains(builder_response, draft)
+        draft_print_response = self.client.get(reverse("class_assessment_combined_print"), query)
+        self.assertNotContains(draft_print_response, draft)
+
+        response = self.client.post(
+            reverse("report_remarks_prepare"),
+            {
+                "academic_class_id": self.academic_class.id,
+                "assessment_type_ids": [self.bot.id, self.mid.id],
+                "return_url": return_url,
+                "action": "submit_class",
+                f"class_remark_{self.student.id}": draft,
+            },
+        )
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        saved.refresh_from_db()
+        self.assertIsNotNone(saved.class_teacher_submitted_at)
+
+        print_response = self.client.get(reverse("class_assessment_combined_print"), query)
+        self.assertContains(print_response, draft)
 
 
 class AutoLogoutMiddlewareTests(TestCase):

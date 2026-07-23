@@ -279,7 +279,7 @@
                   {% if row.remark_performance.missing_count %}<span class="remark-warning"><i class="fa fa-exclamation-triangle"></i> {{ row.remark_performance.missing_count }} missing mark{{ row.remark_performance.missing_count|pluralize }}</span>{% endif %}
                   <span class="remark-workflow-status">
                     {% if row.remark.head_teacher_approved_at %}<span class="label label-success">Approved</span>
-                    {% elif row.remark.class_teacher_submitted_at %}<span class="label label-info">Ready for head teacher</span>
+                    {% elif row.remark.class_teacher_submitted_at %}<span class="label label-info">Published to reports</span>
                     {% else %}<span class="label label-default">Class draft</span>{% endif %}
                   </span>
                 </div>
@@ -300,7 +300,7 @@
               <div class="combined-remark-actions">
                 {% if can_edit_class_remark %}
                 <button type="submit" name="action" value="save_class" class="btn btn-default"><i class="fa fa-save"></i> Save Class Drafts</button>
-                <button type="submit" name="action" value="submit_class" class="btn btn-primary" onclick="return confirm('Submit all completed class-teacher remarks for head-teacher review?');"><i class="fa fa-send"></i> Submit Class Remarks</button>
+                <button type="submit" name="action" value="submit_class" class="btn btn-primary" onclick="return confirm('Publish the completed class-teacher remarks directly to the reports? Blank learners will be left for later.');"><i class="fa fa-send"></i> Submit Class Remarks</button>
                 {% endif %}
               </div>
             </form>

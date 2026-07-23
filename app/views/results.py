@@ -3689,6 +3689,8 @@ def assessment_sheet_view(request):
     students_data = []
     # Track subject ids encountered per normalized subject key from results
     subject_ids_by_key = defaultdict(set)
+    # Only core subjects are eligible for the class "Best Subject" reading.
+    core_subject_keys = set()
 
     for register in class_registers:
         student = register.student
@@ -3714,6 +3716,8 @@ def assessment_sheet_view(request):
             subj_desc = r.assessment.subject.description or ""
             subj_key = norm_key(subj_name)
             subject_ids_by_key[subj_key].add(r.assessment.subject_id)
+            if (r.assessment.subject.type or "").strip().lower() == "core":
+                core_subject_keys.add(subj_key)
 
             if subj_key not in seen_subjects:
                 unique_subjects.append(subj_key)
@@ -3915,7 +3919,15 @@ def assessment_sheet_view(request):
         1 for student in students_data
         if unique_subjects and all(subject in (student.get("subjects") or {}) for subject in unique_subjects)
     )
-    best_subject = max(subject_analysis_rows, key=lambda row: row["average"], default=None)
+    best_subject = max(
+        (
+            row
+            for row in subject_analysis_rows
+            if row["subject"] in core_subject_keys
+        ),
+        key=lambda row: row["average"],
+        default=None,
+    )
     support_subject = min(subject_analysis_rows, key=lambda row: row["average"], default=None)
     class_analysis = {
         "registered": registered_count,
@@ -5469,7 +5481,12 @@ def report_remarks_prepare_view(request):
                     f"Remark for {student} is too long ({len(value)}/{max_length} characters).",
                 )
                 return redirect(_report_workflow_return_url(request))
-            if is_class_action:
+            # Drafts are deliberately allowed to be over the final report's
+            # word limit.  Rejecting a class-wide draft because one remark was
+            # unfinished/too long redirects back to the page and makes every
+            # newly typed value appear to have vanished.  Enforce the print
+            # limit only at the point of submission.
+            if action == "submit_class":
                 word_count = len(value.split())
                 if word_count > REPORT_REMARK_MAX_WORDS:
                     messages.error(
@@ -5479,8 +5496,8 @@ def report_remarks_prepare_view(request):
                     return redirect(_report_workflow_return_url(request))
             values[student.id] = value
 
-        if action == "submit_class" and any(not value for value in values.values()):
-            messages.error(request, "Complete every class-teacher remark before submitting the class.")
+        if action == "submit_class" and not any(values.values()):
+            messages.error(request, "Enter at least one class-teacher remark before submitting.")
             return redirect(_report_workflow_return_url(request))
 
         approval_targets = students
@@ -5518,6 +5535,10 @@ def report_remarks_prepare_view(request):
             for student in students:
                 if action == "approve_ready" and student.id not in approval_target_ids:
                     continue
+                # Partial class submission is allowed: publish each completed
+                # remark now and leave blank learners untouched for later.
+                if action == "submit_class" and not values[student.id]:
+                    continue
                 remark, _created = ReportCycleRemark.objects.get_or_create(
                     student=student,
                     academic_class=academic_class,
@@ -5547,9 +5568,10 @@ def report_remarks_prepare_view(request):
                 remark.updated_by = request.user
                 remark.save()
 
+        published_count = sum(bool(value) for value in values.values())
         label = {
             "save_class": "Class-teacher remark drafts saved.",
-            "submit_class": "Class-teacher remarks submitted for approval.",
+            "submit_class": f"{published_count} class-teacher remark(s) published to the reports. Blank learners were left for later.",
             "save_head": "Head-teacher remark drafts saved.",
             "approve": "Reports approved. Official signatures can now appear when printed.",
             "approve_ready": f"{len(approval_targets)} ready report(s) approved. Incomplete reports were left unchanged.",
@@ -5971,9 +5993,13 @@ def class_assessment_combined_print(request):
         # Remarks are scoped to this exact assessment selection. Legacy term
         # remarks remain stored but are deliberately not reused across cycles.
         cycle_remark = cycle_remarks.get(student.id)
-        class_teacher_remark = cycle_remark.class_teacher_remark if cycle_remark else ""
-        head_teacher_remark = cycle_remark.head_teacher_remark if cycle_remark else ""
         class_remark_submitted = bool(cycle_remark and cycle_remark.class_teacher_submitted_at)
+        # A saved draft stays in the editor. It reaches the actual report only
+        # when the class teacher explicitly submits/publishes it.
+        class_teacher_remark = (
+            cycle_remark.class_teacher_remark if class_remark_submitted else ""
+        )
+        head_teacher_remark = cycle_remark.head_teacher_remark if cycle_remark else ""
         report_approved = bool(cycle_remark and cycle_remark.head_teacher_approved_at)
         
         if total_aggregates:
