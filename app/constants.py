@@ -14,6 +14,7 @@ NOTIFICATION_TYPES = [
 
 AUDIENCE_CHOICES = [
     ("all", "All Staff"),
+    ("parents", "Parents"),
     ("teachers", "Teachers"),
     ("head", "Head Teacher"),
     ("bursar", "Bursar"),

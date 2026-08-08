@@ -3,9 +3,15 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import Q
+from django.urls import reverse
 from django.utils import timezone
 
-from app.models import ParentAccess, ParentPortalAudit
+from app.models import (
+    AcademicClassStream, Announcement, ClassRegister, ClassSubjectAllocation, LibraryLoan,
+    Message, MessageThread, ParentAccess, ParentConversation, ParentNotification, ParentPortalAudit,
+    Result, Staff, StaffAccount,
+)
 from app.models.students import normalize_guardian_contact
 
 
@@ -115,6 +121,98 @@ def active_parent_accesses(user):
     return ParentAccess.objects.filter(
         user=user, is_active=True, is_verified=True, student__is_active=True,
     ).select_related("student", "student__current_class", "student__stream")
+
+
+def eligible_parent_teachers(student):
+    stream_ids = ClassRegister.objects.filter(student=student).values_list("academic_class_stream_id", flat=True)
+    teacher_ids = set(AcademicClassStream.objects.filter(id__in=stream_ids).values_list("class_teacher_id", flat=True))
+    teacher_ids.update(ClassSubjectAllocation.objects.filter(
+        is_active=True, academic_class_stream_id__in=stream_ids,
+    ).values_list("subject_teacher_id", flat=True))
+    return Staff.objects.filter(id__in=teacher_ids, staff_status="Active").order_by("first_name", "last_name")
+
+
+@transaction.atomic
+def start_parent_conversation(*, parent, student, teacher, subject, body):
+    if not eligible_parent_teachers(student).filter(pk=teacher.pk).exists():
+        raise ParentAccessError("The selected teacher is not assigned to this child.")
+    staff_account = StaffAccount.objects.select_related("user").filter(staff=teacher).first()
+    if not staff_account:
+        raise ParentAccessError("The selected teacher does not have a messaging account.")
+    conversation = ParentConversation.objects.select_related("thread").filter(
+        parent=parent, student=student, staff=teacher,
+    ).first()
+    if not conversation:
+        thread = MessageThread.objects.create(
+            subject=subject.strip() or f"Regarding {student.student_name}", created_by=parent,
+        )
+        thread.participants.add(parent, staff_account.user)
+        conversation = ParentConversation.objects.create(
+            parent=parent, student=student, staff=teacher, thread=thread,
+        )
+    elif not conversation.is_active:
+        raise ParentAccessError("This conversation is closed. Contact the school office for assistance.")
+    Message.objects.create(thread=conversation.thread, sender=parent, body=body.strip())
+    conversation.thread.updated_at = timezone.now()
+    conversation.thread.save(update_fields=("updated_at",))
+    return conversation
+
+
+def sync_parent_notifications(user):
+    accesses = list(active_parent_accesses(user))
+    student_ids = [access.student_id for access in accesses]
+    for result in Result.objects.filter(student_id__in=student_ids, status="VERIFIED").select_related(
+        "student", "assessment__subject", "assessment__assessment_type"
+    ).order_by("-assessment__date")[:20]:
+        ParentNotification.objects.get_or_create(
+            user=user, source_key=f"result:{result.pk}",
+            defaults={
+                "student": result.student, "kind": "result", "title": "New result available",
+                "message": f"{result.student.student_name}: {result.assessment.subject} — {result.score}",
+                "destination": reverse("parent_results", args=[result.student_id]),
+            },
+        )
+    if getattr(settings, "LIBRARY_ENABLED", False):
+        for loan in LibraryLoan.objects.filter(
+            student_id__in=student_ids, returned_at__isnull=True, due_at__lte=timezone.now() + timedelta(days=3),
+        ).select_related("student", "copy__book"):
+            overdue = loan.due_at < timezone.now()
+            ParentNotification.objects.get_or_create(
+                user=user, source_key=f"library-due:{loan.pk}",
+                defaults={
+                    "student": loan.student, "kind": "library", "title": "Library book overdue" if overdue else "Library book due soon",
+                    "message": f"{loan.copy.book.title} for {loan.student.student_name} is due {loan.due_at:%d %b %Y}.",
+                    "destination": reverse("parent_library", args=[loan.student_id]),
+                },
+            )
+    now = timezone.now()
+    for announcement in Announcement.objects.filter(
+        is_active=True, audience__in=("all", "parents"), starts_at__lte=now,
+    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gte=now))[:10]:
+        ParentNotification.objects.get_or_create(
+            user=user, source_key=f"announcement:{announcement.pk}",
+            defaults={
+                "kind": "announcement", "title": announcement.title,
+                "message": announcement.body[:500], "destination": reverse("parent_announcements"),
+            },
+        )
+    for message in Message.objects.filter(
+        thread__parent_conversation__parent=user,
+        thread__parent_conversation__is_active=True,
+    ).exclude(sender=user).select_related(
+        "sender", "thread__parent_conversation__student",
+    ).order_by("-created_at")[:20]:
+        conversation = message.thread.parent_conversation
+        sender_name = message.sender.get_full_name() or message.sender.username
+        ParentNotification.objects.get_or_create(
+            user=user, source_key=f"parent-message:{message.pk}",
+            defaults={
+                "student": conversation.student, "kind": "message",
+                "title": f"New message from {sender_name}",
+                "message": message.body[:500],
+                "destination": reverse("parent_message_thread", args=[conversation.pk]),
+            },
+        )
 
 
 def client_ip(request):

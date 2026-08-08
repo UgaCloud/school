@@ -6,9 +6,10 @@ from django.utils import timezone
 from django.urls import reverse
 
 from app.models import (
-    AcademicClass, AcademicClassStream, AcademicYear, AdmissionApplication, AdmissionCycle,
-    BillItem, Class, ClassBill, ClassRegister, LibraryBook, LibraryCopy, LibraryFine, LibraryLoan, LibraryPolicy, Payment,
-    ParentAccess, Section, Staff, Stream, Student, StudentBill, StudentBillItem, Term,
+    AcademicClass, AcademicClassStream, AcademicYear, AdmissionApplication, AdmissionCycle, Assessment, AssessmentType,
+    BillItem, Class, ClassBill, ClassRegister, LibraryBook, LibraryCopy, LibraryFine, LibraryLoan, LibraryPolicy, Message, Payment,
+    ParentAccess, ParentConversation, ParentNotification, Role, Section, Staff, StaffAccount, Stream, Student,
+    StudentBill, StudentBillItem, Subject, Term, Result,
 )
 from app.services.admissions import EnrollmentError, enroll_application
 from app.services.library import CirculationError, issue_copy, mark_loan_lost, resolve_fine, return_loan
@@ -74,6 +75,55 @@ class ExpansionModuleFoundationTests(TestCase):
         staff_login = self.client.post("/", {"username": "0772000000", "password": "new-private-password"})
         self.assertEqual(staff_login.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_parent_mobile_pages_notifications_report_and_controlled_teacher_messages(self):
+        student = self.make_student(name="Portal Child", contact="0772111000")
+        ClassRegister.objects.create(academic_class_stream=self.class_stream, student=student)
+        access = activate_parent_access(student=student, verified_by=self.admin)
+        access.must_change_password = False
+        access.temporary_password_expires_at = None
+        access.save(update_fields=("must_change_password", "temporary_password_expires_at"))
+        access.user.set_password("private-parent-password")
+        access.user.save(update_fields=("password",))
+
+        teacher_user = User.objects.create_user("portal-teacher", password="teacher-password")
+        teacher_role, _ = Role.objects.get_or_create(name="Teacher")
+        StaffAccount.objects.create(staff=self.staff, user=teacher_user, role=teacher_role)
+        subject = Subject.objects.create(
+            code="PMT", name="Portal Mathematics", credit_hours=4, section=self.section, type="Core",
+        )
+        assessment_type = AssessmentType.objects.create(name="Portal CAT", weight=100)
+        assessment = Assessment.objects.create(
+            academic_class=self.academic_class, assessment_type=assessment_type,
+            subject=subject, date=date(2026, 2, 10), out_of=100,
+        )
+        Result.objects.create(assessment=assessment, student=student, score=80, status="VERIFIED")
+
+        self.client.force_login(access.user)
+        dashboard = self.client.get(reverse("parent_dashboard"))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertContains(dashboard, "Good day")
+        self.assertTrue(ParentNotification.objects.filter(user=access.user, kind="result").exists())
+        self.assertEqual(self.client.get(reverse("parent_children")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("parent_attendance", args=[student.pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse("parent_announcements")).status_code, 200)
+        report = self.client.get(reverse("parent_report_download", args=[student.pk]))
+        self.assertEqual(report.status_code, 200)
+        self.assertEqual(report["Content-Type"], "application/pdf")
+
+        started = self.client.post(reverse("parent_message_new", args=[student.pk]), {
+            "teacher": self.staff.pk, "subject": "Learning support", "message": "How can we help at home?",
+        })
+        conversation = ParentConversation.objects.get(parent=access.user, student=student, staff=self.staff)
+        self.assertRedirects(started, reverse("parent_message_thread", args=[conversation.pk]))
+        self.assertTrue(Message.objects.filter(thread=conversation.thread, body__icontains="help at home").exists())
+        Message.objects.create(thread=conversation.thread, sender=teacher_user, body="Please review today's exercise.")
+        self.client.get(reverse("parent_notifications"))
+        self.assertTrue(ParentNotification.objects.filter(user=access.user, kind="message").exists())
+
+        unrelated = self.make_student(name="Other Family Child", contact="0700999888")
+        denied = self.client.get(reverse("parent_report_download", args=[unrelated.pk]))
+        self.assertEqual(denied.status_code, 404)
 
     def test_sibling_link_reuses_parent_without_resetting_private_password(self):
         first = activate_parent_access(student=self.make_student(), verified_by=self.admin)
@@ -146,6 +196,31 @@ class ExpansionModuleFoundationTests(TestCase):
         self.assertEqual(lost_copy.status, LibraryCopy.STATUS_LOST)
         self.assertEqual(lost_loan.fines.get(reason=LibraryFine.REASON_LOST).amount, 5000)
 
+    def test_librarian_workspace_dashboard_issue_search_and_members(self):
+        student = self.make_student(name="Library Member", contact="0700666000")
+        book = LibraryBook.objects.create(title="Popular Mathematics", author="Test Author")
+        copy = LibraryCopy.objects.create(book=book, accession_number="MATH-1", barcode="BC-MATH-1")
+        self.client.force_login(self.admin)
+
+        issued = self.client.post(reverse("library_issue"), {"student": student.pk, "staff": "", "copy": copy.pk})
+        self.assertRedirects(issued, reverse("library_dashboard"))
+        loan = LibraryLoan.objects.get(copy=copy, returned_at__isnull=True)
+        loan.due_at = timezone.now() - timedelta(days=2)
+        loan.save(update_fields=("due_at",))
+
+        dashboard = self.client.get(reverse("library_dashboard"))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(dashboard.context["active_loans"], 1)
+        self.assertEqual(dashboard.context["overdue"], 1)
+        self.assertContains(dashboard, "Overdue attention")
+        self.assertContains(dashboard, "Popular Mathematics")
+
+        circulation = self.client.get(reverse("library_loans"), {"q": "BC-MATH-1", "status": "overdue"})
+        self.assertContains(circulation, "Library Member")
+        members = self.client.get(reverse("library_members"), {"q": "Library Member"})
+        self.assertContains(members, "1 active")
+        self.assertContains(members, "1 overdue")
+
     def test_admission_enrollment_creates_existing_student_and_register(self):
         cycle = AdmissionCycle.objects.create(
             name="Main intake", academic_year=self.year, opens_on=date(2026, 1, 1), closes_on=date(2026, 12, 1), is_active=True,
@@ -204,6 +279,36 @@ class ExpansionModuleFoundationTests(TestCase):
         )
         self.assertContains(correct, "Online Learner")
         self.assertContains(correct, "Submitted")
+
+    def test_staff_admissions_redesign_filters_and_save_actions_preserve_workflow(self):
+        cycle = AdmissionCycle.objects.create(
+            name="Staff intake", academic_year=self.year,
+            opens_on=timezone.localdate() - timedelta(days=1),
+            closes_on=timezone.localdate() + timedelta(days=30), is_active=True,
+        )
+        payload = {
+            "cycle": cycle.pk, "student_name": "Draft Applicant", "gender": "M",
+            "birthdate": "2018-05-06", "nationality": "Ugandan", "religion": "Muslim",
+            "address": "Kampala", "applying_class": self.school_class.pk,
+            "preferred_stream": self.stream.pk, "previous_school": "Old School",
+            "guardian": "Draft Guardian", "relationship": "Father", "contact": "0700111222",
+            "internal_notes": "Staff-only note", "save_action": "draft",
+        }
+        self.client.force_login(self.admin)
+        dashboard = self.client.get(reverse("admission_dashboard"))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertContains(dashboard, "Application pipeline")
+        created = self.client.post(reverse("admission_create"), payload)
+        application = AdmissionApplication.objects.get(student_name="Draft Applicant")
+        self.assertRedirects(created, reverse("admission_detail", args=[application.pk]))
+        self.assertEqual(application.status, AdmissionApplication.STATUS_DRAFT)
+
+        filtered = self.client.get(reverse("admission_list"), {"q": "Draft Guardian", "status": "draft"})
+        self.assertEqual(filtered.context["applications"].paginator.count, 1)
+        self.assertContains(filtered, application.application_number)
+        detail = self.client.get(reverse("admission_detail", args=[application.pk]))
+        self.assertContains(detail, "Application timeline")
+        self.assertContains(detail, "Staff-only note")
 
     def _create_finance_rows(self, student, prefix):
         tuition = BillItem.objects.get_or_create(

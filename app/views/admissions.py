@@ -2,13 +2,16 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from app.decorators.decorators import role_required_any
 from app.decorators.features import feature_required
 from app.forms.admissions import AdmissionApplicationForm, PublicAdmissionApplicationForm, PublicAdmissionTrackingForm
-from app.models import AdmissionApplication, AdmissionStatusHistory
+from app.models import AdmissionApplication, AdmissionCycle, AdmissionStatusHistory, Class
 from app.models.students import normalize_guardian_contact
 from app.services.admissions import EnrollmentError, enroll_application
 
@@ -91,19 +94,58 @@ def public_admission_track(request):
 @feature_required("ADMISSIONS_ENABLED")
 @role_required_any(*ADMISSION_ROLES)
 def admission_dashboard(request):
-    applications = AdmissionApplication.objects.select_related("cycle", "applying_class")
+    applications = AdmissionApplication.objects.select_related("cycle", "applying_class", "preferred_stream")
     counts = {value: applications.filter(status=value).count() for value, _ in AdmissionApplication.STATUS_CHOICES}
-    return render(request, "admissions/dashboard.html", {"applications": applications[:10], "counts": counts})
+    pending_statuses = (
+        AdmissionApplication.STATUS_SUBMITTED, AdmissionApplication.STATUS_REVIEW,
+        AdmissionApplication.STATUS_SHORTLISTED, AdmissionApplication.STATUS_ASSESSMENT,
+        AdmissionApplication.STATUS_INTERVIEW, AdmissionApplication.STATUS_WAITLISTED,
+    )
+    metrics = {
+        "total": applications.count(),
+        "review": counts.get(AdmissionApplication.STATUS_REVIEW, 0),
+        "accepted": counts.get(AdmissionApplication.STATUS_ACCEPTED, 0),
+        "pending": applications.filter(status__in=pending_statuses).count(),
+        "enrolled": counts.get(AdmissionApplication.STATUS_ENROLLED, 0),
+    }
+    return render(request, "admissions/dashboard.html", {
+        "applications": applications.order_by("-created_at")[:10], "counts": counts, "metrics": metrics,
+    })
 
 
 @feature_required("ADMISSIONS_ENABLED")
 @role_required_any(*ADMISSION_ROLES)
 def admission_list(request):
-    applications = AdmissionApplication.objects.select_related("cycle", "applying_class").order_by("-created_at")
-    status = request.GET.get("status", "")
-    if status:
+    applications = AdmissionApplication.objects.select_related("cycle", "applying_class", "preferred_stream").order_by("-created_at")
+    query = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "").strip()
+    cycle_id = request.GET.get("cycle", "").strip()
+    class_id = request.GET.get("class_id", "").strip()
+    date_from = parse_date(request.GET.get("date_from", ""))
+    date_to = parse_date(request.GET.get("date_to", ""))
+    if query:
+        applications = applications.filter(
+            Q(application_number__icontains=query) | Q(student_name__icontains=query)
+            | Q(guardian__icontains=query) | Q(contact__icontains=query)
+        )
+    if status in dict(AdmissionApplication.STATUS_CHOICES):
         applications = applications.filter(status=status)
-    return render(request, "admissions/list.html", {"applications": applications, "statuses": AdmissionApplication.STATUS_CHOICES, "selected_status": status})
+    if cycle_id.isdigit():
+        applications = applications.filter(cycle_id=int(cycle_id))
+    if class_id.isdigit():
+        applications = applications.filter(applying_class_id=int(class_id))
+    if date_from:
+        applications = applications.filter(created_at__date__gte=date_from)
+    if date_to:
+        applications = applications.filter(created_at__date__lte=date_to)
+    paginator = Paginator(applications, 25)
+    page = paginator.get_page(request.GET.get("page", 1))
+    return render(request, "admissions/list.html", {
+        "applications": page, "statuses": AdmissionApplication.STATUS_CHOICES, "selected_status": status,
+        "query": query, "selected_cycle": cycle_id, "selected_class": class_id,
+        "date_from": request.GET.get("date_from", ""), "date_to": request.GET.get("date_to", ""),
+        "cycles": AdmissionCycle.objects.order_by("-opens_on"), "classes": Class.objects.order_by("name"),
+    })
 
 
 @feature_required("ADMISSIONS_ENABLED")
@@ -113,6 +155,11 @@ def admission_create(request):
     if request.method == "POST" and form.is_valid():
         application = form.save(commit=False)
         application.created_by = request.user
+        application.status = (
+            AdmissionApplication.STATUS_SUBMITTED
+            if request.POST.get("save_action") == "submit"
+            else AdmissionApplication.STATUS_DRAFT
+        )
         application.save()
         AdmissionStatusHistory.objects.create(application=application, to_status=application.status, changed_by=request.user)
         messages.success(request, f"Application {application.application_number} created.")
@@ -124,7 +171,9 @@ def admission_create(request):
 @role_required_any(*ADMISSION_ROLES)
 def admission_detail(request, application_id):
     application = get_object_or_404(AdmissionApplication.objects.select_related("cycle", "applying_class", "preferred_stream", "enrolled_student"), pk=application_id)
-    return render(request, "admissions/detail.html", {"application": application, "allowed_statuses": ALLOWED_TRANSITIONS.get(application.status, set())})
+    allowed = ALLOWED_TRANSITIONS.get(application.status, set())
+    allowed_statuses = [(value, label) for value, label in AdmissionApplication.STATUS_CHOICES if value in allowed and value != "enrolled"]
+    return render(request, "admissions/detail.html", {"application": application, "allowed_statuses": allowed_statuses})
 
 
 @feature_required("ADMISSIONS_ENABLED")

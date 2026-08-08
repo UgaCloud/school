@@ -52,13 +52,6 @@
 
         <!-- ===== COMMON ITEMS ===== -->
 
-        {% if admissions_enabled and role_key == "admissions officer" %}
-        <li class="pc-item"><a href="{% url 'admission_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-user-plus"></i></span><span class="pc-mtext">Admissions</span></a></li>
-        {% endif %}
-        {% if library_enabled and role_key == "librarian" or library_enabled and role_key == "library assistant" %}
-        <li class="pc-item"><a href="{% url 'library_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-books"></i></span><span class="pc-mtext">Library</span></a></li>
-        {% endif %}
-
         {% if role_key == "admin" or role_key == "super admin" or role_key == "super-admin" %}
 
         <li class="pc-item pc-caption"><label>Control Tower</label></li>
@@ -88,7 +81,7 @@
         <li class="pc-item pc-caption"><label>Administration</label></li>
 
         {% if admissions_enabled %}
-        <li class="pc-item"><a href="{% url 'admission_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-user-plus"></i></span><span class="pc-mtext">Admissions</span></a></li>
+        <li class="pc-item pc-hasmenu"><a href="#!" class="pc-link"><span class="pc-micon"><i class="ph ph-user-plus"></i></span><span class="pc-mtext">Admissions</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span></a><ul class="pc-submenu"><li class="pc-item"><a class="pc-link" href="{% url 'admission_dashboard' %}">Overview</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}">Applications</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_create' %}">New Application</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}?status=waitlisted">Waitlist</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}?status=accepted">Accepted</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}?status=enrolled">Enrolled</a></li></ul></li>
         {% endif %}
         {% if library_enabled %}
         <li class="pc-item"><a href="{% url 'library_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-books"></i></span><span class="pc-mtext">Library</span></a></li>
@@ -464,6 +457,12 @@
             <li class="pc-item"><a class="pc-link" href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
           </ul>
         </li>
+
+        {% elif role_key == "admissions officer" %}
+        {% if admissions_enabled %}<li class="pc-item pc-caption"><label>Admissions</label></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_dashboard' %}"><span class="pc-micon"><i class="ph ph-chart-pie-slice"></i></span><span class="pc-mtext">Overview</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}"><span class="pc-micon"><i class="ph ph-files"></i></span><span class="pc-mtext">Applications</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_create' %}"><span class="pc-micon"><i class="ph ph-plus-circle"></i></span><span class="pc-mtext">New Application</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}?status=waitlisted"><span class="pc-micon"><i class="ph ph-clock"></i></span><span class="pc-mtext">Waitlist</span></a></li>{% endif %}
+
+        {% elif role_key == "librarian" or role_key == "library assistant" %}
+        {% if library_enabled %}<li class="pc-item pc-caption"><label>Library</label></li><li class="pc-item"><a class="pc-link" href="{% url 'library_dashboard' %}"><span class="pc-micon"><i class="ph ph-chart-pie-slice"></i></span><span class="pc-mtext">Dashboard</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_catalogue' %}"><span class="pc-micon"><i class="ph ph-books"></i></span><span class="pc-mtext">Books</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_members' %}"><span class="pc-micon"><i class="ph ph-users"></i></span><span class="pc-mtext">Members</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_loans' %}"><span class="pc-micon"><i class="ph ph-arrows-left-right"></i></span><span class="pc-mtext">Circulation</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_loans' %}?status=overdue"><span class="pc-micon"><i class="ph ph-clock"></i></span><span class="pc-mtext">Overdue</span></a></li><li class="pc-item pc-caption"><label>Quick Operations</label></li><li class="pc-item"><a class="pc-link" href="{% url 'library_issue' %}"><span class="pc-micon"><i class="ph ph-arrow-square-out"></i></span><span class="pc-mtext">Issue Book</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_loans' %}"><span class="pc-micon"><i class="ph ph-arrow-u-down-left"></i></span><span class="pc-mtext">Return Book</span></a></li><li class="pc-item pc-caption"><label>Management</label></li><li class="pc-item"><a class="pc-link" href="{% url 'library_fines' %}"><span class="pc-micon"><i class="ph ph-receipt"></i></span><span class="pc-mtext">Fines</span></a></li>{% endif %}
 
         {% else %}
         <li class="pc-item">

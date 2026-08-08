@@ -1,6 +1,18 @@
 from django import forms
 
-from app.models import LibraryBook, LibraryCopy
+from app.models import LibraryBook, LibraryCopy, Staff, Student
+
+
+class StudentBorrowerChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, student):
+        class_name = getattr(student.current_class, "code", "") or getattr(student.current_class, "name", "")
+        stream = getattr(student.stream, "stream", "")
+        return f"{student.reg_no} — {student.student_name} ({class_name} {stream})"
+
+
+class StaffBorrowerChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, staff):
+        return f"{staff.first_name} {staff.last_name} — {staff.department}"
 
 
 class LibraryBookForm(forms.ModelForm):
@@ -16,19 +28,25 @@ class LibraryCopyForm(forms.ModelForm):
 
 
 class LibraryIssueForm(forms.Form):
-    copy = forms.ModelChoiceField(queryset=LibraryCopy.objects.none())
-    student_id = forms.IntegerField(required=False)
-    staff_id = forms.IntegerField(required=False)
+    student = StudentBorrowerChoiceField(queryset=Student.objects.none(), required=False)
+    staff = StaffBorrowerChoiceField(queryset=Staff.objects.none(), required=False)
+    copy = forms.ModelChoiceField(queryset=LibraryCopy.objects.none(), label="Available book copy")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["copy"].queryset = LibraryCopy.objects.filter(
             status=LibraryCopy.STATUS_AVAILABLE
         ).select_related("book")
+        self.fields["student"].queryset = Student.objects.filter(is_active=True).select_related(
+            "current_class", "stream"
+        ).order_by("student_name")
+        self.fields["staff"].queryset = Staff.objects.filter(staff_status="Active").order_by(
+            "first_name", "last_name"
+        )
 
     def clean(self):
         data = super().clean()
-        if bool(data.get("student_id")) == bool(data.get("staff_id")):
+        if bool(data.get("student")) == bool(data.get("staff")):
             raise forms.ValidationError("Choose exactly one student or staff borrower.")
         return data
 
