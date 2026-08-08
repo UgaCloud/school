@@ -60,6 +60,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'app.middleware.parent_isolation.ParentPortalIsolationMiddleware',
     'app.middleware.request_user.RequestUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -170,6 +171,18 @@ DATABASES = build_database_settings()
 # Schools can temporarily bypass the DOS sampling workflow. Submitted marks
 # are immediately released to reports when this is disabled.
 RESULT_VERIFICATION_ENABLED = config_bool('RESULT_VERIFICATION_ENABLED', default=False)
+
+# New production modules are deployed dark and enabled individually after their
+# migrations, permissions and pilot data have been verified.
+PARENT_PORTAL_ENABLED = config_bool('PARENT_PORTAL_ENABLED', default=False)
+ADMISSIONS_ENABLED = config_bool('ADMISSIONS_ENABLED', default=False)
+LIBRARY_ENABLED = config_bool('LIBRARY_ENABLED', default=False)
+PUBLIC_ADMISSIONS_ENABLED = config_bool('PUBLIC_ADMISSIONS_ENABLED', default=False)
+PUBLIC_ADMISSION_MAX_SUBMISSIONS = config('PUBLIC_ADMISSION_MAX_SUBMISSIONS', default=5, cast=int)
+PUBLIC_ADMISSION_RATE_SECONDS = config('PUBLIC_ADMISSION_RATE_SECONDS', default=3600, cast=int)
+PARENT_LOGIN_MAX_ATTEMPTS = config('PARENT_LOGIN_MAX_ATTEMPTS', default=5, cast=int)
+PARENT_LOGIN_LOCK_SECONDS = config('PARENT_LOGIN_LOCK_SECONDS', default=900, cast=int)
+PARENT_TEMP_PASSWORD_HOURS = config('PARENT_TEMP_PASSWORD_HOURS', default=24, cast=int)
 
 
 CACHES = {

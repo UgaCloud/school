@@ -36,7 +36,8 @@ def get_student_bill_details(bill_id):
 
     total_amount = student_bill.total_amount or 0 
     amount_paid = student_bill.amount_paid or 0
-    balance = total_amount - amount_paid
+    # Canonical balance includes applied credits.
+    balance = student_bill.balance or 0
     if total_amount > 0:
         amount_paid_percentage = (amount_paid / total_amount) * 100
         balance_percentage = (balance / total_amount) * 100

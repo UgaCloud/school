@@ -52,6 +52,13 @@
 
         <!-- ===== COMMON ITEMS ===== -->
 
+        {% if admissions_enabled and role_key == "admissions officer" %}
+        <li class="pc-item"><a href="{% url 'admission_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-user-plus"></i></span><span class="pc-mtext">Admissions</span></a></li>
+        {% endif %}
+        {% if library_enabled and role_key == "librarian" or library_enabled and role_key == "library assistant" %}
+        <li class="pc-item"><a href="{% url 'library_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-books"></i></span><span class="pc-mtext">Library</span></a></li>
+        {% endif %}
+
         {% if role_key == "admin" or role_key == "super admin" or role_key == "super-admin" %}
 
         <li class="pc-item pc-caption"><label>Control Tower</label></li>
@@ -80,6 +87,13 @@
 
         <li class="pc-item pc-caption"><label>Administration</label></li>
 
+        {% if admissions_enabled %}
+        <li class="pc-item"><a href="{% url 'admission_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-user-plus"></i></span><span class="pc-mtext">Admissions</span></a></li>
+        {% endif %}
+        {% if library_enabled %}
+        <li class="pc-item"><a href="{% url 'library_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-books"></i></span><span class="pc-mtext">Library</span></a></li>
+        {% endif %}
+
         <li class="pc-item pc-hasmenu">
           <a href="#!" class="pc-link">
             <span class="pc-micon"><i class="ph ph-gear"></i></span>
@@ -89,6 +103,7 @@
           <ul class="pc-submenu">
             <li class="pc-item"><a class="pc-link" href="{% url 'settings_page' %}">School Profile</a></li>
             <li class="pc-item"><a class="pc-link" href="{% url 'user_list' %}">Manage Users</a></li>
+            {% if parent_portal_enabled %}<li class="pc-item"><a class="pc-link" href="{% url 'parent_access_management' %}">Parent Accounts</a></li>{% endif %}
           </ul>
         </li>
 

@@ -78,11 +78,15 @@ def _get_scoped_students_for_request(request, *, active_level, base_queryset):
 def _apply_student_filters(queryset, *, query="", selected_class_id="", selected_stream_id="", selected_gender=""):
     filtered_scope_qs = queryset
     if query:
-        filtered_scope_qs = filtered_scope_qs.filter(
-            Q(student_name__icontains=query)
-            | Q(reg_no__icontains=query)
-            | Q(contact__icontains=query)
-        )
+        # Treat words/phone fragments as AND terms so "Amina Naka" and
+        # "0772 123 456" work even when the stored formatting differs.
+        for term in query.split():
+            filtered_scope_qs = filtered_scope_qs.filter(
+                Q(student_name__icontains=term)
+                | Q(reg_no__icontains=term)
+                | Q(contact__icontains=term)
+                | Q(guardian__icontains=term)
+            )
     if selected_class_id.isdigit():
         filtered_scope_qs = filtered_scope_qs.filter(current_class_id=int(selected_class_id))
     if selected_stream_id.isdigit():
@@ -140,7 +144,7 @@ def manage_student_view(request):
     access_context = _get_student_access_context(request)
     can_manage_students = access_context["can_manage_students"]
 
-    status_requested = (request.GET.get("status") or "active").strip().lower()
+    status_requested = (request.GET.get("status") or "all").strip().lower()
     query = (request.GET.get("q") or "").strip()
     selected_class_id = (request.GET.get("class_id") or "").strip()
     selected_stream_id = (request.GET.get("stream_id") or "").strip()
@@ -333,7 +337,7 @@ def student_summary_api_view(request, id):
 def export_students_csv_view(request):
     active_level = get_active_school_level(request)
 
-    status_requested = (request.GET.get("status") or "active").strip().lower()
+    status_requested = (request.GET.get("status") or "all").strip().lower()
     query = (request.GET.get("q") or "").strip()
     selected_class_id = (request.GET.get("class_id") or "").strip()
     selected_stream_id = (request.GET.get("stream_id") or "").strip()

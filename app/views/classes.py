@@ -76,6 +76,14 @@ CLASS_BILL_MANAGE_ROLES = {
 }
 
 
+def _active_students_registered_in(academic_class):
+    """Return active learners enrolled in this exact academic period/class."""
+    return Student.objects.filter(
+        is_active=True,
+        classregister__academic_class_stream__academic_class=academic_class,
+    ).distinct()
+
+
 def _get_effective_role_and_staff_account(request):
     staff_account = getattr(request.user, "staff_account", None)
     role_name = staff_account.role.name if staff_account and staff_account.role else None
@@ -1739,7 +1747,7 @@ def class_bill_list_view(request):
         class_bills = ClassBill.objects.filter(academic_class=academic_class).select_related('bill_item')
 
         # Get all active students
-        students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
+        students_in_class = _active_students_registered_in(academic_class)
         total_students = students_in_class.count()
 
 
@@ -1776,7 +1784,8 @@ def class_bill_list_view(request):
 
             for student_bill in student_bills:
                 total_class_collected += student_bill.amount_paid
-                total_class_outstanding += student_bill.balance
+                if student_bill.balance > 0:
+                    total_class_outstanding += student_bill.balance
 
         # Calculate collection rate
         collection_rate = (total_class_collected / total_class_billed * 100) if total_class_billed > 0 else 0
@@ -1853,24 +1862,10 @@ def add_class_bill_item_view(request, id):
             class_bill.academic_class = academic_class 
             class_bill.save()
             
-            students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
-            
+            students_in_class = _active_students_registered_in(academic_class)
+
             for student in students_in_class:
-                # Checking  if there's already an existing StudentBill for the student $ academic class
-                student_bill, created = StudentBill.objects.get_or_create(
-                    student=student,
-                    academic_class=academic_class,
-                    defaults={"status": "Unpaid"},
-                )
-                                                
-                if class_bill.bill_item.item_name != "School Fees":
-                    StudentBillItem.objects.create(
-                        bill=student_bill,
-                        bill_item=class_bill.bill_item,
-                        description=class_bill.bill_item.description,  
-                        amount=class_bill.amount  
-                    )                                
-                student_bill.save()
+                create_student_bill(student, academic_class)
 
             messages.success(request, SUCCESS_ADD_MESSAGE)
             return redirect("class_bill_list")  
@@ -1909,40 +1904,10 @@ def edit_class_bill_item_view(request, id):
             updated_class_bill = form.save()  
 
             # Update the StudentBillItems for all active students in the academic class
-            students_in_class = Student.objects.filter(current_class=academic_class.Class, is_active=True)
+            students_in_class = _active_students_registered_in(academic_class)
 
             for student in students_in_class:
-                student_bill, created = StudentBill.objects.get_or_create(
-                    student=student,
-                    academic_class=academic_class,
-                    defaults={"status": "Unpaid"},
-                )
-
-                
-                if updated_class_bill.bill_item.item_name != "School Fees":
-                    # Ensure a single StudentBillItem per (bill, bill_item); clean up duplicates if any
-                    qs = StudentBillItem.objects.filter(
-                        bill=student_bill,
-                        bill_item=updated_class_bill.bill_item
-                    ).order_by('id')
-                    if qs.exists():
-                        student_bill_item = qs.first()
-                        # Remove duplicates if present
-                        if qs.count() > 1:
-                            qs.exclude(pk=student_bill_item.pk).delete()
-                        # Update fields to reflect the current class bill configuration
-                        student_bill_item.description = updated_class_bill.bill_item.description
-                        student_bill_item.amount = updated_class_bill.amount
-                        student_bill_item.save()
-                    else:
-                        StudentBillItem.objects.create(
-                            bill=student_bill,
-                            bill_item=updated_class_bill.bill_item,
-                            description=updated_class_bill.bill_item.description,
-                            amount=updated_class_bill.amount
-                        )
-
-                student_bill.save()
+                create_student_bill(student, academic_class)
 
             messages.success(request, SUCCESS_EDIT_MESSAGE)
             return redirect("class_bill_list")  
@@ -2459,13 +2424,14 @@ def bulk_create_class_bills(request):
 
             # Get current academic year and term
             current_year = AcademicYear.objects.filter(is_current=True).first()
-            current_term = Term.objects.filter(is_current=True).first()
+            current_term = Term.objects.filter(is_current=True, academic_year=current_year).first()
 
             if not current_year or not current_term:
                 messages.error(request, "No current academic year or term found.")
                 return redirect('bulk_create_class_bills')
 
             bills_created = 0
+            classes_reconciled = 0
             students_affected = 0
             total_amount = 0
 
@@ -2478,7 +2444,7 @@ def bulk_create_class_bills(request):
                     )
 
                     # Create class bill
-                    class_bill, created = ClassBill.objects.get_or_create(
+                    class_bill, created = ClassBill.objects.update_or_create(
                         academic_class=academic_class,
                         bill_item=bill_item,
                         defaults={'amount': amount}
@@ -2487,50 +2453,25 @@ def bulk_create_class_bills(request):
                     if created:
                         bills_created += 1
 
-                        # Create student bill items
-                        students_in_class = Student.objects.filter(current_class__id=class_id, is_active=True)
-                        for student in students_in_class:
-                            student_bill, _ = StudentBill.objects.get_or_create(
-                                student=student,
-                                academic_class=academic_class,
-                                defaults={'status': 'Unpaid'}
-                            )
+                    # Always reconcile all active registrations, even when the
+                    # class template already existed or its amount changed.
+                    students_in_class = _active_students_registered_in(academic_class)
+                    for student in students_in_class:
+                        create_student_bill(student, academic_class)
+                        students_affected += 1
 
-                            if bill_item.item_name != "School Fees":
-                                # Ensure a single StudentBillItem per (bill, bill_item); clean up duplicates if any
-                                qs = StudentBillItem.objects.filter(
-                                    bill=student_bill,
-                                    bill_item=bill_item
-                                ).order_by('id')
-                                if qs.exists():
-                                    student_bill_item = qs.first()
-                                    # Remove duplicates if present
-                                    if qs.count() > 1:
-                                        qs.exclude(pk=student_bill_item.pk).delete()
-                                    # Update to current values
-                                    student_bill_item.description = bill_item.description
-                                    student_bill_item.amount = amount
-                                    student_bill_item.save()
-                                else:
-                                    StudentBillItem.objects.create(
-                                        bill=student_bill,
-                                        bill_item=bill_item,
-                                        description=bill_item.description,
-                                        amount=amount
-                                    )
-
-                            students_affected += 1
-
-                        total_amount += amount * students_in_class.count()
+                    total_amount += amount * students_in_class.count()
+                    classes_reconciled += 1
 
                 except AcademicClass.DoesNotExist:
                     messages.warning(request, f"Academic class not found for class ID {class_id}")
                     continue
 
-            if bills_created > 0:
+            if classes_reconciled > 0:
                 success_msg = (
                     f"✅ Bulk bill creation completed!<br>"
                     f"• Bills created: {bills_created}<br>"
+                    f"• Classes reconciled: {classes_reconciled}<br>"
                     f"• Students affected: {students_affected}<br>"
                     f"• Total billing amount: UGX {total_amount:,.0f}"
                 )
@@ -2564,7 +2505,7 @@ def bulk_create_class_bills(request):
             existing_bills = ClassBill.objects.filter(academic_class=ac).count()
 
             # Get actual active student count for this class
-            student_count = Student.objects.filter(current_class=ac.Class, is_active=True).count()
+            student_count = _active_students_registered_in(ac).count()
 
             available_classes.append({
                 'id': ac.Class.id,

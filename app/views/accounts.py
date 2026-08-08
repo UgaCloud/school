@@ -119,6 +119,16 @@ def user_login(request):
         form = CustomLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
+            # Parent identities use the isolated parent portal.  They must not
+            # enter staff pages merely because they are valid Django users.
+            if not user.is_superuser and not hasattr(user, "staff_account"):
+                error_message = "This login is not authorised for the staff system."
+                return render(request, 'accounts/login.html', {
+                    'form': form,
+                    'school_settings': school_settings,
+                    'error_message': error_message,
+                    'notice_message': notice_message,
+                })
             login(request, user)
 
             # Determine default active role from assigned roles without changing DB

@@ -214,7 +214,7 @@ def manage_student_bills_view(request):
     student_bills = StudentBill.objects.select_related(
         'student', 'academic_class', 'academic_class__academic_year',
         'academic_class__term', 'academic_class__Class'
-    ).order_by('-bill_date')
+    ).filter(student__is_active=True).order_by('-bill_date')
 
     # Apply filters
     if academic_year_id:
@@ -245,7 +245,7 @@ def manage_student_bills_view(request):
     total_amount = sum(bill.total_amount for bill in bill_rows)
     total_paid = sum(bill.amount_paid for bill in bill_rows)
     # StudentBill.balance also includes credits already applied to bills.
-    total_outstanding = sum(bill.balance for bill in bill_rows)
+    total_outstanding = sum((bill.balance for bill in bill_rows if bill.balance > 0), 0)
 
     # Status breakdown
     paid_bills = sum(bill.display_status.label == "Paid" for bill in bill_rows)
@@ -556,6 +556,7 @@ def student_fees_status_view(request):
     bills_qs = StudentBill.objects.filter(
         academic_class__academic_year=selected_year,
         academic_class__term=term_obj,
+        student__is_active=True,
     )
     if selected_academic_class:
         bills_qs = bills_qs.filter(academic_class__Class_id=selected_academic_class)
@@ -1121,8 +1122,9 @@ def student_payment_receipt_view(request, payment_id):
     payment_amount = Decimal(str(payment.amount or 0))
     amount_paid_before = max(amount_paid_after - payment_amount, Decimal("0"))
     bill_total = Decimal(str(bill.total_amount or 0))
-    balance_before = bill_total - amount_paid_before
-    balance_after = bill_total - amount_paid_after
+    # Canonical balance includes applied credits.
+    balance_after = Decimal(str(bill.balance or 0))
+    balance_before = balance_after + payment_amount
 
     if balance_after < 0:
         receipt_status = "CREDIT BALANCE"
@@ -1190,7 +1192,8 @@ def student_fees_receipt_pdf_view(request, student_id):
     for bill in bills_qs:
         total_amount = bill.total_amount
         amount_paid = bill.amount_paid
-        balance = total_amount - amount_paid
+        # Keep PDF statements aligned with UI balances and applied credits.
+        balance = bill.balance
         
         # Determine balance label
         if total_amount == 0 and amount_paid == 0:
@@ -1327,7 +1330,11 @@ def reconcile_student_overpayments(request, student_id):
 def student_ledger_modal_view(request, student_id):
     """AJAX view returning ledger rows for a single student (used in modal)."""
     student = get_object_or_404(Student, pk=student_id)
-    ledger_payload = build_ledger_rows(student_id=str(student_id), balance_mode="student")
+    # Individual history remains available after deactivation; only operational
+    # school-wide totals exclude inactive students.
+    ledger_payload = build_ledger_rows(
+        student_id=str(student_id), balance_mode="student", include_inactive=True,
+    )
     context = {
         "student": student,
         "ledger_rows": ledger_payload["rows"],

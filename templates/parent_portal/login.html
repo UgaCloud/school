@@ -1,0 +1,2 @@
+{% extends 'parent_portal/base.html' %}{% block title %}Parent login{% endblock %}{% block content %}
+<div class="card" style="max-width:430px;margin:50px auto"><h1>Parent login</h1><p class="muted">Use the guardian telephone number registered with the school.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn" type="submit">Login</button></form><p class="muted">First login uses the temporary password issued by the school and requires an immediate password change.</p></div>{% endblock %}

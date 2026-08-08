@@ -11,3 +11,6 @@ from .results import *
 from .timetables import *
 from .attendance import *
 from .audit import *
+from .parent_portal import *
+from .admissions import *
+from .library import *

@@ -80,6 +80,9 @@ ROLE_CHOICES = [
         ('Head master', 'Head master'),
         ('Class Teacher', 'Class Teacher'),
         ('Support Staff', 'Support Staff'),
+        ('Admissions Officer', 'Admissions Officer'),
+        ('Librarian', 'Librarian'),
+        ('Library Assistant', 'Library Assistant'),
  ]
 
 # Types

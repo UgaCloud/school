@@ -71,6 +71,7 @@ def get_overview_context(request, scope):
         ).count()
         total_fees_expected = (
             StudentBillItem.objects.filter(
+                bill__student__is_active=True,
                 bill__academic_class__in=scoped_academic_classes,
                 bill__academic_class__academic_year=current_year,
                 bill__academic_class__term=current_term,
@@ -79,6 +80,7 @@ def get_overview_context(request, scope):
         )
         total_fees_collected = (
             Payment.objects.filter(
+                bill__student__is_active=True,
                 bill__academic_class__in=scoped_academic_classes,
                 bill__academic_class__academic_year=current_year,
                 bill__academic_class__term=current_term,
@@ -98,6 +100,7 @@ def get_overview_context(request, scope):
         )
 
         overdue_bills_count = StudentBill.objects.filter(
+            student__is_active=True,
             academic_class__in=scoped_academic_classes,
             academic_class__academic_year=current_year,
             academic_class__term=current_term,

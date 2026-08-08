@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib import admin  
+from django.contrib import admin
 from django.core.paginator import Paginator
 from django.db import connections
 from app.models.accounts import StaffAccount
@@ -29,6 +29,9 @@ from app.models.attendance import (
     AttendanceRecord,
     AttendanceSession,
 )
+from app.models.parent_portal import *
+from app.models.admissions import *
+from app.models.library import *
 
 # admin.site.register(Staff)
 admin.site.register(Role)
@@ -924,3 +927,35 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = ('payment_method', 'payment_date')
     search_fields = ('reference_no', 'recorded_by', 'bill__student__first_name', 'bill__student__last_name')
     readonly_fields = ('bill',)
+
+
+@admin.register(ParentAccess)
+class ParentAccessAdmin(admin.ModelAdmin):
+    list_display = ("user", "student", "is_verified", "is_active", "must_change_password", "verified_at")
+    list_filter = ("is_verified", "is_active", "must_change_password")
+    search_fields = ("user__username", "student__student_name", "student__reg_no", "student__contact")
+    readonly_fields = ("created_at", "updated_at", "verified_at")
+
+
+@admin.register(ParentPortalAudit)
+class ParentPortalAuditAdmin(admin.ModelAdmin):
+    list_display = ("action", "user", "student", "ip_address", "created_at")
+    list_filter = ("action", "created_at")
+    readonly_fields = ("user", "student", "action", "ip_address", "details", "created_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+admin.site.register(AdmissionCycle)
+admin.site.register(AdmissionApplication)
+admin.site.register(AdmissionStatusHistory)
+admin.site.register(LibraryCategory)
+admin.site.register(LibraryBook)
+admin.site.register(LibraryCopy)
+admin.site.register(LibraryLoan)
+admin.site.register(LibraryPolicy)
+admin.site.register(LibraryAudit)

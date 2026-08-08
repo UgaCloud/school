@@ -33,6 +33,7 @@ from app.services.level_scope import (
     get_level_subjects_queryset,
 )
 from app.services.school_level import get_active_school_level
+from app.services.fees_status import get_bill_status
 from app.services.teacher_assignments import (
     get_class_stream_assignments,
     get_teacher_assignments,
@@ -579,13 +580,17 @@ def index_view(request):
                     )
                     fee_alert_qs = StudentBill.objects.filter(
                         student_id__in=class_student_ids,
+                        student__is_active=True,
                         academic_class__in=scoped_academic_classes,
                         academic_class__academic_year=current_year,
                         academic_class__term=current_term,
                         status__in=["Unpaid", "Overdue"],
                     )
-                    class_teacher_fee_alert_count = fee_alert_qs.count()
-                    class_teacher_fee_alert_amount = fee_alert_qs.aggregate(total=Sum("items__amount"))["total"] or 0
+                    fee_alert_rows = list(fee_alert_qs.prefetch_related("items", "payments", "applied_credits"))
+                    class_teacher_fee_alert_count = sum(1 for bill in fee_alert_rows if bill.balance > 0)
+                    class_teacher_fee_alert_amount = sum(
+                        (bill.balance for bill in fee_alert_rows if bill.balance > 0), 0
+                    )
 
                     class_teacher_recent_activity = list(
                         Result.objects.filter(
@@ -669,7 +674,16 @@ def index_view(request):
     payment_method_values = []
     top_debtors = []
     if user_role in finance_roles and current_year and current_term:
+        current_finance_bills = list(
+            StudentBill.objects.filter(
+                student__is_active=True,
+                academic_class__in=scoped_academic_classes,
+                academic_class__academic_year=current_year,
+                academic_class__term=current_term,
+            ).select_related("student").prefetch_related("items", "payments", "applied_credits")
+        )
         total_fees_collected = Payment.objects.filter(
+            bill__student__is_active=True,
             bill__academic_class__in=scoped_academic_classes,
             bill__academic_class__academic_year=current_year,
             bill__academic_class__term=current_term,
@@ -677,18 +691,16 @@ def index_view(request):
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         fees_collected_today = Payment.objects.filter(
+            bill__student__is_active=True,
             bill__academic_class__in=scoped_academic_classes,
             bill__academic_class__academic_year=current_year,
             bill__academic_class__term=current_term,
             payment_date=timezone.localdate(),
         ).aggregate(total=Sum("amount"))["total"] or 0
 
-        total_fees_outstanding = StudentBill.objects.filter(
-            academic_class__in=scoped_academic_classes,
-            academic_class__academic_year=current_year,
-            academic_class__term=current_term,
-            status='Unpaid',
-        ).aggregate(total=Sum('items__amount'))['total'] or 0
+        total_fees_outstanding = sum(
+            (bill.balance for bill in current_finance_bills if bill.balance > 0), 0
+        )
 
         # Budget information
         current_budget = Budget.objects.filter(
@@ -712,6 +724,7 @@ def index_view(request):
 
         payment_method_breakdown = (
             Payment.objects.filter(
+                bill__student__is_active=True,
                 bill__academic_class__in=scoped_academic_classes,
                 bill__academic_class__academic_year=current_year,
                 bill__academic_class__term=current_term,
@@ -724,34 +737,10 @@ def index_view(request):
         payment_method_labels = [row["payment_method"] for row in payment_method_breakdown]
         payment_method_values = [float(row["total"] or 0) for row in payment_method_breakdown]
 
-        billed_by_student = (
-            StudentBillItem.objects.filter(
-                bill__academic_class__in=scoped_academic_classes,
-                bill__academic_class__academic_year=current_year,
-                bill__academic_class__term=current_term,
-            )
-            .values("bill__student_id", "bill__student__student_name")
-            .annotate(total_billed=Sum("amount"))
-        )
-        paid_by_student = (
-            Payment.objects.filter(
-                bill__academic_class__in=scoped_academic_classes,
-                bill__academic_class__academic_year=current_year,
-                bill__academic_class__term=current_term,
-            )
-            .values("bill__student_id")
-            .annotate(total_paid=Sum("amount"))
-        )
-        paid_map = {row["bill__student_id"]: row["total_paid"] or 0 for row in paid_by_student}
-        top_debtors = []
-        for row in billed_by_student:
-            balance = (row["total_billed"] or 0) - (paid_map.get(row["bill__student_id"]) or 0)
-            if balance > 0:
-                top_debtors.append({
-                    "student_id": row["bill__student_id"],
-                    "student_name": row["bill__student__student_name"],
-                    "balance": balance,
-                })
+        top_debtors = [
+            {"student_id": bill.student_id, "student_name": bill.student.student_name, "balance": bill.balance}
+            for bill in current_finance_bills if bill.balance > 0
+        ]
         top_debtors = sorted(top_debtors, key=lambda item: item["balance"], reverse=True)[:6]
     else:
         total_fees_collected = total_fees_outstanding = budget_allocated = budget_spent = 0
@@ -759,6 +748,7 @@ def index_view(request):
 
     if user_role in finance_roles and term_start_date and term_end_date:
         recent_payments = Payment.objects.filter(
+            bill__student__is_active=True,
             bill__academic_class__in=scoped_academic_classes,
             payment_date__range=(term_start_date, term_end_date),
         ).select_related('bill__student').order_by('-payment_date')[:5]
@@ -865,31 +855,16 @@ def index_view(request):
 
     # Fee collection status - only for finance roles
     if user_role in finance_roles and current_year and current_term:
-        paid_bills = StudentBill.objects.filter(
-            academic_class__in=scoped_academic_classes,
-            academic_class__academic_year=current_year,
-            academic_class__term=current_term,
-            status='Paid',
-        ).count()
-
-        unpaid_bills = StudentBill.objects.filter(
-            academic_class__in=scoped_academic_classes,
-            academic_class__academic_year=current_year,
-            academic_class__term=current_term,
-            status='Unpaid',
-        ).count()
-
-        overdue_bills = StudentBill.objects.filter(
-            academic_class__in=scoped_academic_classes,
-            academic_class__academic_year=current_year,
-            academic_class__term=current_term,
-            status='Overdue',
-        ).count()
+        finance_bill_statuses = [get_bill_status(bill).label for bill in current_finance_bills]
+        paid_bills = finance_bill_statuses.count("Paid")
+        overdue_bills = finance_bill_statuses.count("Overdue")
+        unpaid_bills = sum(status in {"Unpaid", "Partial"} for status in finance_bill_statuses)
 
         total_bills = paid_bills + unpaid_bills + overdue_bills
 
         # Calculate fee collection rate based on amount collected vs amount billed
         total_billed = StudentBill.objects.filter(
+            student__is_active=True,
             academic_class__in=scoped_academic_classes,
             academic_class__academic_year=current_year,
             academic_class__term=current_term,
@@ -1232,6 +1207,7 @@ def index_view(request):
 
     if user_role in finance_roles and current_year and current_term and term_start_date and term_end_date:
         expected_fees = StudentBill.objects.filter(
+            student__is_active=True,
             academic_class__in=scoped_academic_classes,
             academic_class__academic_year=current_year,
             academic_class__term=current_term,
@@ -1243,6 +1219,7 @@ def index_view(request):
 
         daily_collections = (
             Payment.objects.filter(
+                bill__student__is_active=True,
                 bill__academic_class__in=scoped_academic_classes,
                 bill__academic_class__academic_year=current_year,
                 bill__academic_class__term=current_term,

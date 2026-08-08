@@ -28,15 +28,15 @@
     </div>
 
     <div class="register-kpis">
-        <a class="register-kpi {% if status == 'active' %}is-active{% endif %}" href="?status=active&per_page={{ per_page }}">
+        <a class="register-kpi {% if status == 'active' %}is-active{% endif %}" href="?status=active&per_page={{ per_page }}&q={{ query|urlencode }}&class_id={{ selected_class_id }}&stream_id={{ selected_stream_id }}&gender={{ selected_gender }}">
             <span>Active</span>
             <strong>{{ total_active|intcomma }}</strong>
         </a>
-        <a class="register-kpi {% if status == 'inactive' %}is-active{% endif %}" href="?status=inactive&per_page={{ per_page }}">
+        <a class="register-kpi {% if status == 'inactive' %}is-active{% endif %}" href="?status=inactive&per_page={{ per_page }}&q={{ query|urlencode }}&class_id={{ selected_class_id }}&stream_id={{ selected_stream_id }}&gender={{ selected_gender }}">
             <span>Inactive</span>
             <strong>{{ total_inactive|intcomma }}</strong>
         </a>
-        <a class="register-kpi {% if status == 'all' %}is-active{% endif %}" href="?status=all&per_page={{ per_page }}">
+        <a class="register-kpi {% if status == 'all' %}is-active{% endif %}" href="?status=all&per_page={{ per_page }}&q={{ query|urlencode }}&class_id={{ selected_class_id }}&stream_id={{ selected_stream_id }}&gender={{ selected_gender }}">
             <span>Filtered Total</span>
             <strong>{{ total_all|intcomma }}</strong>
         </a>
@@ -54,7 +54,7 @@
                     <label>Search</label>
                     <div class="input-group">
                         <span class="input-group-addon"><i class="fa fa-search"></i></span>
-                        <input type="text" class="form-control" name="q" value="{{ query }}" placeholder="Name, Reg No, phone">
+                        <input type="text" class="form-control" name="q" value="{{ query }}" placeholder="Name, Reg No, guardian or phone">
                     </div>
                 </div>
                 <div>

@@ -174,6 +174,7 @@ def build_ledger_rows(
     date_from=None,
     date_to=None,
     balance_mode="student",
+    include_inactive=False,
 ):
     categories = [value for value in (categories or []) if value]
     payment_methods = [normalize_payment_method(value) for value in (payment_methods or []) if value]
@@ -197,6 +198,10 @@ def build_ledger_rows(
         "bill__academic_class__term",
         "bill__academic_class__academic_year",
     )
+
+    if not include_inactive:
+        charge_qs = charge_qs.filter(bill__student__is_active=True)
+        payment_qs = payment_qs.filter(bill__student__is_active=True)
 
     charge_qs = _apply_common_filters(
         charge_qs,
@@ -469,7 +474,7 @@ def build_ledger_rows(
 
 def get_ledger_filter_options():
     return {
-        "students": Student.objects.order_by("student_name", "reg_no"),
+        "students": Student.objects.filter(is_active=True).order_by("student_name", "reg_no"),
         "classes": Class.objects.order_by("code", "name"),
         "academic_years": AcademicYear.objects.order_by("-academic_year"),
         "terms": Term.objects.select_related("academic_year").order_by("-academic_year__academic_year", "term"),

@@ -3213,213 +3213,260 @@ def class_performance_summary(request):
     if report_format not in {'standard', 'tahfiz'}:
         report_format = 'standard'
 
-    academic_years = AcademicYear.objects.all()
-    terms = Term.objects.all()
-    classes = Class.objects.all()
-    assessment_types = AssessmentType.objects.all()
-
-    best_students = []
-    subject_averages = []
-    students_data = []
-    subjects = []
+    academic_years = AcademicYear.objects.all().order_by('-academic_year')
+    terms = Term.objects.filter(
+        academic_year_id=academic_year_id
+    ).order_by('start_date') if academic_year_id else Term.objects.none()
+    classes = Class.objects.filter(
+        academicclass__academic_year_id=academic_year_id
+    ).distinct().order_by('name') if academic_year_id else Class.objects.all().order_by('name')
+    assessment_types = AssessmentType.objects.all().order_by('name')
 
     academic_class = None
     academic_class_exists = False
-
-    if academic_year_id and term_id and class_id:
-        try:
-            academic_class = AcademicClass.objects.get(
-                Class_id=class_id,
-                academic_year_id=academic_year_id,
-                term_id=term_id
-            )
-            academic_class_exists = True
-        except AcademicClass.DoesNotExist:
-            
-            messages.warning(request, "No records found for the selected Academic Year, Term, and Class.")
-            academic_class = None
-            academic_class_exists = False
-
-        if academic_class:
-            # Optimize queries with select_related and prefetch_related
-            results_qs = Result.objects.filter(assessment__academic_class=academic_class).select_related(
-                'student', 'assessment__subject', 'assessment__assessment_type'
-            )
-            results_qs = results_qs.filter(student__is_active=True)
-            if assessment_type_id:
-                results_qs = results_qs.filter(assessment__assessment_type_id=assessment_type_id)
-
-            # Get all students for this class with optimized query
-            students = Student.objects.filter(
-                current_class_id=class_id,
-                is_active=True,
-            ).select_related(
-                'current_class', 'stream'
-            ).prefetch_related('results')
-
-            # Pre-calculate all metrics in fewer queries
-            # Best students - optimized
-            best_students = (
-                results_qs
-                .values('student__student_name', 'student__current_class__name')
-                .annotate(average=Avg('score'))
-                .order_by('-average')[:5]
-            )
-
-            # Subject averages - optimized
-            subject_averages = (
-                results_qs
-                .values('assessment__subject__name')
-                .annotate(avg_score=Avg('score'), best_score=Max('score'))
-                .order_by('-avg_score')
-            )
-
-            # Build students data more efficiently
-            students_dict = {student.id: student for student in students}
-            subjects = Subject.objects.all().order_by('id')
-
-            # Get all results for students in this class
-            student_results = results_qs.values(
-                'student_id', 'score', 'assessment__subject_id'
-            )
-
-            # Group results by student
-            results_by_student = defaultdict(list)
-            for result in student_results:
-                results_by_student[result['student_id']].append(result)
-
-            # Build students_data efficiently
-            for student_id, student in students_dict.items():
-                student_results_list = results_by_student.get(student_id, [])
-                results = {}
-                total_marks = 0
-                total_agg = 0
-
-                for subject in subjects:
-                    res = next((r for r in student_results_list if r['assessment__subject_id'] == subject.id), None)
-                    if res:
-                        # Calculate points using the grading system
-                        points = 0
-                        try:
-                            grading = GradingSystem.objects.filter(
-                                min_score__lte=res['score'],
-                                max_score__gte=res['score']
-                            ).first()
-                            points = grading.points if grading else 0
-                        except:
-                            points = 0
-
-                        results[subject.id] = {
-                            'marks': res['score'],
-                            'agg': points,
-                        }
-                        total_marks += res['score']
-                        total_agg += points
-
-                students_data.append({
-                    'student': student,
-                    'results': results,
-                    'total_marks': total_marks,
-                    'total_agg': total_agg,
-                    'division': get_division(total_agg) if total_agg else '-'
-                })
-
-    # Calculate additional KPIs and data for the dashboard
     total_students = 0
     average_score = 0
     pass_rate = 0
     top_performer = None
     current_term = None
-    class_performance = []
     subject_performance = []
     assessment_type_performance = []
     top_students = []
-    grade_distribution = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0}
-    gender_comparison = {'Male': 0, 'Female': 0}
-    stream_comparison = {}
-    subject_heatmap = {}
+    at_risk_students = []
+    gender_comparison = {
+        'Male': {'average': 0, 'count': 0},
+        'Female': {'average': 0, 'count': 0},
+    }
+    stream_performance = []
     performance_trends = []
+    assessed_students = 0
+    students_without_results = 0
+    complete_students = 0
+    result_completion_rate = 0
+    expected_result_entries = 0
+    entered_result_entries = 0
+    highest_subject = None
+    lowest_subject = None
+    selected_assessment_type_name = ''
+
+    # Treat the lowest configured non-failing grade as the pass boundary.
+    # This keeps the dashboard aligned with the school's grading setup.
+    pass_mark = Decimal('50')
+    passing_ranges = [
+        grading for grading in GradingSystem.objects.all()
+        if str(grading.grade or '').strip().upper() not in {'F', 'FAIL', 'U'}
+    ]
+    if passing_ranges:
+        pass_mark = min(grading.min_score for grading in passing_ranges)
+
+    if academic_year_id and term_id and class_id:
+        academic_class = AcademicClass.objects.filter(
+            Class_id=class_id,
+            academic_year_id=academic_year_id,
+            term_id=term_id,
+        ).select_related('Class', 'term', 'academic_year').first()
+        if not academic_class:
+            messages.warning(request, "No class record exists for the selected year, term, and class.")
+        else:
+            academic_class_exists = True
 
     if academic_class:
-        total_students = students.count()
-        average_score = results_qs.aggregate(Avg('score'))['score__avg'] or 0
-        pass_rate = (results_qs.filter(score__gte=70).count() / results_qs.count() * 100) if results_qs.count() > 0 else 0
-        top_performer = results_qs.values('student__student_name').annotate(average=Avg('score')).order_by('-average').first()
-        current_term = academic_class.term.term
+        registers = ClassRegister.objects.filter(
+            academic_class_stream__academic_class=academic_class,
+            student__is_active=True,
+        ).select_related('student', 'academic_class_stream__stream')
+        enrolled_student_ids = set(registers.values_list('student_id', flat=True))
+        students_by_id = {
+            student.id: student
+            for student in Student.objects.filter(
+                id__in=enrolled_student_ids,
+                is_active=True,
+            ).order_by('student_name')
+        }
+        stream_by_student = {
+            register.student_id: register.academic_class_stream.stream.stream
+            for register in registers
+        }
 
-        # Class Performance Overview (for this class)
-        class_performance = [{
-            'class': str(academic_class.Class.name),
-            'average': float(average_score or 0),
-            'students': int(total_students or 0)
-        }]
-
-        # Subject Performance Overview
-        subject_performance = [
-            {
-                'subject': avg['assessment__subject__name'],
-                'average': float(avg['avg_score'] or 0),
-                'best_score': float(avg['best_score'] or 0),
-            } for avg in subject_averages
-        ]
-
-        # Assessment Type Comparison
-        assessment_type_performance = list(
-            results_qs
-            .values('assessment__assessment_type__name')
-            .annotate(avg_score=Avg('score'))
-            .order_by('-avg_score')
+        base_results = Result.objects.filter(
+            assessment__academic_class=academic_class,
+            student_id__in=enrolled_student_ids,
+        ).select_related(
+            'student', 'assessment__subject', 'assessment__assessment_type'
         )
+        results = base_results
+        if assessment_type_id:
+            results = results.filter(assessment__assessment_type_id=assessment_type_id)
+            selected_assessment_type_name = (
+                assessment_types.filter(id=assessment_type_id)
+                .values_list('name', flat=True)
+                .first() or ''
+            )
+
+        def percentage_for(result):
+            out_of = Decimal(str(result.assessment.out_of or 0))
+            if out_of <= 0:
+                return None
+            return float((Decimal(str(result.score)) / out_of) * Decimal('100'))
+
+        result_rows = []
+        for result in results:
+            percentage = percentage_for(result)
+            if percentage is not None:
+                result_rows.append((result, percentage))
+
+        total_students = len(students_by_id)
+        current_term = academic_class.term.term
+        entered_result_entries = len(result_rows)
+        expected_assessments = Assessment.objects.filter(academic_class=academic_class)
+        if assessment_type_id:
+            expected_assessments = expected_assessments.filter(
+                assessment_type_id=assessment_type_id
+            )
+        assessment_count = expected_assessments.count()
+        expected_result_entries = total_students * assessment_count
+        result_completion_rate = (
+            entered_result_entries / expected_result_entries * 100
+            if expected_result_entries else 0
+        )
+
+        scores_by_student = defaultdict(list)
+        scores_by_subject = defaultdict(list)
+        for result, percentage in result_rows:
+            scores_by_student[result.student_id].append(percentage)
+            scores_by_subject[result.assessment.subject.name].append(percentage)
+
+        student_averages = {
+            student_id: sum(scores) / len(scores)
+            for student_id, scores in scores_by_student.items()
+            if scores
+        }
+        assessed_students = len(student_averages)
+        students_without_results = max(total_students - assessed_students, 0)
+        complete_students = sum(
+            1 for scores in scores_by_student.values()
+            if assessment_count and len(scores) >= assessment_count
+        )
+        average_score = (
+            sum(student_averages.values()) / assessed_students
+            if assessed_students else 0
+        )
+        passed_students = sum(
+            1 for score in student_averages.values()
+            if score >= float(pass_mark)
+        )
+        pass_rate = passed_students / assessed_students * 100 if assessed_students else 0
+
+        ranked_students = sorted(
+            student_averages.items(),
+            key=lambda item: (-item[1], students_by_id[item[0]].student_name),
+        )
+        top_students = [
+            {
+                'name': students_by_id[student_id].student_name,
+                'stream': stream_by_student.get(student_id, '—'),
+                'average': score,
+            }
+            for student_id, score in ranked_students[:10]
+        ]
+        if top_students:
+            top_performer = top_students[0]
+        at_risk_students = [
+            {
+                'name': students_by_id[student_id].student_name,
+                'stream': stream_by_student.get(student_id, '—'),
+                'average': score,
+            }
+            for student_id, score in reversed(ranked_students)
+            if score < float(pass_mark)
+        ][:10]
+
+        subject_performance = sorted(
+            [
+                {
+                    'subject': subject,
+                    'average': sum(scores) / len(scores),
+                    'assessed': len(scores),
+                }
+                for subject, scores in scores_by_subject.items()
+            ],
+            key=lambda item: item['average'],
+            reverse=True,
+        )
+        if subject_performance:
+            highest_subject = subject_performance[0]
+            lowest_subject = subject_performance[-1]
+
+        # Always compare all assessment types. The optional assessment filter
+        # controls the other panels but must not collapse this comparison.
+        scores_by_assessment_type = defaultdict(list)
+        for result in base_results:
+            percentage = percentage_for(result)
+            if percentage is not None:
+                scores_by_assessment_type[result.assessment.assessment_type.name].append(percentage)
         assessment_type_performance = [
             {
-                'assessment__assessment_type__name': a['assessment__assessment_type__name'],
-                'avg_score': float(a['avg_score'] or 0),
+                'name': name,
+                'average': sum(scores) / len(scores),
+                'selected': name == selected_assessment_type_name,
             }
-            for a in assessment_type_performance
+            for name, scores in sorted(scores_by_assessment_type.items())
         ]
 
-        # Top 10 Students
-        top_students = (
-            results_qs
-            .values('student__student_name', 'student__current_class__name')
-            .annotate(average=Avg('score'))
-            .order_by('-average')[:10]
-        )
+        gender_scores = defaultdict(list)
+        stream_scores = defaultdict(list)
+        for student_id, score in student_averages.items():
+            student = students_by_id[student_id]
+            gender_scores[student.gender].append(score)
+            stream_scores[stream_by_student.get(student_id, 'No Stream')].append(score)
+        for code, label in (('M', 'Male'), ('F', 'Female')):
+            scores = gender_scores.get(code, [])
+            gender_comparison[label] = {
+                'average': sum(scores) / len(scores) if scores else 0,
+                'count': len(scores),
+            }
+        stream_performance = [
+            {
+                'stream': stream,
+                'average': sum(scores) / len(scores),
+                'count': len(scores),
+            }
+            for stream, scores in sorted(stream_scores.items())
+        ]
 
-
-        # Gender Performance Comparison - calculate average scores by gender
-        gender_performance = results_qs.values('student__gender').annotate(
-            avg_score=Avg('score'),
-            student_count=Count('id')
-        ).order_by('-avg_score')
-
-        gender_comparison = {}
-        for perf in gender_performance:
-            gender = perf['student__gender']
-            if gender == 'M':
-                gender_comparison['Male'] = {
-                    'average': float(perf['avg_score'] or 0),
-                    'count': int(perf['student_count'] or 0)
-                }
-            elif gender == 'F':
-                gender_comparison['Female'] = {
-                    'average': float(perf['avg_score'] or 0),
-                    'count': int(perf['student_count'] or 0)
-                }
-
-        # Stream comparison - optimized
-        stream_stats = students.values('stream__stream').annotate(count=Count('id')).order_by('-count')
-        stream_comparison = {stat['stream__stream'] or 'No Stream': stat['count'] for stat in stream_stats}
-
-        # Subject Difficulty Heatmap - optimized with single query
-        heatmap_data = results_qs.values('assessment__subject__name').annotate(avg_score=Avg('score')).order_by('assessment__subject__name')
-        subject_heatmap = {item['assessment__subject__name']: item['avg_score'] for item in heatmap_data}
-
-        # Performance Trends Over Terms (simplified, for this term only)
-        performance_trends = [{
-            'term': current_term,
-            'average': float(average_score or 0)
-        }]
+        # Build a genuine term-to-term trend for this class and academic year.
+        trend_classes = AcademicClass.objects.filter(
+            Class_id=class_id,
+            academic_year_id=academic_year_id,
+        ).select_related('term').order_by('term__start_date')
+        for trend_class in trend_classes:
+            trend_student_ids = ClassRegister.objects.filter(
+                academic_class_stream__academic_class=trend_class,
+                student__is_active=True,
+            ).values_list('student_id', flat=True)
+            trend_results = Result.objects.filter(
+                assessment__academic_class=trend_class,
+                student_id__in=trend_student_ids,
+            ).select_related('assessment')
+            if assessment_type_id:
+                trend_results = trend_results.filter(
+                    assessment__assessment_type_id=assessment_type_id
+                )
+            trend_scores_by_student = defaultdict(list)
+            for trend_result in trend_results:
+                percentage = percentage_for(trend_result)
+                if percentage is not None:
+                    trend_scores_by_student[trend_result.student_id].append(percentage)
+            trend_student_averages = [
+                sum(scores) / len(scores)
+                for scores in trend_scores_by_student.values()
+                if scores
+            ]
+            if trend_student_averages:
+                performance_trends.append({
+                    'term': f"Term {trend_class.term.term}",
+                    'average': sum(trend_student_averages) / len(trend_student_averages),
+                })
 
     # Get academic year and term names for display
     selected_academic_year_name = ''
@@ -3440,10 +3487,6 @@ def class_performance_summary(request):
         'terms': terms,
         'classes': classes,
         'assessment_types': assessment_types,
-        'best_students': best_students,
-        'subject_averages': subject_averages,
-        'students_data': students_data,
-        'subjects': subjects,
         'selected_academic_year': str(academic_year_id) if academic_year_id else '',
         'selected_term': str(term_id) if term_id else '',
         'selected_class': str(class_id) if class_id else '',
@@ -3456,16 +3499,25 @@ def class_performance_summary(request):
         'total_students': total_students,
         'average_score': average_score,
         'pass_rate': pass_rate,
+        'pass_mark': pass_mark,
         'top_performer': top_performer,
         'current_term': current_term,
-        'class_performance': class_performance,
         'subject_performance': subject_performance,
         'assessment_type_performance': assessment_type_performance,
         'top_students': top_students,
+        'at_risk_students': at_risk_students,
         'gender_comparison': gender_comparison,
-        'stream_comparison': stream_comparison,
-        'subject_heatmap': subject_heatmap,
+        'stream_performance': stream_performance,
         'performance_trends': performance_trends,
+        'assessed_students': assessed_students,
+        'students_without_results': students_without_results,
+        'complete_students': complete_students,
+        'result_completion_rate': result_completion_rate,
+        'expected_result_entries': expected_result_entries,
+        'entered_result_entries': entered_result_entries,
+        'highest_subject': highest_subject,
+        'lowest_subject': lowest_subject,
+        'selected_assessment_type_name': selected_assessment_type_name,
     }
 
     return render(request, 'results/class_performance_summary.html', context)

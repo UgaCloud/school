@@ -762,7 +762,10 @@ def financial_summary_report(request):
         academic_year_id = current_year.id if current_year else None
 
     if not term_id:
-        current_term = Term.objects.filter(is_current=True).first()
+        current_term = Term.objects.filter(
+            is_current=True,
+            academic_year_id=academic_year_id,
+        ).first()
         term_id = current_term.id if current_term else None
 
     # Initialize data structures
@@ -782,7 +785,7 @@ def financial_summary_report(request):
 
     if academic_year_id and term_id:
         academic_year = get_model_record(AcademicYear, academic_year_id)
-        term = get_model_record(Term, term_id)
+        term = get_object_or_404(Term, id=term_id, academic_year=academic_year)
 
         # Get all academic classes for the selected year and term
         academic_classes = AcademicClass.objects.filter(
@@ -795,27 +798,17 @@ def financial_summary_report(request):
             student_bills = StudentBill.objects.filter(
                 academic_class=academic_class,
                 student__is_active=True,
-            ).select_related('student').prefetch_related('items')
-
-            # Get class bills for this academic class
-            class_bills = ClassBill.objects.filter(
-                academic_class=academic_class
-            ).select_related('bill_item')
+            ).select_related('student').prefetch_related('items', 'payments')
 
             num_students = student_bills.count()
 
-            # Calculate school fees from actual bill items instead of using academic_class.fees_amount
-            # This ensures it matches the dashboard calculation
+            # StudentBillItem is the posted receivable. ClassBill is only a
+            # template, so counting both would duplicate class-wide charges.
             class_school_fees_billed = 0
-            for bill in student_bills:
-                for item in bill.items.all():
-                    if ('tuition' in item.description.lower() or 'school' in item.description.lower() or 'fee' in item.description.lower()):
-                        class_school_fees_billed += item.amount
 
             # Define school_fees_per_student for template context (use academic class amount for display)
             school_fees_per_student = academic_class.fees_amount
 
-            # Calculate other fees from both StudentBillItem and ClassBill
             total_other_fees_billed = 0
             total_school_fees_collected_for_class = 0
             total_other_fees_collected_for_class = 0
@@ -825,42 +818,34 @@ def financial_summary_report(request):
             # Track students with other fees
             students_with_other_fees = 0
 
-            # Process ClassBill for other fees (applied to all students)
-            for class_bill in class_bills:
-                if not ('tuition' in class_bill.bill_item.description.lower() or 'school' in class_bill.bill_item.description.lower() or 'fee' in class_bill.bill_item.description.lower()):
-                    # This is applied to all students in the class
-                    total_other_fees_billed += (class_bill.amount * num_students)
-
-            # Process each student's bill items for additional other fees and payments
+            # Process actual charges and explicitly categorised payments.
             for bill in student_bills:
                 student_has_other_fees = False
-                school_fees_for_student = 0
-                other_fees_for_student = 0
 
-                # Check each bill item for other fees (books, uniform, transport, etc.)
                 for item in bill.items.all():
-                    # Only count non-school fee items as other income
-                    if not ('tuition' in item.description.lower() or 'school' in item.description.lower() or 'fee' in item.description.lower()):
-                        total_other_fees_billed += item.amount
-                        other_fees_for_student += item.amount
-                        student_has_other_fees = True
+                    if item.fee_category == "Tuition":
+                        class_school_fees_billed += item.amount
                     else:
-                        # This is a school fee item
-                        school_fees_for_student += item.amount
+                        total_other_fees_billed += item.amount
+                        student_has_other_fees = True
 
-                # Count students who have other fees
                 if student_has_other_fees:
                     students_with_other_fees += 1
 
-                # Simply use the actual payment amount as recorded
-                # Don't try to allocate proportionally - use the payment as-is
-                total_payment = bill.amount_paid
-                total_collected_for_class += total_payment
-                total_outstanding_for_class += bill.balance
+                for payment in bill.payments.all():
+                    category = payment.fee_category
+                    if not category:
+                        categories = {
+                            value for value in bill.items.values_list("fee_category", flat=True) if value
+                        }
+                        category = next(iter(categories)) if len(categories) == 1 else "Other"
+                    if category == "Tuition":
+                        total_school_fees_collected_for_class += payment.amount
+                    else:
+                        total_other_fees_collected_for_class += payment.amount
 
-                # For reporting purposes, assume all payments contribute to school fees collection
-                # This gives a realistic view of collection performance
-                total_school_fees_collected_for_class += total_payment
+                if bill.balance > 0:
+                    total_outstanding_for_class += bill.balance
 
             # Calculate average other fees per student (only for students who have other fees)
             other_fees_per_student = total_other_fees_billed / students_with_other_fees if students_with_other_fees > 0 else 0
@@ -892,10 +877,6 @@ def financial_summary_report(request):
             total_outstanding += total_outstanding_for_class
             # Add collected other fees to other income (not billed amount)
             total_other_income += total_other_fees_collected_for_class
-            # Accumulate other fees billed globally
-            total_other_fees_billed_global += total_other_fees_billed
-
-            # Accumulate other fees billed globally
             total_other_fees_billed_global += total_other_fees_billed
 
         # Other income is now calculated from non-school fee bill items above

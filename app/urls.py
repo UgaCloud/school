@@ -15,6 +15,9 @@ from app.views.accounts import *
 from app.views.timetables import *
 from app.views.attendance import *
 from app.views.workflow import workflow_readiness_view
+from app.views.parent_portal import *
+from app.views.admissions import *
+from app.views.library import *
 from app.decorators.mode import primary_mode_required
 
 
@@ -23,6 +26,43 @@ def primary(view):
 
 
 urlpatterns = [
+    # Parent portal (separate authentication and feature-gated interface)
+    path('parent/login/', parent_login, name='parent_login'),
+    path('parent/logout/', parent_logout, name='parent_logout'),
+    path('parent/change-temporary-password/', parent_force_password, name='parent_force_password'),
+    path('parent/', parent_dashboard, name='parent_dashboard'),
+    path('parent/children/<int:student_id>/finance/', parent_finance, name='parent_finance'),
+    path('parent/children/<int:student_id>/results/', parent_results, name='parent_results'),
+    path('students/<int:student_id>/parent-access/activate/', parent_access_activate, name='parent_access_activate'),
+    path('parent-access/', parent_access_management, name='parent_access_management'),
+    path('parent-access/<int:access_id>/edit/', parent_access_update, name='parent_access_update'),
+    path('parent-access/<int:access_id>/deactivate/', parent_access_deactivate, name='parent_access_deactivate'),
+    path('parent-access/users/<int:user_id>/reset-password/', parent_password_reset, name='parent_password_reset'),
+
+    # Admissions (internal first release)
+    path('admissions/apply/', public_admission_apply, name='public_admission_apply'),
+    path('admissions/track/', public_admission_track, name='public_admission_track'),
+    path('admissions/', admission_dashboard, name='admission_dashboard'),
+    path('admissions/applications/', admission_list, name='admission_list'),
+    path('admissions/applications/new/', admission_create, name='admission_create'),
+    path('admissions/applications/<int:application_id>/', admission_detail, name='admission_detail'),
+    path('admissions/applications/<int:application_id>/status/', admission_change_status, name='admission_change_status'),
+    path('admissions/applications/<int:application_id>/enroll/', admission_enroll, name='admission_enroll'),
+
+    # Library (catalogue and controlled circulation)
+    path('library/', library_dashboard, name='library_dashboard'),
+    path('library/catalogue/', library_catalogue, name='library_catalogue'),
+    path('library/books/new/', library_book_create, name='library_book_create'),
+    path('library/books/<int:book_id>/', library_book_detail, name='library_book_detail'),
+    path('library/books/<int:book_id>/copies/new/', library_copy_create, name='library_copy_create'),
+    path('library/issue/', library_issue, name='library_issue'),
+    path('library/loans/', library_loans, name='library_loans'),
+    path('library/loans/<int:loan_id>/lost/', library_mark_lost, name='library_mark_lost'),
+    path('library/fines/', library_fines, name='library_fines'),
+    path('library/fines/<int:fine_id>/resolve/', library_fine_resolve, name='library_fine_resolve'),
+    path('library/loans/<int:loan_id>/return/', library_return, name='library_return'),
+    path('library/loans/<int:loan_id>/renew/', library_renew, name='library_renew'),
+
     path('index/', index.index_view, name="index_page"),
     path('search/', index.global_search_view, name="global_search"),
     path('coming-soon/', index.under_construction_view, name="under_construction"),

@@ -77,6 +77,23 @@
             <span class="detail-value">{{ student.contact|default:"-" }}</span>
           </div>
         </div>
+        {% if parent_portal_enabled %}
+        {% with existing_access=student.parent_accesses.first %}
+        {% if existing_access and existing_access.is_active %}
+        <p style="margin-top:14px"><span class="label label-success">Parent portal active</span><br><small>Login: {{ existing_access.user.username }}</small></p>
+        <a class="btn btn-sm btn-default" href="{% url 'parent_access_management' %}?q={{ student.reg_no|urlencode }}">Manage parent access</a>
+        {% else %}
+        <form method="post" action="{% url 'parent_access_activate' student.id %}" style="margin-top:14px">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-primary" type="submit">
+            Verify / activate parent portal access
+          </button>
+          <small class="text-muted" style="display:block;margin-top:6px">Uses the guardian contact already registered for this student.</small>
+          <label style="display:block;margin-top:6px;font-weight:normal"><input type="checkbox" name="confirm_shared_contact" value="yes"> I verified that this guardian owns the number if it is shared with another family record.</label>
+        </form>
+        {% endif %}
+        {% endwith %}
+        {% endif %}
       </div>
     </div>
 

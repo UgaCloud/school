@@ -315,6 +315,9 @@ def school_settings(request):
         'comm_unread_breakdown': comm_unread_breakdown,
         'global_current_academic_year': current_academic_year,
         'global_current_academic_term': current_academic_term,
+        'parent_portal_enabled': getattr(django_settings, 'PARENT_PORTAL_ENABLED', False),
+        'admissions_enabled': getattr(django_settings, 'ADMISSIONS_ENABLED', False),
+        'library_enabled': getattr(django_settings, 'LIBRARY_ENABLED', False),
     }
     context.update(readiness_for_request(request))
     return context
