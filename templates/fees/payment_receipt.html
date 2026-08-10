@@ -105,10 +105,10 @@
   <div class="no-print">
     <div>
       <div class="toolbar-title">Official payment receipt</div>
-      <div class="muted">Use this for the parent/student copy. The bill page remains the account statement.</div>
+      <div class="muted">{% if parent_copy %}This official receipt is available securely through your parent account.{% else %}Use this for the parent/student copy. The bill page remains the account statement.{% endif %}</div>
     </div>
     <div class="toolbar-actions">
-      <a href="{% url 'student_bill_details_page' bill.id %}" class="btn btn-light">← Back to bill</a>
+      {% if receipt_back_url %}<a href="{{ receipt_back_url }}" class="btn btn-light">← Back to fees</a>{% else %}<a href="{% url 'student_bill_details_page' bill.id %}" class="btn btn-light">← Back to bill</a>{% endif %}
       <button type="button" class="btn btn-primary" onclick="window.print()">Print / Save PDF</button>
     </div>
   </div>

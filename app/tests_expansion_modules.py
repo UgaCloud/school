@@ -98,6 +98,11 @@ class ExpansionModuleFoundationTests(TestCase):
             subject=subject, date=date(2026, 2, 10), out_of=100,
         )
         Result.objects.create(assessment=assessment, student=student, score=80, status="VERIFIED")
+        bill, _ = StudentBill.objects.get_or_create(student=student, academic_class=self.academic_class)
+        payment = Payment.objects.create(
+            bill=bill, payment_date=date(2026, 2, 12), amount=50000,
+            payment_method="Cash", reference_no="PARENT-RECEIPT-1", recorded_by="Bursar",
+        )
 
         self.client.force_login(access.user)
         dashboard = self.client.get(reverse("parent_dashboard"))
@@ -105,7 +110,15 @@ class ExpansionModuleFoundationTests(TestCase):
         self.assertContains(dashboard, "Good day")
         self.assertTrue(ParentNotification.objects.filter(user=access.user, kind="result").exists())
         self.assertEqual(self.client.get(reverse("parent_children")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("parent_child_overview", args=[student.pk])).status_code, 200)
         self.assertEqual(self.client.get(reverse("parent_attendance", args=[student.pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse("parent_timetable", args=[student.pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse("parent_documents", args=[student.pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse("parent_calendar")).status_code, 200)
+        receipt = self.client.get(reverse("parent_payment_receipt", args=[student.pk, payment.pk]))
+        self.assertEqual(receipt.status_code, 200)
+        self.assertContains(receipt, "PARENT-RECEIPT-1")
+        self.assertContains(receipt, "Back to fees")
         self.assertEqual(self.client.get(reverse("parent_announcements")).status_code, 200)
         report = self.client.get(reverse("parent_report_download", args=[student.pk]))
         self.assertEqual(report.status_code, 200)
@@ -124,6 +137,7 @@ class ExpansionModuleFoundationTests(TestCase):
         unrelated = self.make_student(name="Other Family Child", contact="0700999888")
         denied = self.client.get(reverse("parent_report_download", args=[unrelated.pk]))
         self.assertEqual(denied.status_code, 404)
+        self.assertEqual(self.client.get(reverse("parent_child_overview", args=[unrelated.pk])).status_code, 404)
 
     def test_sibling_link_reuses_parent_without_resetting_private_password(self):
         first = activate_parent_access(student=self.make_student(), verified_by=self.admin)

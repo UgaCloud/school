@@ -7,6 +7,9 @@ DEBUG = False
 
 SECRET_KEY = os.environ['SECRET_KEY']
 
+# The parent login link is public-facing. In production it should remain
+# available unless the school explicitly disables it in the environment.
+PARENT_PORTAL_ENABLED = config_bool('PARENT_PORTAL_ENABLED', default=True)
 
 ALLOWED_HOSTS = ["bayan-learningcenter.com", "www.bayan-learningcenter.com"]
 
