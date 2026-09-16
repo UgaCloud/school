@@ -58,11 +58,9 @@
             <a class="btn btn-default" href="{% url 'classrooms' %}"><i class="fa fa-building"></i> Room Setup</a>
             {% endif %}
 
-            {% if selected_class %}
-            <button type="submit" class="btn btn-default">
-              <i class="fa fa-filter"></i> Apply Filters
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-calendar-check-o"></i> Load Timetable
             </button>
-            {% endif %}
           </div>
         </form>
 
@@ -74,7 +72,9 @@
             <input type="hidden" name="term" value="{{ selected_term_id }}">
             <input type="hidden" name="class_stream_id" value="{{ selected_class.id }}">
             <input type="hidden" name="action" value="auto_generate">
-            <button type="submit" class="btn btn-warning" {% if not can_edit_timetable or is_timetable_locked %}disabled{% endif %}>
+            <button type="submit" class="btn btn-warning"
+              data-confirm-message="Auto-generate the timetable for {{ selected_class }}? Review the generated timetable before locking it. Existing editable allocations may be changed."
+              {% if not can_edit_timetable or is_timetable_locked %}disabled{% endif %}>
               <i class="fa fa-cogs"></i> Auto Generate
             </button>
           </form>
@@ -158,7 +158,7 @@
         {% endif %}
 
         <div class="table-responsive hidden-xs hidden-sm">
-          <form method="post" id="timetableForm">
+          <form method="post" id="timetableForm" data-protect-unsaved="true">
             {% csrf_token %}
             <input type="hidden" name="academic_year" value="{{ selected_year_id }}">
             <input type="hidden" name="term" value="{{ selected_term_id }}">
@@ -262,6 +262,9 @@
           </form>
         </div>
 
+        <div class="timetable-mobile-note alert alert-info">
+          <i class="fa fa-info-circle"></i> Mobile view is optimized for reviewing the timetable. Use a larger screen to edit timetable cells safely.
+        </div>
         <div class="visible-xs visible-sm">
           <div class="panel-group" id="mobileTimetableAccordion">
             {% for weekday, label in weekdays %}
@@ -362,7 +365,7 @@
 <div class="modal fade" id="addPeriodModal" tabindex="-1" role="dialog" aria-labelledby="addPeriodModalLabel">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
-      <form method="post">
+      <form method="post" data-protect-unsaved="true">
         {% csrf_token %}
         <input type="hidden" name="academic_year" value="{{ selected_year_id }}">
         <input type="hidden" name="term" value="{{ selected_term_id }}">
@@ -402,11 +405,9 @@
     var allocationTeacherMapEl = document.getElementById("allocation-teacher-map");
     var teacherMap = allocationTeacherMapEl ? JSON.parse(allocationTeacherMapEl.textContent || "{}") : {};
 
-    document.querySelectorAll(".tt-filter").forEach(function (el) {
-      el.addEventListener("change", function () {
-        filterForm.submit();
-      });
-    });
+    // Filters are applied together with the explicit Load Timetable action.
+    // This avoids multiple page reloads while a user is selecting year, term,
+    // and class stream on slower school networks.
 
     function subjectColor(subjectId) {
       if (!subjectId) return "#95a5a6";
@@ -479,6 +480,7 @@
         }
         var form = document.getElementById("timetableForm");
         if (form) {
+          form.dataset.submitting = 'true';
           form.submit();
         }
       });

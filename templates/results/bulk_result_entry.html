@@ -31,7 +31,7 @@
             </div>
 
             <div class="x_content">
-                <form method="post" enctype="multipart/form-data" id="bulkUploadForm" aria-label="Bulk result upload form">
+                <form method="post" enctype="multipart/form-data" id="bulkUploadForm" aria-label="Bulk result upload form" data-protect-unsaved="true">
                     {% csrf_token %}
                     {% if not assessment %}
                     <div class="mb-3">

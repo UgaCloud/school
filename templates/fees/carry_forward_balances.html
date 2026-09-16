@@ -390,7 +390,7 @@
         </table>
       </div>
 
-      <form method="post" id="carryForwardForm">
+      <form method="post" id="carryForwardForm" data-protect-unsaved="true">
         {% csrf_token %}
         <input type="hidden" name="action" value="post">
         <input type="hidden" name="source_term" value="{{ selected_source_term }}">

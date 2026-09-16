@@ -5,6 +5,20 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def use_legacy_mysql_engine(apps, schema_editor):
+    """Match the library tables created on a legacy MyISAM database."""
+    if schema_editor.connection.vendor != "mysql":
+        return
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT ENGINE FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'app_libraryloan'"
+        )
+        row = cursor.fetchone()
+        if row and (row[0] or "").upper() == "MYISAM":
+            cursor.execute("SET SESSION default_storage_engine = MyISAM")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -13,6 +27,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(use_legacy_mysql_engine, migrations.RunPython.noop),
         migrations.CreateModel(
             name='LibraryFine',
             fields=[

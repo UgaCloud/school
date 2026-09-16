@@ -75,13 +75,13 @@
 
         <!-- Dark/Light mode toggle -->
         <li class="dropdown pc-h-item">
-          <a class="pc-head-link dropdown-toggle arrow-none me-0" data-bs-toggle="dropdown" href="#" role="button">
-            <i class="ph ph-sun-dim"></i>
+          <a class="pc-head-link dropdown-toggle arrow-none me-0" data-bs-toggle="dropdown" href="#" role="button" aria-label="Choose color theme" title="Color theme">
+            <i class="ph ph-sun-dim" data-theme-icon></i>
           </a>
           <div class="dropdown-menu dropdown-menu-end pc-h-dropdown">
-            <a href="#!" class="dropdown-item" onclick="layout_change('dark')"><i class="ph ph-moon"></i><span>Dark</span></a>
-            <a href="#!" class="dropdown-item" onclick="layout_change('light')"><i class="ph ph-sun"></i><span>Light</span></a>
-            <a href="#!" class="dropdown-item" onclick="layout_change_default()"><i class="ph ph-cpu"></i><span>Default</span></a>
+            <a href="#!" class="dropdown-item" data-theme-choice="dark" onclick="school_theme_change('dark'); return false;"><i class="ph ph-moon"></i><span>Dark</span></a>
+            <a href="#!" class="dropdown-item" data-theme-choice="light" onclick="school_theme_change('light'); return false;"><i class="ph ph-sun"></i><span>Light</span></a>
+            <a href="#!" class="dropdown-item" data-theme-choice="system" onclick="school_theme_default(); return false;"><i class="ph ph-cpu"></i><span>System default</span></a>
           </div>
         </li>
 
@@ -104,9 +104,11 @@
               <i class="ph ph-user-circle"></i><span>Profile</span>
             </a>
             {% endif %}
+            {% if request.user.is_superuser or active_role == "Admin" or active_role == "Super Admin" or active_role == "Super-Admin" or active_role == "Head Teacher" or active_role == "Head master" or active_role == "Headteacher" %}
             <a class="dropdown-item" href="{% url 'settings_page' %}">
               <i class="ph ph-gear"></i><span>School Settings</span>
             </a>
+            {% endif %}
             <a class="dropdown-item" href="{% url 'password_change' %}">
               <i class="ph ph-lock-key"></i><span>Change Password</span>
             </a>

@@ -23,7 +23,7 @@
                     <strong>Outstanding:</strong> UGX {{ bill.balance|floatformat:0 }}
                 </div>
                 
-                <form method="post" class="form-horizontal">
+                <form method="post" class="form-horizontal" data-protect-unsaved="true">
                     {% csrf_token %}
                     {{ form|crispy }}
                     <div class="form-group">

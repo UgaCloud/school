@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from app.models import (
-    AcademicClass, AcademicClassStream, AdmissionApplication, AdmissionStatusHistory,
+    AcademicClass, AcademicClassStream, AcademicYear, AdmissionApplication, AdmissionStatusHistory,
     ClassRegister, Student, Term,
 )
 from app.models.students import find_duplicate_student
@@ -49,6 +49,14 @@ def enroll_application(*, application_id, actor):
     ).first()
     if not class_stream:
         raise EnrollmentError("The preferred stream is not configured for the target academic class.")
+    AcademicYear.objects.select_for_update().get(pk=application.cycle.academic_year_id)
+    duplicate = find_duplicate_student(
+        student_name=application.student_name,
+        birthdate=application.birthdate,
+        contact=application.contact,
+    )
+    if duplicate:
+        raise EnrollmentError(f"Possible duplicate student: {duplicate.reg_no}. Review the existing record.")
     student = Student(
         student_name=application.student_name, gender=application.gender, birthdate=application.birthdate,
         nationality=application.nationality, religion=application.religion, address=application.address,

@@ -111,7 +111,7 @@
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span>
                 </button>
             </div>
-            <form method="POST" action="{% url 'add_signature_page' %}" enctype="multipart/form-data" id="addSignatureForm">
+            <form method="POST" action="{% url 'add_signature_page' %}" enctype="multipart/form-data" id="addSignatureForm" data-protect-unsaved="true">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="row">

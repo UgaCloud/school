@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.template.loader import render_to_string
 import csv
 from decimal import Decimal
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
@@ -16,7 +16,7 @@ import app.forms.student as student_forms
 from app.services.students import register_student, bulk_student_registration, delete_all_csv_files
 from app.selectors.model_selectors import *
 from app.forms.student import StudentForm
-from app.models.students import Student, StudentDocument
+from app.models.students import Student, StudentDocument, find_duplicate_student
 import app.forms.student as student_forms
 import app.selectors.students as student_selectors
 import app.selectors.classes as class_selectors
@@ -43,15 +43,17 @@ from app.services.level_scope import (
     get_level_students_queryset,
 )
 from app.services.school_level import get_active_school_level
+from app.services.staff_experience import capabilities_for_request, normalize_role, active_role_for_request
 
 
 def _get_student_access_context(request):
     staff_account = getattr(request.user, "staff_account", None)
     role_name = staff_account.role.name if staff_account and staff_account.role else None
     active_role = request.session.get("active_role_name")
-    effective_role = (active_role or role_name or "").strip().lower()
-    is_class_teacher = effective_role == "class teacher"
-    can_manage_students = request.user.is_superuser and effective_role not in {"teacher", "class teacher"}
+    effective_role = normalize_role(active_role or role_name or active_role_for_request(request))
+    capabilities = capabilities_for_request(request)
+    is_class_teacher = effective_role == "class-teacher"
+    can_manage_students = capabilities["manage_students"]
     return {
         "staff_account": staff_account,
         "is_class_teacher": is_class_teacher,
@@ -633,15 +635,42 @@ def add_student_view(request):
                     reverse("academic_class_details_page", args=[academic_class.id])
                 )
 
-            # Keep the student, class register and initial bill as one operation.
-            # A setup/billing failure must not leave an unregistered student behind.
-            from django.db import transaction
-            with transaction.atomic():
-                student = student_form.save(commit=False)
-                student.academic_year = current_academic_year
-                student.term = term
-                student.save()
-                register_student(student, _class, stream)
+            # Serialize registrations for the same academic year, then repeat
+            # the identity check inside the lock. Two rapid submissions can
+            # otherwise both pass form validation before either row is saved.
+            duplicate = None
+            try:
+                with transaction.atomic():
+                    AcademicYear.objects.select_for_update().get(pk=current_academic_year.pk)
+                    duplicate = find_duplicate_student(
+                        student_name=student_form.cleaned_data.get("student_name"),
+                        birthdate=student_form.cleaned_data.get("birthdate"),
+                        contact=student_form.cleaned_data.get("contact"),
+                    )
+                    if duplicate is None:
+                        student = student_form.save(commit=False)
+                        student.academic_year = current_academic_year
+                        student.term = term
+                        student.save()
+                        register_student(student, _class, stream)
+            except IntegrityError:
+                # The database constraint is the final guard for concurrent
+                # writers that do not enter through this view.
+                duplicate = find_duplicate_student(
+                    student_name=student_form.cleaned_data.get("student_name"),
+                    birthdate=student_form.cleaned_data.get("birthdate"),
+                    contact=student_form.cleaned_data.get("contact"),
+                )
+                if duplicate is None:
+                    raise
+
+            if duplicate is not None:
+                messages.warning(
+                    request,
+                    f"This student is already registered as {duplicate.reg_no}. "
+                    "The repeated submission was ignored.",
+                )
+                return HttpResponseRedirect(reverse(manage_student_view))
             messages.success(request, SUCCESS_ADD_MESSAGE)
 
         else:
@@ -656,11 +685,20 @@ def add_student_view(request):
 
 def _get_scoped_student_or_404(request, student_id):
     active_level = get_active_school_level(request)
-    return get_object_or_404(get_level_students_queryset(active_level=active_level), pk=student_id)
+    scoped_students, _ = _get_scoped_students_for_request(
+        request,
+        active_level=active_level,
+        base_queryset=get_level_students_queryset(active_level=active_level),
+    )
+    return get_object_or_404(scoped_students, pk=student_id)
 
 
 @login_required
 def student_details_view(request, id):
+    capabilities = capabilities_for_request(request)
+    if not capabilities["view_students"]:
+        messages.error(request, "You do not have permission to view student profiles.")
+        return redirect("index_page")
     student = _get_scoped_student_or_404(request, id)
     
     # Fetch exam reports 
@@ -673,7 +711,9 @@ def student_details_view(request, id):
     assessment_type_id = request.GET.get('assessment_type')
     
 
-    exam_reports = Result.objects.filter(student=student).select_related(
+    exam_reports = Result.objects.none()
+    if capabilities["view_academics"]:
+        exam_reports = Result.objects.filter(student=student, status="VERIFIED").select_related(
         'assessment__subject',
         'assessment__assessment_type',
         'assessment__academic_class__term',
@@ -687,20 +727,18 @@ def student_details_view(request, id):
     if assessment_type_id:
         exam_reports = exam_reports.filter(assessment__assessment_type_id=assessment_type_id)
     
-    from django.db.models import Q
-    
     academic_years = AcademicYear.objects.filter(
-        id__in=Result.objects.filter(student=student).values('assessment__academic_class__academic_year')
+        id__in=exam_reports.values('assessment__academic_class__academic_year')
     ).distinct().order_by('-academic_year')
     
     # Get terms
     terms = Term.objects.filter(
-        id__in=Result.objects.filter(student=student).values('assessment__academic_class__term')
+        id__in=exam_reports.values('assessment__academic_class__term')
     ).distinct().order_by('term')
     
     # Get assessment types
     assessment_types = AssessmentType.objects.filter(
-        id__in=Result.objects.filter(student=student).values('assessment__assessment_type')
+        id__in=exam_reports.values('assessment__assessment_type')
     ).distinct().order_by('name')
     
     # Performance analysis
@@ -737,6 +775,8 @@ def student_details_view(request, id):
         )
         .order_by("-session__date", "-session__time_slot__start_time", "session__subject__name")
     )
+    if not capabilities["view_attendance"]:
+        attendance_records_base = AttendanceRecord.objects.none()
     attendance_records = attendance_records_base
     if attendance_status_filter:
         attendance_records = attendance_records.filter(status=attendance_status_filter)
@@ -753,16 +793,64 @@ def student_details_view(request, id):
     attendance_effective = attendance_present + attendance_late + attendance_excused
     attendance_rate = round((attendance_effective / attendance_total) * 100, 1) if attendance_total else 0.0
 
-    requested_tab = (request.GET.get("tab") or "").strip().lower()
-    valid_tabs = {"docs", "exam", "library", "extra", "payments", "attendance"}
-    active_tab = requested_tab if requested_tab in valid_tabs else ""
-    if not active_tab:
-        active_tab = "exam" if (academic_year_id or term_id or assessment_type_id) else "docs"
+    from app.models.fees_payment import Payment, StudentBill
+    from app.models.library import LibraryFine, LibraryLoan
+
+    general_documents = StudentDocument.objects.none()
+    bill_documents = StudentDocument.objects.none()
+    if capabilities["view_student_documents"]:
+        general_documents = student.documents.filter(bill__isnull=True)
+        bill_documents = student.documents.filter(bill__isnull=False)
+
+    student_bills = StudentBill.objects.none()
+    recent_payments = Payment.objects.none()
+    finance_total_billed = Decimal("0")
+    finance_total_paid = Decimal("0")
+    finance_balance = Decimal("0")
+    if capabilities["view_finance"]:
+        student_bills = StudentBill.objects.filter(student=student).select_related(
+            "academic_class", "academic_class__term", "academic_class__academic_year"
+        ).prefetch_related("items", "payments").order_by("-bill_date")
+        finance_total_billed = student_bills.aggregate(total=Sum("items__amount"))["total"] or Decimal("0")
+        recent_payments = Payment.objects.filter(bill__student=student).select_related("bill").order_by("-payment_date", "-id")
+        finance_total_paid = recent_payments.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+        finance_balance = sum((Decimal(str(bill.balance)) for bill in student_bills), Decimal("0"))
+
+    library_loans = LibraryLoan.objects.none()
+    library_active_count = 0
+    library_overdue_count = 0
+    library_fine_balance = Decimal("0")
+    if capabilities["view_library"]:
+        library_loans = LibraryLoan.objects.filter(student=student).select_related(
+            "copy", "copy__book"
+        ).prefetch_related("fines").order_by("-issued_at")
+        library_active_count = library_loans.filter(returned_at__isnull=True).count()
+        library_overdue_count = library_loans.filter(returned_at__isnull=True, due_at__lt=timezone.now()).count()
+        library_fine_balance = LibraryFine.objects.filter(
+            loan__student=student, status=LibraryFine.STATUS_OUTSTANDING
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+    available_tabs = [{"key": "overview", "label": "Overview", "icon": "ph-squares-four"}]
+    if capabilities["view_academics"]:
+        available_tabs.append({"key": "academics", "label": "Academics", "icon": "ph-graduation-cap"})
+    if capabilities["view_attendance"]:
+        available_tabs.append({"key": "attendance", "label": "Attendance", "icon": "ph-calendar-check"})
+    if capabilities["view_finance"]:
+        available_tabs.append({"key": "finance", "label": "Finance", "icon": "ph-wallet"})
+    if capabilities["view_library"]:
+        available_tabs.append({"key": "library", "label": "Library", "icon": "ph-books"})
+    if capabilities["view_student_documents"]:
+        available_tabs.append({"key": "documents", "label": "Documents", "icon": "ph-folder-open"})
+
+    tab_aliases = {"exam": "academics", "payments": "finance", "docs": "documents"}
+    requested_tab = tab_aliases.get((request.GET.get("tab") or "").strip().lower(), (request.GET.get("tab") or "").strip().lower())
+    valid_tabs = {tab["key"] for tab in available_tabs}
+    active_tab = requested_tab if requested_tab in valid_tabs else "overview"
 
     context = {
         "student": student,
-        "general_documents": student.documents.filter(bill__isnull=True),
-        "bill_documents": student.documents.filter(bill__isnull=False),
+        "general_documents": general_documents,
+        "bill_documents": bill_documents,
         "document_type_choices": DOCUMENT_TYPES,
         "exam_reports": exam_reports,
         "academic_years": academic_years,
@@ -774,6 +862,7 @@ def student_details_view(request, id):
         "active_tab": active_tab,
         "assessment_performance": assessment_performance,
         "subject_performance": subject_performance,
+        "overall_avg": overall_avg,
         "attendance_records": attendance_records,
         "attendance_date_from": attendance_date_from,
         "attendance_date_to": attendance_date_to,
@@ -786,6 +875,18 @@ def student_details_view(request, id):
         "attendance_excused": attendance_excused,
         "attendance_effective": attendance_effective,
         "attendance_rate": attendance_rate,
+        "capabilities": capabilities,
+        "available_tabs": available_tabs,
+        "finance_total_billed": finance_total_billed,
+        "finance_total_paid": finance_total_paid,
+        "finance_balance": finance_balance,
+        "student_bills": student_bills,
+        "recent_payments": recent_payments,
+        "library_loans": library_loans,
+        "library_active_count": library_active_count,
+        "library_overdue_count": library_overdue_count,
+        "library_fine_balance": library_fine_balance,
+        "document_count": general_documents.count() + bill_documents.count() if capabilities["view_student_documents"] else 0,
     }
     return render(request, "student/student_details.html", context)
 
@@ -984,6 +1085,9 @@ def bulk_register_students(request):
 
 @login_required
 def upload_student_document(request, id):
+    if not capabilities_for_request(request)["manage_student_documents"]:
+        messages.error(request, "You do not have permission to upload student documents.")
+        return redirect("student_page")
     student = _get_scoped_student_or_404(request, id)
 
     if request.method == "POST":
@@ -1005,6 +1109,9 @@ def upload_student_document(request, id):
 
 @login_required
 def delete_student_document(request, id):
+    if not capabilities_for_request(request)["manage_student_documents"]:
+        messages.error(request, "You do not have permission to delete student documents.")
+        return redirect("student_page")
     document = get_object_or_404(StudentDocument, id=id)
     student = _get_scoped_student_or_404(request, document.student_id)
     student_id = student.id

@@ -25,7 +25,7 @@
       </div>
 
       {% if rows %}
-      <form method="post" id="remarksForm">
+      <form method="post" id="remarksForm" data-protect-unsaved="true">
         {% csrf_token %}
         <input type="hidden" name="academic_class_id" value="{{ academic_class.id }}">
         {% for assessment_type in assessment_types %}

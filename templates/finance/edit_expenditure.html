@@ -4,7 +4,7 @@
 
    <h2>Edit - {{ expenditure.description|default:"Expenditure" }}</h2>
     
-        <form method="POST">
+        <form method="POST" data-protect-unsaved="true">
              {% csrf_token %}
              {{form|crispy}}
 

@@ -148,7 +148,7 @@
   <div id="entryAlertArea"></div>
 
   {% if entry_rows %}
-  <form method="post" id="resultsEntryForm" novalidate>
+  <form method="post" id="resultsEntryForm" novalidate data-protect-unsaved="true">
     {% csrf_token %}
     <div class="x_panel results-grid-panel">
       <div class="x_title">
@@ -248,7 +248,7 @@
           <i class="fa fa-save"></i> Save Draft
         </button>
         <button type="button" class="btn btn-info" id="openSubmitModalBtn">
-          <i class="fa fa-paper-plane"></i> {% if verification_enabled %}Submit for Approval{% else %}Submit to Reports{% endif %}
+          <i class="fa fa-paper-plane"></i> {% if verification_enabled %}Submit for Verification{% else %}Submit to Reports{% endif %}
         </button>
         {% else %}
         <button type="button" class="btn btn-primary disabled" disabled>
@@ -277,7 +277,7 @@
         {% endif %}
       </div>
       <div class="action-right text-muted small">
-        {% if verification_enabled %}Draft flow: Save Draft -> Submit -> Approve -> Lock.{% else %}Draft flow: Save Draft -> Submit to Reports -> Lock.{% endif %}
+        {% if verification_enabled %}Workflow: Save Draft → Submit for Verification → Approve → Lock.{% else %}Workflow: Save Draft → Submit to Reports → Lock.{% endif %}
       </div>
     </div>
 
@@ -299,17 +299,22 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title" id="confirmSubmitLabel"><i class="fa fa-check-circle"></i> {% if verification_enabled %}Submit for Approval{% else %}Submit to Reports{% endif %}</h4>
+        <h4 class="modal-title" id="confirmSubmitLabel"><i class="fa fa-check-circle"></i> {% if verification_enabled %}Submit for Verification{% else %}Submit to Reports{% endif %}</h4>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
         {% if verification_enabled %}
-        You are about to submit this batch for verification and approval. You will not be able to edit marks unless the batch is rejected or reopened.
+        You are about to submit this batch for verification. You will not be able to edit marks unless the batch is rejected or reopened.
         {% else %}
         You are about to release these marks directly to reports. The results will be locked after submission but can be reopened by an authorized user.
         {% endif %}
+        <div class="results-submit-summary" aria-live="polite">
+          <div><small>Students</small><strong id="submitSummaryTotal">{{ total_students }}</strong></div>
+          <div><small>Marks entered</small><strong id="submitSummaryEntered">{{ results_count }}</strong></div>
+          <div><small>Missing</small><strong id="submitSummaryMissing">{{ missing_results_count }}</strong></div>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
@@ -984,6 +989,13 @@
   if (openSubmitModalBtn) {
     openSubmitModalBtn.addEventListener("click", function () {
       if (!validateBeforeSubmit()) return;
+      var currentStats = computeLiveStats();
+      var totalEl = document.getElementById("submitSummaryTotal");
+      var enteredEl = document.getElementById("submitSummaryEntered");
+      var missingEl = document.getElementById("submitSummaryMissing");
+      if (totalEl) totalEl.textContent = currentStats.total;
+      if (enteredEl) enteredEl.textContent = currentStats.entered;
+      if (missingEl) missingEl.textContent = currentStats.missing;
       $("#confirmSubmitModal").modal("show");
     });
   }

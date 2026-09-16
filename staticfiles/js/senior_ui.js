@@ -119,18 +119,8 @@
       }
     });
 
-    // Add loading feedback to submit buttons; respects forms that opt out.
-    document.querySelectorAll('form:not([data-no-loading])').forEach(function (form) {
-      form.addEventListener('submit', function () {
-        var button = form.querySelector('button[type="submit"], input[type="submit"]');
-        if (!button || button.disabled) return;
-        var text = button.tagName === 'INPUT' ? button.value : button.textContent;
-        button.setAttribute('data-original-text', text || 'Submit');
-        button.disabled = true;
-        if (button.tagName === 'INPUT') button.value = 'Processing...';
-        else button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Processing...</span>';
-      }, { capture: true });
-    });
+    // Submission feedback is handled by production_ui.js at the document
+    // bubble phase so page-level validation can cancel a submit first.
 
     // Lightweight confirmation for destructive links/buttons that do not already have a handler.
     document.querySelectorAll('a, button').forEach(function (el) {
@@ -169,6 +159,12 @@
     function getTableEditTriggerUrl(trigger) {
       if (!trigger || trigger.dataset.noEditModal === 'true' || !trigger.closest('table')) return '';
       if (trigger.target && trigger.target !== '_self') return '';
+
+      // Production safety: AJAX edit is opt-in, never inferred from an "edit"
+      // looking URL. Complex forms may require their own JavaScript, uploads, or
+      // dependent fields and are safer on their normal full page.
+      var explicitlyEnabled = trigger.dataset.editModal === 'true' || Boolean(trigger.dataset.modalUrl);
+      if (!explicitlyEnabled) return '';
 
       // Do not hijack real Bootstrap modal buttons. Those usually have their own
       // row-specific form already in the page, e.g. Expense and Allocation modals.

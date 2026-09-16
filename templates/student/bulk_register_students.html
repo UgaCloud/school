@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <form method="POST">
+    <form method="POST" data-protect-unsaved="true">
         {% csrf_token %}
         <h3>Register Students</h3>
 

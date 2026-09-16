@@ -91,7 +91,7 @@
               </button>
             </div>
             <div class="modal-body">
-                <form method="POST" action="{% url 'add_vendor_page' %}" enctype="multipart/form-data">
+                <form method="POST" action="{% url 'add_vendor_page' %}" enctype="multipart/form-data" data-protect-unsaved="true">
                     {% csrf_token %}
                     <div class="form-group row">
 {% block extra_js %}

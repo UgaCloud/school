@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -92,7 +93,6 @@ def bursar_quick_payment_view(request):
             Student.objects.filter(
                 Q(student_name__icontains=query)
                 | Q(reg_no__icontains=query)
-                | Q(student_number__icontains=query)
                 | Q(guardian__icontains=query)
                 | Q(contact__icontains=query)
             ).select_related("current_class", "stream").order_by("student_name")[:12]
@@ -113,17 +113,18 @@ def bursar_quick_payment_view(request):
     if request.method == "POST" and selected_bill:
         payment_form = PaymentForm(request.POST, bill=selected_bill)
         if payment_form.is_valid():
-            payment = payment_form.save(commit=False)
-            payment.bill = selected_bill
-            payment.recorded_by = getattr(request.user, "username", "") or request.user.get_username()
-            if not getattr(payment, "reference_no", None) or str(payment.reference_no).strip() == "":
-                payment.reference_no = f"PMT-{selected_bill.id}-{timezone.now().strftime('%Y%m%d%H%M%S%f')}"
-            payment.save()
-            selected_bill.refresh_from_db()
-            selected_bill.status = "Paid" if _money(selected_bill.balance) <= 0 else "Unpaid"
-            selected_bill.save(update_fields=["status"])
+            with transaction.atomic():
+                locked_bill = StudentBill.objects.select_for_update().get(pk=selected_bill.pk)
+                payment = payment_form.save(commit=False)
+                payment.bill = locked_bill
+                payment.recorded_by = getattr(request.user, "username", "") or request.user.get_username()
+                if not getattr(payment, "reference_no", None) or str(payment.reference_no).strip() == "":
+                    payment.reference_no = f"PMT-{locked_bill.id}-{timezone.now().strftime('%Y%m%d%H%M%S%f')}"
+                payment.save()
+                locked_bill.status = "Paid" if _money(locked_bill.balance) <= 0 else "Unpaid"
+                locked_bill.save(update_fields=["status"])
             messages.success(request, f"Payment of UGX {payment.amount:,.0f} recorded for {selected_student.student_name}.")
-            return redirect(request.get_full_path())
+            return redirect(f"{reverse('quick_payment')}?student={selected_student.id}&bill={selected_bill.id}")
         messages.error(request, "Please correct the payment details and try again.")
     elif selected_bill:
         payment_form = PaymentForm(
@@ -142,7 +143,7 @@ def bursar_quick_payment_view(request):
         totals = {
             "total_billed": _money(total_billed),
             "total_paid": _money(total_paid),
-            "balance": _money(total_billed) - _money(total_paid),
+            "balance": sum((_money(bill.balance) for bill in bills), Decimal("0")),
         }
 
     recent_payments = []

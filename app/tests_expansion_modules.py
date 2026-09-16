@@ -217,8 +217,8 @@ class ExpansionModuleFoundationTests(TestCase):
         self.client.force_login(self.admin)
 
         issued = self.client.post(reverse("library_issue"), {"student": student.pk, "staff": "", "copy": copy.pk})
-        self.assertRedirects(issued, reverse("library_dashboard"))
         loan = LibraryLoan.objects.get(copy=copy, returned_at__isnull=True)
+        self.assertRedirects(issued, f'{reverse("library_issue")}?issued={loan.pk}')
         loan.due_at = timezone.now() - timedelta(days=2)
         loan.save(update_fields=("due_at",))
 
@@ -234,6 +234,126 @@ class ExpansionModuleFoundationTests(TestCase):
         members = self.client.get(reverse("library_members"), {"q": "Library Member"})
         self.assertContains(members, "1 active")
         self.assertContains(members, "1 overdue")
+
+    def test_fast_circulation_issue_and_return_lookup_workflow(self):
+        student = self.make_student(name="John Musoke", contact="0700555000")
+        LibraryPolicy.objects.create(
+            borrower_type="student", maximum_books=5, loan_days=14, daily_fine=1000,
+        )
+        book = LibraryBook.objects.create(
+            title="Mathematics for Senior Four", author="John Smith", isbn="978000000004",
+            shelf_location="A-13",
+        )
+        copy = LibraryCopy.objects.create(
+            book=book, accession_number="LIB-MAT-0027", barcode="BC-LIB-MAT-0027",
+        )
+        self.client.force_login(self.admin)
+
+        issue_page = self.client.get(reverse("library_issue"))
+        self.assertContains(issue_page, "Find member")
+        self.assertContains(issue_page, "Search ISBN, title or scan barcode")
+
+        member_results = self.client.get(reverse("library_borrower_lookup"), {"q": student.reg_no}).json()["results"]
+        self.assertEqual(member_results[0]["id"], student.pk)
+        self.assertTrue(member_results[0]["exact"])
+        member = self.client.get(
+            reverse("library_borrower_lookup"), {"kind": "student", "id": student.pk},
+        ).json()["borrower"]
+        self.assertTrue(member["eligible"])
+        self.assertEqual(member["maximum_books"], 5)
+        self.assertEqual(member["loan_days"], 14)
+
+        copies = self.client.get(reverse("library_copy_lookup"), {"q": copy.barcode}).json()["results"]
+        self.assertEqual(copies[0]["id"], copy.pk)
+        self.assertTrue(copies[0]["exact"])
+        self.assertEqual(copies[0]["available_copies"], 1)
+
+        issued = self.client.post(reverse("library_issue"), {
+            "student": student.pk, "staff": "", "copy": copy.pk,
+        })
+        loan = LibraryLoan.objects.get(copy=copy, returned_at__isnull=True)
+        self.assertRedirects(issued, f'{reverse("library_issue")}?issued={loan.pk}')
+
+        loan.due_at = timezone.now() - timedelta(days=4, hours=23)
+        loan.save(update_fields=("due_at",))
+        return_results = self.client.get(
+            reverse("library_active_loan_lookup"), {"q": copy.barcode},
+        ).json()["results"]
+        self.assertEqual(return_results[0]["id"], loan.pk)
+        self.assertTrue(return_results[0]["exact"])
+        self.assertEqual(return_results[0]["overdue_days"], 5)
+        self.assertEqual(return_results[0]["calculated_fine"], "5000.00")
+
+        returned = self.client.post(reverse("library_return_station"), {
+            "loan": loan.pk, "condition": "good", "damage_amount": "", "notes": "",
+        })
+        self.assertRedirects(returned, f'{reverse("library_return_station")}?returned={loan.pk}')
+        loan.refresh_from_db()
+        copy.refresh_from_db()
+        self.assertIsNotNone(loan.returned_at)
+        self.assertEqual(copy.status, LibraryCopy.STATUS_AVAILABLE)
+        self.assertEqual(loan.fines.get(reason=LibraryFine.REASON_OVERDUE).amount, 5000)
+
+    @override_settings(LIBRARY_ENABLED=True)
+    def test_student_360_quick_payment_and_pattern_reference_pages(self):
+        student = self.make_student(name="Reference Student", contact="0700555111")
+        bill = self._create_finance_rows(student, "REFERENCE")
+        book = LibraryBook.objects.create(title="Reference Mathematics")
+        copy = LibraryCopy.objects.create(book=book, accession_number="REF-1", barcode="REF-1")
+        issue_copy(copy_id=copy.pk, actor=self.admin, student_id=student.pk)
+        self.client.force_login(self.admin)
+
+        overview = self.client.get(reverse("student_details_page", args=[student.pk]))
+        self.assertEqual(overview.status_code, 200)
+        self.assertContains(overview, "Student 360° profile")
+        self.assertContains(overview, "Verified average")
+        finance = self.client.get(reverse("student_details_page", args=[student.pk]), {"tab": "finance"})
+        self.assertContains(finance, "Fees and payments")
+        self.assertContains(finance, "REFERENCE-T")
+        library = self.client.get(reverse("student_details_page", args=[student.pk]), {"tab": "library"})
+        self.assertContains(library, "Reference Mathematics")
+
+        payment_page = self.client.get(reverse("quick_payment"), {"student": student.pk, "bill": bill.pk})
+        self.assertEqual(payment_page.status_code, 200)
+        self.assertContains(payment_page, "Record a student payment")
+        payment = self.client.post(
+            f'{reverse("quick_payment")}?student={student.pk}&bill={bill.pk}',
+            {
+                "bill": bill.pk,
+                "payment_date": "2026-03-01",
+                "fee_category": "Tuition",
+                "amount": "100",
+                "payment_method": "Cash",
+                "reference_no": "",
+                "notes": "Front desk payment",
+            },
+        )
+        self.assertRedirects(payment, f'{reverse("quick_payment")}?student={student.pk}&bill={bill.pk}')
+        self.assertTrue(Payment.objects.filter(bill=bill, notes="Front desk payment").exists())
+
+        patterns = self.client.get(reverse("ui_patterns"))
+        self.assertEqual(patterns.status_code, 200)
+        self.assertContains(patterns, "Approved staff UI patterns")
+
+    @override_settings(LIBRARY_ENABLED=True)
+    def test_librarian_student_profile_does_not_load_finance_or_admin_tools(self):
+        student = self.make_student(name="Library Scope Student", contact="0700555222")
+        self._create_finance_rows(student, "PRIVATE-FINANCE")
+        librarian = User.objects.create_user("library-user", password="safe-password")
+        librarian_role, _ = Role.objects.get_or_create(name="Librarian")
+        self.staff.roles.add(librarian_role)
+        StaffAccount.objects.create(staff=self.staff, user=librarian, role=librarian_role)
+        self.client.force_login(librarian)
+
+        profile = self.client.get(reverse("student_details_page", args=[student.pk]), {"tab": "finance"})
+        self.assertEqual(profile.status_code, 200)
+        self.assertEqual(profile.context["active_tab"], "overview")
+        self.assertFalse(profile.context["capabilities"]["view_finance"])
+        self.assertFalse(profile.context["recent_payments"].exists())
+        self.assertNotContains(profile, "PRIVATE-FINANCE")
+
+        self.assertRedirects(self.client.get(reverse("quick_payment")), reverse("index_page"))
+        self.assertRedirects(self.client.get(reverse("ui_patterns")), reverse("index_page"))
 
     def test_admission_enrollment_creates_existing_student_and_register(self):
         cycle = AdmissionCycle.objects.create(

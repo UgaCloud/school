@@ -147,13 +147,18 @@
                 </button>
               </div>
             </div>
-            <div class="col-md-6 text-end">
+            <div class="col-md-6 text-end d-flex justify-content-end align-items-center gap-2 flex-wrap">
+              {% if mismatch_count > 0 %}
+              <label class="btn btn-outline-danger btn-sm mb-0" for="differencesOnlyToggle">
+                <input type="checkbox" id="differencesOnlyToggle" class="me-1"> Differences only ({{ mismatch_count }})
+              </label>
+              {% endif %}
               <span id="studentCount" class="badge bg-secondary p-2"></span>
             </div>
           </div>
 
-          <form method="post">
-            {% csrf_token %}
+          <form method="post" data-protect-unsaved="true">
+            {% csrf_token %>
 
             <div class="table-responsive mb-4">
               <table class="table table-hover align-middle" id="verificationTable">
@@ -171,7 +176,7 @@
                 <tbody>
                   {% for result in results %}
                   {% with sample=sample_map|get_item:result.id %}
-                  <tr class="student-row {% if sample and sample.matched == False %}table-danger-soft{% endif %}" data-student-name="{{ result.student.student_name|lower }}" data-reg-no="{{ result.student.reg_no|lower }}">
+                  <tr class="student-row {% if sample and sample.matched == False %}table-danger-soft{% endif %}" data-student-name="{{ result.student.student_name|lower }}" data-reg-no="{{ result.student.reg_no|lower }}" data-mismatch="{% if sample and sample.matched == False %}1{% else %}0{% endif %}">
                     <td class="font-weight-bold text-muted">{{ forloop.counter }}</td>
                     <td>
                       <div class="d-flex align-items-center">
@@ -272,13 +277,17 @@
 <script>
   function filterStudents() {
     var searchTerm = document.getElementById('studentSearch').value.toLowerCase();
+    var differencesToggle = document.getElementById('differencesOnlyToggle');
+    var differencesOnly = differencesToggle && differencesToggle.checked;
     var rows = document.querySelectorAll('.student-row');
     var visibleCount = 0;
 
     rows.forEach(function(row) {
       var name = row.getAttribute('data-student-name') || '';
       var reg = row.getAttribute('data-reg-no') || '';
-      if (name.includes(searchTerm) || reg.includes(searchTerm)) {
+      var matchesSearch = name.includes(searchTerm) || reg.includes(searchTerm);
+      var matchesDifference = !differencesOnly || row.getAttribute('data-mismatch') === '1';
+      if (matchesSearch && matchesDifference) {
         row.style.display = '';
         visibleCount++;
       } else {
@@ -421,6 +430,10 @@
   document.addEventListener('DOMContentLoaded', function() {
     var rows = document.querySelectorAll('.student-row');
     updateStudentCount(rows.length, rows.length);
+    var differencesToggle = document.getElementById('differencesOnlyToggle');
+    if (differencesToggle) {
+      differencesToggle.addEventListener('change', filterStudents);
+    }
     document.querySelectorAll('.verification-input').forEach(function(input) {
       input.addEventListener('input', refreshProgressAndFinalizeState);
       input.addEventListener('change', refreshProgressAndFinalizeState);

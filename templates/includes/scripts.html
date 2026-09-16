@@ -28,7 +28,73 @@
 
 <!-- Theme init -->
 <script>
-  layout_change('light');
+  (function () {
+    var storageKey = 'school-theme-preference';
+    var systemQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+    function systemTheme() {
+      return systemQuery && systemQuery.matches ? 'dark' : 'light';
+    }
+
+    function savedPreference() {
+      try {
+        var saved = window.localStorage.getItem(storageKey) || 'light';
+        return ['light', 'dark', 'system'].indexOf(saved) === -1 ? 'light' : saved;
+      } catch (error) {
+        return 'light';
+      }
+    }
+
+    function updateThemeControls(theme, preference) {
+      var icon = document.querySelector('[data-theme-icon]');
+      if (icon) icon.className = theme === 'dark' ? 'ph ph-moon' : 'ph ph-sun-dim';
+      document.querySelectorAll('[data-theme-choice]').forEach(function (choice) {
+        var active = choice.getAttribute('data-theme-choice') === preference;
+        choice.classList.toggle('active', active);
+        choice.setAttribute('aria-current', active ? 'true' : 'false');
+      });
+    }
+
+    function applyTheme(theme, preference) {
+      theme = theme === 'dark' ? 'dark' : 'light';
+      document.body.setAttribute('data-pc-theme', theme);
+      document.documentElement.setAttribute('data-bs-theme', theme);
+      document.documentElement.setAttribute('data-school-theme', theme);
+      document.documentElement.setAttribute('data-school-theme-preference', preference);
+      document.documentElement.style.colorScheme = theme;
+      if (typeof dark_flag !== 'undefined') dark_flag = theme === 'dark';
+      if (typeof updateActiveButton === 'function') updateActiveButton(theme);
+      updateThemeControls(theme, preference);
+    }
+
+    window.school_theme_change = function (theme) {
+      theme = theme === 'dark' ? 'dark' : 'light';
+      try { window.localStorage.setItem(storageKey, theme); } catch (error) {}
+      applyTheme(theme, theme);
+    };
+
+    window.school_theme_default = function () {
+      try { window.localStorage.setItem(storageKey, 'system'); } catch (error) {}
+      applyTheme(systemTheme(), 'system');
+    };
+
+    var initialPreference = savedPreference();
+    applyTheme(initialPreference === 'system' ? systemTheme() : initialPreference, initialPreference);
+
+    if (systemQuery) {
+      var handleSystemChange = function () {
+        if (savedPreference() === 'system') applyTheme(systemTheme(), 'system');
+      };
+      if (systemQuery.addEventListener) systemQuery.addEventListener('change', handleSystemChange);
+      else if (systemQuery.addListener) systemQuery.addListener(handleSystemChange);
+    }
+
+    window.addEventListener('storage', function (event) {
+      if (event.key !== storageKey) return;
+      var preference = savedPreference();
+      applyTheme(preference === 'system' ? systemTheme() : preference, preference);
+    });
+  })();
   change_box_container('false');
   layout_caption_change('true');
   layout_rtl_change('false');
@@ -105,7 +171,7 @@ $(function () {
   }
 
   // Auto-init tables with class 'datatable'
-  $('table.datatable:not(.dt-initialized)').each(function () {
+  $('table.datatable:not(.dt-initialized):not([data-server-paginated="true"])').each(function () {
     $(this).DataTable();
   });
 

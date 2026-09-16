@@ -4,7 +4,7 @@
 
    <h2>Edit - {{expenditure_item.item_name}}</h2>
     
-        <form method="POST">
+        <form method="POST" data-protect-unsaved="true">
              {% csrf_token %}
              {{form|crispy}}
 

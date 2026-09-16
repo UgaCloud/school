@@ -39,7 +39,7 @@
                 {% endif %}
 
                 {% if available_classes %}
-                <form method="POST">
+                <form method="POST" data-protect-unsaved="true">
                     {% csrf_token %}
 
                     <!-- Bill Item Selection -->

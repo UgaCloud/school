@@ -7,6 +7,20 @@ import django.db.models.deletion
 import django.utils.timezone
 
 
+def use_legacy_mysql_engine(apps, schema_editor):
+    """Match legacy MyISAM tables before creating related tables."""
+    if schema_editor.connection.vendor != "mysql":
+        return
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT ENGINE FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'app_student'"
+        )
+        row = cursor.fetchone()
+        if row and (row[0] or "").upper() == "MYISAM":
+            cursor.execute("SET SESSION default_storage_engine = MyISAM")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -15,6 +29,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(use_legacy_mysql_engine, migrations.RunPython.noop),
         migrations.CreateModel(
             name='AdmissionApplication',
             fields=[

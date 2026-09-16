@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import DatabaseError, IntegrityError
+from django.db import DatabaseError, IntegrityError, transaction
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
@@ -1586,3 +1586,22 @@ class StudentDuplicatePreventionTests(TestCase):
 
         with self.assertRaises(IntegrityError):
             duplicate.save()
+
+    def test_database_rejects_an_exact_duplicate_student_identity(self):
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Student.objects.create(
+                    student_name=self.student.student_name,
+                    gender=self.student.gender,
+                    birthdate=self.student.birthdate,
+                    nationality=self.student.nationality,
+                    religion=self.student.religion,
+                    address=self.student.address,
+                    guardian=self.student.guardian,
+                    relationship=self.student.relationship,
+                    contact=self.student.contact,
+                    academic_year=self.year,
+                    current_class=self.class_obj,
+                    stream=self.stream,
+                    term=self.term,
+                )

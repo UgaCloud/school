@@ -13,10 +13,14 @@
         </div>
         <div class="x_content">
 
-            <form method="post" action="{% url 'update_settings_page' %}" enctype="multipart/form-data">
+            <form method="post" action="{% url 'update_settings_page' %}" enctype="multipart/form-data" data-protect-unsaved="true">
                 {% csrf_token %}
+                <div class="alert alert-warning">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    <strong>Production setting:</strong> changes to enabled school levels or the default education level can change which workflows users see. Review the values before saving.
+                </div>
                 {{ school_settings_form | crispy}}
-                <input type="submit" class="btn btn-danger" value="Submit">
+                <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save settings</button>
             </form>
 
         </div>

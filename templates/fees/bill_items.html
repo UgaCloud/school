@@ -228,7 +228,7 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="POST" action="{% url 'add_bill_item_page' %}">
+            <form method="POST" action="{% url 'add_bill_item_page' %}" data-protect-unsaved="true">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="row">
@@ -299,7 +299,7 @@
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">
                     <i class="fa fa-times me-1"></i>Cancel
                 </button>
-                <form method="POST" id="deleteBillItemForm" action="#" class="d-inline">
+                <form method="POST" id="deleteBillItemForm" action="#" class="d-inline" data-protect-unsaved="true">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-danger">
                         <i class="fa fa-trash me-1"></i>Delete Item

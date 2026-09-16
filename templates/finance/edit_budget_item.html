@@ -8,7 +8,7 @@
     <div class="container">
         
         </div>
-        <form method="POST">
+        <form method="POST" data-protect-unsaved="true">
              {% csrf_token %}
              {{form|crispy}}
 

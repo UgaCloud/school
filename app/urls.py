@@ -18,6 +18,8 @@ from app.views.workflow import workflow_readiness_view
 from app.views.parent_portal import *
 from app.views.admissions import *
 from app.views.library import *
+from app.views.ux import bursar_quick_payment_view
+from app.views.ui_patterns import ui_patterns_view
 from app.decorators.mode import primary_mode_required
 
 
@@ -73,6 +75,10 @@ urlpatterns = [
     path('library/books/<int:book_id>/', library_book_detail, name='library_book_detail'),
     path('library/books/<int:book_id>/copies/new/', library_copy_create, name='library_copy_create'),
     path('library/issue/', library_issue, name='library_issue'),
+    path('library/return/', library_return_station, name='library_return_station'),
+    path('library/api/borrowers/', library_borrower_lookup, name='library_borrower_lookup'),
+    path('library/api/copies/', library_copy_lookup, name='library_copy_lookup'),
+    path('library/api/active-loans/', library_active_loan_lookup, name='library_active_loan_lookup'),
     path('library/loans/', library_loans, name='library_loans'),
     path('library/loans/<int:loan_id>/lost/', library_mark_lost, name='library_mark_lost'),
     path('library/fines/', library_fines, name='library_fines'),
@@ -89,6 +95,7 @@ urlpatterns = [
     path('dashboard/attendance/', dashboard_views.dashboard_attendance_view, name='dashboard_attendance'),
     path('dashboard/reports/', dashboard_views.dashboard_reports_view, name='dashboard_reports'),
     path('workflow/readiness/', workflow_readiness_view, name='workflow_readiness'),
+    path('ui/patterns/', ui_patterns_view, name='ui_patterns'),
 
     # School Details
     path('settings/', settings_page,name="settings_page"),
@@ -187,6 +194,7 @@ urlpatterns = [
     path('staff/document/delete/<int:id>/', delete_staff_document, name='delete_staff_document'),
 
     #Fees
+    path('fees/quick-payment/', bursar_quick_payment_view, name='quick_payment'),
     path('bill_items/', manage_bill_items_view, name="bill_item_page"),
     path('add_bill_item/', add_bill_item_view, name="add_bill_item_page"),
     path('edit_bill_item/<int:id>/', edit_bill_item_view, name="edit_bill_item_page"),

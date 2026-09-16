@@ -262,7 +262,7 @@
         <h5 class="modal-title" id="sendRemindersLabel">Send Payment Reminders</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form method="post" action="{% url 'send_payment_reminders' %}">
+      <form method="post" action="{% url 'send_payment_reminders' %}" data-protect-unsaved="true">
         {% csrf_token %}
         <div class="modal-body">
           <div class="form-group">

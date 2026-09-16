@@ -51,6 +51,12 @@ class Student(models.Model):
     class Meta:
         verbose_name = ("student")
         verbose_name_plural = ("students")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("student_name", "birthdate", "contact"),
+                name="unique_student_identity",
+            )
+        ]
 
     def __str__(self):
         return self.student_name

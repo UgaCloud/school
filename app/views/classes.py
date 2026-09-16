@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, HttpResponseRedirect,get_object_or_404, redirect
 from django.contrib import messages
 from django.urls import reverse
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Prefetch, Q, Sum
 from django.core.paginator import Paginator
 from django.http import HttpResponse
@@ -12,7 +12,7 @@ import re
 import logging
 logger = logging.getLogger(__name__)
 from app.constants import *
-from app.models.students  import Student
+from app.models.students import Student, find_duplicate_student
 from app.models.classes import Class, AcademicClass, Stream, AcademicClassStream,ClassSubjectAllocation
 from app.forms.classes import (
     AcademicClassForm,
@@ -850,20 +850,45 @@ def register_student_in_academic_class(request, id):
         messages.error(request, "Select a stream that belongs to this academic class.")
         return redirect(f"{reverse('academic_class_details_page', args=[academic_class.id])}#registerStudentModal")
 
-    with transaction.atomic():
-        student = form.save(commit=False)
-        student.academic_year = academic_class.academic_year
-        student.current_class = academic_class.Class
-        student.stream = class_stream.stream
-        student.term = academic_class.term
-        student.is_active = True
-        student.save()
+    duplicate = None
+    try:
+        with transaction.atomic():
+            AcademicYear.objects.select_for_update().get(pk=academic_class.academic_year_id)
+            duplicate = find_duplicate_student(
+                student_name=form.cleaned_data.get("student_name"),
+                birthdate=form.cleaned_data.get("birthdate"),
+                contact=form.cleaned_data.get("contact"),
+            )
+            if duplicate is None:
+                student = form.save(commit=False)
+                student.academic_year = academic_class.academic_year
+                student.current_class = academic_class.Class
+                student.stream = class_stream.stream
+                student.term = academic_class.term
+                student.is_active = True
+                student.save()
 
-        ClassRegister.objects.get_or_create(
-            academic_class_stream=class_stream,
-            student=student,
+                ClassRegister.objects.get_or_create(
+                    academic_class_stream=class_stream,
+                    student=student,
+                )
+                create_student_bill(student, academic_class)
+    except IntegrityError:
+        duplicate = find_duplicate_student(
+            student_name=form.cleaned_data.get("student_name"),
+            birthdate=form.cleaned_data.get("birthdate"),
+            contact=form.cleaned_data.get("contact"),
         )
-        create_student_bill(student, academic_class)
+        if duplicate is None:
+            raise
+
+    if duplicate is not None:
+        messages.warning(
+            request,
+            f"This student is already registered as {duplicate.reg_no}. "
+            "The repeated submission was ignored.",
+        )
+        return redirect(f"{reverse('academic_class_details_page', args=[academic_class.id])}#class-register-section")
     messages.success(
         request,
         f"{student.student_name} registered in {academic_class.Class.name or academic_class.Class.code} "

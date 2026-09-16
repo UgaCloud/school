@@ -1,18 +1,113 @@
 from datetime import timedelta
+from decimal import Decimal, ROUND_UP
 
 from django.contrib import messages
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from app.decorators.decorators import role_required_any
 from app.decorators.features import feature_required
 from app.forms.library import LibraryBookForm, LibraryCopyForm, LibraryIssueForm, LibraryLostForm, LibraryReturnForm
-from app.models import LibraryBook, LibraryCategory, LibraryCopy, LibraryFine, LibraryLoan, Staff, Student
+from app.models import (
+    LibraryBook, LibraryCategory, LibraryCopy, LibraryFine, LibraryLoan, LibraryPolicy, Staff, Student,
+)
 from app.services.library import CirculationError, issue_copy, mark_loan_lost, renew_loan, resolve_fine, return_loan
 
 
 LIBRARY_ROLES = ("Admin", "Librarian", "Library Assistant", "Head Teacher", "Head master")
+
+
+def _borrower_display(kind, borrower):
+    if kind == "student":
+        class_name = getattr(borrower.current_class, "code", "") or getattr(borrower.current_class, "name", "")
+        stream = getattr(borrower.stream, "stream", "")
+        class_label = " ".join(part for part in (class_name, stream) if part).strip()
+        return {
+            "name": borrower.student_name,
+            "identifier": borrower.reg_no,
+            "meta": " · ".join(part for part in ("Student", class_label, borrower.reg_no) if part),
+        }
+    staff_name = f"{borrower.first_name} {borrower.last_name}".strip()
+    return {
+        "name": staff_name,
+        "identifier": f"STF-{borrower.pk:04d}",
+        "meta": " · ".join(part for part in ("Staff", borrower.department, f"STF-{borrower.pk:04d}") if part),
+    }
+
+
+def _borrower_status_payload(kind, borrower):
+    borrower_filter = {kind: borrower}
+    active_loans = LibraryLoan.objects.filter(returned_at__isnull=True, **borrower_filter).select_related("copy__book")
+    policy = LibraryPolicy.objects.filter(borrower_type=kind).first() or LibraryPolicy(borrower_type=kind)
+    now = timezone.now()
+    overdue_count = active_loans.filter(due_at__lt=now).count()
+    outstanding_fine = LibraryFine.objects.filter(
+        status=LibraryFine.STATUS_OUTSTANDING, **{f"loan__{kind}": borrower}
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    active_count = active_loans.count()
+    restrictions = []
+    if active_count >= policy.maximum_books:
+        restrictions.append("Borrowing limit reached")
+    if policy.block_when_overdue and overdue_count:
+        restrictions.append(f"{overdue_count} overdue item{'s' if overdue_count != 1 else ''}")
+    if outstanding_fine > 0:
+        restrictions.append("Outstanding library fine")
+    due_at = now + timedelta(days=policy.loan_days)
+    payload = _borrower_display(kind, borrower)
+    payload.update({
+        "kind": kind,
+        "id": borrower.pk,
+        "active_loans": active_count,
+        "maximum_books": policy.maximum_books,
+        "overdue_loans": overdue_count,
+        "outstanding_fine": str(outstanding_fine.quantize(Decimal("0.01"))),
+        "eligible": not restrictions,
+        "eligibility_message": "; ".join(restrictions) if restrictions else "Eligible to borrow",
+        "loan_days": policy.loan_days,
+        "due_date": timezone.localtime(due_at).date().isoformat(),
+        "due_label": timezone.localtime(due_at).strftime("%d %b %Y"),
+        "recent_loans": [
+            {
+                "title": loan.copy.book.title,
+                "copy": loan.copy.accession_number,
+                "due": timezone.localtime(loan.due_at).strftime("%d %b %Y"),
+                "overdue": loan.due_at < now,
+            }
+            for loan in active_loans.order_by("due_at")[:4]
+        ],
+    })
+    return payload
+
+
+def _loan_return_payload(loan):
+    now = timezone.now()
+    borrower_kind = "student" if loan.student_id else "staff"
+    borrower = loan.student or loan.staff
+    policy = LibraryPolicy.objects.filter(borrower_type=borrower_kind).first() or LibraryPolicy(borrower_type=borrower_kind)
+    overdue_days = 0
+    if now > loan.due_at:
+        overdue_seconds = Decimal(str((now - loan.due_at).total_seconds()))
+        overdue_days = int((overdue_seconds / Decimal("86400")).to_integral_value(rounding=ROUND_UP))
+    fine = (Decimal(overdue_days) * policy.daily_fine).quantize(Decimal("0.01"))
+    borrower_data = _borrower_display(borrower_kind, borrower)
+    return {
+        "id": loan.pk,
+        "title": loan.copy.book.title,
+        "author": loan.copy.book.author,
+        "accession": loan.copy.accession_number,
+        "barcode": loan.copy.barcode,
+        "shelf": loan.copy.book.shelf_location,
+        "borrower": borrower_data["name"],
+        "borrower_meta": borrower_data["meta"],
+        "issued": timezone.localtime(loan.issued_at).strftime("%d %b %Y"),
+        "due": timezone.localtime(loan.due_at).strftime("%d %b %Y"),
+        "overdue_days": overdue_days,
+        "daily_fine": str(policy.daily_fine.quantize(Decimal("0.01"))),
+        "calculated_fine": str(fine),
+    }
 
 
 @feature_required("LIBRARY_ENABLED")
@@ -130,10 +225,182 @@ def library_issue(request):
                 student_id=student.pk if student else None, staff_id=staff.pk if staff else None,
             )
             messages.success(request, f"Issued until {loan.due_at:%d %b %Y}.")
-            return redirect("library_dashboard")
+            return redirect(f'{reverse("library_issue")}?issued={loan.pk}')
         except (CirculationError, Student.DoesNotExist, Staff.DoesNotExist) as exc:
             form.add_error(None, str(exc))
-    return render(request, "library/issue.html", {"form": form})
+    issued_loan = None
+    issued_id = request.GET.get("issued", "")
+    if issued_id.isdigit():
+        issued_loan = LibraryLoan.objects.select_related(
+            "copy__book", "student__current_class", "student__stream", "staff"
+        ).filter(pk=int(issued_id)).first()
+    return render(request, "library/issue.html", {
+        "form": form,
+        "issued_loan": issued_loan,
+        "initial_borrower_kind": "student" if request.POST.get("student") else "staff" if request.POST.get("staff") else "",
+        "initial_borrower_id": request.POST.get("student") or request.POST.get("staff") or "",
+        "initial_copy_id": request.POST.get("copy", ""),
+    })
+
+
+@feature_required("LIBRARY_ENABLED")
+@role_required_any(*LIBRARY_ROLES)
+def library_borrower_lookup(request):
+    kind = request.GET.get("kind", "").strip().lower()
+    borrower_id = request.GET.get("id", "").strip()
+    if kind in {"student", "staff"} and borrower_id.isdigit():
+        if kind == "student":
+            borrower = get_object_or_404(
+                Student.objects.select_related("current_class", "stream"), pk=int(borrower_id), is_active=True,
+            )
+        else:
+            borrower = get_object_or_404(Staff, pk=int(borrower_id), staff_status="Active")
+        return JsonResponse({"borrower": _borrower_status_payload(kind, borrower)})
+
+    query = request.GET.get("q", "").strip()
+    selected_filter = request.GET.get("filter", "all").strip().lower()
+    if not query:
+        return JsonResponse({"results": []})
+    results = []
+    if selected_filter in {"all", "students"}:
+        student_query = (
+            Q(student_name__icontains=query) | Q(reg_no__icontains=query)
+            | Q(contact__icontains=query)
+        )
+        if query.isdigit():
+            student_query |= Q(pk=int(query))
+        students = Student.objects.filter(student_query, is_active=True).select_related(
+            "current_class", "stream"
+        ).order_by("student_name")[:8]
+        for student in students:
+            item = _borrower_display("student", student)
+            item.update({"kind": "student", "id": student.pk, "exact": query.casefold() == student.reg_no.casefold()})
+            results.append(item)
+    if selected_filter in {"all", "staff"}:
+        staff_query = (
+            Q(first_name__icontains=query) | Q(last_name__icontains=query)
+            | Q(contacts__icontains=query) | Q(nin_no__icontains=query)
+        )
+        if query.isdigit():
+            staff_query |= Q(pk=int(query))
+        virtual_staff_id = query.removeprefix("STF-").removeprefix("stf-")
+        if virtual_staff_id.isdigit():
+            staff_query |= Q(pk=int(virtual_staff_id))
+        staff_members = Staff.objects.filter(staff_query, staff_status="Active").order_by(
+            "first_name", "last_name"
+        )[:8]
+        for staff in staff_members:
+            item = _borrower_display("staff", staff)
+            item.update({
+                "kind": "staff", "id": staff.pk,
+                "exact": query.casefold() in {str(staff.pk).casefold(), f"stf-{staff.pk:04d}".casefold()},
+            })
+            results.append(item)
+    results.sort(key=lambda item: (not item["exact"], item["name"].casefold()))
+    return JsonResponse({"results": results[:10]})
+
+
+@feature_required("LIBRARY_ENABLED")
+@role_required_any(*LIBRARY_ROLES)
+def library_copy_lookup(request):
+    copy_id = request.GET.get("id", "").strip()
+    query = request.GET.get("q", "").strip()
+    copies = LibraryCopy.objects.filter(status=LibraryCopy.STATUS_AVAILABLE).select_related("book")
+    if copy_id.isdigit():
+        copies = copies.filter(pk=int(copy_id))
+    elif query:
+        copies = copies.filter(
+            Q(barcode__icontains=query) | Q(accession_number__icontains=query)
+            | Q(book__title__icontains=query) | Q(book__isbn__icontains=query)
+            | Q(book__author__icontains=query)
+        )
+    else:
+        return JsonResponse({"results": []})
+    matched = list(copies.order_by("book__title", "accession_number")[:12])
+    available_by_book = {
+        row["book_id"]: row["total"]
+        for row in LibraryCopy.objects.filter(
+            status=LibraryCopy.STATUS_AVAILABLE, book_id__in={copy.book_id for copy in matched}
+        ).values("book_id").annotate(total=Count("id"))
+    }
+    results = []
+    for copy in matched:
+        results.append({
+            "id": copy.pk,
+            "title": copy.book.title,
+            "author": copy.book.author,
+            "isbn": copy.book.isbn,
+            "accession": copy.accession_number,
+            "barcode": copy.barcode,
+            "shelf": copy.book.shelf_location,
+            "condition": copy.condition_notes or "Good",
+            "available_copies": available_by_book.get(copy.book_id, 0),
+            "exact": bool(query) and query.casefold() in {copy.barcode.casefold(), copy.accession_number.casefold()},
+        })
+    results.sort(key=lambda item: (not item["exact"], item["title"].casefold(), item["accession"].casefold()))
+    return JsonResponse({"results": results})
+
+
+@feature_required("LIBRARY_ENABLED")
+@role_required_any(*LIBRARY_ROLES)
+def library_active_loan_lookup(request):
+    query = request.GET.get("q", "").strip()
+    loan_id = request.GET.get("id", "").strip()
+    loans = LibraryLoan.objects.filter(returned_at__isnull=True).select_related(
+        "copy__book", "student__current_class", "student__stream", "staff",
+    )
+    if loan_id.isdigit():
+        loans = loans.filter(pk=int(loan_id))
+    elif query:
+        loans = loans.filter(
+            Q(copy__barcode__icontains=query) | Q(copy__accession_number__icontains=query)
+            | Q(copy__book__title__icontains=query) | Q(copy__book__isbn__icontains=query)
+            | Q(student__student_name__icontains=query) | Q(student__reg_no__icontains=query)
+            | Q(staff__first_name__icontains=query) | Q(staff__last_name__icontains=query)
+        )
+    else:
+        return JsonResponse({"results": []})
+    results = []
+    for loan in loans.order_by("due_at")[:12]:
+        item = _loan_return_payload(loan)
+        item["exact"] = bool(query) and query.casefold() in {
+            loan.copy.barcode.casefold(), loan.copy.accession_number.casefold(),
+        }
+        results.append(item)
+    results.sort(key=lambda item: not item["exact"])
+    return JsonResponse({"results": results})
+
+
+@feature_required("LIBRARY_ENABLED")
+@role_required_any(*LIBRARY_ROLES)
+def library_return_station(request):
+    form = LibraryReturnForm(request.POST or None)
+    if request.method == "POST":
+        loan_id = request.POST.get("loan", "")
+        if not loan_id.isdigit():
+            form.add_error(None, "Scan or select an active loan before confirming the return.")
+        elif form.is_valid():
+            try:
+                loan = return_loan(
+                    loan_id=int(loan_id), actor=request.user, condition=form.cleaned_data["condition"],
+                    damage_amount=form.cleaned_data.get("damage_amount") or 0,
+                    notes=form.cleaned_data.get("notes", ""),
+                )
+                messages.success(request, "Book returned and any applicable library fine was recorded.")
+                return redirect(f'{reverse("library_return_station")}?returned={loan.pk}')
+            except (CirculationError, LibraryLoan.DoesNotExist) as exc:
+                form.add_error(None, str(exc))
+    returned_loan = None
+    returned_id = request.GET.get("returned", "")
+    if returned_id.isdigit():
+        returned_loan = LibraryLoan.objects.select_related(
+            "copy__book", "student__current_class", "student__stream", "staff"
+        ).prefetch_related("fines").filter(pk=int(returned_id), returned_at__isnull=False).first()
+    return render(request, "library/return.html", {
+        "form": form,
+        "returned_loan": returned_loan,
+        "initial_loan_id": request.POST.get("loan", ""),
+    })
 
 
 @feature_required("LIBRARY_ENABLED")

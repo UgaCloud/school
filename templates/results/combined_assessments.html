@@ -204,7 +204,7 @@
               <strong>{{ students_data|length }}</strong> student report{{ students_data|length|pluralize }} ready for preview and print.
             </div>
 
-            <form method="post" action="{% url 'report_remarks_prepare' %}" id="inlineRemarksForm">
+            <form method="post" action="{% url 'report_remarks_prepare' %}" id="inlineRemarksForm" data-protect-unsaved="true">
               {% csrf_token %}
               <input type="hidden" name="academic_class_id" value="{{ class_obj.id }}">
               <input type="hidden" name="return_url" value="{{ remarks_return_url }}#remarks">

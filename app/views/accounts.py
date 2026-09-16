@@ -7,7 +7,6 @@ from app.decorators.decorators import *
 from app.models.accounts import *
 from app.models.school_settings import *
 from django.contrib.auth.hashers import make_password
-from django.utils.crypto import get_random_string
 from django.contrib.auth import update_session_auth_hash,authenticate, login,logout
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import render, redirect
@@ -74,8 +73,8 @@ def create_account_view(request):
                 unique_username = f"{base_username}{counter}"
                 counter += 1
 
-            # Create user account with a unique temporary password instead of an unsafe shared default.
-            temporary_password = get_random_string(12)
+            # Staff accounts use the school's shared first-login password.
+            temporary_password = "123"
             user = User.objects.create_user(
                 username=unique_username,
                 password=temporary_password,
@@ -84,7 +83,7 @@ def create_account_view(request):
             )
             staff.user = user  
             staff.save()
-            messages.success(request, f"Account for {user.username} created successfully. Temporary password: {temporary_password}. Ask the user to change it after first login.")
+            messages.success(request, f"Account for {user.username} created successfully. Default password: {temporary_password}. Ask the user to change it after first login.")
 
             # Assign role if available
             role = staff.roles.first() if staff.roles.exists() else None

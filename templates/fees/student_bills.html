@@ -27,7 +27,8 @@
     </div>
     <div class="finance-actions">
         {% if can_manage_student_bill %}
-        <a href="{% url 'bulk_create_class_bills' %}" class="finance-btn primary"><i class="fa fa-layer-group"></i> Generate Fees</a>
+        <a href="{% url 'quick_payment' %}" class="finance-btn primary"><i class="fa fa-money-bill-wave"></i> Record Payment</a>
+        <a href="{% url 'bulk_create_class_bills' %}" class="finance-btn"><i class="fa fa-layer-group"></i> Generate Fees</a>
         <a href="{% url 'carry_forward_balances' %}" class="finance-btn warning"><i class="fa fa-arrow-circle-right"></i> Carry Forward</a>
         {% endif %}
         <a href="{% url 'payment_ledger' %}" class="finance-btn"><i class="fa fa-book"></i> Ledger</a>
@@ -228,13 +229,14 @@
     <div class="col-md-12 col-sm-12 ">
         <div class="x_panel table-panel finance-table-shell">
             <div class="x_title">
-                <h2><i class="fa fa-list"></i> Student Bills <small>{{ student_bills|length }} bills found</small></h2>
+                <h2><i class="fa fa-list"></i> Student Bills <small>{{ student_bills.paginator.count|intcomma }} total</small></h2>
                 <div class="clearfix"></div>
             </div>
             <div class="x_content">
                 {% if student_bills %}
+                <div class="server-pagination-note"><i class="fa fa-info-circle"></i> Search and filters apply to all bills. Pagination below is server-side, so totals remain accurate across the full dataset.</div>
                 <div class="table-responsive">
-                    <table class="table table-striped table-bordered datatable finance-table">
+                    <table class="table table-striped table-bordered finance-table" data-server-paginated="true">
                         <thead>
                             <tr>
                                 <th>#</th>

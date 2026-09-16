@@ -17,7 +17,7 @@
         </div>
 
         {% if can_manage_classrooms %}
-        <form method="post" class="row" style="margin-bottom:18px;">
+        <form method="post" class="row" style="margin-bottom:18px;" data-protect-unsaved="true">
           {% csrf_token %}
           <input type="hidden" name="action" value="add">
           <div class="col-md-3"><label>Room name</label>{{ classroom_form.name }}</div>
@@ -66,7 +66,7 @@
         {% if can_manage_classrooms %}
         {% for room in classrooms %}
         <div class="modal fade" id="editRoom{{ room.id }}" tabindex="-1" role="dialog">
-          <div class="modal-dialog"><div class="modal-content"><form method="post">
+          <div class="modal-dialog"><div class="modal-content"><form method="post" data-protect-unsaved="true">
             {% csrf_token %}<input type="hidden" name="action" value="edit"><input type="hidden" name="room_id" value="{{ room.id }}">
             <div class="modal-header"><h4 class="modal-title">Edit {{ room.name }}</h4></div>
             <div class="modal-body">

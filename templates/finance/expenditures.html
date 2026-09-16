@@ -267,7 +267,7 @@
                     <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span></button>
                 </div>
                 <div class="modal-body">
-                    <form method="POST" action="{% url 'add_expenditure_page' %}" enctype="multipart/form-data">
+                    <form method="POST" action="{% url 'add_expenditure_page' %}" enctype="multipart/form-data" data-protect-unsaved="true">
                         {% csrf_token %}
                         {{ form|crispy }}
                         <div class="modal-footer">
@@ -291,7 +291,7 @@
                     <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">×</span></button>
                 </div>
                 <div class="modal-body">
-                    <form method="POST" action="{% url 'edit_expenditure' expenditure.id %}" enctype="multipart/form-data">
+                    <form method="POST" action="{% url 'edit_expenditure' expenditure.id %}" enctype="multipart/form-data" data-protect-unsaved="true">
                         {% csrf_token %}
                         {% if edit_forms %}
                             {% for key, edit_form in edit_forms.items %}

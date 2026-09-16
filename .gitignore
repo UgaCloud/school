@@ -156,9 +156,11 @@ cython_debug/
 !/static/css/
 /static/css/*
 !/static/css/parent_portal.css
+!/static/css/staff_components.css
 !/static/js/
 /static/js/*
 !/static/js/parent_portal.js
+!/static/js/library_circulation.js
 /media/
 
 # PyCharm

@@ -292,6 +292,19 @@ def bulk_student_registration(csv_obj):
                 )
 
             with transaction.atomic():
+                # Serialize imports for the same year and repeat the duplicate
+                # check after acquiring the lock to close concurrent-upload races.
+                AcademicYear.objects.select_for_update().get(pk=academic_year.pk)
+                duplicate = find_duplicate_student(
+                    student_name=student_name,
+                    birthdate=birthdate,
+                    contact=contact,
+                )
+                if duplicate:
+                    raise ValueError(
+                        f"Row {row_number}: this student already exists as {duplicate.reg_no}."
+                    )
+
                 student_data = {
                     "student_name": student_name,
                     "gender": gender,

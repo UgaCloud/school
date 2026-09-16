@@ -47,21 +47,21 @@
                 </td>
                 <td>
                   <div class="d-flex" style="gap: 6px;">
-                    <form method="post" action="{% url 'approval_workflow' %}">
+                    <form method="post" action="{% url 'approval_workflow' %}" data-protect-unsaved="true">
                       {% csrf_token %}
                       <input type="hidden" name="expenditure_id" value="{{ a.expenditure.id }}"/>
                       <input type="hidden" name="action" value="approve"/>
                       <button type="submit" class="btn btn-sm btn-success"><i class="fa fa-check"></i> Approve</button>
                     </form>
 
-                    <form method="post" action="{% url 'approval_workflow' %}">
+                    <form method="post" action="{% url 'approval_workflow' %}" data-protect-unsaved="true">
                       {% csrf_token %}
                       <input type="hidden" name="expenditure_id" value="{{ a.expenditure.id }}"/>
                       <input type="hidden" name="action" value="escalate"/>
                       <button type="submit" class="btn btn-sm btn-info"><i class="fa fa-level-up"></i> Escalate</button>
                     </form>
 
-                    <form method="post" action="{% url 'approval_workflow' %}" class="form-inline">
+                    <form method="post" action="{% url 'approval_workflow' %}" class="form-inline" data-protect-unsaved="true">
                       {% csrf_token %}
                       <input type="hidden" name="expenditure_id" value="{{ a.expenditure.id }}"/>
                       <input type="hidden" name="action" value="reject"/>

@@ -237,7 +237,7 @@
                     <h5 class="modal-title">Upload Bank Statement</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="post" enctype="multipart/form-data">
+                <form method="post" enctype="multipart/form-data" data-protect-unsaved="true">
                     {% csrf_token %}
                     <div class="modal-body">
                         <div class="form-group">
@@ -284,7 +284,7 @@
                     <h5 class="modal-title">Reconcile Transaction</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="post">
+                <form method="post" data-protect-unsaved="true">
                     {% csrf_token %}
                     <div class="modal-body">
                         <div class="form-group">

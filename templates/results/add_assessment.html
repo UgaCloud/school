@@ -244,7 +244,7 @@
           <strong>Tip:</strong> Use <em>Bulk Subjects</em> to create one assessment type for multiple subjects in a single action.
         </div>
 
-        <form method="post" class="form-horizontal form-label-left" action="{% url 'assessment_create' %}">
+        <form method="post" class="form-horizontal form-label-left" action="{% url 'assessment_create' %}" data-protect-unsaved="true">
           {% csrf_token %}
 
           <div class="form-group">

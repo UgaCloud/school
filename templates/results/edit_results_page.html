@@ -3,7 +3,7 @@
 {% block content %}
 <h3>Edit Results for {{ assessment.subject }} - {{ student.student_name}}</h3>
 
-  <form method="post">
+  <form method="post" data-protect-unsaved="true">
     {% csrf_token %}
     {{ formset.management_form }}
     {% for form, student in zipped_forms %}

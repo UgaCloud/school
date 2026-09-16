@@ -14,18 +14,37 @@
         </div>
         {% if can_manage_students %}
         <div class="register-actions">
+            {% if current_academic_year and current_term and student_form.current_class.field.queryset and student_form.stream.field.queryset %}
             <button type="button" class="btn btn-primary" data-toggle="modal" data-target=".add-student-modal">
                 <i class="fa fa-plus"></i> Add Student
             </button>
             <button type="button" class="btn btn-default" data-toggle="modal" data-target=".bulk-upload-modal">
                 <i class="fa fa-upload"></i> Bulk Upload
             </button>
+            {% else %}
+            <button type="button" class="btn btn-primary" disabled title="Complete the current academic period, class and stream setup first">
+                <i class="fa fa-plus"></i> Add Student
+            </button>
+            <button type="button" class="btn btn-default" disabled title="Complete the current academic period, class and stream setup first">
+                <i class="fa fa-upload"></i> Bulk Upload
+            </button>
+            {% endif %}
             <a class="btn btn-default" href="{% url 'download_student_template' %}">
                 <i class="fa fa-download"></i> Template
             </a>
         </div>
         {% endif %}
     </div>
+
+    {% if can_manage_students and not current_academic_year or can_manage_students and not current_term or can_manage_students and not student_form.current_class.field.queryset or can_manage_students and not student_form.stream.field.queryset %}
+    <div class="alert alert-warning production-readiness-alert" role="alert">
+        <div><i class="ph ph-warning-circle" aria-hidden="true"></i></div>
+        <div>
+            <strong>Student registration setup is incomplete.</strong>
+            <span>Configure a current academic year and term, with at least one class and stream, before registering learners. Existing student records remain available.</span>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="register-kpis">
         <a class="register-kpi {% if status == 'active' %}is-active{% endif %}" href="?status=active&per_page={{ per_page }}&q={{ query|urlencode }}&class_id={{ selected_class_id }}&stream_id={{ selected_stream_id }}&gender={{ selected_gender }}">
@@ -135,8 +154,8 @@
                             <th>Reg No</th>
                             <th>Class</th>
                             <th>Stream</th>
-                            <th>Guardian Contact</th>
-                            <th>Gender</th>
+                            <th class="guardian-contact-col">Guardian Contact</th>
+                            <th class="gender-col">Gender</th>
                             <th>Status</th>
                             <th class="action-col">Action</th>
                         </tr>
@@ -166,8 +185,8 @@
                             <td><span class="id-pill">{{ student.display_student_id }}</span></td>
                             <td>{{ student.current_class.code|default:student.current_class.name }}</td>
                             <td>{{ student.stream.stream }}</td>
-                            <td>{{ student.contact|default:"-" }}</td>
-                            <td>{% if student.gender == "M" %}Male{% else %}Female{% endif %}</td>
+                            <td class="guardian-contact-col">{{ student.contact|default:"-" }}</td>
+                            <td class="gender-col">{% if student.gender == "M" %}Male{% else %}Female{% endif %}</td>
                             <td>
                                 {% if student.is_active %}
                                 <span class="status-pill active">Active</span>
@@ -177,10 +196,10 @@
                             </td>
                             <td class="action-col">
                                 <div class="row-actions">
-                                    <a href="{% url 'student_details_page' student.id %}" class="btn btn-xs btn-default" title="View"><i class="fa fa-eye"></i></a>
+                                    <a href="{% url 'student_details_page' student.id %}" class="btn btn-xs btn-default" title="Open student"><i class="fa fa-eye"></i><span class="d-none d-xl-inline"> Open</span></a>
                                     {% if can_manage_students %}
-                                    <button type="button" class="btn btn-xs btn-default open-edit-student-modal" data-url="{% url 'edit_student_page' student.id %}" title="Edit"><i class="fa fa-edit"></i></button>
-                                    <form method="post" action="{% url 'delete_student_page' student.id %}">
+                                    <button type="button" class="btn btn-xs btn-default open-edit-student-modal" data-url="{% url 'edit_student_page' student.id %}" title="Edit student"><i class="fa fa-edit"></i><span class="d-none d-xl-inline"> Edit</span></button>
+                                    <form method="post" action="{% url 'delete_student_page' student.id %}" data-protect-unsaved="true">
                                         {% csrf_token %}
                                         {% if student.is_active %}
                                         <button type="submit" class="btn btn-xs btn-default text-danger" title="Deactivate" onclick="return confirm('Deactivate this student?')"><i class="fa fa-user-times"></i></button>
@@ -257,7 +276,7 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form method="POST" action="{% url 'add_student' %}" enctype="multipart/form-data" id="addStudentForm">
+                <form method="POST" action="{% url 'add_student' %}" enctype="multipart/form-data" id="addStudentForm" data-protect-unsaved="true">
                     {% csrf_token %}
                     <div class="row">
                         <div class="col-md-12">
@@ -336,7 +355,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <h6>Create Missing Academic Class</h6>
-                                <form method="POST" action="{% url 'quick_create_academic_class' %}" class="quick-setup-form" id="quickAcademicClassForm">
+                                <form method="POST" action="{% url 'quick_create_academic_class' %}" class="quick-setup-form" id="quickAcademicClassForm" data-protect-unsaved="true">
                                     {% csrf_token %}
                                     <input type="hidden" name="quick_selected_class_id" id="quick_selected_class_id">
                                     <div class="form-group mb-2">
@@ -359,7 +378,7 @@
                             </div>
                             <div class="col-md-6">
                                 <h6>Create Missing Class Stream</h6>
-                                <form method="POST" action="{% url 'quick_create_class_stream' %}" class="quick-setup-form" id="quickClassStreamForm">
+                                <form method="POST" action="{% url 'quick_create_class_stream' %}" class="quick-setup-form" id="quickClassStreamForm" data-protect-unsaved="true">
                                     {% csrf_token %}
                                     <input type="hidden" name="quick_selected_class_id" id="quick_stream_selected_class_id">
                                     <input type="hidden" name="quick_selected_stream_id" id="quick_selected_stream_id">
@@ -411,7 +430,7 @@
                     <strong>Instructions:</strong> Upload a CSV file with student data. 
                     <a href="{% url 'download_student_template' %}" class="alert-link">Download template</a> for the correct format.
                 </div>
-                <form method="POST" action="{% url 'bulk_student_registration' %}" enctype="multipart/form-data" id="bulkUploadForm">
+                <form method="POST" action="{% url 'bulk_student_registration' %}" enctype="multipart/form-data" id="bulkUploadForm" data-protect-unsaved="true">
                     {% csrf_token %}
                     <div class="form-group">
                         <label for="{{ csv_form.file_name.id_for_label }}" class="form-label">
@@ -958,6 +977,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (addStudentForm) {
         addStudentForm.addEventListener('submit', function(e) {
+            if (this.dataset.submitting === 'true') {
+                e.preventDefault();
+                return;
+            }
+
             const requiredFields = this.querySelectorAll('[required]');
             let isValid = true;
             
@@ -973,7 +997,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!isValid) {
                 e.preventDefault();
                 alert('Please fill in all required fields.');
+                return;
             }
+
+            this.dataset.submitting = 'true';
+            document.querySelectorAll('[form="addStudentForm"]').forEach(function(button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Adding Student...';
+            });
         });
     }
 
