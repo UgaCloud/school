@@ -191,6 +191,52 @@ class QuickSetupStudentFlowTests(TestCase):
             ).exists()
         )
 
+    def test_add_student_creates_student_and_class_registration(self):
+        academic_class = AcademicClass.objects.create(
+            Class=self.class_obj,
+            section=self.section,
+            academic_year=self.year,
+            term=self.term,
+            fees_amount=120000,
+        )
+        teacher = self._make_staff("Student", "Teacher", True)
+        AcademicClassStream.objects.create(
+            academic_class=academic_class,
+            stream=self.stream,
+            class_teacher=teacher,
+        )
+
+        response = self.client.post(
+            reverse("add_student"),
+            {
+                "student_name": "New Learner",
+                "gender": "F",
+                "birthdate": "2015-05-04",
+                "nationality": "Ugandan",
+                "religion": "Catholic",
+                "address": "Kampala",
+                "guardian": "Mary Learner",
+                "relationship": "Mother",
+                "contact": "0700123456",
+                "current_class": self.class_obj.id,
+                "stream": self.stream.id,
+                "is_active": True,
+            },
+            follow=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        student = Student.objects.get(student_name="New Learner")
+        self.assertEqual(student.academic_year, self.year)
+        self.assertEqual(student.term, self.term)
+        self.assertTrue(
+            ClassRegister.objects.filter(
+                student=student,
+                academic_class_stream__academic_class=academic_class,
+                academic_class_stream__stream=self.stream,
+            ).exists()
+        )
+
 class SecondaryLevelScopeTests(TestCase):
     def setUp(self):
         self.primary_section = Section.objects.create(section_name="Primary")

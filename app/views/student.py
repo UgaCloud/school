@@ -17,6 +17,7 @@ from app.services.students import register_student, bulk_student_registration, d
 from app.selectors.model_selectors import *
 from app.forms.student import StudentForm
 from app.models.students import Student, StudentDocument, find_duplicate_student
+from app.models.school_settings import AcademicYear
 import app.forms.student as student_forms
 import app.selectors.students as student_selectors
 import app.selectors.classes as class_selectors
