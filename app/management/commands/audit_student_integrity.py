@@ -3,7 +3,7 @@ from collections import Counter
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from app.models.classes import AcademicClassStream, Term
+from app.models.classes import Term
 from app.models.fees_payment import StudentBill
 from app.models.school_settings import AcademicYear
 from app.models.students import ClassRegister, Student
@@ -12,7 +12,7 @@ from app.services.enrollment_integrity import ensure_student_academic_state
 
 class Command(BaseCommand):
     help = (
-        "Audit active learner enrollment consistency for one academic period. "
+        "Audit learner enrollment consistency for one academic period. "
         "Read-only by default. Use --repair-safe only after reviewing the dry run."
     )
 
@@ -45,7 +45,7 @@ class Command(BaseCommand):
         student_filter = (options.get("student") or "").strip()
         repair_safe = bool(options.get("repair_safe"))
 
-        students = Student.objects.filter(is_active=True).order_by("student_name", "reg_no")
+        students = Student.objects.all().order_by("student_name", "reg_no")
         if student_filter:
             if student_filter.isdigit():
                 students = students.filter(pk=int(student_filter))
@@ -82,6 +82,16 @@ class Command(BaseCommand):
                 )
                 .order_by("id")
             )
+
+            if not student.is_active:
+                if registers:
+                    counts["inactive_current_enrollment"] += 1
+                    self._issue(
+                        student,
+                        "INACTIVE_CURRENT_ENROLLMENT",
+                        "Inactive learner still has a registration in the selected academic period. Manual review required.",
+                    )
+                continue
 
             if not registers:
                 counts["missing_register"] += 1
@@ -165,12 +175,13 @@ class Command(BaseCommand):
 
         self.stdout.write("")
         self.stdout.write(self.style.MIGRATE_HEADING("Audit summary"))
-        self.stdout.write(f"Active students reviewed: {reviewed}")
+        self.stdout.write(f"Students reviewed: {reviewed}")
         self.stdout.write(f"Healthy: {counts['healthy']}")
         self.stdout.write(f"Missing current registration: {counts['missing_register']}")
         self.stdout.write(f"Multiple current registrations: {counts['multiple_registers']}")
         self.stdout.write(f"Snapshot mismatches: {counts['snapshot_mismatch']}")
         self.stdout.write(f"Missing current-period bills: {counts['missing_bill']}")
+        self.stdout.write(f"Inactive learners still registered: {counts['inactive_current_enrollment']}")
 
         if repair_safe:
             self.stdout.write(f"Safe cases processed: {counts['safe_repairs']}")

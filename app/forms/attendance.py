@@ -10,7 +10,7 @@ from app.models.timetables import TimeSlot
 
 class AttendanceSessionForm(forms.Form):
     date = forms.DateField(
-        initial=timezone.now().date(),
+        initial=timezone.localdate(),
         widget=forms.DateInput(attrs={"type": "date"}),
     )
     time_slot = forms.ModelChoiceField(

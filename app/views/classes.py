@@ -53,6 +53,14 @@ from app.services.teacher_assignments import (
     upsert_class_subject_allocation,
 )
 from app.services.class_promotions import promote_students_to_academic_class
+from app.services.deletion_safety import (
+    academic_class_deletion_blockers,
+    class_bill_deletion_blockers,
+    class_deletion_blockers,
+    class_stream_deletion_blockers,
+    describe_blockers,
+    stream_deletion_blockers,
+)
 from app.models.attendance import (
     AttendancePolicy,
     AttendanceRecord,
@@ -249,6 +257,15 @@ def delete_class_view(request, id):
         messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect("class_page")
     
+    blockers = class_deletion_blockers(classe)
+    if blockers:
+        messages.error(
+            request,
+            "This class cannot be deleted because it is still referenced by "
+            f"{describe_blockers(blockers)}. Keep the historical record instead.",
+        )
+        return redirect(class_view)
+
     classe.delete()
     messages.success(request, DELETE_MESSAGE)
     
@@ -325,18 +342,23 @@ def delete_stream_view(request, id):
         messages.error(request, "Only Admin or Academic Head can manage streams.")
         return redirect("stream_page")
 
-    try:
-        stream = Stream.objects.get(pk=id)
-        if request.method != "POST":
-            messages.error(request, "Deactivate requests must be submitted via POST.")
-            return redirect("stream_page")
-        
-        stream.delete()
-        messages.success(request, DELETE_MESSAGE)
-        
+    stream = get_object_or_404(Stream, pk=id)
+    if request.method != "POST":
+        messages.error(request, "Deactivate requests must be submitted via POST.")
+        return redirect("stream_page")
+
+    blockers = stream_deletion_blockers(stream)
+    if blockers:
+        messages.error(
+            request,
+            "This stream cannot be deleted because it is still referenced by "
+            f"{describe_blockers(blockers)}. Keep the historical record instead.",
+        )
         return redirect(stream_view)
-    except:
-        logger.critical("Failed Delete record")
+
+    stream.delete()
+    messages.success(request, DELETE_MESSAGE)
+    return redirect(stream_view)
 
 
 @login_required
@@ -550,9 +572,21 @@ def bulk_academic_class_action_view(request):
         return redirect(next_url or "academic_class_page")
 
     if action == "bulk_delete":
-        deleted_count = selected_count
-        scoped_queryset.delete()
-        messages.success(request, f"Deleted {deleted_count} academic class record(s).")
+        deleted_count = 0
+        protected_count = 0
+        for academic_class in scoped_queryset:
+            if academic_class_deletion_blockers(academic_class):
+                protected_count += 1
+                continue
+            academic_class.delete()
+            deleted_count += 1
+        if deleted_count:
+            messages.success(request, f"Deleted {deleted_count} unused academic class record(s).")
+        if protected_count:
+            messages.warning(
+                request,
+                f"Skipped {protected_count} academic class record(s) that contain academic or finance history.",
+            )
     else:
         messages.error(request, "Unsupported bulk action requested.")
 
@@ -600,6 +634,15 @@ def delete_academic_class_view(request, id):
         messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect("academic_class_page")
     
+    blockers = academic_class_deletion_blockers(academic_class)
+    if blockers:
+        messages.error(
+            request,
+            "This academic class cannot be deleted because it is still referenced by "
+            f"{describe_blockers(blockers)}. Keep the historical class record instead.",
+        )
+        return redirect(academic_class_view)
+
     academic_class.delete()
     messages.success(request, DELETE_MESSAGE)
     
@@ -1719,6 +1762,15 @@ def delete_class_stream(request, id):
         messages.error(request, "Deactivate requests must be submitted via POST.")
         return redirect(reverse("academic_class_details_page", args=[academic_class_id]))
 
+    blockers = class_stream_deletion_blockers(class_stream)
+    if blockers:
+        messages.error(
+            request,
+            "This class stream cannot be deleted because it is still referenced by "
+            f"{describe_blockers(blockers)}. Keep the historical stream record instead.",
+        )
+        return redirect(reverse("academic_class_details_page", args=[academic_class_id]))
+
     class_stream.delete()
     
     messages.success(request,DELETE_MESSAGE)
@@ -1962,10 +2014,15 @@ def delete_class_bill_item_view(request, id):
         ClassBill.objects.filter(academic_class__in=get_level_academic_classes_queryset(active_level=active_level)),
         id=id,
     )
-    StudentBillItem.objects.filter(
-        bill__academic_class=class_bill.academic_class,
-        bill_item=class_bill.bill_item
-    ).delete()
+    blockers = class_bill_deletion_blockers(class_bill)
+    if blockers:
+        messages.error(
+            request,
+            "This class bill cannot be deleted because it has "
+            f"{describe_blockers(blockers)}. Historical student bill lines are retained.",
+        )
+        return redirect("class_bill_list")
+
     class_bill.delete()
     messages.success(request, DELETE_MESSAGE)
     return redirect("class_bill_list")

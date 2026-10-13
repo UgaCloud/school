@@ -9,13 +9,20 @@ from django.urls import reverse
 
 from app.models.accounts import StaffAccount
 from app.models.attendance import AttendanceRecord, AttendanceSession, AttendanceStatus
-from app.models.classes import AcademicClass, Class, ClassSubjectAllocation, Stream, Term
+from app.models.classes import (
+    AcademicClass,
+    AcademicClassStream,
+    Class,
+    ClassSubjectAllocation,
+    Stream,
+    Term,
+)
 from app.models.school_settings import AcademicYear, Section
 from app.models.staffs import Role, Staff
 from app.models.students import ClassRegister, Student
 from app.models.subjects import Subject
 from app.models.timetables import TimeSlot, Timetable, WeekDay
-from app.services.attendance import get_or_create_session
+from app.services.attendance import get_or_create_session, initialize_session_records
 from app.services.teacher_assignments import get_teacher_assignments
 
 
@@ -65,7 +72,14 @@ class AttendanceModuleFlowTests(TestCase):
             term=self.term,
             fees_amount=100000,
         )
-        self.class_stream = self.academic_class.class_streams.first()
+        self.class_stream, _ = AcademicClassStream.objects.get_or_create(
+            academic_class=self.academic_class,
+            stream=self.stream,
+            defaults={"class_teacher": self.teacher},
+        )
+        if self.class_stream.class_teacher_id != self.teacher.id:
+            self.class_stream.class_teacher = self.teacher
+            self.class_stream.save(update_fields=["class_teacher"])
 
         self.subject = Subject.objects.create(
             code="MATH",
@@ -318,6 +332,64 @@ class AttendanceModuleFlowTests(TestCase):
         self.assertEqual(session.lesson_id, self.lesson.id)
         record = AttendanceRecord.objects.get(session=session, student_id=student_id)
         self.assertEqual(record.status, AttendanceStatus.LATE)
+
+    def test_inactive_students_are_excluded_from_live_attendance(self):
+        inactive_student = Student.objects.create(
+            reg_no="INACTIVE-ATTENDANCE-001",
+            student_name="Inactive Learner",
+            gender="F",
+            birthdate=date(2011, 2, 1),
+            nationality="Ugandan",
+            religion="Catholic",
+            address="Kampala",
+            guardian="Parent Two",
+            relationship="Mother",
+            contact="0700000011",
+            academic_year=self.year,
+            current_class=self.base_class,
+            stream=self.stream,
+            term=self.term,
+            is_active=False,
+        )
+        ClassRegister.objects.create(
+            academic_class_stream=self.class_stream,
+            student=inactive_student,
+        )
+        session = get_or_create_session(
+            class_stream=self.class_stream,
+            subject=self.subject,
+            teacher=self.teacher,
+            date=date(2026, 3, 2),
+            time_slot=self.slot,
+            academic_year=self.year,
+            term=self.term,
+        )
+        initialize_session_records(session)
+
+        self.assertTrue(
+            AttendanceRecord.objects.filter(session=session, student__is_active=True).exists()
+        )
+        self.assertFalse(
+            AttendanceRecord.objects.filter(session=session, student=inactive_student).exists()
+        )
+
+        self.client.login(username="teacheruser", password="pass12345")
+        response = self.client.get(
+            f"{reverse('take_attendance')}?class_stream={self.class_stream.id}"
+            f"&subject={self.subject.id}&date=2026-03-02&time_slot={self.slot.id}",
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        roster_ids = {row.student_id for row in response.context["students"]}
+        self.assertNotIn(inactive_student.id, roster_ids)
+
+        report_response = self.client.get(
+            f"{reverse('class_attendance_report')}?class_stream={self.class_stream.id}",
+            HTTP_HOST="localhost",
+        )
+        summary_ids = {row["student"].id for row in report_response.context["student_summary"]}
+        self.assertNotIn(inactive_student.id, summary_ids)
 
     def test_unlock_attendance_requires_admin(self):
         session = AttendanceSession.objects.create(

@@ -246,6 +246,23 @@ def ensure_single_current_academic_year(sender, instance, created, **kwargs):
             other_current_years.update(is_current=False)
 
 
+@receiver(pre_save, sender=Term)
+def track_term_current_transition(sender, instance, **kwargs):
+    """Record whether this save actually makes a term current.
+
+    The expensive rollover receiver must not run when an administrator merely
+    edits dates or labels on a term that was already current.
+    """
+    if not instance.pk:
+        instance._became_current = bool(instance.is_current)
+        return
+
+    was_current = (
+        Term.objects.filter(pk=instance.pk).values_list("is_current", flat=True).first()
+    )
+    instance._became_current = bool(instance.is_current and not was_current)
+
+
 @receiver(post_save, sender=Term)
 def move_students_on_term_change(sender, instance, created, **kwargs):
     """
@@ -253,7 +270,7 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
     This includes maintaining their class/stream assignments and creating new bills.
     Enhanced to handle edge cases and provide better logging.
     """
-    if instance.is_current:
+    if getattr(instance, "_became_current", bool(created and instance.is_current)):
 
         # Ensure only one term is marked as current
         other_current_terms = Term.objects.filter(is_current=True).exclude(id=instance.id)

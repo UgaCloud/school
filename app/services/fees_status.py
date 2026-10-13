@@ -14,6 +14,9 @@ class BillStatus:
 
 def get_bill_status(bill, *, today=None):
     """Return the single presentation status used across fees screens."""
+    if bill is None:
+        return BillStatus("No Bill", Decimal("0"), "", "secondary")
+
     today = today or timezone.localdate()
     total = Decimal(str(bill.total_amount or 0))
     paid = Decimal(str(bill.amount_paid or 0))

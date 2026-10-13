@@ -222,7 +222,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# School dates, attendance, payment defaults and due-date checks must use the
+# school's local calendar. Hosting can still override this per deployment.
+TIME_ZONE = config('TIME_ZONE', default='Africa/Kampala')
 
 USE_I18N = True
 

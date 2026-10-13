@@ -1988,8 +1988,8 @@ def send_payment_reminders_view(request):
         if reminder_type == 'upcoming_deadline':
             # Students with fees due in next 7 days
             upcoming_bills = StudentBill.objects.filter(
-                due_date__gte=timezone.now().date(),
-                due_date__lte=timezone.now().date() + timedelta(days=7),
+                due_date__gte=timezone.localdate(),
+                due_date__lte=timezone.localdate() + timedelta(days=7),
                 status__in=['Unpaid', 'Partial'],
                 student__is_active=True,
             ).select_related('student')
@@ -1997,7 +1997,7 @@ def send_payment_reminders_view(request):
         elif reminder_type == 'overdue':
             # Students with overdue fees
             overdue_bills = StudentBill.objects.filter(
-                due_date__lt=timezone.now().date(),
+                due_date__lt=timezone.localdate(),
                 status__in=['Unpaid', 'Partial'],
                 student__is_active=True,
             ).select_related('student')
@@ -2005,7 +2005,7 @@ def send_payment_reminders_view(request):
         elif reminder_type == 'final_notice':
             # Students with fees overdue by more than 30 days
             final_notice_bills = StudentBill.objects.filter(
-                due_date__lt=timezone.now().date() - timedelta(days=30),
+                due_date__lt=timezone.localdate() - timedelta(days=30),
                 status__in=['Unpaid', 'Partial'],
                 student__is_active=True,
             ).select_related('student')

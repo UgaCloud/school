@@ -416,7 +416,10 @@ def take_attendance(request):
             )
             initialize_session_records(session)
             students = list(
-                ClassRegister.objects.filter(academic_class_stream=class_stream)
+                ClassRegister.objects.filter(
+                    academic_class_stream=class_stream,
+                    student__is_active=True,
+                )
                 .select_related("student")
                 .order_by("student__student_name")
             )
@@ -796,7 +799,8 @@ def class_attendance_report(request):
             ).order_by("date", "time_slot__start_time", "subject__name")
 
             class_registers = ClassRegister.objects.filter(
-                academic_class_stream=class_stream
+                academic_class_stream=class_stream,
+                student__is_active=True,
             ).select_related("student")
 
             for reg in class_registers:

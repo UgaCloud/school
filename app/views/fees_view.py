@@ -26,6 +26,7 @@ from app.services.fees_carry_forward import (
     post_carry_forward,
 )
 from app.services.fees_status import get_bill_status
+from app.services.deletion_safety import bill_item_deletion_blockers, describe_blockers
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, landscape
@@ -154,7 +155,15 @@ def delete_bill_item_view(request, id):
         return HttpResponseRedirect(reverse(manage_bill_items_view))
 
     bill_item = get_model_record(BillItem, id)
-    
+    blockers = bill_item_deletion_blockers(bill_item)
+    if blockers:
+        messages.error(
+            request,
+            "This bill item cannot be deleted because it is still referenced by "
+            f"{describe_blockers(blockers)}. Keep it for historical billing records.",
+        )
+        return HttpResponseRedirect(reverse(manage_bill_items_view))
+
     bill_item.delete()
     
     messages.success(request, DELETE_MESSAGE)
@@ -367,7 +376,7 @@ def add_student_payment_view(request, id):
             messages.error(request, FAILURE_MESSAGE)
     else:
         # Show the payment form
-        form = PaymentForm(bill=bill, initial={'bill': bill, 'payment_date': timezone.now().date()})
+        form = PaymentForm(bill=bill, initial={'bill': bill, 'payment_date': timezone.localdate()})
         return render(request, 'fees/payment_form_page.html', {'form': form, 'bill': bill})
     
     return HttpResponseRedirect(reverse(manage_student_bill_details_view, args=[bill.id]))
@@ -395,8 +404,8 @@ def ajax_payment_form_view(request, bill_id):
             return JsonResponse({'success': False, 'errors': form.errors})
     else:
         # Return the form for GET request
-        form = PaymentForm(bill=bill, initial={'bill': bill, 'payment_date': timezone.now().date()})
-        form_html = render_to_string('fees/payment_form_partial.html', {'bill': bill, 'payment_form': form, 'today': timezone.now().date()}, request=request)
+        form = PaymentForm(bill=bill, initial={'bill': bill, 'payment_date': timezone.localdate()})
+        form_html = render_to_string('fees/payment_form_partial.html', {'bill': bill, 'payment_form': form, 'today': timezone.localdate()}, request=request)
         return JsonResponse({'form_html': form_html})
 
 
@@ -550,35 +559,62 @@ def student_fees_status_view(request):
     if term_obj:
         request.session["academic_context_term_id"] = str(term_obj.id)
 
-    # Build rows from StudentBill to ensure we show existing billed data
+    # ClassRegister is the authoritative enrollment record for a period.  Start
+    # here (rather than StudentBill) so an enrolled learner with a missing bill
+    # is visible to finance as "No Bill" instead of silently disappearing.
     student_fees_data = []
-    now = timezone.now().date()
-    bills_qs = StudentBill.objects.filter(
-        academic_class__academic_year=selected_year,
-        academic_class__term=term_obj,
+    now = timezone.localdate()
+    registrations_qs = ClassRegister.objects.filter(
+        academic_class_stream__academic_class__academic_year=selected_year,
+        academic_class_stream__academic_class__term=term_obj,
         student__is_active=True,
+    ).select_related(
+        "student",
+        "academic_class_stream__academic_class",
+        "academic_class_stream__academic_class__Class",
+        "academic_class_stream__academic_class__academic_year",
+        "academic_class_stream__academic_class__term",
     )
     if selected_academic_class:
-        bills_qs = bills_qs.filter(academic_class__Class_id=selected_academic_class)
+        registrations_qs = registrations_qs.filter(
+            academic_class_stream__academic_class__Class_id=selected_academic_class
+        )
 
-    for bill in bills_qs.select_related("student", "academic_class", "academic_class__Class"):
-        total_amount = bill.total_amount
-        amount_paid = bill.amount_paid
+    registrations = list(registrations_qs.order_by("student__student_name", "student__reg_no", "id"))
+    student_ids = {registration.student_id for registration in registrations}
+    academic_class_ids = {
+        registration.academic_class_stream.academic_class_id for registration in registrations
+    }
+    bills_by_student_and_class = {
+        (bill.student_id, bill.academic_class_id): bill
+        for bill in StudentBill.objects.filter(
+            student_id__in=student_ids,
+            academic_class_id__in=academic_class_ids,
+        ).select_related("student", "academic_class")
+    }
+
+    for registration in registrations:
+        academic_class = registration.academic_class_stream.academic_class
+        bill = bills_by_student_and_class.get((registration.student_id, academic_class.id))
+        total_amount = bill.total_amount if bill else Decimal("0")
+        amount_paid = bill.amount_paid if bill else Decimal("0")
         display_status = get_bill_status(bill, today=now)
         payment_status = display_status.label
         balance = display_status.balance
         balance_label = display_status.balance_label
 
-        recent_payments = list(
-            Payment.objects.filter(bill=bill).order_by("-payment_date").values("amount", "payment_date")[:3]
-        )
+        recent_payments = []
+        if bill:
+            recent_payments = list(
+                Payment.objects.filter(bill=bill).order_by("-payment_date").values("amount", "payment_date")[:3]
+            )
 
         student_fees_data.append({
-            "student": bill.student,
-            "student_id": bill.student.id,
-            "academic_class": bill.academic_class,
-            "academic_year": bill.academic_class.academic_year,
-            "term": bill.academic_class.term,
+            "student": registration.student,
+            "student_id": registration.student_id,
+            "academic_class": academic_class,
+            "academic_year": academic_class.academic_year,
+            "term": academic_class.term,
             "total_amount": total_amount,
             "amount_paid": amount_paid,
             "amount_paid_percentage": (amount_paid / total_amount * 100) if total_amount > 0 else 0,
@@ -588,7 +624,7 @@ def student_fees_status_view(request):
             "balance_label": balance_label,
             "status_css_class": display_status.css_class,
             "recent_payments": recent_payments,
-            "bill_id": bill.id,
+            "bill_id": bill.id if bill else None,
         })
     # Optional payment status filter (applies after class/year/term scope)
     status_filters = {
@@ -609,6 +645,8 @@ def student_fees_status_view(request):
     total_paid = sum(row["amount_paid"] for row in student_fees_data)
     total_balance = sum(row["balance"] for row in student_fees_data if row.get("balance_label") != "CR")
     collection_rate = (total_paid / total_fees * 100) if total_fees > 0 else 0
+    enrolled_students_count = len(student_fees_data)
+    missing_bill_count = sum(1 for row in student_fees_data if not row["bill_id"])
 
     if request.GET.get("download_pdf"):
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -643,6 +681,12 @@ def student_fees_status_view(request):
 
         normal_style = styles['Normal']
 
+        selected_class_label = "All Classes"
+        if selected_academic_class:
+            selected_class = Class.objects.filter(pk=selected_academic_class).first()
+            if selected_class:
+                selected_class_label = selected_class.name
+
         # Build the PDF content
         content = []
 
@@ -655,7 +699,7 @@ def student_fees_status_view(request):
         <b>Report Generated:</b> {timezone.now().strftime('%B %d, %Y at %I:%M %p')}<br/>
         <b>Academic Year:</b> {selected_year.academic_year if selected_year else 'All Years'}<br/>
         <b>Term:</b> {term_obj.term if term_obj else 'All Terms'}<br/>
-        <b>Class Filter:</b> {AcademicClass.objects.filter(id=selected_academic_class).first().Class.name if selected_academic_class else 'All Classes'}<br/>
+        <b>Class Filter:</b> {selected_class_label}<br/>
         <b>Status Filter:</b> {selected_status.replace('_', ' ').title() if selected_status else 'All Statuses'}<br/>
         <b>Total Students:</b> {len(student_fees_data)}<br/>
         <b>Total Fees:</b> UGX {total_fees:,.0f}<br/>
@@ -749,6 +793,8 @@ def student_fees_status_view(request):
         "total_paid": total_paid,
         "total_balance": total_balance,
         "collection_rate": collection_rate,
+        "enrolled_students_count": enrolled_students_count,
+        "missing_bill_count": missing_bill_count,
         "status_filter": selected_status,
         "current_term": term_obj if 'term_obj' in locals() and term_obj else current_term,
         "current_year": selected_year,
@@ -990,7 +1036,7 @@ def student_fees_history_view(request, student_id):
             if str(bill.academic_class.academic_year_id) == str(selected_year_id)
         ]
     
-    now = timezone.now().date()
+    now = timezone.localdate()
     # Group bills by academic year (only for filtered/displayed bills)
     from collections import OrderedDict
     years_data = OrderedDict()
@@ -1053,7 +1099,7 @@ def student_fees_history_view(request, student_id):
         "lifetime_outstanding_abs": lifetime_outstanding_abs,
         "lifetime_progress": (lifetime_paid / lifetime_billed * 100) if lifetime_billed > 0 else 0,
         "bill_count": len(bills_qs),
-        "today": timezone.now().date(),
+        "today": timezone.localdate(),
     }
     return render(request, "fees/student_fees_history.html", context)
 
@@ -1184,7 +1230,7 @@ def student_fees_receipt_pdf_view(request, student_id):
         .order_by('-academic_class__academic_year__id', '-academic_class__term__id')
     )
     
-    now = timezone.now().date()
+    now = timezone.localdate()
     
     # Build years_data structure for PDF
     years_data = OrderedDict()
@@ -1312,7 +1358,7 @@ def reconcile_student_overpayments(request, student_id):
                             original_bill=later_bill,
                             applied_to_bill=earlier_bill,
                             is_applied=True,
-                            applied_date=timezone.now().date()
+                            applied_date=timezone.localdate()
                         )
                         existing_pairs.add(credit_key)
                         total_transferred += transfer_amount

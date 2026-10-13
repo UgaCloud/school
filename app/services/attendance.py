@@ -57,7 +57,10 @@ def get_or_create_session(
 @transaction.atomic
 def initialize_session_records(session):
     students = (
-        ClassRegister.objects.filter(academic_class_stream=session.class_stream)
+        ClassRegister.objects.filter(
+            academic_class_stream=session.class_stream,
+            student__is_active=True,
+        )
         .select_related("student")
         .values_list("student", flat=True)
     )

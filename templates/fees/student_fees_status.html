@@ -13,6 +13,13 @@
 </div>
 {% endif %}
 
+{% if missing_bill_count %}
+<div class="alert alert-warning" role="alert">
+    <i class="fa fa-exclamation-triangle"></i>
+    <strong>Billing integrity warning:</strong> {{ missing_bill_count }} enrolled learner{{ missing_bill_count|pluralize }} {% if missing_bill_count == 1 %}has{% else %}have{% endif %} no bill for {{ selected_period_label }}. They remain visible below as <strong>No Bill</strong>.
+</div>
+{% endif %}
+
 <div class="row">
     <div class="col-md-12 col-sm-12 col-xs-12">
         <div class="x_panel">
@@ -88,7 +95,7 @@
                                     <div class="flex-grow-1">
                                         <div class="stat-label">Total Paid</div>
                                         <div class="stat-value">UGX {{ total_paid|intcomma }}</div>
-                                        <div class="stat-note">{{ student_fees_data|length }} students</div>
+                                        <div class="stat-note">{{ enrolled_students_count }} enrolled students</div>
                                     </div>
                                     <div class="stat-icon success"><i class="fa fa-dollar-sign"></i></div>
                                 </div>

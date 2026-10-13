@@ -10,6 +10,7 @@ from app.models.classes import (
     StudentPromotionHistory,
 )
 from app.models.students import ClassRegister
+from app.services.enrollment_integrity import ensure_student_academic_state
 
 
 @dataclass
@@ -20,6 +21,7 @@ class PromotionOutcome:
     skipped_inactive_count: int = 0
     skipped_duplicate_source_count: int = 0
     updated_student_snapshots: int = 0
+    bills_created_count: int = 0
     missing_stream_names: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -138,33 +140,21 @@ def promote_students_to_academic_class(
                 continue
             processed_pairs.add(destination_key)
 
-            _, created = ClassRegister.objects.get_or_create(
-                academic_class_stream=destination_stream,
+            state = ensure_student_academic_state(
                 student=source_register.student,
+                academic_class=target_academic_class,
+                academic_class_stream=destination_stream,
+                sync_snapshot=True,
+                ensure_bill=True,
             )
-            if created:
+            if state.register_created:
                 outcome.promoted_count += 1
             else:
                 outcome.already_registered_count += 1
-
-            student = source_register.student
-            update_fields: list[str] = []
-            if student.current_class_id != target_academic_class.Class_id:
-                student.current_class_id = target_academic_class.Class_id
-                update_fields.append("current_class")
-            if student.stream_id != destination_stream.stream_id:
-                student.stream_id = destination_stream.stream_id
-                update_fields.append("stream")
-            if student.academic_year_id != target_academic_class.academic_year_id:
-                student.academic_year_id = target_academic_class.academic_year_id
-                update_fields.append("academic_year")
-            if student.term_id != target_academic_class.term_id:
-                student.term_id = target_academic_class.term_id
-                update_fields.append("term")
-
-            if update_fields:
-                student.save(update_fields=update_fields)
+            if state.snapshot_updated:
                 outcome.updated_student_snapshots += 1
+            if state.bill_created:
+                outcome.bills_created_count += 1
 
     _create_promotion_history(
         source_academic_class=source_academic_class,

@@ -43,6 +43,9 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+/tmp/django-cache/
+*.djcache
+/pymysql
 nosetests.xml
 coverage.xml
 *.cover

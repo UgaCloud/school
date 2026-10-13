@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
-from io import BytesIO
+from io import BytesIO, StringIO
 import unittest
 from unittest.mock import patch
 from urllib.parse import urlencode
@@ -11,7 +11,9 @@ from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.db import DatabaseError, IntegrityError, transaction
+from django.db.models import Sum
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
@@ -25,7 +27,7 @@ from app.models.classes import (
     StudentPromotionHistory,
     Term,
 )
-from app.models.fees_payment import BillItem, Payment, StudentBill, StudentBillItem
+from app.models.fees_payment import BillItem, Payment, StudentBill, StudentBillItem, StudentCredit
 from app.models.results import (
     Assessment,
     AssessmentType,
@@ -46,6 +48,8 @@ from app.selectors.school_settings import get_school_setting
 from app.services.level_scope import get_level_classes_queryset, get_level_sections_queryset
 from app.services.results_sampling import submit_batch_for_verification
 from app.services.school_level import get_active_school_level
+from app.services.deletion_safety import academic_class_deletion_blockers
+from app.services.class_promotions import promote_students_to_academic_class
 from core import middleware as core_middleware
 from core.middleware import AutoLogoutMiddleware
 
@@ -236,6 +240,84 @@ class QuickSetupStudentFlowTests(TestCase):
                 academic_class_stream__stream=self.stream,
             ).exists()
         )
+
+    def test_fees_status_shows_enrolled_student_with_no_bill(self):
+        academic_class = AcademicClass.objects.create(
+            Class=self.class_obj,
+            section=self.section,
+            academic_year=self.year,
+            term=self.term,
+            fees_amount=120000,
+        )
+        teacher = self._make_staff("Fees", "Teacher", True)
+        class_stream = AcademicClassStream.objects.create(
+            academic_class=academic_class,
+            stream=self.stream,
+            class_teacher=teacher,
+        )
+        student = Student.objects.create(
+            reg_no="NO-BILL-001",
+            student_name="No Bill Learner",
+            gender="F",
+            birthdate=date(2015, 5, 4),
+            nationality="Ugandan",
+            religion="Catholic",
+            address="Kampala",
+            guardian="Mary Learner",
+            relationship="Mother",
+            contact="0700123456",
+            current_class=self.class_obj,
+            stream=self.stream,
+            academic_year=self.year,
+            term=self.term,
+            is_active=True,
+        )
+        StudentBill.objects.filter(student=student, academic_class=academic_class).delete()
+        ClassRegister.objects.create(academic_class_stream=class_stream, student=student)
+
+        response = self.client.get(reverse("fees_status"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No Bill")
+        self.assertEqual(response.context["all_student_fees_count"], 1)
+        self.assertEqual(response.context["missing_bill_count"], 1)
+
+    def test_academic_class_with_registration_is_reported_as_protected(self):
+        academic_class = AcademicClass.objects.create(
+            Class=self.class_obj,
+            section=self.section,
+            academic_year=self.year,
+            term=self.term,
+            fees_amount=120000,
+        )
+        teacher = self._make_staff("Safety", "Teacher", True)
+        class_stream = AcademicClassStream.objects.create(
+            academic_class=academic_class,
+            stream=self.stream,
+            class_teacher=teacher,
+        )
+        student = Student.objects.create(
+            reg_no="PROTECTED-001",
+            student_name="Protected Learner",
+            gender="F",
+            birthdate=date(2015, 5, 4),
+            nationality="Ugandan",
+            religion="Catholic",
+            address="Kampala",
+            guardian="Mary Learner",
+            relationship="Mother",
+            contact="0700123457",
+            current_class=self.class_obj,
+            stream=self.stream,
+            academic_year=self.year,
+            term=self.term,
+            is_active=True,
+        )
+        ClassRegister.objects.create(academic_class_stream=class_stream, student=student)
+
+        blockers = academic_class_deletion_blockers(academic_class)
+
+        self.assertIn("class registrations", [blocker.label for blocker in blockers])
 
 class SecondaryLevelScopeTests(TestCase):
     def setUp(self):
@@ -849,6 +931,18 @@ class AcademicClassPromotionTests(TestCase):
                 student=self.student_inactive_a,
             ).exists()
         )
+        self.assertTrue(
+            StudentBill.objects.filter(
+                student=self.student_active_a,
+                academic_class=self.target_class,
+            ).exists()
+        )
+        self.assertTrue(
+            StudentBill.objects.filter(
+                student=self.student_active_b,
+                academic_class=self.target_class,
+            ).exists()
+        )
 
         self.student_active_a.refresh_from_db()
         self.student_active_b.refresh_from_db()
@@ -874,6 +968,20 @@ class AcademicClassPromotionTests(TestCase):
         self.assertEqual(history.skipped_inactive_count, 1)
         self.assertEqual(history.updated_student_snapshots, 2)
         self.assertEqual(history.missing_stream_names, [])
+
+    def test_integrity_audit_reports_inactive_student_still_registered(self):
+        output = StringIO()
+
+        call_command(
+            "audit_student_integrity",
+            year=self.year_2026.id,
+            term=self.term_2026.id,
+            stdout=output,
+        )
+
+        self.assertIn("INACTIVE_CURRENT_ENROLLMENT", output.getvalue())
+        self.student_inactive_a.refresh_from_db()
+        self.assertFalse(self.student_inactive_a.is_active)
 
     def test_submitter_role_without_permission_cannot_promote(self):
         self._set_active_role("Teacher")
@@ -964,6 +1072,209 @@ class AcademicClassPromotionTests(TestCase):
         self.assertEqual(history.source_stream_id, self.source_stream_a.id)
         self.assertEqual(history.total_candidates, 1)
         self.assertEqual(history.promoted_count, 1)
+
+
+class ProductionHardeningServiceTests(TestCase):
+    """Focused regression tests that do not depend on legacy UI fixtures."""
+
+    def setUp(self):
+        self.year = AcademicYear.objects.create(academic_year="2030", is_current=True)
+        self.term = Term.objects.create(
+            academic_year=self.year,
+            term="1",
+            start_date=date(2030, 1, 10),
+            end_date=date(2030, 4, 10),
+            is_current=True,
+        )
+        self.section = Section.objects.create(section_name="Hardening")
+        self.source_class_record = Class.objects.create(name="Grade 1", code="G1", section=self.section)
+        self.target_class_record = Class.objects.create(name="Grade 2", code="G2", section=self.section)
+        self.stream = Stream.objects.create(stream="Hardening A")
+        self.teacher = Staff.objects.create(
+            first_name="Hardening",
+            last_name="Teacher",
+            birth_date=date(1990, 1, 1),
+            gender="M",
+            address="Kampala",
+            marital_status="U",
+            contacts="0700123999",
+            email="hardening.teacher@example.com",
+            qualification="Degree",
+            nin_no="CFX1234567890Z",
+            hire_date=date(2020, 1, 1),
+            department="Academic",
+            salary="1000000.00",
+            is_academic_staff=True,
+            is_administrator_staff=False,
+            is_support_staff=False,
+            staff_status="Active",
+            staff_photo=SimpleUploadedFile("hardening-teacher.jpg", b"fake-image-bytes", content_type="image/jpeg"),
+        )
+        self.source_academic_class = AcademicClass.objects.create(
+            section=self.section,
+            Class=self.source_class_record,
+            academic_year=self.year,
+            term=self.term,
+            fees_amount=100000,
+        )
+        self.target_academic_class = AcademicClass.objects.create(
+            section=self.section,
+            Class=self.target_class_record,
+            academic_year=self.year,
+            term=self.term,
+            fees_amount=100000,
+        )
+        self.source_stream = AcademicClassStream.objects.create(
+            academic_class=self.source_academic_class,
+            stream=self.stream,
+            class_teacher=self.teacher,
+        )
+        self.target_stream = AcademicClassStream.objects.create(
+            academic_class=self.target_academic_class,
+            stream=self.stream,
+            class_teacher=self.teacher,
+        )
+        self.student = Student.objects.create(
+            reg_no="HARDENING-001",
+            student_name="Hardening Learner",
+            gender="F",
+            birthdate=date(2018, 1, 1),
+            nationality="Ugandan",
+            religion="Catholic",
+            address="Kampala",
+            guardian="Guardian",
+            relationship="Parent",
+            contact="0700123998",
+            academic_year=self.year,
+            current_class=self.source_class_record,
+            stream=self.stream,
+            term=self.term,
+            is_active=True,
+        )
+        self.source_bill, _ = StudentBill.objects.get_or_create(
+            student=self.student,
+            academic_class=self.source_academic_class,
+        )
+        StudentBillItem.objects.filter(bill=self.source_bill).delete()
+        self.bill_item, _ = BillItem.objects.get_or_create(
+            item_name="Hardening fees",
+            defaults={
+                "category": "Tuition",
+                "bill_duration": "Termly",
+                "description": "Hardening fees",
+            },
+        )
+        StudentBillItem.objects.get_or_create(
+            bill=self.source_bill,
+            bill_item=self.bill_item,
+            defaults={"description": "Source fees", "amount": Decimal("100000")},
+        )
+        ClassRegister.objects.create(academic_class_stream=self.source_stream, student=self.student)
+
+    def test_promotion_creates_the_target_bill_idempotently(self):
+        outcome = promote_students_to_academic_class(
+            source_academic_class=self.source_academic_class,
+            target_academic_class=self.target_academic_class,
+            log_history=False,
+        )
+
+        self.assertEqual(outcome.promoted_count, 1)
+        self.assertEqual(outcome.bills_created_count, 1)
+        self.assertTrue(
+            StudentBill.objects.filter(
+                student=self.student,
+                academic_class=self.target_academic_class,
+            ).exists()
+        )
+
+        repeated = promote_students_to_academic_class(
+            source_academic_class=self.source_academic_class,
+            target_academic_class=self.target_academic_class,
+            log_history=False,
+        )
+        self.assertEqual(repeated.promoted_count, 0)
+        self.assertEqual(repeated.already_registered_count, 1)
+        self.assertEqual(repeated.bills_created_count, 0)
+
+    def test_partial_credit_can_only_be_spent_once(self):
+        target_bill = StudentBill.objects.create(
+            student=self.student,
+            academic_class=self.target_academic_class,
+        )
+        StudentBillItem.objects.create(
+            bill=target_bill,
+            bill_item=self.bill_item,
+            description="Target fees",
+            amount=Decimal("100000"),
+        )
+        Payment.objects.create(
+            bill=self.source_bill,
+            payment_date=date(2030, 2, 1),
+            amount=Decimal("200000"),
+            payment_method="Cash",
+            fee_category="Tuition",
+            reference_no="HARDENING-CREDIT-001",
+            recorded_by="finance_admin",
+            notes="Creates a source overpayment",
+        )
+
+        self.assertEqual(target_bill.apply_credit(Decimal("30000")), Decimal("30000"))
+        self.assertEqual(target_bill.available_credits, Decimal("70000"))
+        self.assertEqual(target_bill.apply_credit(Decimal("100000")), Decimal("70000"))
+        self.assertEqual(target_bill.available_credits, Decimal("0"))
+
+    def test_credit_audit_is_read_only_and_flags_a_partial_source_row(self):
+        target_bill = StudentBill.objects.create(
+            student=self.student,
+            academic_class=self.target_academic_class,
+        )
+        StudentBillItem.objects.create(
+            bill=target_bill,
+            bill_item=self.bill_item,
+            description="Target fees",
+            amount=Decimal("100000"),
+        )
+        Payment.objects.create(
+            bill=self.source_bill,
+            payment_date=date(2030, 2, 2),
+            amount=Decimal("200000"),
+            payment_method="Cash",
+            fee_category="Tuition",
+            reference_no="HARDENING-CREDIT-002",
+            recorded_by="finance_admin",
+            notes="Creates a source overpayment",
+        )
+        target_bill.apply_credit(Decimal("30000"))
+        credit_rows_before = StudentCredit.objects.count()
+        output = StringIO()
+
+        call_command("audit_student_credits", student=self.student.reg_no, stdout=output)
+
+        self.assertIn("INCONSISTENT_REMAINING_CREDIT", output.getvalue())
+        self.assertEqual(StudentCredit.objects.count(), credit_rows_before)
+
+    def test_integrity_audit_reports_but_does_not_reactivate_inactive_enrollment(self):
+        self.student.is_active = False
+        self.student.save(update_fields=["is_active"])
+        output = StringIO()
+
+        call_command(
+            "audit_student_integrity",
+            year=self.year.id,
+            term=self.term.id,
+            stdout=output,
+        )
+
+        self.assertIn("INACTIVE_CURRENT_ENROLLMENT", output.getvalue())
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.is_active)
+
+    def test_editing_an_already_current_term_does_not_run_rollover(self):
+        with patch("app.signals._previous_term_for") as previous_term:
+            self.term.end_date = date(2030, 4, 11)
+            self.term.save(update_fields=["end_date"])
+
+        previous_term.assert_not_called()
 
 
 @override_settings(
@@ -1234,6 +1545,54 @@ class StudentPaymentLedgerTests(TestCase):
         self.assertContains(response, "Credit Adjustment")
         self.assertContains(response, "34,000")
         self.assertNotContains(response, "-34,000")
+
+    def test_partial_credit_uses_only_the_remaining_source_overpayment(self):
+        target_class_obj = Class.objects.create(
+            name="Grade 3",
+            code="GD3",
+            section=self.section,
+        )
+        target_academic_class = AcademicClass.objects.create(
+            section=self.section,
+            Class=target_class_obj,
+            academic_year=self.year,
+            term=self.term,
+            fees_amount=100000,
+        )
+        target_bill = StudentBill.objects.create(
+            student=self.student,
+            academic_class=target_academic_class,
+        )
+        StudentBillItem.objects.create(
+            bill=target_bill,
+            bill_item=self.school_fees_item,
+            description="Target term tuition",
+            amount=100000,
+        )
+        Payment.objects.create(
+            bill=self.bill,
+            payment_date=date(2026, 7, 25),
+            amount=200000,
+            payment_method="Cash",
+            fee_category="Tuition",
+            reference_no="PMT-CREDIT-001",
+            recorded_by="finance_admin",
+            notes="Creates a 100,000 source overpayment",
+        )
+
+        self.assertEqual(target_bill.apply_credit(Decimal("30,000")), Decimal("30,000"))
+        self.assertEqual(target_bill.available_credits, Decimal("70,000"))
+        self.assertEqual(target_bill.apply_credit(Decimal("100,000")), Decimal("70,000"))
+        self.assertEqual(target_bill.available_credits, Decimal("0"))
+        self.assertEqual(
+            StudentCredit.objects.filter(
+                student=self.student,
+                original_bill=self.bill,
+                amount__lt=0,
+                applied_to_bill=target_bill,
+            ).aggregate(total=Sum("amount"))["total"],
+            Decimal("-100000"),
+        )
 
     def test_ledger_excel_export_respects_payment_method_filter(self):
         response = self.client.get(
